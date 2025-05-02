@@ -28,11 +28,6 @@ export default function PriceDisplay({ resource, exchangeRate, isMobile = false 
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="caption" color="text.secondary">~</Typography>
-          {hasDiscount && 
-            <Typography variant="caption" color="text.secondary" sx={{ textDecoration: "line-through" }}>
-              {(nativePrice.amount * exchangeRate / 100).toLocaleString("zh-CN", {style:"currency", currency:"CNY"})}
-            </Typography>
-          }
           <Typography variant="caption" color="text.secondary">
             {(currentPrice * exchangeRate / 100).toLocaleString("zh-CN", {style:"currency", currency:"CNY"})}
           </Typography>
@@ -45,14 +40,14 @@ export default function PriceDisplay({ resource, exchangeRate, isMobile = false 
   return (
     <>
       <Typography variant="body1" className="flex gap-2">
+        <span className="text-2xl font-bold">
+          {(currentPrice / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
+        </span>
         {hasDiscount && 
           <span style={{ textDecoration: "line-through"}} >
             {(nativePrice.amount / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
           </span>
         }
-        <span>
-          {(currentPrice / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
-        </span>
       </Typography>
       <Typography variant="caption" color="text.secondary" className="flex gap-2">
         ~
