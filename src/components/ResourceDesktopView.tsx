@@ -67,7 +67,7 @@ export default function ResourceDesktopView({
                     <Typography variant="subtitle1">
                       {resource.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">{resource.excerpt}</Typography>
+                    <Typography variant="caption" color="text.secondary">{resource.excerpt.length > 500 ? resource.excerpt.slice(0, 500) + '...' : resource.excerpt}</Typography>
                   </div>
                 </div>
               </TableCell>
