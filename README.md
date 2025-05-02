@@ -1,6 +1,6 @@
 # 星际公民订阅商店展示项目
 
-这是一个使用 React + TypeScript + Material UI + TailwindCSS 构建的星际公民订阅商店展示项目。
+![image](https://github.com/user-attachments/assets/f8043f8a-4838-4f94-93b7-bd9cc2ff9495)
 
 ## 技术栈
 
