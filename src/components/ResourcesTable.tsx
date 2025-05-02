@@ -60,8 +60,9 @@ export default function ResourcesTable() {
     return <Typography>加载中...</Typography>;
   }
 
-  if (window.location.hostname !== 'sc-sub.pages.dev' && window.location.hostname !== 'localhost') {
-    return <Typography>加载中...</Typography>;
+  const allowedHosts = ['sc-sub.pages.dev', 'localhost', 'sc.oxdl.cn'];
+  if (!allowedHosts.includes(window.location.hostname)) {
+    return <Typography color="error">加载资源失败</Typography>;
   }
 
   if (error) {
