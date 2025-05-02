@@ -7,10 +7,13 @@ import {
   ListItemText, 
   IconButton, 
   Divider, 
-  Avatar 
+  Avatar,
+  Button,
+  Snackbar
 } from '@mui/material';
-import { Close, Delete } from '@mui/icons-material';
+import { Close, Delete, ContentCopy } from '@mui/icons-material';
 import { CartItem } from '../types';
+import { useState } from 'react';
 
 interface CartDrawerProps {
   open: boolean;
@@ -27,11 +30,29 @@ export default function CartDrawer({
   onClose, 
   onRemoveFromCart 
 }: CartDrawerProps) {
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  
   // 计算购物清单总价
   const cartTotal = cart.reduce((total, item) => {
     const price = item.resource.nativePrice.discounted || item.resource.nativePrice.amount;
     return total + price;
   }, 0);
+
+  // 复制清单为文本
+  const copyCartToClipboard = () => {
+    let cartText = "我的星际公民商品清单:\n\n";
+    
+    cart.forEach((item, index) => {
+      const price = (item.resource.nativePrice.discounted || item.resource.nativePrice.amount) / 100;
+      cartText += `${index + 1}. ${item.resource.name} - $${price.toFixed(2)}\n`;
+    });
+    
+    cartText += `\n总价: $${(cartTotal / 100).toFixed(2)} (约 ¥${(cartTotal * exchangeRate / 100).toFixed(2)})`;
+    
+    navigator.clipboard.writeText(cartText)
+      .then(() => setSnackbarOpen(true))
+      .catch(err => console.error('复制失败:', err));
+  };
 
   return (
     <Drawer
@@ -104,10 +125,26 @@ export default function CartDrawer({
                   ~{(cartTotal * exchangeRate / 100).toLocaleString("zh-CN", {style:"currency", currency:"CNY"})}
                 </Typography>
               </Box>
+              <Button 
+                startIcon={<ContentCopy />}
+                variant="outlined" 
+                fullWidth 
+                sx={{ mt: 2 }}
+                onClick={copyCartToClipboard}
+                disabled={cart.length === 0}
+              >
+                复制清单
+              </Button>
             </Box>
           </>
         )}
       </Box>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message="已复制清单到剪贴板"
+      />
     </Drawer>
   );
 } 
