@@ -7,7 +7,7 @@ import {
   TableHead, 
   TableRow,
   Typography, 
-  IconButton 
+  IconButton,
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
 import { Resource } from '../types';
@@ -87,6 +87,7 @@ export default function ResourceDesktopView({
                   <IconButton
                     color="primary" 
                     size="small"
+                    className="add-to-cart-button"
                     onClick={() => onAddToCart(resource)}
                   >
                     <Add />

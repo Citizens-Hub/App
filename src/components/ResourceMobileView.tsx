@@ -66,6 +66,7 @@ export default function ResourceMobileView({
                   size="small"
                   startIcon={<Add />}
                   onClick={() => onAddToCart(resource)}
+                  className="add-to-cart-button"
                 >
                   添加
                 </Button>
