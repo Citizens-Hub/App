@@ -40,7 +40,7 @@ export default function CartDrawer({
 
   // 复制清单为文本
   const copyCartToClipboard = () => {
-    let cartText = "我的星际公民商品清单:\n\n";
+    let cartText = "商品清单:\n\n";
     
     cart.forEach((item, index) => {
       const price = (item.resource.nativePrice.discounted || item.resource.nativePrice.amount) / 100;
