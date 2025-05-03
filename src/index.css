@@ -22,6 +22,12 @@
   font-style: italic;
 }
 
+@font-face{
+  font-family: 'ZhuoJianGanLanJianTi';
+  src : url('./fonts/ZhuoJianGanLanJianTi-Regular.ttf');
+}
+
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -47,7 +53,7 @@ a:hover {
 }
 
 * {
-  font-family: 'Quantico', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-family: 'Quantico', 'ZhuoJianGanLanJianTi', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
 body {

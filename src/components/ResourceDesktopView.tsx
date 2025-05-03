@@ -67,7 +67,7 @@ export default function ResourceDesktopView({
                     <Typography variant="subtitle1" sx={{ fontSize: '20px' }}>
                       {resource.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '14px' }}>{resource.excerpt.length > 450 ? resource.excerpt.slice(0, 450) + '...' : resource.excerpt}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '14px' }}>{resource.excerpt.length > 300 ? resource.excerpt.slice(0, 300) + '...' : resource.excerpt}</Typography>
                   </div>
                 </div>
               </TableCell>
