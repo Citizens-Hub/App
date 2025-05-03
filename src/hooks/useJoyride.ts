@@ -37,10 +37,10 @@ export default function useJoyride() {
       title: '搜索功能',
       disableBeacon: true,
     },
-    // {
-    //   target: '.resource-card',
-    //   content: '这里展示了可用的订阅产品。',
-    // },
+    {
+      target: '.image-slideshow',
+      content: '点击图片可以放大查看',
+    },
     {
       target: '.add-to-cart-button',
       content: '点击这里将物品添加到购物清单',

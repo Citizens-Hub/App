@@ -124,7 +124,7 @@ export default function ImageSlideshow({
   // 渲染幻灯片列表
   return (
     <>
-      <Box sx={{ position: 'relative', ...containerSize }}>
+      <Box sx={{ position: 'relative', ...containerSize }} className="image-slideshow">
         {media.list.map((mediaItem, index) => {
           const imageUrl = mediaItem.slideshow.startsWith('http') ? 
             mediaItem.slideshow : 

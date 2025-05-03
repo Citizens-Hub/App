@@ -16,6 +16,7 @@ const CustomBeacon = forwardRef<HTMLElement, BeaconRenderProps>((props, ref) => 
         display: 'block',
         height: '30px',
         width: '30px',
+        opacity: 0.4,
         '@keyframes pulse': {
           '0%': {
             boxShadow: '0 0 0 0 rgba(25, 118, 210, 0.6)',
