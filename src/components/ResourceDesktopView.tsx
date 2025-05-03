@@ -64,10 +64,10 @@ export default function ResourceDesktopView({
                 <div className='flex gap-2 items-center'>
                   {resource.isPackage && <img src="/pack.svg" alt="pack" className='w-12 h-12' />}
                   <div>
-                    <Typography variant="subtitle1">
+                    <Typography variant="subtitle1" sx={{ fontSize: '20px' }}>
                       {resource.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">{resource.excerpt.length > 500 ? resource.excerpt.slice(0, 500) + '...' : resource.excerpt}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '14px' }}>{resource.excerpt.length > 450 ? resource.excerpt.slice(0, 450) + '...' : resource.excerpt}</Typography>
                   </div>
                 </div>
               </TableCell>

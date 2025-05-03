@@ -16,15 +16,15 @@ export default function PriceDisplay({ resource, exchangeRate, isMobile = false 
   if (isMobile) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'top', gap: 1 }}>
+          <Typography variant="body1" fontWeight="bold" sx={{ fontSize: '20px' }}>
+            {(currentPrice / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
+          </Typography>
           {hasDiscount && 
-            <Typography variant="body2" sx={{ textDecoration: "line-through" }}>
+            <Typography variant="body2" sx={{ textDecoration: "line-through", fontSize: '12px' }}>
               {(nativePrice.amount / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
             </Typography>
           }
-          <Typography variant="body1" fontWeight="bold">
-            {(currentPrice / 100).toLocaleString("en-US", {style:"currency", currency:"USD"})}
-          </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="caption" color="text.secondary">~</Typography>

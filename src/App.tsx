@@ -1,5 +1,4 @@
 import { Container, CssBaseline, ThemeProvider, createTheme, Button, Box } from '@mui/material'
-// import './App.css'
 import ResourcesTable from './components/ResourcesTable'
 import { useEffect, useState } from 'react'
 

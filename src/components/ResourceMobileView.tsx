@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Typography, Stack, Button, IconButton } from '@mui/material';
+import { Box, Card, CardContent, Typography, Stack, IconButton } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
 import { Resource } from '../types';
 import ImageSlideshow from './ImageSlideshow';
@@ -60,16 +60,14 @@ export default function ResourceMobileView({
                   <Delete />
                 </IconButton>
               ) : (
-                <Button 
-                  variant="contained" 
+                <IconButton
                   color="primary" 
                   size="small"
-                  startIcon={<Add />}
                   onClick={() => onAddToCart(resource)}
                   className="add-to-cart-button"
                 >
-                  添加
-                </Button>
+                  <Add />
+                </IconButton>
               )}
             </Box>
           </CardContent>
