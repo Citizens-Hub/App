@@ -46,7 +46,15 @@ function App() {
       <CssBaseline />
       <Container maxWidth="lg">
         {translateApiAvailable && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, mb: 1 }}>
+          <Box sx={{ 
+            position: 'fixed', 
+            top: 20, 
+            right: 20, 
+            zIndex: 1000,
+            backgroundColor: 'white',
+            borderRadius: '5px',
+            boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
+          }}>
             <Button 
               variant="outlined" 
               startIcon={<img src="/scbox.png" className="w-4 h-4" />} 

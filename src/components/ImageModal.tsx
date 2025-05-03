@@ -46,7 +46,14 @@ export default function ImageModal({
         }
       }}
     >
-      <DialogContent sx={{ p: 0, position: 'relative', height: '100%' }}>
+      <DialogContent sx={{ 
+        p: 0, 
+        position: 'relative', 
+        height: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
         <IconButton
           onClick={onClose}
           sx={{
@@ -67,8 +74,8 @@ export default function ImageModal({
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            width: 'fit',
-            height: 'fit',
+            width: '100%',
+            height: '100%',
             position: 'relative'
           }}
         >
