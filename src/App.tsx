@@ -34,10 +34,12 @@ function App() {
   });
 
   const handleTranslate = () => {
-    if (window.SCTranslateApi) {
-      window.SCTranslateApi.translate();
-      setTranslateApiAvailable(false);
-    }
+    window.postMessage({ 
+      type: 'SC_TRANSLATE_REQUEST', 
+      action: 'translate', 
+      requestId: Math.random().toString(36)
+    }, '*');
+    setTranslateApiAvailable(false);
   };
 
   return (
