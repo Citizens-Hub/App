@@ -10,7 +10,7 @@ export default function ShipSelector({ ships, onDragStart }: ShipSelectorProps) 
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
   
-  // 当搜索词或船舶列表变化时过滤船舶
+  // 当搜索词或舰船列表变化时过滤舰船
   useEffect(() => {
     if (!searchTerm) {
       setFilteredShips(ships);
@@ -29,12 +29,12 @@ export default function ShipSelector({ ships, onDragStart }: ShipSelectorProps) 
   return (
     <div className="h-[calc(100vh-113px)] overflow-y-auto">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <h2 className="text-xl font-bold p-2">可用船舶</h2>
+        <h2 className="text-xl font-bold p-2">可用舰船</h2>
         
         <div className="mb-4 p-2">
           <input
             type="text"
-            placeholder="搜索船舶..."
+            placeholder="搜索舰船..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-700 rounded-md px-3 py-2 w-full"

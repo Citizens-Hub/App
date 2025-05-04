@@ -18,7 +18,7 @@ export default function CCUPlanner() {
     <div className="h-full w-[100vw] flex flex-col absolute top-0 left-0">
       <div className="p-4 border-b border-gray-200">
         <h1 className="text-2xl font-bold">舰船升级规划工具</h1>
-        <p className="text-gray-400">创建您的星际公民船舶升级路径</p>
+        <p className="text-gray-400">创建您的星际公民舰船升级路径</p>
       </div>
       
       <div className="flex-1 relative">

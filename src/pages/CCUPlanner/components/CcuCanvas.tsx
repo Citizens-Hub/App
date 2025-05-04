@@ -54,7 +54,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
         const sourceShip = (sourceNode.data?.ship as Ship);
         const targetShip = (targetNode.data?.ship as Ship);
         
-        // 确保源船舶价格低于目标船舶价格
+        // 确保源舰船价格低于目标舰船价格
         if (sourceShip.msrp >= targetShip.msrp) {
           console.warn('CCU只能从低价船升级到高价船');
           return;
@@ -180,7 +180,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode]
   );
 
-  // 处理船舶拖动开始
+  // 处理舰船拖动开始
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
     event.dataTransfer.effectAllowed = 'move';

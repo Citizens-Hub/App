@@ -31,6 +31,7 @@ interface PathEdge {
 
 export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState("0.1");
+  const [startShipPrices, setStartShipPrices] = useState<Record<string, number>>({});
 
   // 根据不同的来源类型获取价格与币种
   const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
@@ -103,6 +104,14 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
       let hasUsdPricing = false;
       let hasCnyPricing = false;
 
+      // 添加起点船的价格（如果有自定义价格）
+      const startNodeId = pathId[0];
+      const customStartPrice = startShipPrices[startNodeId] || nodes.find(n => n.id === startNodeId)?.data?.ship?.msrp / 100 || 0;
+      if (customStartPrice > 0) {
+        totalUsdPrice += customStartPrice;
+        hasUsdPricing = true;
+      }
+
       for (let i = 0; i < pathId.length - 1; i++) {
         const edge = edges.find(e => e.source === pathId[i] && e.target === pathId[i + 1]);
         if (edge) {
@@ -134,10 +143,11 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
         totalUsdPrice,
         totalCnyPrice,
         hasUsdPricing,
-        hasCnyPricing
+        hasCnyPricing,
+        startNodeId: pathId[0]
       };
     });
-  }, [edges, nodes, getPriceInfo]);
+  }, [edges, nodes, getPriceInfo, startShipPrices]);
 
   // 查找所有完整路径
   const completePaths = useMemo(() => {
@@ -154,6 +164,14 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
     return buildCompletePaths(allPathIds);
   }, [selectedNode, findStartNodes, buildCompletePaths, findAllPaths]);
+
+  // 处理起点船价格变化
+  const handleStartShipPriceChange = (nodeId: string, price: string) => {
+    setStartShipPrices(prev => ({
+      ...prev,
+      [nodeId]: parseFloat(price) || 0
+    }));
+  };
 
   if (!selectedNode) return null;
 
@@ -204,7 +222,6 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                 defaultValue="0.1"
                 value={conciergeValue}
                 onChange={(e) => setConciergeValue(e.target.value)}
-              // 这里可以添加onChange处理函数来更新汇率
               />
             </div>
           </div>
@@ -219,104 +236,130 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
         <div className="space-y-6">
           {completePaths.sort((a, b) => {
             return (a.totalUsdPrice + a.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue))) - (b.totalUsdPrice + b.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue)))
-          }).map((completePath, pathIndex) => (
-            <div key={pathIndex}>
-              {/* <h5 className="font-medium mb-2 pb-1">
-                路线 {pathIndex + 1}: {completePath.path.length} 个节点
-              </h5> */}
-
-              {/* 详细升级步骤 */}
-              <div className="mt-3">
-                <h5 className="font-medium mb-2 pb-1">
-                  路线 {pathIndex + 1}: {completePath.path.length} 个节点
-                </h5>
-                <div className="space-y-2">
-                  {completePath.edges.map((pathEdge, edgeIndex) => {
-                    const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
-                    const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
-
-                    return (
-                      <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0 flex flex-col gap-2">
-                        <div className="flex mb-1 gap-2 justify-between w-full">
-                          <div className='flex gap-4'>
-                            <img
-                              src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
-                              alt={pathEdge.sourceNode.data?.ship?.name}
-                              className="w-8 h-8 rounded object-cover"
-                            />
-                            <span className="text-gray-400">
-                              从 <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
-                            </span>
-                          </div>
-                          <div className='flex gap-4'>
-                            <span className="text-gray-400">
-                              到 <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
-                            </span>
-                            <img
-                              src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
-                              alt={pathEdge.targetNode.data?.ship?.name}
-                              className="w-8 h-8 rounded object-cover"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">
-                            <span className="text-black">{sourceType}</span> 升级
-                          </span>
-
-                          {sourceType !== CcuSourceType.THIRD_PARTY ? (
-                            <span className="text-gray-600">
-                              价格: <span className="text-black">${usdPrice.toFixed(2)}</span>
-                            </span>
-                          ) : (
-                            <span className="text-gray-600">
-                              价格: <span className="text-black">￥{cnyPrice.toFixed(2)}</span>
-                            </span>
-                          )}
-                        </div>
+          }).map((completePath, pathIndex) => {
+            const startNode = nodes.find(n => n.id === completePath.startNodeId);
+            const startShip = startNode?.data?.ship as Ship;
+            
+            return (
+              <div key={pathIndex}>
+                <div className="mt-3">
+                  <h5 className="font-medium mb-2 pb-1">
+                    路线 {pathIndex + 1}: {completePath.path.length} 个节点
+                  </h5>
+                  
+                  {/* 起点船价格设置 */}
+                  {startShip && (
+                    <div className="mb-3 p-2 bg-gray-50 rounded">
+                      <div className="flex items-center gap-2 mb-2">
+                        <img
+                          src={startShip.medias.productThumbMediumAndSmall}
+                          alt={startShip.name}
+                          className="w-8 h-8 rounded object-cover"
+                        />
+                        <span className="font-medium">{startShip.name}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm text-gray-600">
+                          起点船价格 ($)
+                        </label>
+                        <input
+                          type="number"
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                          min="0"
+                          step="0.01"
+                          placeholder={(startShip.msrp / 100).toFixed(2)}
+                          value={startShipPrices[completePath.startNodeId] || (startShip.msrp / 100).toFixed(2)}
+                          onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    {completePath.edges.map((pathEdge, edgeIndex) => {
+                      const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
+                      const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
-              {/* 价格总结 */}
-              <div className="bg-gray-100 p-2 rounded mt-2">
-                {/* <div className="text-sm font-medium text-gray-300 mb-1">
-                  总价:
-                </div> */}
-                <div className="flex flex-col gap-2 px-2">
-                  <div className='flex justify-between'>
-                    <div className="text-sm">
-                      <span className="text-black">花费: </span>
-                      <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>
-                    </div>
+                      return (
+                        <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0 flex flex-col gap-2">
+                          <div className="flex mb-1 gap-2 justify-between w-full">
+                            <div className='flex gap-4'>
+                              <img
+                                src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                alt={pathEdge.sourceNode.data?.ship?.name}
+                                className="w-8 h-8 rounded object-cover"
+                              />
+                              <span className="text-gray-400">
+                                从 <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                              </span>
+                            </div>
+                            <div className='flex gap-4'>
+                              <span className="text-gray-400">
+                                到 <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
+                              </span>
+                              <img
+                                src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                alt={pathEdge.targetNode.data?.ship?.name}
+                                className="w-8 h-8 rounded object-cover"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">
+                              <span className="text-black">{sourceType}</span> 升级
+                            </span>
+
+                            {sourceType !== CcuSourceType.THIRD_PARTY ? (
+                              <span className="text-gray-600">
+                                价格: <span className="text-black">${usdPrice.toFixed(2)}</span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-600">
+                                价格: <span className="text-black">￥{cnyPrice.toFixed(2)}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className='flex justify-between'>
-                    <div className="text-sm">
-                      <span className="text-black">合计: </span>
-                      <span className="text-blue-400">
-                        {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                        {conciergeValue !== "0" && " + "}
-                        {conciergeValue !== "0" && (completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                      </span>
+                </div>
+
+                {/* 价格总结 */}
+                <div className="bg-gray-100 p-2 rounded mt-2">
+                  <div className="flex flex-col gap-2 px-2">
+                    <div className='flex justify-between gap-4'>
+                      <div className="text-sm">
+                        <span className="text-black">花费: </span>
+                        <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      <span className="text-blue-400">
-                        {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                        {conciergeValue !== "0" && " + "}
-                        {conciergeValue !== "0" && (completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                      </span>
+                    <div className='flex justify-between gap-4'>
+                      <div className="text-sm">
+                        <span className="text-black">合计: </span>
+                        <span className="text-blue-400">
+                          {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                          {conciergeValue !== "0" && " + "}
+                          {conciergeValue !== "0" && (completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-blue-400">
+                          {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                          {conciergeValue !== "0" && " + "}
+                          {conciergeValue !== "0" && (completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
