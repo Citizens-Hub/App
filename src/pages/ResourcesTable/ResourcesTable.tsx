@@ -13,18 +13,18 @@ import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
 
 // 导入自定义Hook
-import useResourceData from '../hooks/useResourceData';
-import useSlideshow from '../hooks/useSlideshow';
-import useCart from '../hooks/useCart';
-import useSearch from '../hooks/useSearch';
-import useJoyride from '../hooks/useJoyride';
+import useResourceData from './hooks/useResourceData';
+import useSlideshow from './hooks/useSlideshow';
+import useCart from './hooks/useCart';
+import useSearch from './hooks/useSearch';
+import useJoyride from './hooks/useJoyride';
 
 // 导入自定义组件
-import ResourceMobileView from './ResourceMobileView';
-import ResourceDesktopView from './ResourceDesktopView';
-import CartDrawer from './CartDrawer';
-import CustomTooltip from './CustomTooltip';
-import CustomBeacon from './CustomBeacon';
+import ResourceMobileView from './components/ResourceMobileView';
+import ResourceDesktopView from './components/ResourceDesktopView';
+import CartDrawer from './components/CartDrawer';
+import CustomTooltip from './components/CustomTooltip';
+import CustomBeacon from './components/CustomBeacon';
 
 export default function ResourcesTable() {
   // 加载资源数据

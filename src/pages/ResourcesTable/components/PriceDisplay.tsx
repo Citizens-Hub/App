@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { Resource } from '../types';
+import { Resource } from '../../../types';
 
 interface PriceDisplayProps {
   resource: Resource;

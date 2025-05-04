@@ -6,7 +6,7 @@ import {
   CardMedia
 } from '@mui/material';
 import { ArrowBackIosNew, ArrowForwardIos } from '@mui/icons-material';
-import { Resource } from '../types';
+import { Resource } from '../../../types';
 import { useState } from 'react';
 import ImageModal from './ImageModal';
 

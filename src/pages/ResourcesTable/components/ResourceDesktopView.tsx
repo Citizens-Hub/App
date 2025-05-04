@@ -10,7 +10,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
-import { Resource } from '../types';
+import { Resource } from '../../../types';
 import ImageSlideshow from './ImageSlideshow';
 import PriceDisplay from './PriceDisplay';
 

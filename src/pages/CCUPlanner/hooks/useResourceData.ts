@@ -1,34 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Resource, ResourcesData } from '../types';
+import { Ccu, Ship, CcusData, ShipsData } from '../../../types';
 
 export default function useResourceData() {
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [ccus, setCcus] = useState<Ccu[]>([]);
+  const [ships, setShips] = useState<Ship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exchangeRate, setExchangeRate] = useState(0);
 
   useEffect(() => {
     const abortController = new AbortController();
 
     const fetchData = async () => {
       try {
-        const response = await fetch('/data.json', {
+        const ccusResponse = await fetch('/ccus.json', {
           signal: abortController.signal
         });
-        if (!response.ok) {
+        if (!ccusResponse.ok) {
           throw new Error('网络响应错误');
         }
-        const data: ResourcesData[] = await response.json();
-        setResources(data[0].data.store.listing.resources);
+        const ccusData: CcusData[] = await ccusResponse.json();
+        setCcus(ccusData[0].data.to.ships);
 
-        const exchangeRateResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
+        const shipsResponse = await fetch('/ships.json', {
           signal: abortController.signal
         });
-        if (!exchangeRateResponse.ok) {
-          throw new Error('汇率获取失败');
+        if (!shipsResponse.ok) {
+          throw new Error('网络响应错误');
         }
-        const exchangeRateData = await exchangeRateResponse.json();
-        setExchangeRate(exchangeRateData.usd.cny);
+        const shipsData: ShipsData[] = await shipsResponse.json();
+        setShips(shipsData[0].data.ships);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -47,5 +47,5 @@ export default function useResourceData() {
     };
   }, []);
 
-  return { resources, loading, error, exchangeRate };
+  return { ccus, ships, loading, error };
 } 

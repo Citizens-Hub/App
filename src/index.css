@@ -56,6 +56,11 @@ a:hover {
   font-family: 'Quantico', 'ZhuoJianGanLanJianTi', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 body {
   margin: 0;
   display: flex;

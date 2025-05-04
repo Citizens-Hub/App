@@ -12,7 +12,7 @@ import {
   Snackbar
 } from '@mui/material';
 import { Close, Delete, ContentCopy } from '@mui/icons-material';
-import { CartItem } from '../types';
+import { CartItem } from '../../../types';
 import { useState } from 'react';
 
 interface CartDrawerProps {

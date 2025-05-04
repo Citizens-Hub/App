@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Resource } from '../types';
+import { Resource } from '../../../types';
 import { useMediaQuery, useTheme } from '@mui/material';
 
 export default function useSearch(resources: Resource[]) {

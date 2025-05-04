@@ -1,6 +1,8 @@
-import { Container, CssBaseline, ThemeProvider, createTheme, Button, Box } from '@mui/material'
-import ResourcesTable from './components/ResourcesTable'
+import { CssBaseline, ThemeProvider, createTheme, Button, Box } from '@mui/material'
+import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
 import { useEffect, useState } from 'react'
+import { Route, BrowserRouter, Routes } from 'react-router'
+import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 
 // 为window对象添加SCTranslateApi类型定义
 declare global {
@@ -26,6 +28,16 @@ function App() {
       if (event.data?.type === 'SC-BOX-TRANSLATE-API-AVAILABLE') {
         setTranslateApiAvailable(SCBoxTranslateStatus.Available);
       }
+      if (event.data?.type === 'TOGGLED-SC-BOX-TRANSLATE') {
+        switch (event.data.action) {
+          case 'on':
+            setTranslateApiAvailable(SCBoxTranslateStatus.Translated);
+            return;
+          case 'off':
+            setTranslateApiAvailable(SCBoxTranslateStatus.Available);
+            return;
+        }
+      }
     }
 
     window.addEventListener('message', handleMessage);
@@ -50,7 +62,6 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="lg">
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Box sx={{ 
             position: 'fixed', 
@@ -71,8 +82,12 @@ function App() {
             </Button>
           </Box>
         )}
-        <ResourcesTable />
-      </Container>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<ResourcesTable />} />
+            <Route path="/ccu-planner" element={<CCUPlanner />} />
+          </Routes>
+        </BrowserRouter>
     </ThemeProvider>
   )
 }

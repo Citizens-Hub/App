@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Resource } from '../types';
+import { Resource } from '../../../types';
 
 export default function useSlideshow(resources: Resource[], autoplay = true, paginatedResources: Resource[]) {
   const [slideshowIndices, setSlideshowIndices] = useState<{[key: string]: number}>({});
