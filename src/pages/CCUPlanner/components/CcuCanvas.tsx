@@ -248,6 +248,13 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     }
   }, [reactFlowInstance, setNodes, setEdges]);
 
+  useEffect(() => {
+    const attribution = document.querySelector(".react-flow__attribution");
+    if (attribution) {
+      attribution.remove();
+    }
+  }, []);
+
   return (
     <div className="h-full flex">
       <div className="w-[450px] border-r border-gray-200">
