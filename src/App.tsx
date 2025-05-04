@@ -11,15 +11,20 @@ declare global {
   }
 }
 
+enum SCBoxTranslateStatus {
+  Available,
+  Translated,
+  NotAvailable,
+}
+
 function App() {
-  const [translateApiAvailable, setTranslateApiAvailable] = useState(false);
+  const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
       if (event.data?.type === 'SC-BOX-TRANSLATE-API-AVAILABLE') {
-        console.log('translateApiAvailable', event.data);
-        setTranslateApiAvailable(true);
+        setTranslateApiAvailable(SCBoxTranslateStatus.Available);
       }
     }
 
@@ -33,20 +38,20 @@ function App() {
     },
   });
 
-  const handleTranslate = () => {
+  const toggleTranslate = () => {
     window.postMessage({ 
       type: 'SC_TRANSLATE_REQUEST', 
-      action: 'translate', 
+      action: translateApiAvailable === SCBoxTranslateStatus.Available ? 'translate' : 'undoTranslate', 
       requestId: Math.random().toString(36)
     }, '*');
-    setTranslateApiAvailable(false);
+    setTranslateApiAvailable(translateApiAvailable === SCBoxTranslateStatus.Available ? SCBoxTranslateStatus.Translated : SCBoxTranslateStatus.Available);
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Container maxWidth="lg">
-        {translateApiAvailable && (
+        {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Box sx={{ 
             position: 'fixed', 
             top: 20, 
@@ -57,12 +62,12 @@ function App() {
             boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
           }}>
             <Button 
-              variant="outlined" 
-              startIcon={<img src="/scbox.png" className="w-4 h-4" />} 
-              onClick={handleTranslate}
+              variant="outlined"
+              onClick={toggleTranslate}
               size="small"
+              className="flex items-center gap-2"
             >
-              翻译
+              <img src="/scbox.png" className="w-4 h-4" /><span>{translateApiAvailable === SCBoxTranslateStatus.Available ? '翻译' : '显示原文'}</span>
             </Button>
           </Box>
         )}
