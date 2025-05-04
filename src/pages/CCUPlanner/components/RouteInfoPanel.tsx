@@ -155,7 +155,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
   if (!selectedNode) return null;
 
   return (
-    <div className="absolute right-0 top-0 w-96 h-full bg-white border-l border-gray-200 p-4 shadow-lg overflow-y-auto z-10">
+    <div className="absolute right-0 top-0 w-fit h-full bg-white border-l border-gray-200 p-4 shadow-lg overflow-y-auto z-10">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold">{selectedNode.data.ship.name}</h3>
         <Button
@@ -201,8 +201,8 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                     const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                     return (
-                      <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0">
-                        <div className="flex justify-between mb-1">
+                      <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0 flex flex-col gap-2">
+                        <div className="flex justify-between mb-1 gap-2">
                           <img
                             src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
                             alt={pathEdge.sourceNode.data?.ship?.name}
