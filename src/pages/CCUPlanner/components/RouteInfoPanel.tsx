@@ -202,23 +202,27 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
                     return (
                       <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0 flex flex-col gap-2">
-                        <div className="flex justify-between mb-1 gap-2">
-                          <img
-                            src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
-                            alt={pathEdge.sourceNode.data?.ship?.name}
-                            className="w-8 h-8 rounded object-cover"
-                          />
-                          <span className="text-gray-400">
-                            从 <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
-                          </span>
-                          <span className="text-gray-400">
-                            到 <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
-                          </span>
-                          <img
-                            src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
-                            alt={pathEdge.targetNode.data?.ship?.name}
-                            className="w-8 h-8 rounded object-cover"
-                          />
+                        <div className="flex mb-1 gap-2 justify-between w-full">
+                          <div className='flex gap-4'>
+                            <img
+                              src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
+                              alt={pathEdge.sourceNode.data?.ship?.name}
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                            <span className="text-gray-400">
+                              从 <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                            </span>
+                          </div>
+                          <div className='flex gap-4'>
+                            <span className="text-gray-400">
+                              到 <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
+                            </span>
+                            <img
+                              src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
+                              alt={pathEdge.targetNode.data?.ship?.name}
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                          </div>
                         </div>
 
                         <div className="flex justify-between">
