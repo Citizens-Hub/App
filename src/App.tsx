@@ -1,7 +1,7 @@
 import { CssBaseline, ThemeProvider, createTheme, Button, Box } from '@mui/material'
 import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
 import { useEffect, useState } from 'react'
-import { Route, BrowserRouter, Routes } from 'react-router'
+import { Route, Routes, HashRouter } from 'react-router'
 import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 
 // 为window对象添加SCTranslateApi类型定义
@@ -82,12 +82,12 @@ function App() {
             </Button>
           </Box>
         )}
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<ResourcesTable />} />
             <Route path="/ccu-planner" element={<CCUPlanner />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
     </ThemeProvider>
   )
 }
