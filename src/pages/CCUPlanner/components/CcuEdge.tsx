@@ -1,4 +1,4 @@
-import { EdgeProps, getSmoothStepPath, EdgeLabelRenderer } from 'reactflow';
+import { EdgeProps, EdgeLabelRenderer, getBezierPath } from 'reactflow';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 
 interface CcuEdgeProps extends EdgeProps {
@@ -19,9 +19,7 @@ export default function CcuEdge({
 }: CcuEdgeProps) {
   if (!data) return null;
 
-  // console.log("CcuEdge数据已更新:", data.sourceType);
-
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,

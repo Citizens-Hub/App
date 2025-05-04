@@ -28,7 +28,7 @@ export default function useResourceData() {
           throw new Error('网络响应错误');
         }
         const shipsData: ShipsData[] = await shipsResponse.json();
-        setShips(shipsData[0].data.ships);
+        setShips(shipsData[0].data.ships.sort((a, b) => a.msrp - b.msrp));
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -36,6 +36,8 @@ export default function useResourceData() {
         setError('加载数据失败');
         console.error('Error fetching data:', err);
       } finally {
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+
         setLoading(false);
       }
     };

@@ -27,7 +27,7 @@ export default function ShipSelector({ ships, onDragStart }: ShipSelectorProps) 
   }, [searchTerm, ships]);
   
   return (
-    <div className="h-[calc(100vh-113px)] overflow-y-auto hide-scrollbar">
+    <div className="h-[calc(100vh-113px)] overflow-y-auto">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <h2 className="text-xl font-bold p-2">可用船舶</h2>
         

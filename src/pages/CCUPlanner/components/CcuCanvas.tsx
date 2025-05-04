@@ -101,6 +101,20 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     [setEdges]
   );
 
+  // 处理节点删除
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      // 删除节点
+      setNodes(nodes => nodes.filter(node => node.id !== nodeId));
+      
+      // 删除与此节点相关的所有边缘连接
+      setEdges(edges => edges.filter(edge => 
+        edge.source !== nodeId && edge.target !== nodeId
+      ));
+    },
+    [setNodes, setEdges]
+  );
+
   // 更新节点，向其传递传入的边缘信息
   useEffect(() => {
     setNodes(nodes => {
@@ -115,6 +129,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
               ...node.data,
               incomingEdges,
               onUpdateEdge: updateEdgeData,
+              onDeleteNode: handleDeleteNode,
               id: node.id
             }
           };
@@ -122,7 +137,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
         return node;
       });
     });
-  }, [edges, setNodes, updateEdgeData]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode]);
 
   // 处理拖放事件
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -153,13 +168,14 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
         position,
         data: { 
           ship,
-          onUpdateEdge: updateEdgeData 
+          onUpdateEdge: updateEdgeData,
+          onDeleteNode: handleDeleteNode
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance, ships, setNodes, updateEdgeData]
+    [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode]
   );
 
   // 处理船舶拖动开始
