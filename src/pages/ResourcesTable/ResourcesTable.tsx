@@ -7,7 +7,8 @@ import {
   Tooltip,
   IconButton,
   Badge,
-  Fab
+  Fab,
+  Button
 } from '@mui/material';
 import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
@@ -25,6 +26,8 @@ import ResourceDesktopView from './components/ResourceDesktopView';
 import CartDrawer from './components/CartDrawer';
 import CustomTooltip from './components/CustomTooltip';
 import CustomBeacon from './components/CustomBeacon';
+import { Link } from 'react-router';
+// import Navigation from '../../components/Navigation';
 
 export default function ResourcesTable() {
   // 加载资源数据
@@ -74,7 +77,7 @@ export default function ResourcesTable() {
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden', px: isMobile ? 1 : 0 }}>
-      {/* Joyride 新手引导组件 */}
+      {/* <Navigation /> */}
       <Joyride
         callback={handleJoyrideCallback}
         continuous
@@ -96,9 +99,16 @@ export default function ResourcesTable() {
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }} className="app-header">
-        <Typography variant={isMobile ? "h6" : "h5"}>
-          当前订阅商店商品列表
-        </Typography>
+        <div className='flex flex-row items-center gap-4'>
+          <Typography variant={isMobile ? "h6" : "h5"}>
+            当前订阅商店商品列表
+          </Typography>
+          <Link to="/ccu-planner">
+            <Button variant="text" color="primary">
+              升级路线规划器
+            </Button>
+          </Link>
+        </div>
         {!isMobile && (
           <Tooltip title="查看清单">
             <div className='p-2 pb-0 cart-button'>
