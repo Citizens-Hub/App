@@ -173,7 +173,7 @@
                           "label": "The Wikelo Emporium Pack",
                           "customizable": false,
                           "isWarbond": false,
-                          "isPackage": false,
+                          "isPackage": true,
                           "isVip": false,
                           "isDirectCheckout": false,
                           "__typename": "TySku"
