@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Tooltip } from '@mui/material';
@@ -32,6 +32,28 @@ interface PathEdge {
 export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState("0.1");
   const [startShipPrices, setStartShipPrices] = useState<Record<string, number>>({});
+  const nodeBestCostRef = useRef<Record<string, number>>({});
+
+  // 查找所有可能的起点（没有入边的节点）
+  const findStartNodes = useCallback(() => {
+    const nodesWithIncomingEdges = new Set(edges.map(edge => edge.target));
+    return nodes.filter(node => !nodesWithIncomingEdges.has(node.id));
+  }, [edges, nodes]);
+
+  // 初始化起点船价格为msrp/100
+  useEffect(() => {
+    const startNodes = findStartNodes();
+    const initialPrices: Record<string, number> = {...startShipPrices}; // 保留现有价格
+    
+    startNodes.forEach(node => {
+      // 只为没有设置过价格的节点设置默认价格
+      if (node.data?.ship?.msrp && initialPrices[node.id] === undefined) {
+        initialPrices[node.id] = node.data.ship.msrp / 100;
+      }
+    });
+    
+    setStartShipPrices(initialPrices);
+  }, [nodes, edges, findStartNodes]);
 
   // 根据不同的来源类型获取价格与币种
   const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
@@ -55,17 +77,36 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
     return { usdPrice, cnyPrice };
   }, []);
 
-  // 查找所有可能的起点（没有入边的节点）
-  const findStartNodes = useCallback(() => {
-    const nodesWithIncomingEdges = new Set(edges.map(edge => edge.target));
-    return nodes.filter(node => !nodesWithIncomingEdges.has(node.id));
-  }, [edges, nodes]);
+  // 计算花费的换算值（美元花费*7.3+人民币花费*（1+消费额价值））
+  const calculateTotalCost = useCallback((usdPrice: number, cnyPrice: number) => {
+    const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
+    return usdPrice * 7.3 + cnyPrice * conciergeMultiplier;
+  }, [conciergeValue]);
 
   // 查找从起点到选中节点的所有可能路径
-  const findAllPaths = useCallback((startNode: Node, endNodeId: string, visited = new Set<string>(), currentPath: string[] = [], allPaths: string[][] = []) => {
+  const findAllPaths = useCallback((
+    startNode: Node, 
+    endNodeId: string, 
+    visited = new Set<string>(), 
+    currentPath: string[] = [], 
+    allPaths: string[][] = [],
+    currentUsdCost = 0,
+    currentCnyCost = 0
+  ) => {
     // 添加当前节点到路径和访问集合
     currentPath.push(startNode.id);
     visited.add(startNode.id);
+    
+    // 计算当前路径的总花费
+    const totalCost = calculateTotalCost(currentUsdCost, currentCnyCost);
+    
+    // 如果这个节点已经有更低的花费记录，则剪枝
+    if (nodeBestCostRef.current[startNode.id] !== undefined && totalCost >= nodeBestCostRef.current[startNode.id]) {
+      return allPaths;
+    }
+    
+    // 更新当前节点的最低花费（使用ref而非setState）
+    nodeBestCostRef.current[startNode.id] = totalCost;
 
     // 如果达到目标节点，添加当前路径到所有路径
     if (startNode.id === endNodeId) {
@@ -78,13 +119,25 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
-          findAllPaths(targetNode, endNodeId, new Set(visited), [...currentPath], allPaths);
+          // 计算这条边的花费
+          const { usdPrice, cnyPrice } = getPriceInfo(edge);
+          
+          // 递归搜索，更新当前花费
+          findAllPaths(
+            targetNode, 
+            endNodeId, 
+            new Set(visited), 
+            [...currentPath], 
+            allPaths,
+            currentUsdCost + usdPrice,
+            currentCnyCost + cnyPrice
+          );
         }
       }
     }
 
     return allPaths;
-  }, [edges, nodes]);
+  }, [edges, nodes, getPriceInfo, calculateTotalCost]);
 
   // 将节点ID路径转换为完整的路径对象
   const buildCompletePaths = useCallback((pathIds: string[][]) => {
@@ -106,7 +159,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
       // 添加起点船的价格（如果有自定义价格）
       const startNodeId = pathId[0];
-      const customStartPrice = startShipPrices[startNodeId] || nodes.find(n => n.id === startNodeId)?.data?.ship?.msrp / 100 || 0;
+      const customStartPrice = startShipPrices[startNodeId] || 0;
       if (customStartPrice > 0) {
         totalUsdPrice += customStartPrice;
         hasUsdPricing = true;
@@ -153,17 +206,22 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
   const completePaths = useMemo(() => {
     if (!selectedNode) return [];
 
+    // 重置节点最小花费
+    nodeBestCostRef.current = {};
+    
     const startNodes = findStartNodes();
     const allPathIds: string[][] = [];
 
     // 从每个起点查找到终点的所有路径
     startNodes.forEach(startNode => {
-      const paths = findAllPaths(startNode, selectedNode.id);
+      // 获取起点船的价格
+      const startPrice = startShipPrices[startNode.id] || 0;
+      const paths = findAllPaths(startNode, selectedNode.id, new Set(), [], [], startPrice, 0);
       allPathIds.push(...paths);
     });
 
     return buildCompletePaths(allPathIds);
-  }, [selectedNode, findStartNodes, buildCompletePaths, findAllPaths]);
+  }, [selectedNode, findStartNodes, buildCompletePaths, findAllPaths, startShipPrices]);
 
   // 处理起点船价格变化
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
@@ -228,7 +286,12 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
         </div>
       </div>
 
-      <h4 className="text-lg font-bold mb-2 bg-gray-100 py-1">备选升级路线</h4>
+      <h4 className="text-lg font-bold mb-2 bg-gray-100 py-1 flex justify-center items-center gap-2">
+        备选升级路线
+        <Tooltip arrow title={<span style={{ fontSize: '14px' }}>升级路径经过剪枝以确保能在有意义时间内完成计算, 只保证第一条路径为花费最优路径, 不保证存在不存在优于第二条（及以后）路径的路径</span>}>
+          <InfoOutlined sx={{ fontSize: 14 }} />
+        </Tooltip>
+      </h4>
 
       {completePaths.length === 0 ? (
         <p className="text-gray-400">没有找到可用的升级路线</p>
@@ -267,8 +330,8 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                           className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
                           min="0"
                           step="0.01"
-                          placeholder={(startShip.msrp / 100).toFixed(2)}
-                          value={startShipPrices[completePath.startNodeId] || (startShip.msrp / 100).toFixed(2)}
+                          // placeholder={(startShip.msrp / 100).toFixed(2)}
+                          value={startShipPrices[completePath.startNodeId]}
                           onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
                         />
                       </div>
