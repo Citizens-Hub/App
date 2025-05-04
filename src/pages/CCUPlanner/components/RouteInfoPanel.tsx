@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
-import { Button } from '@mui/material';
+import { Button, Tooltip } from '@mui/material';
+import { InfoOutlined } from '@mui/icons-material';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -29,6 +30,8 @@ interface PathEdge {
 }
 
 export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: RouteInfoPanelProps) {
+  const [conciergeValue, setConciergeValue] = useState("0.1");
+
   // 根据不同的来源类型获取价格与币种
   const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
     if (!edge.data) return { usdPrice: 0, cnyPrice: 0 };
@@ -171,21 +174,53 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
         <img
           src={selectedNode.data.ship.medias.productThumbMediumAndSmall}
           alt={selectedNode.data.ship.name}
-          className="w-full mb-2"
+          className="mb-2 m-auto"
         />
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg text-center">
           <span className='text-black'>舰船价值：</span>{(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
         </div>
       </div>
 
-      <h4 className="text-lg font-bold mb-2">可用升级路线</h4>
+      <div className="mb-4">
+        <div className="text-lg text-left">
+          排序设置
+        </div>
+        <div className="flex flex-col gap-2 mt-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="conciergeValue" className="text-sm text-gray-600 flex items-center gap-1">
+              消费额价值
+              <Tooltip arrow title={<span style={{ fontSize: '14px' }}>在这里填写你获取1美元消费额的成本是多少美元, 如果你不在意消费额则填0, 升级的实际花销按照消费美元+消费人民币*汇率*(1+消费额换算比例),即花销为总花费换算为美元后再加上'购买'没有从官方购买获得的消费额的费用</span>}>
+                <InfoOutlined sx={{ fontSize: 14 }} />
+              </Tooltip>
+            </label>
+            <div className="flex items-center">
+              <input
+                id="conciergeValue"
+                type="number"
+                className="w-20 px-2 py-1 border border-gray-300 rounded text-right"
+                min="0"
+                max="1"
+                step="0.01"
+                defaultValue="0.1"
+                value={conciergeValue}
+                onChange={(e) => setConciergeValue(e.target.value)}
+              // 这里可以添加onChange处理函数来更新汇率
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4 className="text-lg font-bold mb-2 bg-gray-100 py-1">备选升级路线</h4>
 
       {completePaths.length === 0 ? (
         <p className="text-gray-400">没有找到可用的升级路线</p>
       ) : (
         <div className="space-y-6">
-          {completePaths.map((completePath, pathIndex) => (
-            <div key={pathIndex} className="p-3 border border-gray-200 rounded-lg">
+          {completePaths.sort((a, b) => {
+            return (a.totalUsdPrice + a.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue))) - (b.totalUsdPrice + b.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue)))
+          }).map((completePath, pathIndex) => (
+            <div key={pathIndex}>
               {/* <h5 className="font-medium mb-2 pb-1">
                 路线 {pathIndex + 1}: {completePath.path.length} 个节点
               </h5> */}
@@ -251,14 +286,32 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                 {/* <div className="text-sm font-medium text-gray-300 mb-1">
                   总价:
                 </div> */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-sm">
-                    <span className="text-black">美元: </span>
-                    <span className="text-blue-400">${completePath.totalUsdPrice.toFixed(2)}</span>
+                <div className="flex flex-col gap-2 px-2">
+                  <div className='flex justify-between'>
+                    <div className="text-sm">
+                      <span className="text-black">花费: </span>
+                      <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>
+                    </div>
                   </div>
-                  <div className="text-sm">
-                    <span className="text-black">人民币: </span>
-                    <span className="text-blue-400">￥{completePath.totalCnyPrice.toFixed(2)}</span>
+                  <div className='flex justify-between'>
+                    <div className="text-sm">
+                      <span className="text-black">合计: </span>
+                      <span className="text-blue-400">
+                        {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                        {conciergeValue !== "0" && " + "}
+                        {conciergeValue !== "0" && (completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-blue-400">
+                        {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                        {conciergeValue !== "0" && " + "}
+                        {conciergeValue !== "0" && (completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

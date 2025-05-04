@@ -176,12 +176,12 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
 
 
         <div className="flex flex-row gap-4 mt-4">
-          {incomingEdges.length > 0 && !isEditing && (
+          {incomingEdges.length > 0 && (
             <Button
               variant="outlined"
               onClick={handleEditToggle}
             >
-              编辑升级路线
+              {isEditing ? '完成编辑' : '编辑升级路线'}
             </Button>
           )}
           <Button
@@ -238,12 +238,6 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
                 )}
             </div>
           ))}
-          <button
-            onClick={handleEditToggle}
-            className="mt-2 text-sm text-blue-400 hover:text-blue-300"
-          >
-            完成编辑
-          </button>
         </div>
       )}
 

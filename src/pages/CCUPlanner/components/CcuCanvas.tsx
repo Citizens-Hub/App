@@ -258,7 +258,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
   }, []);
 
   // 处理节点选择
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   }, []);
   
