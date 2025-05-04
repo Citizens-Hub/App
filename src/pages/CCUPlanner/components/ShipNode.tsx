@@ -12,9 +12,10 @@ interface ShipNodeProps {
     id: string;
   };
   id: string;
+  selected?: boolean;
 }
 
-export default function ShipNode({ data, id }: ShipNodeProps) {
+export default function ShipNode({ data, id, selected }: ShipNodeProps) {
   const { ship, onUpdateEdge, onDeleteNode, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
 
@@ -150,7 +151,7 @@ export default function ShipNode({ data, id }: ShipNodeProps) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 w-64 shadow-lg">
+    <div className={`bg-gray-800 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
       <span className="text-sm text-gray-300 absolute left-4 top-[160px] -translate-y-1/2">升级自</span>

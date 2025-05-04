@@ -23,6 +23,7 @@ import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
+import RouteInfoPanel from './RouteInfoPanel';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -41,6 +42,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   // 处理连接创建
   const onConnect = useCallback(
@@ -255,13 +257,28 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     }
   }, []);
 
+  // 处理节点选择
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    setSelectedNode(node);
+  }, []);
+  
+  // 关闭路线信息面板
+  const closeRouteInfoPanel = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
+  // 处理画布点击，如果点击空白区域则取消节点选择
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
   return (
     <div className="h-full flex">
       <div className="w-[450px] border-r border-gray-200">
         <ShipSelector ships={ships} onDragStart={onShipDragStart} />
       </div>
       
-      <div className="w-full h-full" ref={reactFlowWrapper}>
+      <div className="w-full h-full relative" ref={reactFlowWrapper}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -272,6 +289,8 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
             onInit={setReactFlowInstance}
             onDrop={onDrop}
             onDragOver={onDragOver}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
@@ -279,13 +298,6 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
             <Controls />
             <MiniMap />
             <Background color="#333" gap={32} />
-            {/* <Panel position="top-right">
-              <div className="bg-gray-800 text-white p-3 rounded-md shadow-md">
-                <h3 className="font-bold mb-1">CCU 工作流</h3>
-                <p className="text-xs text-gray-300">将船舶从侧边栏拖放到此画布</p>
-                <p className="text-xs text-gray-300">连接船舶来创建升级路径</p>
-              </div>
-            </Panel> */}
             <Panel position="bottom-center">
               <Toolbar 
                 nodes={nodes} 
@@ -295,6 +307,15 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
               />
             </Panel>
           </ReactFlow>
+          
+          {selectedNode && (
+            <RouteInfoPanel
+              selectedNode={selectedNode}
+              edges={edges}
+              nodes={nodes}
+              onClose={closeRouteInfoPanel}
+            />
+          )}
         </ReactFlowProvider>
       </div>
     </div>
