@@ -2,9 +2,14 @@ import { LoaderCircle } from 'lucide-react'
 import useResourceData from './hooks/useResourceData'
 import CcuCanvas from './components/CcuCanvas'
 import NewsModal from './components/NewsModal'
+import { useEffect } from 'react'
 
 export default function CCUPlanner() {
   const { ships, loading, showNewsModal, closeNewsModal } = useResourceData()
+
+  useEffect(() => {
+    document.title = 'CCU Planner'
+  }, [])
   
   if (loading) return (
     <div>

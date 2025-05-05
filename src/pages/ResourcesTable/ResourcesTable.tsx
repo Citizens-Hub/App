@@ -27,6 +27,7 @@ import CartDrawer from './components/CartDrawer';
 import CustomTooltip from './components/CustomTooltip';
 import CustomBeacon from './components/CustomBeacon';
 import { Link } from 'react-router';
+import { useEffect } from 'react';
 // import Navigation from '../../components/Navigation';
 
 export default function ResourcesTable() {
@@ -45,6 +46,10 @@ export default function ResourcesTable() {
     handleChangeRowsPerPage,
     handleSearchChange
   } = useSearch(resources);
+
+  useEffect(() => {
+    document.title = '商店预览'
+  }, [])
   
   // 幻灯片逻辑
   const { slideshowIndices, handlePrevSlide, handleNextSlide } = useSlideshow(
