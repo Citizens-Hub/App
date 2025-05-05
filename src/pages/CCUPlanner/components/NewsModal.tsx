@@ -47,6 +47,9 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
           <Typography component="p">
             QQ群：1045858475
           </Typography>
+          <Typography component="p">
+            本工具的数据来源于手工收集，如有疏漏请联系我修改
+          </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
