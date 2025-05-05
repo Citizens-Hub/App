@@ -3,6 +3,8 @@ import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store';
 
 interface ShipNodeProps {
   data: {
@@ -24,12 +26,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { ship, onUpdateEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus } = data;
   const [isEditing, setIsEditing] = useState(false);
 
+  const upgrades = useSelector((state: RootState) => state.upgrades.items);
+
+  useEffect(() => {
+    console.log("upgrades>>>>>>>>>", upgrades)
+  }, [upgrades])
+
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
-
-  // useEffect(() => {
-  //   console.log("skus>>>>>>>>>", skus)
-  // }, [skus])
 
   // 为每个传入的边缘设置状态
   const [edgeSettings, setEdgeSettings] = useState<{
@@ -223,7 +227,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           {incomingEdges.map(edge => (
             <div key={edge.id} className="mb-3 p-2 rounded">
               <div className="text-sm text-black mb-1 flex flex-row items-center justify-between">
-                <span className="text-sm text-gray-600">选择CCU来源:</span>
+                <span className="text-sm text-gray-600">CCU来源</span>
                 <span>{edge.data?.sourceShip?.name || '未知船只'}</span>
               </div>
 
@@ -254,6 +258,19 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                           handleCustomPriceChange(edge.id, wb.price / 100);
                         }
                       }
+                    } else if (selectedValue === CcuSourceType.HANGER) {
+                      // 如果选择机库CCU，设置源类型但不自动设置价格
+                      // 用户需要手动设置机库CCU的价格
+                      if (edge.data?.customPrice === undefined) {
+                        // 如果之前没有设置过价格，设置一个默认价格
+                        const sourceShip = edge.data?.sourceShip;
+                        const targetShip = edge.data?.targetShip;
+                        if (sourceShip && targetShip) {
+                          // 默认使用官方价格差作为机库CCU价格
+                          const priceDiff = (targetShip.msrp - sourceShip.msrp) / 100;
+                          handleCustomPriceChange(edge.id, priceDiff);
+                        }
+                      }
                     }
                     handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
@@ -264,24 +281,34 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       WB: {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                     </option>
                   )}
+                  <option value={CcuSourceType.HANGER}>机库:&nbsp;
+                    {upgrades.find(upgrade => {
+                      const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
+                      const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+
+                      return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
+                    })?.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                  </option>
                   <option value={CcuSourceType.OFFICIAL_WB}>手动: 官方WB CCU</option>
                   <option value={CcuSourceType.THIRD_PARTY}>手动: 第三方CCU</option>
                 </Select>
               </div>
 
-              {/* 当选择官方WB或第三方时，显示价格输入 */}
+              {/* 当选择官方WB或第三方或机库CCU时，显示价格输入 */}
               {(edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
                 edgeSettings[edge.id]?.sourceType === CcuSourceType.THIRD_PARTY) && (
                   <div className="mb-2">
                     <label className="text-sm text-gray-600 block mb-1 text-left">
-                      {edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ? '价格 (USD)' : '价格 (CNY)'}:
+                      {edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ? '价格 (USD)' : 
+                       edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? '价格 (USD)' : '价格 (CNY)'}:
                     </label>
                     <Input
                       type="number"
                       className="text-sm w-full"
                       value={edgeSettings[edge.id]?.customPrice ?? edge.data?.customPrice ?? ''}
                       onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
-                      placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ? '美元' : '人民币'}
+                      placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB || 
+                                  edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? '美元' : '人民币'}
                     />
                   </div>
                 )}

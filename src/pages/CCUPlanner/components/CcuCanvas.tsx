@@ -26,6 +26,9 @@ import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Snackbar } from '@mui/material';
+import { RootState } from '../../../store';
+import { useSelector } from 'react-redux';
+import Hanger from './Hanger';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -57,6 +60,8 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     message: "",
     type: "success"
   });
+
+  const upgrades = useSelector((state: RootState) => state.upgrades.items);
 
   // 处理起点船价格变化
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
@@ -150,27 +155,42 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           } as CcuEdgeData,
         };
 
-        // 检查目标船只是否有可用的WB SKU
-        const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
-        const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
+        const hangerCcu = upgrades.find(upgrade => {
+          const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
+          const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
 
-        // 如果存在WB SKU且WB价格大于源船只的msrp，则自动选择使用WB
-        if (targetWb && sourceShip.msrp < targetWb.price) {
-          // 目标船WB价格
-          const targetWbPrice = targetWb.price / 100;
-          // 源船官方价格
-          const sourceShipPrice = sourceShip.msrp / 100;
-          // 实际花费是WB价格减去源船价格
-          const actualPrice = targetWbPrice - sourceShipPrice;
+          return from === sourceShip.name.toUpperCase() && to === targetShip.name.toUpperCase()
+        })
+        
+        if (hangerCcu) {
+          // 如果存在机库CCU，则默认使用它
+          newEdge.data.sourceType = CcuSourceType.HANGER;
+          newEdge.data.customPrice = hangerCcu.value;
+        }
+        // 如果没有机库CCU，再检查是否有WB选项
+        else {
+          // 检查目标船只是否有可用的WB SKU
+          const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
+          const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
 
-          newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
-          newEdge.data.customPrice = Math.max(0, actualPrice);
+          // 如果存在WB SKU且WB价格大于源船只的msrp，则自动选择使用WB
+          if (targetWb && sourceShip.msrp < targetWb.price) {
+            // 目标船WB价格
+            const targetWbPrice = targetWb.price / 100;
+            // 源船官方价格
+            const sourceShipPrice = sourceShip.msrp / 100;
+            // 实际花费是WB价格减去源船价格
+            const actualPrice = targetWbPrice - sourceShipPrice;
+
+            newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
+            newEdge.data.customPrice = Math.max(0, actualPrice);
+          }
         }
 
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, edges, setEdges, ccus]
+    [nodes, upgrades, setEdges, edges, ccus]
   );
 
   // 更新边缘数据
@@ -583,6 +603,9 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
                 onExport={handleExport}
                 onImport={handleImport}
               />
+            </Panel>
+            <Panel position="top-left" className="bg-white w-[340px] border border-gray-200 p-2">
+              <Hanger ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>
           </ReactFlow>
 

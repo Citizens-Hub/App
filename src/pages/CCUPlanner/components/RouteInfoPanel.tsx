@@ -85,6 +85,10 @@ export default function RouteInfoPanel({
     } else if (sourceType === CcuSourceType.THIRD_PARTY) {
       cnyPrice = edge.data.customPrice || 0;
       usdPrice = 0;
+    } else if (sourceType === CcuSourceType.HANGER) {
+      // 机库CCU价格，使用customPrice字段
+      usdPrice = edge.data.customPrice || edge.data.price / 100;
+      cnyPrice = 0;
     }
 
     return { usdPrice, cnyPrice };

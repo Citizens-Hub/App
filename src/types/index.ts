@@ -98,6 +98,7 @@ export interface ShipsData {
 export enum CcuSourceType {
   OFFICIAL = "官方",
   AVAILABLE_WB = "线上WB",
+  HANGER = "机库CCU",
   OFFICIAL_WB = "官方WB",
   THIRD_PARTY = "第三方"
 }
