@@ -245,7 +245,7 @@ export default function RouteInfoPanel({
   if (!selectedNode) return null;
 
   return (
-    <div className="absolute right-0 top-0 w-fit h-full bg-white border-l border-gray-200 p-4 shadow-lg overflow-y-auto z-10">
+    <div className="absolute right-0 top-0 w-fit min-w-[450px] h-full bg-white border-l border-gray-200 p-4 shadow-lg overflow-y-auto z-10">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold">{selectedNode.data.ship.name}</h3>
         <Button
