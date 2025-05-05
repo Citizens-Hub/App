@@ -1,6 +1,7 @@
 import { Button } from '@mui/material';
 import { Trash2, Download, Save, Upload } from 'lucide-react';
 import { Node } from 'reactflow';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ToolbarProps {
   onClear: () => void;
@@ -12,6 +13,7 @@ interface ToolbarProps {
 
 export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: ToolbarProps) {
   const hasContent = nodes.length > 0;
+  const intl = useIntl();
   
   return (
     <div className="bg-gray-100 p-2 shadow-md flex gap-2">
@@ -19,39 +21,47 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
         variant="outlined"
         onClick={onClear}
         disabled={!hasContent}
-        title="清除画布"
+        title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "清除画布" })}
       >
         <Trash2 size={16} />
-        <span>清除</span>
+        <span>
+          <FormattedMessage id="toolbar.clear" defaultMessage="清除" />
+        </span>
       </Button>
       
       <Button
         variant="outlined"
         onClick={onSave}
         disabled={!hasContent}
-        title="保存工作流"
+        title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "保存工作流" })}
       >
         <Save size={16} />
-        <span>保存</span>
+        <span>
+          <FormattedMessage id="toolbar.save" defaultMessage="保存" />
+        </span>
       </Button>
       
       <Button
         variant="outlined"
         onClick={onExport}
         disabled={!hasContent}
-        title="导出Json"
+        title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "导出Json" })}
       >
         <Download size={16} />
-        <span>导出</span>
+        <span>
+          <FormattedMessage id="toolbar.export" defaultMessage="导出" />
+        </span>
       </Button>
 
       <Button
         variant="outlined"
         onClick={onImport}
-        title="导入Json"
+        title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "导入Json" })}
       >
         <Upload size={16} />
-        <span>导入</span>
+        <span>
+          <FormattedMessage id="toolbar.import" defaultMessage="导入" />
+        </span>
       </Button>
     </div>
   );

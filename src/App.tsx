@@ -98,7 +98,7 @@ function App() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [dispatch]);
 
   const theme = createTheme({
     palette: {

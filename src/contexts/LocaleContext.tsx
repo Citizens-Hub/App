@@ -29,9 +29,19 @@ interface LocaleProviderProps {
 
 // 语言Provider组件
 export function LocaleProvider({ children }: LocaleProviderProps) {
-  // 尝试从localStorage读取上次设置的语言，默认为中文
+  // 获取浏览器语言
+  const getBrowserLocale = (): Locale => {
+    const browserLang = navigator.language;
+    // 检查浏览器语言是否为支持的语言之一
+    if (browserLang.startsWith('zh')) {
+      return 'zh-CN';
+    }
+    return 'en-US'; // 默认返回英文
+  };
+
+  // 优先使用localStorage中保存的语言，其次使用浏览器语言
   const savedLocale = localStorage.getItem('locale') as Locale;
-  const [locale, setLocale] = useState<Locale>(savedLocale || 'zh-CN');
+  const [locale, setLocale] = useState<Locale>(savedLocale || getBrowserLocale());
 
   // 设置语言并保存到localStorage
   const handleSetLocale = (newLocale: Locale) => {
