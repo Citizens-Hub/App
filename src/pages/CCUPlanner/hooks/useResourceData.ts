@@ -6,8 +6,21 @@ export default function useResourceData() {
   const [ships, setShips] = useState<Ship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // @TODO: 测试用，正式发布时需要关闭
+  const [showNewsModal, setShowNewsModal] = useState(false);
 
   useEffect(() => {
+    // 检查用户是否是首次打开
+    const todayDate = new Date().toDateString();
+    const lastVisitDate = localStorage.getItem('ccuPlannerLastVisit');
+    
+    if (!lastVisitDate || lastVisitDate !== todayDate) {
+      // 如果是当天第一次打开，显示新闻弹窗
+      setShowNewsModal(true);
+      // 更新访问日期
+      localStorage.setItem('ccuPlannerLastVisit', todayDate);
+    }
+
     const abortController = new AbortController();
 
     const fetchData = async () => {
@@ -49,5 +62,10 @@ export default function useResourceData() {
     };
   }, []);
 
-  return { ccus, ships, loading, error };
+  // 关闭新闻弹窗
+  const closeNewsModal = () => {
+    setShowNewsModal(false);
+  };
+
+  return { ccus, ships, loading, error, showNewsModal, closeNewsModal };
 } 

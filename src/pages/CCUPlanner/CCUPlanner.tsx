@@ -1,9 +1,10 @@
 import { LoaderCircle } from 'lucide-react'
 import useResourceData from './hooks/useResourceData'
 import CcuCanvas from './components/CcuCanvas'
+import NewsModal from './components/NewsModal'
 
 export default function CCUPlanner() {
-  const { ships, loading } = useResourceData()
+  const { ships, loading, showNewsModal, closeNewsModal } = useResourceData()
   
   if (loading) return (
     <div>
@@ -24,6 +25,9 @@ export default function CCUPlanner() {
       <div className="flex-1 relative">
         <CcuCanvas ships={ships} />
       </div>
+
+      {/* 新闻弹窗 */}
+      <NewsModal open={showNewsModal} onClose={closeNewsModal} />
     </div>
   )
 }
