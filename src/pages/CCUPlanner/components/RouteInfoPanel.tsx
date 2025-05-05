@@ -117,12 +117,9 @@ export default function RouteInfoPanel({
     // 如果达到目标节点，添加当前路径到所有路径
     if (startNode.id === endNodeId) {
       allPaths.push([...currentPath]);
-      // console.log("pushing>>>>>>>>>>>>>", currentPath, currentUsdCost, currentCnyCost)
     } else {
       // 查找所有从当前节点出发的边
       const outgoingEdges = edges.filter(edge => edge.data?.sourceShip?.id === startNode.data?.ship?.id);
-
-      console.log(startNode.data?.ship?.name, outgoingEdges)
 
       // 对于每条出边，递归查找路径
       for (const edge of outgoingEdges) {

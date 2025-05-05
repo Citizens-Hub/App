@@ -1,22 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
-import { Handle, Position, Edge } from 'reactflow';
+import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
-import { Button, Input, Select } from '@mui/material';
+import { Button, IconButton, Input, Select } from '@mui/material';
+import { Copy } from 'lucide-react';
 
 interface ShipNodeProps {
   data: {
     ship: Ship;
     onUpdateEdge?: (sourceId: string, targetId: string, data: Partial<CcuEdgeData>) => void;
     onDeleteNode?: (nodeId: string) => void;
+    onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
   };
+  xPos: number;
+  yPos: number;
   id: string;
   selected?: boolean;
 }
 
-export default function ShipNode({ data, id, selected }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteNode, incomingEdges = [] } = data;
+export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
+  const { ship, onUpdateEdge, onDeleteNode, onDuplicateNode, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
 
   // 为每个传入的边缘设置状态
@@ -63,6 +67,10 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
     if (onDeleteNode) {
       onDeleteNode(id);
     }
+  };
+
+  const handleDuplicateNode = () => {
+    onDuplicateNode?.(ship, { x: xPos, y: yPos });
   };
 
   const handleSourceTypeChange = (edgeId: string, sourceType: CcuSourceType) => {
@@ -163,7 +171,12 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
           className="w-full h-30 object-cover rounded-sm mb-12"
         />
 
-        <h3 className="text-xl font-bold mb-1">{ship.name}</h3>
+        <div className="flex flex-row items-center gap-2 mb-1">
+          <h3 className="text-xl font-bold">{ship.name}</h3>
+          <IconButton size="small" onClick={handleDuplicateNode}>
+            <Copy className="w-3 h-3" />
+          </IconButton>
+        </div>
 
         <div className="text-sm text-gray-600 mb-2">
           <span className="font-medium">{ship.manufacturer.name}</span> ·
