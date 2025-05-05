@@ -31,6 +31,10 @@ interface PathEdge {
   targetNode: Node;
 }
 
+String.prototype.getNodeShipId = function() {
+  return this.split('-')[1];
+}
+
 export default function RouteInfoPanel({ 
   selectedNode, 
   edges, 
@@ -115,11 +119,11 @@ export default function RouteInfoPanel({
     nodeBestCostRef.current[startNode.id] = totalCost;
 
     // 如果达到目标节点，添加当前路径到所有路径
-    if (startNode.id.split('-')[1] === endNodeId.split('-')[1]) {
+    if (startNode.id.getNodeShipId() === endNodeId.getNodeShipId()) {
       allPaths.push([...currentPath]);
     } else {
       // 查找所有从当前节点出发的边
-      const outgoingEdges = edges.filter(edge => edge.data?.sourceShip?.id === startNode.data?.ship?.id);
+      const outgoingEdges = edges.filter(edge => edge.source.getNodeShipId() === startNode.id.getNodeShipId());
 
       // 对于每条出边，递归查找路径
       for (const edge of outgoingEdges) {
@@ -172,7 +176,7 @@ export default function RouteInfoPanel({
       }
 
       for (let i = 0; i < pathId.length - 1; i++) {
-        const edge = edges.find(e => e.source.split('-')[1] === pathId[i].split('-')[1] && e.target === pathId[i + 1]);
+        const edge = edges.find(e => e.source.getNodeShipId() === pathId[i].getNodeShipId() && e.target === pathId[i + 1]);
 
         if (edge) {
           const sourceNode = nodes.find(n => n.id === pathId[i])!;
