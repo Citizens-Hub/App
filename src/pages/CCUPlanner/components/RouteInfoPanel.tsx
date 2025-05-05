@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
-import { Button, Tooltip } from '@mui/material';
+import { Button, Input, Tooltip } from '@mui/material';
 import { InfoOutlined } from '@mui/icons-material';
 
 interface RouteInfoPanelProps {
@@ -14,6 +14,8 @@ interface RouteInfoPanelProps {
   edges: Edge<CcuEdgeData>[];
   nodes: Node[];
   onClose: () => void;
+  startShipPrices: Record<string, number | string>;
+  onStartShipPriceChange: (nodeId: string, price: number | string) => void;
 }
 
 // 定义路径节点类型
@@ -29,9 +31,15 @@ interface PathEdge {
   targetNode: Node;
 }
 
-export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: RouteInfoPanelProps) {
+export default function RouteInfoPanel({ 
+  selectedNode, 
+  edges, 
+  nodes, 
+  onClose, 
+  startShipPrices, 
+  onStartShipPriceChange 
+}: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState("0.1");
-  const [startShipPrices, setStartShipPrices] = useState<Record<string, number>>({});
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
   // 查找所有可能的起点（没有入边的节点）
@@ -43,16 +51,13 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
   // 初始化起点船价格为msrp/100
   useEffect(() => {
     const startNodes = findStartNodes();
-    const initialPrices: Record<string, number> = {...startShipPrices}; // 保留现有价格
     
     startNodes.forEach(node => {
       // 只为没有设置过价格的节点设置默认价格
-      if (node.data?.ship?.msrp && initialPrices[node.id] === undefined) {
-        initialPrices[node.id] = node.data.ship.msrp / 100;
+      if (node.data?.ship?.msrp && startShipPrices[node.id] === undefined) {
+        onStartShipPriceChange(node.id, node.data.ship.msrp / 100);
       }
     });
-    
-    setStartShipPrices(initialPrices);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, findStartNodes]);
 
@@ -160,7 +165,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
       // 添加起点船的价格（如果有自定义价格）
       const startNodeId = pathId[0];
-      const customStartPrice = startShipPrices[startNodeId] || 0;
+      const customStartPrice = Number(startShipPrices[startNodeId] || "0");
       if (customStartPrice > 0) {
         totalUsdPrice += customStartPrice;
         hasUsdPricing = true;
@@ -217,7 +222,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
     startNodes.forEach(startNode => {
       // 获取起点船的价格
       const startPrice = startShipPrices[startNode.id] || 0;
-      const paths = findAllPaths(startNode, selectedNode.id, new Set(), [], [], startPrice, 0);
+      const paths = findAllPaths(startNode, selectedNode.id, new Set(), [], [], Number(startPrice), 0);
       allPathIds.push(...paths);
     });
 
@@ -226,10 +231,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
   // 处理起点船价格变化
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
-    setStartShipPrices(prev => ({
-      ...prev,
-      [nodeId]: parseFloat(price) || 0
-    }));
+    onStartShipPriceChange(nodeId, price);
   };
 
   if (!selectedNode) return null;
@@ -249,7 +251,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
 
       <div className="mb-4">
         <img
-          src={selectedNode.data.ship.medias.productThumbMediumAndSmall}
+          src={selectedNode.data.ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={selectedNode.data.ship.name}
           className="mb-2 m-auto"
         />
@@ -271,14 +273,11 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
               </Tooltip>
             </label>
             <div className="flex items-center">
-              <input
+              <Input
                 id="conciergeValue"
                 type="number"
-                className="w-20 px-2 py-1 border border-gray-300 rounded text-right"
-                min="0"
-                max="1"
-                step="0.01"
-                defaultValue="0.1"
+                className="w-24"
+                inputProps={{ min: 0, max: 1, step: 0.1 }}
                 value={conciergeValue}
                 onChange={(e) => setConciergeValue(e.target.value)}
               />
@@ -326,12 +325,10 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                         <label className="text-sm text-gray-600">
                           起点船价格 ($)
                         </label>
-                        <input
+                        <Input
                           type="number"
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
-                          min="0"
-                          step="1"
-                          // placeholder={(startShip.msrp / 100).toFixed(2)}
+                          className="w-24"
+                          inputProps={{ min: 0, max: startShip.msrp / 100, step: 1 }}
                           value={startShipPrices[completePath.startNodeId]}
                           onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
                         />

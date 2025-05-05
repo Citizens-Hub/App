@@ -43,6 +43,15 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
+
+  // 处理起点船价格变化
+  const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
+    setStartShipPrices(prev => ({
+      ...prev,
+      [nodeId]: price
+    }));
+  }, []);
 
   // 处理连接创建
   const onConnect = useCallback(
@@ -113,6 +122,13 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
       setEdges(edges => edges.filter(edge => 
         edge.source !== nodeId && edge.target !== nodeId
       ));
+
+      // 删除相关的起点船价格
+      setStartShipPrices(prev => {
+        const newPrices = { ...prev };
+        delete newPrices[nodeId];
+        return newPrices;
+      });
     },
     [setNodes, setEdges]
   );
@@ -190,6 +206,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
   const handleClear = useCallback(() => {
     setNodes([]);
     setEdges([]);
+    setStartShipPrices({});
 
     localStorage.setItem('ccu-planner-data', "");
   }, [setNodes, setEdges]);
@@ -201,13 +218,14 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     const flowData = {
       nodes,
       edges,
+      startShipPrices
     };
 
     const dataStr = JSON.stringify(flowData);
     localStorage.setItem('ccu-planner-data', dataStr);
 
     alert('CCU 升级路径已保存！');
-  }, [nodes, edges]);
+  }, [nodes, edges, startShipPrices]);
 
   // 导出为图片
   const handleExport = useCallback(() => {
@@ -226,7 +244,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     const savedData = localStorage.getItem('ccu-planner-data');
     if (savedData && reactFlowInstance) {
       try {
-        const { nodes: savedNodes, edges: savedEdges } = JSON.parse(savedData);
+        const { nodes: savedNodes, edges: savedEdges, startShipPrices: savedPrices } = JSON.parse(savedData);
         
         // 确保所有边缘都有sourceType字段
         const processedEdges = savedEdges?.map((edge: Edge<CcuEdgeData>) => {
@@ -244,6 +262,9 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
         
         setNodes(savedNodes || []);
         setEdges(processedEdges);
+        if (savedPrices) {
+          setStartShipPrices(savedPrices);
+        }
       } catch (error) {
         console.error('加载保存的CCU路径时出错:', error);
       }
@@ -314,6 +335,8 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
               edges={edges}
               nodes={nodes}
               onClose={closeRouteInfoPanel}
+              startShipPrices={startShipPrices}
+              onStartShipPriceChange={handleStartShipPriceChange}
             />
           )}
         </ReactFlowProvider>

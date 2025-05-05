@@ -158,7 +158,7 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
 
       <div className="flex flex-col items-center">
         <img
-          src={ship.medias.productThumbMediumAndSmall}
+          src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={ship.name}
           className="w-full h-30 object-cover rounded-t-md mb-12"
         />
