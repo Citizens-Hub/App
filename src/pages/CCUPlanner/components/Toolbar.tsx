@@ -1,15 +1,16 @@
 import { Button } from '@mui/material';
-import { Trash2, Download, Save } from 'lucide-react';
+import { Trash2, Download, Save, Upload } from 'lucide-react';
 import { Node } from 'reactflow';
 
 interface ToolbarProps {
   onClear: () => void;
   onSave: () => void;
   onExport: () => void;
+  onImport: () => void;
   nodes: Node[];
 }
 
-export default function Toolbar({ onClear, onSave, onExport, nodes }: ToolbarProps) {
+export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: ToolbarProps) {
   const hasContent = nodes.length > 0;
   
   return (
@@ -37,12 +38,20 @@ export default function Toolbar({ onClear, onSave, onExport, nodes }: ToolbarPro
       <Button
         variant="outlined"
         onClick={onExport}
-        // disabled={!hasContent}
-        disabled
-        title="导出为图片"
+        disabled={!hasContent}
+        title="导出Json"
       >
         <Download size={16} />
         <span>导出</span>
+      </Button>
+
+      <Button
+        variant="outlined"
+        onClick={onImport}
+        title="导入Json"
+      >
+        <Upload size={16} />
+        <span>导入</span>
       </Button>
     </div>
   );

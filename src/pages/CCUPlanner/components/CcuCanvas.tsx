@@ -39,6 +39,7 @@ interface CcuCanvasProps {
 
 export default function CcuCanvas({ ships }: CcuCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -198,11 +199,127 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const onDrop = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
+  // 导入JSON文件
+  const importFlowData = useCallback((jsonData: string) => {
+    try {
+      const { nodes: importedNodes, edges: importedEdges, startShipPrices: importedPrices } = JSON.parse(jsonData);
+      
+      if (!importedNodes || !Array.isArray(importedNodes)) {
+        throw new Error('无效的JSON格式：缺少节点数据');
+      }
+      
+      // 确保导入的节点引用的舰船存在于当前舰船列表中
+      const validNodes = importedNodes.filter(node => {
+        const shipId = node.data?.ship?.id;
+        return shipId && ships.some(s => s.id === shipId);
+      });
+      
+      if (validNodes.length === 0) {
+        throw new Error('没有找到有效的舰船节点');
+      }
+      
+      // 确保所有边缘都有sourceType字段
+      const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
+        if (edge.data && !edge.data.sourceType) {
+          return {
+            ...edge,
+            data: {
+              ...edge.data,
+              sourceType: CcuSourceType.OFFICIAL
+            }
+          };
+        }
+        return edge;
+      }) || [];
+      
+      // 只导入有效节点的相关边
+      const validNodeIds = new Set(validNodes.map(node => node.id));
+      const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) => 
+        validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+      );
+      
+      setNodes(validNodes);
+      setEdges(validEdges);
+      
+      if (importedPrices) {
+        // 仅保留有效节点的起始价格
+        const validPrices: Record<string, number | string> = {};
+        Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
+          if (validNodeIds.has(nodeId)) {
+            validPrices[nodeId] = price;
+          }
+        });
+        setStartShipPrices(validPrices);
+      }
+      
+      if (reactFlowInstance) {
+        // 自动调整视图以显示所有节点
+        setTimeout(() => reactFlowInstance.fitView(), 100);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('导入JSON文件时出错:', error);
+      alert(`导入失败: ${(error as Error).message || '无效的JSON格式'}`);
+      return false;
+    }
+  }, [ships, setNodes, setEdges, reactFlowInstance]);
 
-      const shipId = event.dataTransfer.getData('application/shipId');
+  // 处理文件导入（通过按钮）
+  const handleImport = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  // 处理文件选择
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      if (content) {
+        importFlowData(content);
+      }
+    };
+    reader.readAsText(file);
+    
+    // 重置input，以便可以重复选择相同的文件
+    if (event.target) {
+      event.target.value = '';
+    }
+  }, [importFlowData]);
+
+  // 处理文件拖放
+  const onDropFile = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    
+    // 检查是否有JSON文件
+    const items = Array.from(event.dataTransfer.items);
+    const jsonItem = items.find(item => 
+      item.kind === 'file' && item.type === 'application/json'
+    );
+    
+    if (jsonItem) {
+      const file = jsonItem.getAsFile();
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (content) {
+            importFlowData(content);
+          }
+        };
+        reader.readAsText(file);
+        return;
+      }
+    }
+    
+    // 如果不是JSON文件，继续正常的舰船拖放处理
+    const shipId = event.dataTransfer.getData('application/shipId');
+    if (shipId) {
       const ship = ships.find((s) => s.id.toString() === shipId);
 
       if (!ship || !reactFlowInstance || !reactFlowWrapper.current) {
@@ -227,9 +344,8 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
       };
 
       setNodes((nds) => nds.concat(newNode));
-    },
-    [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode]
-  );
+    }
+  }, [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode, importFlowData]);
 
   // 处理舰船拖动开始
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
@@ -262,17 +378,37 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
     alert('CCU 升级路径已保存！');
   }, [nodes, edges, startShipPrices]);
 
-  // 导出为图片
+  // 导出为Json
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
 
     // 检查节点范围
     getRectOfNodes(nodes);
     
-    // 这里应该使用html-to-image或dom-to-image库进行实际导出
-    // 由于未安装这些库，这里只是提供概念实现
-    alert('导出功能需要安装额外的库。请安装html-to-image或dom-to-image库。');
-  }, [reactFlowInstance, nodes]);
+    // 导出为JSON文件
+    const flowData = {
+      nodes,
+      edges,
+      startShipPrices
+    };
+
+    const dataStr = JSON.stringify(flowData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    // 创建下载链接并触发下载
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `ccu-planner-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    // 清理
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      document.body.removeChild(downloadLink);
+    }, 100);
+  }, [reactFlowInstance, nodes, edges, startShipPrices]);
 
   // 从localStorage加载保存的工作流
   useEffect(() => {
@@ -343,7 +479,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onInit={setReactFlowInstance}
-            onDrop={onDrop}
+            onDrop={onDropFile}
             onDragOver={onDragOver}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
@@ -359,7 +495,8 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
                 nodes={nodes} 
                 onClear={handleClear} 
                 onSave={handleSave} 
-                onExport={handleExport} 
+                onExport={handleExport}
+                onImport={handleImport}
               />
             </Panel>
           </ReactFlow>
@@ -376,6 +513,15 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
           )}
         </ReactFlowProvider>
       </div>
+      
+      {/* 隐藏的文件输入框，用于导入JSON */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={handleFileSelect}
+      />
     </div>
   );
 } 
