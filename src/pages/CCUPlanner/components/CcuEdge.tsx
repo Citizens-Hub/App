@@ -45,12 +45,15 @@ export default function CcuEdge({
   let edgeColor = 'stroke-blue-500';
   let bgColor = 'bg-blue-700';
   
-  if (sourceType === CcuSourceType.OFFICIAL_WB || sourceType === CcuSourceType.AVAILABLE_WB) {
-    edgeColor = 'stroke-green-500';
-    bgColor = 'bg-green-700';
+  if (sourceType === CcuSourceType.OFFICIAL_WB) {
+    edgeColor = 'stroke-orange-500';
+    bgColor = 'bg-orange-700';
   } else if (sourceType === CcuSourceType.THIRD_PARTY) {
     edgeColor = 'stroke-purple-500';
     bgColor = 'bg-purple-700';
+  } else if (sourceType === CcuSourceType.AVAILABLE_WB) {
+    edgeColor = 'stroke-red-500';
+    bgColor = 'bg-red-700';
   }
 
   return (

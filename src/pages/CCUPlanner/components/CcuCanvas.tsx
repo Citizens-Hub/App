@@ -123,10 +123,27 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           } as CcuEdgeData,
         };
         
+        // 检查目标船只是否有可用的WB SKU
+        const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
+        const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
+        
+        // 如果存在WB SKU且WB价格大于源船只的msrp，则自动选择使用WB
+        if (targetWb && sourceShip.msrp < targetWb.price) {
+          // 目标船WB价格
+          const targetWbPrice = targetWb.price / 100;
+          // 源船官方价格
+          const sourceShipPrice = sourceShip.msrp / 100; 
+          // 实际花费是WB价格减去源船价格
+          const actualPrice = targetWbPrice - sourceShipPrice;
+          
+          newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
+          newEdge.data.customPrice = Math.max(0, actualPrice);
+        }
+        
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, edges, setEdges]
+    [nodes, edges, setEdges, ccus]
   );
 
   // 更新边缘数据
