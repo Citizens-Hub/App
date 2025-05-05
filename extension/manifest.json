@@ -1,0 +1,50 @@
+{
+  "name": "Star Citizen CCU Planner",
+  "description": "Get a quick overview over all your ships/upgrades in your hangar and buyback, plan optimal upgrade chains.",
+  "version": "1.0.0",
+  "host_permissions": [
+    "https://robertsspaceindustries.com/*",
+    "https://support.robertsspaceindustries.com/*"
+  ],
+  "permissions": [
+    "storage",
+    "cookies"
+  ],
+  "manifest_version": 3,
+  "icons": {
+    "16": "logo.png",
+    "32": "logo.png",
+    "128": "logo.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Star Citizen CCU Planner",
+    "default_icon": {
+      "16": "logo.png",
+      "32": "logo.png",
+      "128": "logo.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://sc.oxdl.cn/*",
+        "*://localhost/*"
+      ],
+      "js": [
+        "ccu-planner-app-integration_content-script.js"
+      ],
+      "css": [
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "content_security_policy": {
+    "script-src": "self",
+    "object-src": "self",
+    "worker-src": "self"
+  }
+}

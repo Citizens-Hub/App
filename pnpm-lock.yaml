@@ -20,6 +20,9 @@ importers:
       '@mui/material':
         specifier: ^7.0.2
         version: 7.0.2(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react@19.1.0))(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reduxjs/toolkit':
+        specifier: ^2.7.0
+        version: 2.7.0(react-redux@9.2.0(@types/react@19.1.2)(react@19.1.0)(redux@5.0.1))(react@19.1.0)
       '@tailwindcss/vite':
         specifier: ^4.1.5
         version: 4.1.5(vite@6.3.4(jiti@2.4.2)(lightningcss@1.29.2))
@@ -35,12 +38,15 @@ importers:
       react-joyride:
         specifier: ^2.9.3
         version: 2.9.3(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react-redux:
+        specifier: ^9.2.0
+        version: 9.2.0(@types/react@19.1.2)(react@19.1.0)(redux@5.0.1)
       react-router:
         specifier: ^7.5.3
         version: 7.5.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       reactflow:
         specifier: ^11.11.4
-        version: 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+        version: 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       tailwindcss:
         specifier: ^4.1.5
         version: 4.1.5
@@ -607,6 +613,17 @@ packages:
       react: '>=17'
       react-dom: '>=17'
 
+  '@reduxjs/toolkit@2.7.0':
+    resolution: {integrity: sha512-XVwolG6eTqwV0N8z/oDlN93ITCIGIop6leXlGJI/4EKy+0POYkR+ABHRSdGXY+0MQvJBP8yAzh+EYFxTuvmBiQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18 || ^19
+      react-redux: ^7.2.1 || ^8.1.3 || ^9.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-redux:
+        optional: true
+
   '@rollup/rollup-android-arm-eabi@4.40.1':
     resolution: {integrity: sha512-kxz0YeeCrRUHz3zyqvd7n+TVRlNyTifBsmnmNPtk3hQURUyG9eAB+usz6DAwagMusjx/zb3AjvDUvhFGDAexGw==}
     cpu: [arm]
@@ -706,6 +723,12 @@ packages:
     resolution: {integrity: sha512-ECyOuDeH3C1I8jH2MK1RtBJW+YPMvSfT0a5NN0nHfQYnDSJ6tUiZH3gzwVP5/Kfh/+Tt7tpWVF9LXNTnhTJ3kA==}
     cpu: [x64]
     os: [win32]
+
+  '@standard-schema/spec@1.0.0':
+    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
+
+  '@standard-schema/utils@0.3.0':
+    resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
   '@tailwindcss/node@4.1.5':
     resolution: {integrity: sha512-CBhSWo0vLnWhXIvpD0qsPephiaUYfHUX3U9anwDaHZAeuGpTiB3XmsxPAN6qX7bFhipyGBqOa1QYQVVhkOUGxg==}
@@ -932,6 +955,9 @@ packages:
 
   '@types/react@19.1.2':
     resolution: {integrity: sha512-oxLPMytKchWGbnQM9O7D67uPa9paTNxO7jVoNMXgkkErULBPhPARCfkKL9ytcIJJRGjbsVwW4ugJzyFFvm/Tiw==}
+
+  '@types/use-sync-external-store@0.0.6':
+    resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
 
   '@types/validator@13.15.0':
     resolution: {integrity: sha512-nh7nrWhLr6CBq9ldtw0wx+z9wKnnv/uTVLA9g/3/TcOYxbpOSZE+MhKPmWqU+K0NvThjhv12uD8MuqijB0WzEA==}
@@ -1449,6 +1475,9 @@ packages:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
 
+  immer@10.1.1:
+    resolution: {integrity: sha512-s2MPrmjovJcoMaHtx6K11Ra7oD05NT97w1IC5zpMkT6Atjr7H8LjaDd81iIxUYpMKSRRNMJE703M1Fhr/TctHw==}
+
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
@@ -1838,6 +1867,18 @@ packages:
       react: 15 - 18
       react-dom: 15 - 18
 
+  react-redux@9.2.0:
+    resolution: {integrity: sha512-ROY9fvHhwOD9ySfrF0wmvu//bKCQ6AeZZq1nJNtbDC+kk5DuSuNX/n6YWYF/SYy7bSba4D4FSz8DJeKY/S/r+g==}
+    peerDependencies:
+      '@types/react': ^18.2.25 || ^19
+      react: ^18.0 || ^19
+      redux: ^5.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      redux:
+        optional: true
+
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
@@ -1868,8 +1909,19 @@ packages:
       react: '>=17'
       react-dom: '>=17'
 
+  redux-thunk@3.1.0:
+    resolution: {integrity: sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==}
+    peerDependencies:
+      redux: ^5.0.0
+
+  redux@5.0.1:
+    resolution: {integrity: sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==}
+
   reflect-metadata@0.1.13:
     resolution: {integrity: sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==}
+
+  reselect@5.1.1:
+    resolution: {integrity: sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==}
 
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -2592,29 +2644,29 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
-  '@reactflow/background@11.3.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/background@11.3.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       classcat: 5.0.5
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/controls@11.2.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/controls@11.2.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       classcat: 5.0.5
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/core@11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/core@11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@types/d3': 7.4.3
       '@types/d3-drag': 3.0.7
@@ -2626,14 +2678,14 @@ snapshots:
       d3-zoom: 3.0.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/minimap@11.7.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/minimap@11.7.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@types/d3-selection': 3.0.11
       '@types/d3-zoom': 3.0.8
       classcat: 5.0.5
@@ -2641,34 +2693,46 @@ snapshots:
       d3-zoom: 3.0.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/node-resizer@2.2.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/node-resizer@2.2.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       classcat: 5.0.5
       d3-drag: 3.0.0
       d3-selection: 3.0.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
-  '@reactflow/node-toolbar@1.3.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@reactflow/node-toolbar@1.3.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       classcat: 5.0.5
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      zustand: 4.5.6(@types/react@19.1.2)(react@19.1.0)
+      zustand: 4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
+
+  '@reduxjs/toolkit@2.7.0(react-redux@9.2.0(@types/react@19.1.2)(react@19.1.0)(redux@5.0.1))(react@19.1.0)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@standard-schema/utils': 0.3.0
+      immer: 10.1.1
+      redux: 5.0.1
+      redux-thunk: 3.1.0(redux@5.0.1)
+      reselect: 5.1.1
+    optionalDependencies:
+      react: 19.1.0
+      react-redux: 9.2.0(@types/react@19.1.2)(react@19.1.0)(redux@5.0.1)
 
   '@rollup/rollup-android-arm-eabi@4.40.1':
     optional: true
@@ -2729,6 +2793,10 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.40.1':
     optional: true
+
+  '@standard-schema/spec@1.0.0': {}
+
+  '@standard-schema/utils@0.3.0': {}
 
   '@tailwindcss/node@4.1.5':
     dependencies:
@@ -2956,6 +3024,8 @@ snapshots:
   '@types/react@19.1.2':
     dependencies:
       csstype: 3.1.3
+
+  '@types/use-sync-external-store@0.0.6': {}
 
   '@types/validator@13.15.0': {}
 
@@ -3521,6 +3591,8 @@ snapshots:
 
   ignore@5.3.2: {}
 
+  immer@10.1.1: {}
+
   import-fresh@3.3.1:
     dependencies:
       parent-module: 1.0.1
@@ -3886,6 +3958,15 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
+  react-redux@9.2.0(@types/react@19.1.2)(react@19.1.0)(redux@5.0.1):
+    dependencies:
+      '@types/use-sync-external-store': 0.0.6
+      react: 19.1.0
+      use-sync-external-store: 1.5.0(react@19.1.0)
+    optionalDependencies:
+      '@types/react': 19.1.2
+      redux: 5.0.1
+
   react-refresh@0.17.0: {}
 
   react-router@7.5.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
@@ -3908,21 +3989,29 @@ snapshots:
 
   react@19.1.0: {}
 
-  reactflow@11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+  reactflow@11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
-      '@reactflow/background': 11.3.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@reactflow/controls': 11.2.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@reactflow/core': 11.11.4(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@reactflow/minimap': 11.7.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@reactflow/node-resizer': 2.2.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@reactflow/node-toolbar': 1.3.14(@types/react@19.1.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/background': 11.3.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/controls': 11.2.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/core': 11.11.4(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/minimap': 11.7.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/node-resizer': 2.2.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@reactflow/node-toolbar': 1.3.14(@types/react@19.1.2)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
 
+  redux-thunk@3.1.0(redux@5.0.1):
+    dependencies:
+      redux: 5.0.1
+
+  redux@5.0.1: {}
+
   reflect-metadata@0.1.13: {}
+
+  reselect@5.1.1: {}
 
   resolve-from@4.0.0: {}
 
@@ -4141,9 +4230,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zustand@4.5.6(@types/react@19.1.2)(react@19.1.0):
+  zustand@4.5.6(@types/react@19.1.2)(immer@10.1.1)(react@19.1.0):
     dependencies:
       use-sync-external-store: 1.5.0(react@19.1.0)
     optionalDependencies:
       '@types/react': 19.1.2
+      immer: 10.1.1
       react: 19.1.0
