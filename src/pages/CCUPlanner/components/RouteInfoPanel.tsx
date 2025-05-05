@@ -330,7 +330,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
                           type="number"
                           className="w-24 px-2 py-1 border border-gray-300 rounded text-right"
                           min="0"
-                          step="0.01"
+                          step="1"
                           // placeholder={(startShip.msrp / 100).toFixed(2)}
                           value={startShipPrices[completePath.startNodeId]}
                           onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
