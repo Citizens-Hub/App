@@ -154,13 +154,13 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
     <div className={`bg-gray-50 border-2 border-blue-400 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
-      <span className="text-sm absolute left-4 top-[160px] text-gray-600 -translate-y-1/2">升级自</span>
+      <span className="text-sm absolute left-[20px] top-[165px] text-gray-600 -translate-y-1/2">升级自</span>
 
       <div className="flex flex-col items-center">
         <img
           src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={ship.name}
-          className="w-full h-30 object-cover rounded-t-md mb-12"
+          className="w-full h-30 object-cover rounded-sm mb-12"
         />
 
         <h3 className="text-xl font-bold mb-1">{ship.name}</h3>
@@ -243,7 +243,7 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
         </div>
       )}
 
-      <span className="text-sm absolute right-4 top-[160px] text-gray-600 -translate-y-1/2">升级到</span>
+      <span className="text-sm absolute right-[20px] top-[165px] text-gray-600 -translate-y-1/2">升级到</span>
 
       <Handle type="source" position={Position.Right} style={{ width: 15, height: 15, right: -8 }} />
     </div>
