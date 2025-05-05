@@ -19,7 +19,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -36,9 +36,10 @@ const edgeTypes: EdgeTypes = {
 
 interface CcuCanvasProps {
   ships: Ship[];
+  ccus: Ccu[];
 }
 
-export default function CcuCanvas({ ships }: CcuCanvasProps) {
+export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -134,11 +135,16 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
       setEdges(edges => {
         return edges.map(edge => {
           if (edge.source === sourceId && edge.target === targetId) {
+            // 确保保留原始msrp差价，以便在显示时能够正确对比价格
+            const originalPrice = edge.data?.price;
+            
             return {
               ...edge,
               data: {
                 ...(edge.data as CcuEdgeData),
-                ...newData
+                ...newData,
+                // 保留原始价格差，除非明确要求修改
+                price: newData.price !== undefined ? newData.price : originalPrice
               }
             };
           }
@@ -185,13 +191,14 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
           ship,
           onUpdateEdge: updateEdgeData,
           onDeleteNode: handleDeleteNode,
-          onDuplicateNode: handleDuplicateNode
+          onDuplicateNode: handleDuplicateNode,
+          ccus
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, updateEdgeData, handleDeleteNode]
+    [setNodes, updateEdgeData, handleDeleteNode, ccus]
   );
 
   // 更新节点，向其传递传入的边缘信息
@@ -209,12 +216,13 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
             onUpdateEdge: updateEdgeData,
             onDeleteNode: handleDeleteNode,
             onDuplicateNode: handleDuplicateNode,
-            id: node.id
+            id: node.id,
+            ccus
           }
         };
       });
     });
-  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus]);
 
   // 处理拖放事件
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -363,13 +371,14 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
           ship,
           onUpdateEdge: updateEdgeData,
           onDeleteNode: handleDeleteNode,
-          onDuplicateNode: handleDuplicateNode
+          onDuplicateNode: handleDuplicateNode,
+          ccus
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, importFlowData]);
+  }, [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, importFlowData, ccus]);
 
   // 处理舰船拖动开始
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {

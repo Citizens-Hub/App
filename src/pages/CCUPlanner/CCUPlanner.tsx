@@ -5,7 +5,7 @@ import NewsModal from './components/NewsModal'
 import { useEffect } from 'react'
 
 export default function CCUPlanner() {
-  const { ships, loading, showNewsModal, closeNewsModal } = useResourceData()
+  const { ships, ccus, loading, showNewsModal, closeNewsModal } = useResourceData()
 
   useEffect(() => {
     document.title = 'CCU Planner'
@@ -28,7 +28,7 @@ export default function CCUPlanner() {
       </div>
       
       <div className="flex-1 relative">
-        <CcuCanvas ships={ships} />
+        <CcuCanvas ships={ships} ccus={ccus} />
       </div>
 
       {/* 新闻弹窗 */}

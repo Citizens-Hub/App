@@ -34,7 +34,7 @@ export default function CcuEdge({
   let priceToShow = data.price || 0;
   let currency = 'USD';
   
-  if (sourceType === CcuSourceType.OFFICIAL_WB && data.customPrice !== undefined) {
+  if ((sourceType === CcuSourceType.OFFICIAL_WB || sourceType === CcuSourceType.AVAILABLE_WB) && data.customPrice !== undefined) {
     priceToShow = data.customPrice;
   } else if (sourceType === CcuSourceType.THIRD_PARTY && data.customPrice !== undefined) {
     priceToShow = data.customPrice;
@@ -45,7 +45,7 @@ export default function CcuEdge({
   let edgeColor = 'stroke-blue-500';
   let bgColor = 'bg-blue-700';
   
-  if (sourceType === CcuSourceType.OFFICIAL_WB) {
+  if (sourceType === CcuSourceType.OFFICIAL_WB || sourceType === CcuSourceType.AVAILABLE_WB) {
     edgeColor = 'stroke-green-500';
     bgColor = 'bg-green-700';
   } else if (sourceType === CcuSourceType.THIRD_PARTY) {
@@ -72,11 +72,16 @@ export default function CcuEdge({
           className={`${bgColor} text-white px-2 py-1 rounded-md shadow-md text-sm`}
         >
           {sourceType && <span className="text-xs mr-1">{sourceType}</span>}
-          +{currency === 'USD' 
-            ? sourceType === CcuSourceType.OFFICIAL
-              ? (priceToShow / 100).toLocaleString('en-US', { style: 'currency', currency })
-              : priceToShow.toLocaleString('en-US', { style: 'currency', currency })
-            : priceToShow.toLocaleString('zh-CN', { style: 'currency', currency })}
+          +{(() => {
+            switch (true) {
+              case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
+                return (priceToShow / 100).toLocaleString('en-US', { style: 'currency', currency });
+              case currency === 'USD':
+                return priceToShow.toLocaleString('en-US', { style: 'currency', currency });
+              default:
+                return priceToShow.toLocaleString('zh-CN', { style: 'currency', currency });
+            }
+          })()}
         </div>
       </EdgeLabelRenderer>
     </>

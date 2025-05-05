@@ -76,6 +76,9 @@ export default function RouteInfoPanel({
     if (sourceType === CcuSourceType.OFFICIAL) {
       usdPrice = edge.data.price / 100;
       cnyPrice = 0;
+    } else if (sourceType === CcuSourceType.AVAILABLE_WB) {
+      usdPrice = edge.data.customPrice || edge.data.price / 100;
+      cnyPrice = 0;
     } else if (sourceType === CcuSourceType.OFFICIAL_WB) {
       usdPrice = edge.data.customPrice || edge.data.price / 100;
       cnyPrice = 0;
@@ -376,7 +379,7 @@ export default function RouteInfoPanel({
                               <span className="text-black">{sourceType}</span> 升级
                             </span>
 
-                            {sourceType !== CcuSourceType.THIRD_PARTY ? (
+                            {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
                               <span className="text-gray-600">
                                 价格: <span className="text-black">${usdPrice.toFixed(2)}</span>
                               </span>

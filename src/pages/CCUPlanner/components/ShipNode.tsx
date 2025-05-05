@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
-import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy } from 'lucide-react';
 
@@ -12,6 +12,7 @@ interface ShipNodeProps {
     onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
+    ccus: Ccu[];
   };
   xPos: number;
   yPos: number;
@@ -20,8 +21,15 @@ interface ShipNodeProps {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteNode, onDuplicateNode, incomingEdges = [] } = data;
+  const { ship, onUpdateEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus } = data;
   const [isEditing, setIsEditing] = useState(false);
+
+  const skus = ccus.find(c => c.id === ship.id)?.skus
+  const wb = skus?.find(sku => sku.price !== ship.msrp)
+
+  // useEffect(() => {
+  //   console.log("skus>>>>>>>>>", skus)
+  // }, [skus])
 
   // 为每个传入的边缘设置状态
   const [edgeSettings, setEdgeSettings] = useState<{
@@ -224,14 +232,40 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   className="w-full text-sm z-50"
                   size="small"
                   native
-                  value={edgeSettings[edge.id]?.sourceType || (edge.data?.sourceType || CcuSourceType.OFFICIAL)}
+                  value={edgeSettings[edge.id]?.sourceType}
                   onChange={(e) => {
-                    handleSourceTypeChange(edge.id, e.target.value as CcuSourceType);
+                    const selectedValue = e.target.value as string;
+                    
+                    // 检查是否为AVAILABLE_WB_格式的值
+                    if (selectedValue === CcuSourceType.AVAILABLE_WB) {
+                      if (wb) {
+                        // 计算实际升级花费
+                        const sourceShip = edge.data?.sourceShip;
+                        if (sourceShip) {
+                          // 目标船WB价格
+                          const targetWbPrice = wb.price / 100;
+                          // 源船官方价格
+                          const sourceShipPrice = sourceShip.msrp / 100; 
+                          // 实际花费是WB价格减去源船价格
+                          const actualPrice = targetWbPrice - sourceShipPrice;
+                          // 保存为正数
+                          handleCustomPriceChange(edge.id, Math.max(0, actualPrice));
+                        } else {
+                          handleCustomPriceChange(edge.id, wb.price / 100);
+                        }
+                      }
+                    }
+                    handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
                 >
                   <option value={CcuSourceType.OFFICIAL}>官方</option>
-                  <option value={CcuSourceType.OFFICIAL_WB}>官方WB</option>
-                  <option value={CcuSourceType.THIRD_PARTY}>第三方</option>
+                  {wb && Number(edge?.data?.sourceShip?.msrp) < wb.price && (
+                    <option value={CcuSourceType.AVAILABLE_WB}>
+                      WB: {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </option>
+                  )}
+                  <option value={CcuSourceType.OFFICIAL_WB}>手动: 官方WB CCU</option>
+                  <option value={CcuSourceType.THIRD_PARTY}>手动: 第三方CCU</option>
                 </Select>
               </div>
 
