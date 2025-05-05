@@ -3,6 +3,7 @@ import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Tooltip } from '@mui/material';
 import { InfoOutlined } from '@mui/icons-material';
+import { FormattedMessage } from 'react-intl';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -268,19 +269,29 @@ export default function RouteInfoPanel({
           className="mb-2 m-auto"
         />
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg text-center">
-          <span className='text-black'>舰船价值：</span>{(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+          <span className='text-black'>
+            <FormattedMessage id="routeInfoPanel.shipValue" defaultMessage="Ship Value:" />
+          </span>
+          {(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
         </div>
       </div>
 
       <div className="mb-4">
         <div className="text-lg text-left">
-          排序设置
+          <FormattedMessage id="routeInfoPanel.sortingSettings" defaultMessage="Sorting Settings" />
         </div>
         <div className="flex flex-col gap-2 mt-2">
           <div className="flex items-center justify-between">
             <label htmlFor="conciergeValue" className="text-sm text-gray-600 flex items-center gap-1">
-              消费额价值
-              <Tooltip arrow title={<span style={{ fontSize: '14px' }}>在这里填写你获取1美元消费额的成本是多少美元, 如果你不在意消费额则填0, 升级的实际花销按照消费美元+消费人民币*汇率*(1+消费额换算比例),即花销为总花费换算为美元后再加上'购买'没有从官方购买获得的消费额的费用</span>}>
+              <FormattedMessage id="routeInfoPanel.conciergeValue" defaultMessage="Concierge Value" />
+              <Tooltip arrow title={
+                <span style={{ fontSize: '14px' }}>
+                  <FormattedMessage 
+                    id="routeInfoPanel.conciergeTooltip" 
+                    defaultMessage="Fill in how many dollars it costs you to get $1 of concierge value. If you don't care about concierge value, enter 0. The actual cost of upgrading is calculated as dollars spent + RMB spent * exchange rate * (1 + concierge conversion ratio)" 
+                  />
+                </span>
+              }>
                 <InfoOutlined sx={{ fontSize: 14 }} />
               </Tooltip>
             </label>
@@ -299,14 +310,23 @@ export default function RouteInfoPanel({
       </div>
 
       <h4 className="text-lg font-bold mb-2 bg-gray-100 py-1 flex justify-center items-center gap-2">
-        备选升级路线
-        <Tooltip arrow title={<span style={{ fontSize: '14px' }}>升级路径经过剪枝以确保能在有意义时间内完成计算, 只保证第一条路径为花费最优路径, 不保证存在不存在优于第二条（及以后）路径的路径</span>}>
+        <FormattedMessage id="routeInfoPanel.title" defaultMessage="Alternative Upgrade Routes" />
+        <Tooltip arrow title={
+          <span style={{ fontSize: '14px' }}>
+            <FormattedMessage 
+              id="routeInfoPanel.routesTooltip" 
+              defaultMessage="The upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown" 
+            />
+          </span>
+        }>
           <InfoOutlined sx={{ fontSize: 14 }} />
         </Tooltip>
       </h4>
 
       {completePaths.length === 0 ? (
-        <p className="text-gray-400">没有找到可用的升级路线</p>
+        <p className="text-gray-400">
+          <FormattedMessage id="routeInfoPanel.noRoutes" defaultMessage="No available upgrade routes found" />
+        </p>
       ) : (
         <div className="space-y-6">
           {completePaths.sort((a, b) => {
@@ -319,7 +339,14 @@ export default function RouteInfoPanel({
               <div key={pathIndex}>
                 <div className="mt-3">
                   <h5 className="font-medium mb-2 pb-1">
-                    路线 {pathIndex + 1}: {completePath.path.length} 个节点
+                    <FormattedMessage 
+                      id="routeInfoPanel.routeNumber" 
+                      defaultMessage="Route {number}: {nodes} nodes" 
+                      values={{
+                        number: pathIndex + 1,
+                        nodes: completePath.path.length
+                      }}
+                    />
                   </h5>
                   
                   {/* 起点船价格设置 */}
@@ -335,7 +362,7 @@ export default function RouteInfoPanel({
                       </div>
                       <div className="flex items-center justify-between">
                         <label className="text-sm text-gray-600">
-                          起点船价格 ($)
+                          <FormattedMessage id="routeInfoPanel.startShipPrice" defaultMessage="Start Ship Price ($)" />
                         </label>
                         <Input
                           type="number"
@@ -363,12 +390,16 @@ export default function RouteInfoPanel({
                                 className="w-8 h-8 rounded object-cover"
                               />
                               <span className="text-gray-400">
-                                从 <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                                <FormattedMessage id="routeInfoPanel.from" defaultMessage="From" />
+                                {' '}
+                                <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
                               </span>
                             </div>
                             <div className='flex gap-4'>
                               <span className="text-gray-400">
-                                到 <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
+                                <FormattedMessage id="routeInfoPanel.to" defaultMessage="To" />
+                                {' '}
+                                <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
                               </span>
                               <img
                                 src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
@@ -380,16 +411,34 @@ export default function RouteInfoPanel({
 
                           <div className="flex justify-between">
                             <span className="text-gray-600">
-                              <span className="text-black">{sourceType}</span> 升级
+                              <span className="text-black">{
+                                (() => {
+                                  switch (sourceType) {
+                                    case CcuSourceType.OFFICIAL:
+                                      return <FormattedMessage id="routeInfoPanel.official" defaultMessage="Official" />
+                                    case CcuSourceType.AVAILABLE_WB:
+                                      return <FormattedMessage id="routeInfoPanel.availableWB" defaultMessage="WB" />
+                                    case CcuSourceType.THIRD_PARTY:
+                                      return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
+                                    case CcuSourceType.HANGER:
+                                      return <FormattedMessage id="routeInfoPanel.hanger" defaultMessage="Hanger" />
+                                    case CcuSourceType.OFFICIAL_WB:
+                                      return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
+                                  }
+                                })()
+                              }</span>{' '}
+                              <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />
                             </span>
 
                             {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
                               <span className="text-gray-600">
-                                价格: <span className="text-black">${usdPrice.toFixed(2)}</span>
+                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
+                                <span className="text-black">${usdPrice.toFixed(2)}</span>
                               </span>
                             ) : (
                               <span className="text-gray-600">
-                                价格: <span className="text-black">￥{cnyPrice.toFixed(2)}</span>
+                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
+                                <span className="text-black">￥{cnyPrice.toFixed(2)}</span>
                               </span>
                             )}
                           </div>
@@ -404,7 +453,9 @@ export default function RouteInfoPanel({
                   <div className="flex flex-col gap-2 px-2">
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
-                        <span className="text-black">花费: </span>
+                        <span className="text-black">
+                          <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />: 
+                        </span>
                         <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                       </div>
                       <div className="text-sm">
@@ -413,7 +464,9 @@ export default function RouteInfoPanel({
                     </div>
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
-                        <span className="text-black">合计: </span>
+                        <span className="text-black">
+                          <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />: 
+                        </span>
                         <span className="text-blue-400">
                           {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                           {conciergeValue !== "0" && " + "}

@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import { FormattedMessage } from 'react-intl';
 
 interface ExtensionModalProps {
   open: boolean;
@@ -29,7 +30,7 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
         pb: 1
       }}>
         <Typography variant="h5" component="h2" fontWeight="bold">
-          安装扩展程序说明
+          <FormattedMessage id="extensionModal.title" defaultMessage="Install Extension Instructions" />
         </Typography>
         <IconButton onClick={onClose} size="large">
           <Close />
@@ -39,22 +40,40 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" component="p">
-            由于扩展程序尚未上架 Chrome 商店，需要手动安装：
+            <FormattedMessage id="extensionModal.description" defaultMessage="Since the extension is not yet on the Chrome Store, it needs to be installed manually:" />
           </Typography>
           
           <Typography component="div" sx={{ mb: 2, mt: 2 }}>
             <ol style={{ paddingLeft: '1.5rem' }}>
-              <li style={{ marginBottom: '0.5rem' }}>下载并解压扩展程序文件</li>
-              <li style={{ marginBottom: '0.5rem' }}>打开 Chrome 浏览器，在地址栏输入 <code>chrome://extensions/</code></li>
-              <li style={{ marginBottom: '0.5rem' }}>在右上角开启"开发者模式"</li>
-              <li style={{ marginBottom: '0.5rem' }}>点击"加载已解压的扩展程序"按钮</li>
-              <li style={{ marginBottom: '0.5rem' }}>选择刚才解压的文件夹</li>
-              <li>完成安装后，刷新本页面即可使用扩展功能</li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <FormattedMessage id="extensionModal.step1" defaultMessage="Download and extract the extension files" />
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <FormattedMessage id="extensionModal.step2" defaultMessage="Open Chrome browser and enter chrome://extensions/ in the address bar" />
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <FormattedMessage 
+                  id="extensionModal.step3" 
+                  defaultMessage='Enable "Developer mode" in the top right corner' 
+                />
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <FormattedMessage 
+                  id="extensionModal.step4" 
+                  defaultMessage='Click "Load unpacked extension" button' 
+                />
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <FormattedMessage id="extensionModal.step5" defaultMessage="Select the folder you just extracted" />
+              </li>
+              <li>
+                <FormattedMessage id="extensionModal.step6" defaultMessage="After installation, refresh this page to use the extension" />
+              </li>
             </ol>
           </Typography>
           
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            注意：扩展程序仅用于从您的RSI账户中读取升级信息，不会收集任何个人数据。
+            <FormattedMessage id="extensionModal.note" defaultMessage="Note: The extension is only used to read upgrade information from your RSI account and does not collect any personal data." />
           </Typography>
         </Box>
 
@@ -65,7 +84,7 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
             onClick={onClose}
             size="large"
           >
-            了解了
+            <FormattedMessage id="extensionModal.understood" defaultMessage="Got it" />
           </Button>
         </Box>
       </DialogContent>

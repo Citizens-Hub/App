@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Ccu, Ship } from '../../../types';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -10,7 +11,7 @@ interface ShipSelectorProps {
 export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
-
+  const intl = useIntl();
   // 当搜索词或舰船列表变化时过滤舰船，并将有WB的船排在前面
   useEffect(() => {
     let filtered = ships;
@@ -36,12 +37,14 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
   return (
     <div className="h-[calc(100vh-113px)] overflow-y-auto">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <h2 className="text-xl font-bold px-2 pt-2">可用舰船</h2>
+        <h2 className="text-xl font-bold px-2 pt-2">
+          <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="可用舰船" />
+        </h2>
 
         <div className="p-2 pb-4">
           <input
             type="text"
-            placeholder="搜索舰船..."
+            placeholder={intl.formatMessage({ id: 'ccuPlanner.searchPlaceholder', defaultMessage: '搜索舰船...' })}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-700 rounded-md px-3 py-2 w-full"

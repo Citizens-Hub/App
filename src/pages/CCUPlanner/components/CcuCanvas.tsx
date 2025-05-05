@@ -18,6 +18,7 @@ import ReactFlow, {
   XYPosition,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { useIntl } from 'react-intl';
 
 import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
 import ShipNode from './ShipNode';
@@ -44,6 +45,7 @@ interface CcuCanvasProps {
 }
 
 export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
+  const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -93,7 +95,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           // console.warn('CCU只能从低价船升级到高价船');
           setAlert({
             open: true,
-            message: 'CCU只能从低价船升级到高价船',
+            message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU只能从低价船升级到高价船' }),
             type: 'warning'
           })
           return;
@@ -133,7 +135,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           // console.warn('已经存在从源舰船到目标舰船的路径，不创建重复连接');
           setAlert({
             open: true,
-            message: '已经存在从源舰船到目标舰船的路径，不创建重复连接',
+            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: '已经存在从源舰船到目标舰船的路径，不创建重复连接' }),
             type: 'warning'
           })
           return;
@@ -190,7 +192,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, upgrades, setEdges, edges, ccus]
+    [nodes, upgrades, setEdges, edges, ccus, intl]
   );
 
   // 更新边缘数据
@@ -357,12 +359,15 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
       console.error('导入JSON文件时出错:', error);
       setAlert({
         open: true,
-        message: `导入失败: ${(error as Error).message || '无效的JSON格式'}`,
+        message: intl.formatMessage(
+          { id: 'ccuPlanner.error.importFailed', defaultMessage: '导入失败: {errorMessage}' },
+          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: '无效的JSON格式' }) }
+        ),
         type: 'error'
       });
       return false;
     }
-  }, [ships, setNodes, setEdges, reactFlowInstance]);
+  }, [ships, setNodes, setEdges, reactFlowInstance, intl]);
 
   // 处理文件导入（通过按钮）
   const handleImport = useCallback(() => {
@@ -478,10 +483,10 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
     setAlert({
       open: true,
-      message: 'CCU 升级路径已保存！',
+      message: intl.formatMessage({ id: 'ccuPlanner.success.saved', defaultMessage: 'CCU 升级路径已保存！' }),
       type: 'success'
     });
-  }, [nodes, edges, startShipPrices]);
+  }, [nodes, edges, startShipPrices, intl]);
 
   // 导出为Json
   const handleExport = useCallback(() => {

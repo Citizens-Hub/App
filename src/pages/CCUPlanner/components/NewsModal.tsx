@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box, Link } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import { FormattedMessage } from 'react-intl';
 
 interface NewsModalProps {
   open: boolean;
@@ -29,7 +30,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         pb: 1
       }}>
         <Typography variant="h5" component="h2" fontWeight="bold">
-          Hello
+          <FormattedMessage id="newsModal.title" defaultMessage="Hello" />
         </Typography>
         <IconButton onClick={onClose} size="large">
           <Close />
@@ -39,22 +40,22 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            欢迎使用星际公民升级规划工具
+            <FormattedMessage id="newsModal.welcome" defaultMessage="欢迎使用星际公民升级规划工具" />
           </Typography>
           <Typography component="p">
-            本工具还处在开发阶段，如果发现bug可以联系我
+            <FormattedMessage id="newsModal.developmentStage" defaultMessage="本工具还处在开发阶段，如果发现bug可以联系我" />
           </Typography>
           <Typography component="p">
-            QQ群：1045858475
+            <FormattedMessage id="newsModal.contact" defaultMessage="QQ群：1045858475" />
           </Typography>
           <Typography component="p">
-            本工具的数据来源于手工收集，如有疏漏请联系我修改
+            <FormattedMessage id="newsModal.dataSource" defaultMessage="本工具的数据来源于手工收集，如有疏漏请联系我修改" />
           </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            本人邀请链接
+            <FormattedMessage id="newsModal.referralLinkTitle" defaultMessage="本人邀请链接" />
           </Typography>
           <Link href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" rel="noopener noreferrer">
             https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH
@@ -76,7 +77,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             onClick={onClose}
             size="large"
           >
-            了解了
+            <FormattedMessage id="newsModal.understood" defaultMessage="了解了" />
           </Button>
         </Box>
       </DialogContent>

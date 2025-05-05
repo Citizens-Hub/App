@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 // 导入自定义Hook
 import useResourceData from './hooks/useResourceData';
@@ -31,6 +32,8 @@ import { useEffect } from 'react';
 // import Navigation from '../../components/Navigation';
 
 export default function ResourcesTable() {
+  const intl = useIntl();
+  
   // 加载资源数据
   const { resources, loading, error, exchangeRate } = useResourceData();
   
@@ -48,8 +51,8 @@ export default function ResourcesTable() {
   } = useSearch(resources);
 
   useEffect(() => {
-    document.title = '商店预览'
-  }, [])
+    document.title = intl.formatMessage({ id: 'app.title', defaultMessage: '商店预览' });
+  }, [intl]);
   
   // 幻灯片逻辑
   const { slideshowIndices, handlePrevSlide, handleNextSlide } = useSlideshow(
@@ -65,12 +68,12 @@ export default function ResourcesTable() {
   const { run, steps, stepIndex, locale, handleJoyrideCallback } = useJoyride();
 
   if (loading) {
-    return <Typography>加载中...</Typography>;
+    return <Typography><FormattedMessage id="loading" defaultMessage="加载中..." /></Typography>;
   }
 
   const allowedHosts = ['sc-sub.pages.dev', 'localhost', 'sc.oxdl.cn'];
   if (!allowedHosts.includes(window.location.hostname)) {
-    return <Typography color="error">加载资源失败</Typography>;
+    return <Typography color="error"><FormattedMessage id="error.loading" defaultMessage="加载资源失败" /></Typography>;
   }
 
   if (error) {
@@ -106,16 +109,16 @@ export default function ResourcesTable() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }} className="app-header">
         <div className='flex flex-row items-center gap-4'>
           <Typography variant={isMobile ? "h6" : "h5"}>
-            当前订阅商店商品列表
+            <FormattedMessage id="app.title" defaultMessage="商店预览" />
           </Typography>
           <Link to="/ccu-planner">
             <Button variant="text" color="primary">
-              升级路线规划器
+              <FormattedMessage id="navigation.ccuPlanner" defaultMessage="升级路线规划器" />
             </Button>
           </Link>
         </div>
         {!isMobile && (
-          <Tooltip title="查看清单">
+          <Tooltip title={intl.formatMessage({ id: 'cart.view', defaultMessage: '查看清单' })}>
             <div className='p-2 pb-0 cart-button'>
               <IconButton onClick={openCart} color="primary">
                 <Badge badgeContent={cart.length} color="secondary">
@@ -131,7 +134,7 @@ export default function ResourcesTable() {
         <TextField  
           fullWidth
           variant="outlined"
-          placeholder="搜索商品名称..."
+          placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: '搜索商品名称...' })}
           value={searchTerm}
           onChange={handleSearchChange}
           slotProps={{
@@ -182,8 +185,8 @@ export default function ResourcesTable() {
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage={isMobile ? "每页:" : "每页行数:"}
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / 共${count}项`}
+          labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
         />
       )}
 

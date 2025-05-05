@@ -1,5 +1,6 @@
 import { EdgeProps, EdgeLabelRenderer, getBezierPath } from 'reactflow';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
+import { useIntl } from 'react-intl';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -17,6 +18,8 @@ export default function CcuEdge({
   style = {},
   markerEnd,
 }: CcuEdgeProps) {
+  const intl = useIntl();
+  
   if (!data) return null;
 
   const [edgePath, labelX, labelY] = getBezierPath({
@@ -62,6 +65,24 @@ export default function CcuEdge({
     bgColor = 'bg-cyan-500';
   }
 
+  // 根据sourceType获取本地化显示名称
+  const getSourceTypeDisplay = (type: CcuSourceType) => {
+    switch (type) {
+      case CcuSourceType.OFFICIAL:
+        return intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" });
+      case CcuSourceType.OFFICIAL_WB:
+        return intl.formatMessage({ id: "shipNode.manualOfficialWB", defaultMessage: "Manual: Official WB CCU" });
+      case CcuSourceType.THIRD_PARTY:
+        return intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" });
+      case CcuSourceType.AVAILABLE_WB:
+        return intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" });
+      case CcuSourceType.HANGER:
+        return intl.formatMessage({ id: "shipNode.hanger", defaultMessage: "Hanger" });
+      default:
+        return type;
+    }
+  };
+
   return (
     <>
       <path
@@ -80,7 +101,7 @@ export default function CcuEdge({
           }}
           className={`${bgColor} text-white px-2 py-1 rounded-md shadow-md text-sm`}
         >
-          {sourceType && <span className="text-xs mr-1">{sourceType}</span>}
+          {sourceType && <span className="text-xs mr-1">{getSourceTypeDisplay(sourceType)}</span>}
           +{(() => {
             switch (true) {
               case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { clearUpgrades, RootState } from "../../../store";
 import { ExpandLess, ExpandMore, Refresh } from "@mui/icons-material";
 import ExtensionModal from "./ExtensionModal";
+import { FormattedMessage, useIntl } from "react-intl";
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -17,6 +18,7 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const intl = useIntl();
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
   const dispatch = useDispatch();
 
@@ -39,7 +41,7 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
   return (
     <>
       <div className="flex items-center justify-left gap-2 px-1">
-        我的机库
+        <FormattedMessage id="ccuPlanner.myHanger" defaultMessage="我的机库" />
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>
@@ -122,9 +124,9 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
                 </div>
 
                 <div className="text-xs text-gray-400 flex items-center justify-between w-full px-3">
-                  <span>↓ 升级到</span>
+                  <span>↓ <FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="升级到" /></span>
                   <span className="flex items-center gap-1">
-                    花费
+                    <FormattedMessage id="ccuPlanner.cost" defaultMessage="花费" />
                     <span className="text-blue-400 font-bold">{upgrade.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                     {((toShip.msrp - fromShip.msrp) / 100) !== upgrade.value &&
                       <span className="text-xs text-gray-400 line-through">{((toShip.msrp - fromShip.msrp) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
@@ -158,7 +160,7 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
             })
             :
             <div className="text-center text-gray-400 mb-2">
-              暂无数据 <Link href="/extension.zip" onClick={handleExtensionLinkClick}>下载浏览器扩展程序</Link>
+              <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" /> <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
             </div>
         )}
       </div>

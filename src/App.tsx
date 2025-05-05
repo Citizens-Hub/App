@@ -6,6 +6,8 @@ import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 import { useDispatch } from 'react-redux'
 import { addUpgrade } from './store'
 import Privacy from './pages/Privacy/Privacy'
+import { FormattedMessage } from 'react-intl'
+import LanguageSwitcher from './components/LanguageSwitcher'
 
 // 为window对象添加SCTranslateApi类型定义
 declare global {
@@ -95,28 +97,6 @@ function App() {
 
     window.addEventListener('message', handleMessage);
 
-    // window.postMessage({
-    //   type: 'ccuPlannerAppIntegrationRequest',
-    //   message: {
-    //     type: "connect",
-    //     requestId: 1
-    //   }
-    // }, '*');
-
-    // window.postMessage({
-    //   type: 'ccuPlannerAppIntegrationRequest',
-    //   message: {
-    //     type: "httpRequest",
-    //     request: {
-    //       "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&product-type=upgrade",
-    //       "responseType": "text",
-    //       "method": "get",
-    //       "data": null
-    //     },
-    //     requestId: 2
-    //   }
-    // }, '*');
-
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
@@ -138,26 +118,33 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
-        <Box sx={{
-          position: 'fixed',
-          top: 20,
-          right: 20,
-          zIndex: 1000,
-          backgroundColor: 'white',
-          borderRadius: '5px',
-          boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.1)',
-        }}>
+      <Box sx={{
+        position: 'fixed',
+        top: 20,
+        right: 20,
+        zIndex: 1000,
+        display: 'flex',
+      }}>
+        <LanguageSwitcher />
+        {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
             onClick={toggleTranslate}
             size="small"
+            sx={{ ml:1, bgcolor: 'white' }}
             className="flex items-center gap-2"
           >
-            <img src="/scbox.png" className="w-4 h-4" /><span>{translateApiAvailable === SCBoxTranslateStatus.Available ? '翻译' : '显示原文'}</span>
+            <img src="/scbox.png" className="w-4 h-4" />
+            <span>
+              {translateApiAvailable === SCBoxTranslateStatus.Available ? (
+                <FormattedMessage id="app.translate" defaultMessage="翻译" />
+              ) : (
+                <FormattedMessage id="app.showOriginal" defaultMessage="显示原文" />
+              )}
+            </span>
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<ResourcesTable />} />
