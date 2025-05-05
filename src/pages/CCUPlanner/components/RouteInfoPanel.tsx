@@ -115,7 +115,7 @@ export default function RouteInfoPanel({
     nodeBestCostRef.current[startNode.id] = totalCost;
 
     // 如果达到目标节点，添加当前路径到所有路径
-    if (startNode.id === endNodeId) {
+    if (startNode.id.split('-')[1] === endNodeId.split('-')[1]) {
       allPaths.push([...currentPath]);
     } else {
       // 查找所有从当前节点出发的边
