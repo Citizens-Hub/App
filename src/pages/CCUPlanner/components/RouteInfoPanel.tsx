@@ -53,6 +53,7 @@ export default function RouteInfoPanel({ selectedNode, edges, nodes, onClose }: 
     });
     
     setStartShipPrices(initialPrices);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, findStartNodes]);
 
   // 根据不同的来源类型获取价格与币种

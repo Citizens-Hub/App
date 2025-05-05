@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
-import { Button } from '@mui/material';
+import { Button, Input, Select } from '@mui/material';
 
 interface ShipNodeProps {
   data: {
@@ -151,10 +151,10 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
   };
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500' : ''}`}>
+    <div className={`bg-gray-50 border-2 border-blue-400 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
-      <span className="text-sm text-gray-300 absolute left-4 top-[160px] -translate-y-1/2">升级自</span>
+      <span className="text-sm absolute left-4 top-[160px] text-gray-600 -translate-y-1/2">升级自</span>
 
       <div className="flex flex-col items-center">
         <img
@@ -163,14 +163,14 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
           className="w-full h-30 object-cover rounded-t-md mb-12"
         />
 
-        <h3 className="text-xl font-bold text-white mb-1">{ship.name}</h3>
+        <h3 className="text-xl font-bold mb-1">{ship.name}</h3>
 
-        <div className="text-sm text-gray-300 mb-2">
+        <div className="text-sm text-gray-600 mb-2">
           <span className="font-medium">{ship.manufacturer.name}</span> ·
           <span className="ml-1">{ship.type}</span>
         </div>
 
-        <div className="text-blue-200 font-bold py-1 px-3 rounded text-lg">
+        <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg">
           {(ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
         </div>
 
@@ -196,40 +196,42 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
 
       {/* 编辑界面 */}
       {isEditing && incomingEdges.length > 0 && (
-        <div className="mt-4 border-t border-gray-700 pt-4">
-          <h4 className="text-white font-bold mb-2">升级路线设置</h4>
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <h4 className="font-bold mb-2">升级路线设置</h4>
 
           {incomingEdges.map(edge => (
-            <div key={edge.id} className="mb-3 p-2 bg-gray-700 rounded">
-              <div className="text-sm text-gray-300 mb-1">
-                从 <span className="text-white">{edge.data?.sourceShip?.name || '未知船只'}</span>
+            <div key={edge.id} className="mb-3 p-2 rounded">
+              <div className="text-sm text-black mb-1 flex flex-row items-center justify-between">
+                <span className="text-sm text-gray-600">选择CCU来源:</span>
+                <span>{edge.data?.sourceShip?.name || '未知船只'}</span>
               </div>
 
               <div className="mb-2">
-                <label className="text-sm text-gray-300 block mb-1">选择来源:</label>
-                <select
-                  className="bg-gray-800 text-white border border-gray-600 rounded px-2 py-1 w-full text-sm"
+                <Select
+                  className="w-full text-sm z-50"
+                  size="small"
+                  native
                   value={edgeSettings[edge.id]?.sourceType || (edge.data?.sourceType || CcuSourceType.OFFICIAL)}
                   onChange={(e) => {
                     handleSourceTypeChange(edge.id, e.target.value as CcuSourceType);
                   }}
                 >
-                  <option value={CcuSourceType.OFFICIAL}>{CcuSourceType.OFFICIAL}</option>
-                  <option value={CcuSourceType.OFFICIAL_WB}>{CcuSourceType.OFFICIAL_WB}</option>
-                  <option value={CcuSourceType.THIRD_PARTY}>{CcuSourceType.THIRD_PARTY}</option>
-                </select>
+                  <option value={CcuSourceType.OFFICIAL}>官方</option>
+                  <option value={CcuSourceType.OFFICIAL_WB}>官方WB</option>
+                  <option value={CcuSourceType.THIRD_PARTY}>第三方</option>
+                </Select>
               </div>
 
               {/* 当选择官方WB或第三方时，显示价格输入 */}
               {(edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
                 edgeSettings[edge.id]?.sourceType === CcuSourceType.THIRD_PARTY) && (
                   <div className="mb-2">
-                    <label className="text-sm text-gray-300 block mb-1">
+                    <label className="text-sm text-gray-600 block mb-1 text-left">
                       {edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ? '价格 (USD)' : '价格 (CNY)'}:
                     </label>
-                    <input
+                    <Input
                       type="number"
-                      className="bg-gray-800 text-white border border-gray-600 rounded px-2 py-1 w-full text-sm"
+                      className="text-sm w-full"
                       value={edgeSettings[edge.id]?.customPrice ?? edge.data?.customPrice ?? ''}
                       onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
                       placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ? '美元' : '人民币'}
@@ -241,7 +243,7 @@ export default function ShipNode({ data, id, selected }: ShipNodeProps) {
         </div>
       )}
 
-      <span className="text-sm text-gray-300 absolute right-4 top-[160px] -translate-y-1/2">升级到</span>
+      <span className="text-sm absolute right-4 top-[160px] text-gray-600 -translate-y-1/2">升级到</span>
 
       <Handle type="source" position={Position.Right} style={{ width: 15, height: 15, right: -8 }} />
     </div>
