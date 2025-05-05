@@ -517,7 +517,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
   return (
     <div className="h-full flex">
       <div className="w-[450px] border-r border-gray-200">
-        <ShipSelector ships={ships} onDragStart={onShipDragStart} />
+        <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
       </div>
       
       <div className="w-full h-full relative" ref={reactFlowWrapper}>
