@@ -69,6 +69,41 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
           return;
         }
         
+        // 检查是否已经有从源舰船到目标舰船的路径
+        const hasExistingPath = (
+          startNode: Node, 
+          endNodeId: string, 
+          visited = new Set<string>()
+        ): boolean => {
+          // 如果当前节点已访问过，返回false避免循环
+          if (visited.has(startNode.id)) return false;
+          
+          // 标记当前节点为已访问
+          visited.add(startNode.id);
+          
+          // 如果找到目标节点，返回true
+          if (startNode.id === endNodeId) return true;
+          
+          // 查找从当前节点出发的所有边
+          const outgoingEdges = edges.filter(edge => edge.source.split('-')[1] === startNode.id.split('-')[1]);
+          
+          // 对于每条出边，递归检查是否有路径
+          for (const edge of outgoingEdges) {
+            const nextNode = nodes.find(node => node.id === edge.target);
+            if (nextNode && hasExistingPath(nextNode, endNodeId, new Set(visited))) {
+              return true;
+            }
+          }
+          
+          return false;
+        };
+        
+        // 如果已经存在路径，则不创建新连接
+        if (hasExistingPath(sourceNode, targetNode.id)) {
+          console.warn('已经存在从源舰船到目标舰船的路径，不创建重复连接');
+          return;
+        }
+        
         const priceDifference = targetShip.msrp - sourceShip.msrp;
         
         // 创建自定义边缘
@@ -88,7 +123,7 @@ export default function CcuCanvas({ ships }: CcuCanvasProps) {
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, setEdges]
+    [nodes, edges, setEdges]
   );
 
   // 更新边缘数据

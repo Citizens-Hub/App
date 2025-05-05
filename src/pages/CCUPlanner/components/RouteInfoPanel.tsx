@@ -111,15 +111,18 @@ export default function RouteInfoPanel({
       return allPaths;
     }
     
-    // 更新当前节点的最低花费（使用ref而非setState）
+    // 更新当前节点的最低花费
     nodeBestCostRef.current[startNode.id] = totalCost;
 
     // 如果达到目标节点，添加当前路径到所有路径
     if (startNode.id === endNodeId) {
       allPaths.push([...currentPath]);
+      // console.log("pushing>>>>>>>>>>>>>", currentPath, currentUsdCost, currentCnyCost)
     } else {
       // 查找所有从当前节点出发的边
-      const outgoingEdges = edges.filter(edge => edge.source === startNode.id);
+      const outgoingEdges = edges.filter(edge => edge.data?.sourceShip?.id === startNode.data?.ship?.id);
+
+      console.log(startNode.data?.ship?.name, outgoingEdges)
 
       // 对于每条出边，递归查找路径
       for (const edge of outgoingEdges) {
@@ -172,7 +175,8 @@ export default function RouteInfoPanel({
       }
 
       for (let i = 0; i < pathId.length - 1; i++) {
-        const edge = edges.find(e => e.source === pathId[i] && e.target === pathId[i + 1]);
+        const edge = edges.find(e => e.source.split('-')[1] === pathId[i].split('-')[1] && e.target === pathId[i + 1]);
+
         if (edge) {
           const sourceNode = nodes.find(n => n.id === pathId[i])!;
           const targetNode = nodes.find(n => n.id === pathId[i + 1])!;
