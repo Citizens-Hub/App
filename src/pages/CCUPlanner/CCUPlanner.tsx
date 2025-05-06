@@ -10,7 +10,7 @@ export default function CCUPlanner() {
   const intl = useIntl()
 
   useEffect(() => {
-    document.title = intl.formatMessage({ id: 'ccuPlanner.title', defaultMessage: 'CCU Planner' })
+    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'ccuPlanner.title', defaultMessage: 'CCU Planner' })
   }, [intl])
   
   if (loading) return (

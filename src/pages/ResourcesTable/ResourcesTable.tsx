@@ -51,7 +51,7 @@ export default function ResourcesTable() {
   } = useSearch(resources);
 
   useEffect(() => {
-    document.title = intl.formatMessage({ id: 'app.title', defaultMessage: '商店预览' });
+    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'app.title', defaultMessage: '商店预览' });
   }, [intl]);
   
   // 幻灯片逻辑
