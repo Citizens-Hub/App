@@ -10,7 +10,7 @@ export default function useResourceData() {
   const [wbHistory, setWbHistory] = useState<WbHistoryData[]>([]);
 
   useEffect(() => {
-    const currentVersion = '1.0.0';
+    const currentVersion = '1.0.1';
     const lastVisitVersion = localStorage.getItem('ccuPlannerLastVisit');
     
     if (!lastVisitVersion || lastVisitVersion !== currentVersion) {
