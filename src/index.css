@@ -61,10 +61,6 @@ a:hover {
   -ms-overflow-style: none;
 }
 
-.react-flow__attribution {
-  display: none;
-}
-
 body {
   margin: 0;
   display: flex;
