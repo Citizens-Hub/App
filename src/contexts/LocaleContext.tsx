@@ -2,14 +2,15 @@ import { createContext, useState, useContext, ReactNode } from 'react';
 import { IntlProvider } from 'react-intl';
 import zhCNMessages from '../locales/zh-CN.json';
 import enUSMessages from '../locales/en-US.json';
-
+import jaJPMessages from '../locales/ja-JP.json';
 // 支持的语言
-export type Locale = 'zh-CN' | 'en-US';
+export type Locale = 'zh-CN' | 'en-US' | 'ja-JP';
 
 // 语言消息映射
 const messages: Record<Locale, Record<string, string>> = {
   'zh-CN': zhCNMessages,
   'en-US': enUSMessages,
+  'ja-JP': jaJPMessages,
 };
 
 // 语言上下文接口
@@ -35,6 +36,9 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
     // 检查浏览器语言是否为支持的语言之一
     if (browserLang.startsWith('zh')) {
       return 'zh-CN';
+    }
+    if (browserLang.startsWith('ja')) {
+      return 'ja-JP';
     }
     return 'en-US'; // 默认返回英文
   };
