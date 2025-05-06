@@ -94,7 +94,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
 
               return <div
                 key={fromShip.id + toShip.id}
-                className="flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 last:border-b-0"
+                className="flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0"
               >
                 <div className="text-xs text-gray-400">
                   {upgrade.name}
@@ -103,7 +103,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 <div
                   draggable
                   onDragStart={(event) => onDragStart(event, fromShip)}
-                  className="p-2 cursor-move transition-colors hover:bg-amber-100 w-full"
+                  className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900 w-full"
                 >
                   <div className="flex items-center text-left">
                     <img

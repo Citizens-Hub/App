@@ -244,7 +244,7 @@ export default function RouteInfoPanel({
   if (!selectedNode) return null;
 
   return (
-    <div className="absolute right-0 top-0 w-fit min-w-[450px] h-full bg-white border-l border-gray-200 p-4 shadow-lg overflow-y-auto z-10">
+    <div className="absolute right-0 top-0 w-fit min-w-[450px] h-full bg-white dark:bg-[#121212] border-l border-gray-200 dark:border-gray-800 p-4 shadow-lg overflow-y-auto z-10">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold">{selectedNode.data.ship.name}</h3>
         <Button
@@ -262,8 +262,8 @@ export default function RouteInfoPanel({
           alt={selectedNode.data.ship.name}
           className="mb-2 m-auto"
         />
-        <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg text-center">
-          <span className='text-black'>
+        <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg flex gap-2 w-full justify-center">
+          <span className='text-black dark:text-white'>
             <FormattedMessage id="routeInfoPanel.shipValue" defaultMessage="Ship Value:" />
           </span>
           {(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
@@ -276,7 +276,7 @@ export default function RouteInfoPanel({
         </div>
         <div className="flex flex-col gap-2 mt-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="conciergeValue" className="text-sm text-gray-600 flex items-center gap-1">
+            <label htmlFor="conciergeValue" className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <FormattedMessage id="routeInfoPanel.conciergeValue" defaultMessage="Concierge Value" />
               <Tooltip arrow title={
                 <span style={{ fontSize: '14px' }}>
@@ -303,7 +303,7 @@ export default function RouteInfoPanel({
         </div>
       </div>
 
-      <h4 className="text-lg font-bold mb-2 bg-gray-100 py-1 flex justify-center items-center gap-2">
+      <h4 className="text-lg font-bold mb-2 bg-gray-100 dark:bg-[#222] py-1 flex justify-center items-center gap-2">
         <FormattedMessage id="routeInfoPanel.title" defaultMessage="Alternative Upgrade Routes" />
         <Tooltip arrow title={
           <span style={{ fontSize: '14px' }}>
@@ -345,7 +345,7 @@ export default function RouteInfoPanel({
                   
                   {/* 起点船价格设置 */}
                   {startShip && (
-                    <div className="mb-3 p-2 bg-gray-50 rounded">
+                    <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
                       <div className="flex items-center gap-2 mb-2">
                         <img
                           src={startShip.medias.productThumbMediumAndSmall}
@@ -355,7 +355,7 @@ export default function RouteInfoPanel({
                         <span className="font-medium">{startShip.name}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <label className="text-sm text-gray-600">
+                        <label className="text-sm text-gray-600 dark:text-gray-400">
                           <FormattedMessage id="routeInfoPanel.startShipPrice" defaultMessage="Start Ship Price ($)" />
                         </label>
                         <Input
@@ -375,7 +375,7 @@ export default function RouteInfoPanel({
                       const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                       return (
-                        <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 last:border-b-0 flex flex-col gap-2">
+                        <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 dark:border-gray-800 last:border-b-0 flex flex-col gap-2">
                           <div className="flex mb-1 gap-2 justify-between w-full">
                             <div className='flex gap-4'>
                               <img
@@ -386,14 +386,14 @@ export default function RouteInfoPanel({
                               <span className="text-gray-400">
                                 <FormattedMessage id="routeInfoPanel.from" defaultMessage="From" />
                                 {' '}
-                                <span className='text-black'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                                <span className='text-black dark:text-white'>{pathEdge.sourceNode.data?.ship?.name}</span>
                               </span>
                             </div>
                             <div className='flex gap-4'>
                               <span className="text-gray-400">
                                 <FormattedMessage id="routeInfoPanel.to" defaultMessage="To" />
                                 {' '}
-                                <span className='text-black'>{pathEdge.targetNode.data?.ship?.name}</span>
+                                <span className='text-black dark:text-white'>{pathEdge.targetNode.data?.ship?.name}</span>
                               </span>
                               <img
                                 src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
@@ -404,8 +404,8 @@ export default function RouteInfoPanel({
                           </div>
 
                           <div className="flex justify-between">
-                            <span className="text-gray-600">
-                              <span className="text-black">{
+                            <span className="text-gray-600 dark:text-gray-400">
+                              <span className="text-black dark:text-white">{
                                 (() => {
                                   switch (sourceType) {
                                     case CcuSourceType.OFFICIAL:
@@ -425,14 +425,14 @@ export default function RouteInfoPanel({
                             </span>
 
                             {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
-                              <span className="text-gray-600">
+                              <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                 <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
-                                <span className="text-black">${usdPrice.toFixed(2)}</span>
+                                <span className="text-black dark:text-white">${usdPrice.toFixed(2)}</span>
                               </span>
                             ) : (
-                              <span className="text-gray-600">
+                              <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                 <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
-                                <span className="text-black">￥{cnyPrice.toFixed(2)}</span>
+                                <span className="text-black dark:text-white">￥{cnyPrice.toFixed(2)}</span>
                               </span>
                             )}
                           </div>
@@ -443,11 +443,11 @@ export default function RouteInfoPanel({
                 </div>
 
                 {/* 价格总结 */}
-                <div className="bg-gray-100 p-2 rounded mt-2">
+                <div className="bg-gray-100 dark:bg-[#222] p-2 rounded mt-2">
                   <div className="flex flex-col gap-2 px-2">
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
-                        <span className="text-black">
+                        <span className="text-black dark:text-white mr-1">
                           <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />: 
                         </span>
                         <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
@@ -458,7 +458,7 @@ export default function RouteInfoPanel({
                     </div>
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
-                        <span className="text-black">
+                        <span className="text-black dark:text-white mr-1">
                           <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />: 
                         </span>
                         <span className="text-blue-400">

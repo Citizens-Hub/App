@@ -156,7 +156,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   };
 
   return (
-    <div className={`bg-gray-50 border-2 border-blue-400 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500' : ''}`}>
+    <div className={`bg-gray-50 dark:bg-[#121212] border-2 border-blue-400 dark:border-sky-700 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500 dark:ring-sky-700' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
       <span className="text-sm absolute left-[20px] top-[165px] text-gray-600 -translate-y-1/2">
@@ -219,10 +219,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           {incomingEdges.map(edge => (
             <div key={edge.id} className="mb-3 p-2 rounded">
               <div className="text-sm text-black mb-1 flex flex-row items-center justify-between">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   <FormattedMessage id="shipNode.ccuSource" defaultMessage="CCU Source" />
                 </span>
-                <span className='flex flex-row items-center gap-1'>
+                <span className='flex flex-row items-center gap-1 dark:text-white'>
                   {edge.data?.sourceShip?.name ||
                     intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
                   }
@@ -305,7 +305,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
               {(edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
                 edgeSettings[edge.id]?.sourceType === CcuSourceType.THIRD_PARTY) && (
                   <div className="mb-2">
-                    <label className="text-sm text-gray-600 block mb-1 text-left">
+                    <label className="text-sm text-gray-600 dark:text-gray-400 block mb-1 text-left">
                       {edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ?
                         intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
                         edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ?

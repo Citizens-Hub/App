@@ -545,7 +545,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
   return (
     <div className="h-full flex">
-      <div className="w-[450px] border-r border-gray-200">
+      <div className="w-[450px] border-r border-gray-200 dark:border-gray-800">
         <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
       </div>
 
@@ -567,10 +567,10 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
             edgeTypes={edgeTypes}
             fitView
           >
-            <Controls />
-            <MiniMap />
+            <Controls className='dark:invert-90 !shadow-none flex flex-col gap-1' />
+            <MiniMap className='dark:invert-90' />
             <Background color="#333" gap={32} />
-            <Panel position="bottom-center">
+            <Panel position="bottom-center" className="bg-white dark:bg-[#121212]">
               <Toolbar
                 nodes={nodes}
                 onClear={handleClear}
@@ -579,7 +579,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
                 onImport={handleImport}
               />
             </Panel>
-            <Panel position="top-left" className="bg-white w-[340px] border border-gray-200 p-2">
+            <Panel position="top-left" className="bg-white dark:bg-[#121212] w-[340px] border border-gray-200 dark:border-gray-800 p-2">
               <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>
           </ReactFlow>

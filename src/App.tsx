@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider, createTheme, Button, Box } from '@mui/material'
+import { CssBaseline, ThemeProvider, createTheme, Button, Box, IconButton } from '@mui/material'
 import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
 import { useEffect, useState } from 'react'
 import { Route, BrowserRouter, Routes } from 'react-router'
@@ -9,15 +9,8 @@ import Privacy from './pages/Privacy/Privacy'
 import { FormattedMessage } from 'react-intl'
 import LanguageSwitcher from './components/LanguageSwitcher'
 import Navigate from './pages/Navigate/Navigate'
-
-// 为window对象添加SCTranslateApi类型定义
-declare global {
-  interface Window {
-    SCTranslateApi?: {
-      translate: () => void
-    }
-  }
-}
+import Brightness4Icon from '@mui/icons-material/Brightness4'
+import Brightness7Icon from '@mui/icons-material/Brightness7'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -27,9 +20,17 @@ enum SCBoxTranslateStatus {
 
 function App() {
   const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
-  // const [isStaging, setIsStaging] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>();
 
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+    if (localStorage.getItem('darkMode') === null) {
+      setDarkMode(!isLight);
+    }
+  }, [])
 
   useEffect(() => {
     const host = window.location.hostname;
@@ -41,10 +42,6 @@ function App() {
     if (!host.includes("citizenshub.app")) {
       window.location.hostname = "citizenshub.app";
     }
-
-    // if (host.includes("staging.citizenshub.app")) {
-    //   setIsStaging(true);
-    // }
   }, [])
 
   useEffect(() => {
@@ -130,11 +127,28 @@ function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, [dispatch]);
 
+  useEffect(() => {
+    if (darkMode === undefined) {
+      return;
+    }
+
+    localStorage.setItem('darkMode', darkMode.toString());
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   const theme = createTheme({
     palette: {
-      mode: 'light',
+      mode: darkMode ? 'dark' : 'light',
     },
   });
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
 
   const toggleTranslate = () => {
     window.postMessage({
@@ -156,13 +170,21 @@ function App() {
         display: 'flex',
       }}>
         <LanguageSwitcher />
+        <IconButton 
+          onClick={toggleDarkMode} 
+          color="inherit"
+          sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+          className="text-gray-800 dark:text-white"
+        >
+          {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+        </IconButton>
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
             onClick={toggleTranslate}
             size="small"
-            sx={{ ml: 1, bgcolor: 'white' }}
-            className="flex items-center gap-2"
+            sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'white' }}
+            className="flex items-center gap-2 text-gray-800 dark:text-white"
           >
             <img src="/scbox.png" className="w-4 h-4" />
             <span>

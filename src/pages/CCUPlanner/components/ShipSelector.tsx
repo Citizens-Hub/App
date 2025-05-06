@@ -36,7 +36,7 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
 
   return (
     <div className="h-[calc(100vh-113px)] overflow-y-auto">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-xl font-bold px-2 pt-2">
           <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="Available Ships" />
         </h2>
@@ -58,7 +58,7 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
             key={ship.id}
             draggable
             onDragStart={(event) => onDragStart(event, ship)}
-            className="p-2 cursor-move transition-colors hover:bg-amber-100"
+            className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900"
           >
             <div className="flex items-center text-left">
               <img
