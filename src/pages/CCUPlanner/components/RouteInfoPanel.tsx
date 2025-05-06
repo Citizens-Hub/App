@@ -19,13 +19,11 @@ interface RouteInfoPanelProps {
   onStartShipPriceChange: (nodeId: string, price: number | string) => void;
 }
 
-// 定义路径节点类型
 interface PathNode {
   nodeId: string;
   ship: Ship;
 }
 
-// 定义路径边类型
 interface PathEdge {
   edge: Edge<CcuEdgeData>;
   sourceNode: Node;
@@ -47,18 +45,18 @@ export default function RouteInfoPanel({
   const [conciergeValue, setConciergeValue] = useState("0.1");
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
-  // 查找所有可能的起点（没有入边的节点）
+  // Find all possible starting nodes (nodes with no incoming edges)
   const findStartNodes = useCallback(() => {
     const nodesWithIncomingEdges = new Set(edges.map(edge => edge.target));
     return nodes.filter(node => !nodesWithIncomingEdges.has(node.id));
   }, [edges, nodes]);
 
-  // 初始化起点船价格为msrp/100
+  // Initialize the starting ship price to msrp/100 USD
   useEffect(() => {
     const startNodes = findStartNodes();
     
     startNodes.forEach(node => {
-      // 只为没有设置过价格的节点设置默认价格
+      // Only set the default price for nodes that haven't been set
       if (node.data?.ship?.msrp && startShipPrices[node.id] === undefined) {
         onStartShipPriceChange(node.id, node.data.ship.msrp / 100);
       }
@@ -66,7 +64,7 @@ export default function RouteInfoPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, findStartNodes]);
 
-  // 根据不同的来源类型获取价格与币种
+  // Get price and currency based on different source types
   const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
     if (!edge.data) return { usdPrice: 0, cnyPrice: 0 };
 
@@ -74,34 +72,42 @@ export default function RouteInfoPanel({
     let usdPrice = 0;
     let cnyPrice = 0;
 
-    if (sourceType === CcuSourceType.OFFICIAL) {
-      usdPrice = edge.data.price / 100;
-      cnyPrice = 0;
-    } else if (sourceType === CcuSourceType.AVAILABLE_WB) {
-      usdPrice = edge.data.customPrice || edge.data.price / 100;
-      cnyPrice = 0;
-    } else if (sourceType === CcuSourceType.OFFICIAL_WB) {
-      usdPrice = edge.data.customPrice || edge.data.price / 100;
-      cnyPrice = 0;
-    } else if (sourceType === CcuSourceType.THIRD_PARTY) {
-      cnyPrice = edge.data.customPrice || 0;
-      usdPrice = 0;
-    } else if (sourceType === CcuSourceType.HANGER) {
-      // 机库CCU价格，使用customPrice字段
-      usdPrice = edge.data.customPrice || edge.data.price / 100;
-      cnyPrice = 0;
+    switch (sourceType) {
+      case CcuSourceType.OFFICIAL:
+        usdPrice = edge.data.price / 100;
+        cnyPrice = 0;
+        break;
+      case CcuSourceType.AVAILABLE_WB:
+        usdPrice = edge.data.customPrice || edge.data.price / 100;
+        cnyPrice = 0;
+        break;
+      case CcuSourceType.OFFICIAL_WB:
+        usdPrice = edge.data.customPrice || edge.data.price / 100;
+        cnyPrice = 0;
+        break;
+      case CcuSourceType.THIRD_PARTY:
+        cnyPrice = edge.data.customPrice || 0;
+        usdPrice = 0;
+        break;
+      case CcuSourceType.HANGER:
+        usdPrice = edge.data.customPrice || edge.data.price / 100;
+        cnyPrice = 0;
+        break;
+      default:
+        break;
     }
 
     return { usdPrice, cnyPrice };
   }, []);
 
-  // 计算花费的换算值（美元花费*7.3+人民币花费*（1+消费额价值））
+  // Calculate the converted value of the cost (USD cost * 7.3 + CNY cost * (1 + concierge value))
+  // TODO: Exchange Rate
   const calculateTotalCost = useCallback((usdPrice: number, cnyPrice: number) => {
     const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
     return usdPrice * 7.3 + cnyPrice * conciergeMultiplier;
   }, [conciergeValue]);
 
-  // 查找从起点到选中节点的所有可能路径
+  // Find all possible paths from the starting node to the selected node
   const findAllPaths = useCallback((
     startNode: Node, 
     endNodeId: string, 
@@ -111,36 +117,29 @@ export default function RouteInfoPanel({
     currentUsdCost = 0,
     currentCnyCost = 0
   ) => {
-    // 添加当前节点到路径和访问集合
     currentPath.push(startNode.id);
     visited.add(startNode.id);
     
-    // 计算当前路径的总花费
     const totalCost = calculateTotalCost(currentUsdCost, currentCnyCost);
     
-    // 如果这个节点已经有更低的花费记录，则剪枝
+    // If this node already has a lower cost record, prune
     if (nodeBestCostRef.current[startNode.id] !== undefined && totalCost >= nodeBestCostRef.current[startNode.id]) {
       return allPaths;
     }
     
-    // 更新当前节点的最低花费
     nodeBestCostRef.current[startNode.id] = totalCost;
 
-    // 如果达到目标节点，添加当前路径到所有路径
+    // If the ship ID of the reached node is the same as the ship ID of the target node, add the current path to all paths
     if (startNode.id.getNodeShipId() === endNodeId.getNodeShipId()) {
       allPaths.push([...currentPath]);
     } else {
-      // 查找所有从当前节点出发的边
       const outgoingEdges = edges.filter(edge => edge.source.getNodeShipId() === startNode.id.getNodeShipId());
 
-      // 对于每条出边，递归查找路径
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
-          // 计算这条边的花费
           const { usdPrice, cnyPrice } = getPriceInfo(edge);
           
-          // 递归搜索，更新当前花费
           findAllPaths(
             targetNode, 
             endNodeId, 
@@ -168,14 +167,13 @@ export default function RouteInfoPanel({
         };
       });
 
-      // 构建路径中的边
       const pathEdges: PathEdge[] = [];
       let totalUsdPrice = 0;
       let totalCnyPrice = 0;
       let hasUsdPricing = false;
       let hasCnyPricing = false;
 
-      // 添加起点船的价格（如果有自定义价格）
+      // Add the starting ship's price (if there is a custom price)
       const startNodeId = pathId[0];
       const customStartPrice = Number(startShipPrices[startNodeId] || "0");
       if (customStartPrice > 0) {
@@ -196,7 +194,6 @@ export default function RouteInfoPanel({
             targetNode
           });
 
-          // 计算价格
           const { usdPrice, cnyPrice } = getPriceInfo(edge);
           totalUsdPrice += usdPrice;
           totalCnyPrice += cnyPrice;
@@ -221,19 +218,17 @@ export default function RouteInfoPanel({
     });
   }, [edges, nodes, getPriceInfo, startShipPrices]);
 
-  // 查找所有完整路径
   const completePaths = useMemo(() => {
     if (!selectedNode) return [];
 
-    // 重置节点最小花费
+    // Reset node minimum cost
     nodeBestCostRef.current = {};
     
     const startNodes = findStartNodes();
     const allPathIds: string[][] = [];
 
-    // 从每个起点查找到终点的所有路径
+    // Find all paths from each starting node to the target node
     startNodes.forEach(startNode => {
-      // 获取起点船的价格
       const startPrice = startShipPrices[startNode.id] || 0;
       const paths = findAllPaths(startNode, selectedNode.id, new Set(), [], [], Number(startPrice), 0);
       allPathIds.push(...paths);
@@ -242,7 +237,6 @@ export default function RouteInfoPanel({
     return buildCompletePaths(allPathIds);
   }, [selectedNode, findStartNodes, buildCompletePaths, findAllPaths, startShipPrices]);
 
-  // 处理起点船价格变化
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
     onStartShipPriceChange(nodeId, price);
   };
@@ -421,7 +415,7 @@ export default function RouteInfoPanel({
                                     case CcuSourceType.THIRD_PARTY:
                                       return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
                                     case CcuSourceType.HANGER:
-                                      return <FormattedMessage id="routeInfoPanel.hanger" defaultMessage="Hanger" />
+                                      return <FormattedMessage id="routeInfoPanel.hangar" defaultMessage="Hangar" />
                                     case CcuSourceType.OFFICIAL_WB:
                                       return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
                                   }

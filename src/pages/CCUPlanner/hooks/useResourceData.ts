@@ -6,18 +6,14 @@ export default function useResourceData() {
   const [ships, setShips] = useState<Ship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // @TODO: 测试用，正式发布时需要关闭
   const [showNewsModal, setShowNewsModal] = useState(false);
 
   useEffect(() => {
-    // 检查用户是否是首次打开
     const currentVersion = '1.0.0';
     const lastVisitVersion = localStorage.getItem('ccuPlannerLastVisit');
     
     if (!lastVisitVersion || lastVisitVersion !== currentVersion) {
-      // 如果是当天第一次打开，显示新闻弹窗
       setShowNewsModal(true);
-      // 更新访问日期
       localStorage.setItem('ccuPlannerLastVisit', currentVersion);
     }
 
@@ -29,7 +25,7 @@ export default function useResourceData() {
           signal: abortController.signal
         });
         if (!ccusResponse.ok) {
-          throw new Error('网络响应错误');
+          throw new Error('Network response error');
         }
         const ccusData: CcusData[] = await ccusResponse.json();
         setCcus(ccusData[0].data.to.ships);
@@ -38,7 +34,7 @@ export default function useResourceData() {
           signal: abortController.signal
         });
         if (!shipsResponse.ok) {
-          throw new Error('网络响应错误');
+          throw new Error('Network response error');
         }
         const shipsData: ShipsData[] = await shipsResponse.json();
         setShips(shipsData[0].data.ships.sort((a, b) => a.msrp - b.msrp));
@@ -46,7 +42,7 @@ export default function useResourceData() {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
-        setError('加载数据失败');
+        setError('Failed to load data');
         console.error('Error fetching data:', err);
       } finally {
         await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
@@ -62,7 +58,6 @@ export default function useResourceData() {
     };
   }, []);
 
-  // 关闭新闻弹窗
   const closeNewsModal = () => {
     setShowNewsModal(false);
   };

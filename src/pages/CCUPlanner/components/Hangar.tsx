@@ -13,7 +13,7 @@ interface ShipSelectorProps {
   onDragStart: (event: React.DragEvent<HTMLDivElement>, ship: Ship) => void;
 }
 
-export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
+export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [hangarExpanded, setHangarExpanded] = useState(true);
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -41,7 +41,7 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
   return (
     <>
       <div className="flex items-center justify-left gap-2 px-1">
-        <FormattedMessage id="ccuPlanner.myHanger" defaultMessage="我的机库" />
+        <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="我的机库" />
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>

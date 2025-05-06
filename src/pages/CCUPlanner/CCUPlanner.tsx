@@ -26,10 +26,10 @@ export default function CCUPlanner() {
     <div className="h-full w-[100vw] flex flex-col absolute top-0 left-0">
       <div className="p-4 border-b border-gray-200">
         <h1 className="text-2xl font-bold">
-          <FormattedMessage id="ccuPlanner.heading" defaultMessage="舰船升级规划工具" />
+          <FormattedMessage id="ccuPlanner.heading" defaultMessage="Ship Upgrade Planner" />
         </h1>
         <p className="text-gray-400">
-          <FormattedMessage id="ccuPlanner.description" defaultMessage="创建您的星际公民舰船升级路径" />
+          <FormattedMessage id="ccuPlanner.description" defaultMessage="Create your CCU path" />
         </p>
       </div>
       
@@ -37,7 +37,6 @@ export default function CCUPlanner() {
         <CcuCanvas ships={ships} ccus={ccus} />
       </div>
 
-      {/* 新闻弹窗 */}
       <NewsModal open={showNewsModal} onClose={closeNewsModal} />
     </div>
   )

@@ -34,7 +34,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
 
-  // 为每个传入的边缘设置状态
   const [edgeSettings, setEdgeSettings] = useState<{
     [key: string]: {
       sourceType: CcuSourceType;
@@ -42,10 +41,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     }
   }>({});
 
-  // 使用ref跟踪已初始化的边缘ID
+  // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
 
-  // 初始化边缘设置 - 只对新的边缘初始化一次
+  // Initialize edge settings - only initialize new edges once
   useEffect(() => {
     if (incomingEdges.length > 0) {
       setEdgeSettings(currentSettings => {
@@ -53,7 +52,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         let hasChanges = false;
 
         incomingEdges.forEach(edge => {
-          // 只初始化未初始化过的边缘
+          // Only initialize uninitialized edges
           if (!initializedEdgesRef.current.has(edge.id) && edge.data) {
             newSettings[edge.id] = {
               sourceType: edge.data.sourceType || CcuSourceType.OFFICIAL,
@@ -64,7 +63,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           }
         });
 
-        // 只有在有变化时才返回新对象，否则返回原对象避免重渲染
+        // Only return new object if there are changes, otherwise return original object to avoid unnecessary re-renders
         return hasChanges ? newSettings : currentSettings;
       });
     }
@@ -85,14 +84,11 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   };
 
   const handleSourceTypeChange = (edgeId: string, sourceType: CcuSourceType) => {
-    // 获取当前边的数据
     const edge = incomingEdges.find(e => e.id === edgeId);
 
     setEdgeSettings(prevSettings => {
-      // 获取当前边缘的设置
       const currentEdgeSettings = prevSettings[edgeId] || {};
 
-      // 确定是否需要设置默认价格
       let defaultPrice: number | undefined;
 
       if (sourceType !== CcuSourceType.OFFICIAL &&
@@ -101,22 +97,18 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         defaultPrice = edge.data.price / 100
       }
 
-      // 创建新的设置对象
       const newEdgeSettings = {
         ...currentEdgeSettings,
         sourceType,
         customPrice: defaultPrice !== undefined ? defaultPrice : currentEdgeSettings.customPrice
       };
 
-      // 更新完整的设置对象
       const newSettings = {
         ...prevSettings,
         [edgeId]: newEdgeSettings
       };
 
-      // 调用onUpdateEdge
       if (onUpdateEdge && edgeId && edge) {
-        // 使用边的source作为sourceId，与CcuCanvas中updateEdgeData的调用方式一致
         const sourceId = edge.source;
 
         onUpdateEdge(sourceId, id, {
@@ -133,29 +125,23 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
   const handleCustomPriceChange = (edgeId: string, price: number | string) => {
     setEdgeSettings(prevSettings => {
-      // 获取当前的边缘设置
       const currentEdgeSettings = prevSettings[edgeId] || {};
       const currentSourceType = currentEdgeSettings.sourceType || CcuSourceType.OFFICIAL;
 
-      // 创建新的边缘设置
       const newEdgeSettings = {
         ...currentEdgeSettings,
         sourceType: currentSourceType,
         customPrice: price
       };
 
-      // 更新完整的设置对象
       const newSettings = {
         ...prevSettings,
         [edgeId]: newEdgeSettings
       };
 
-      // 调用onUpdateEdge
       if (onUpdateEdge && edgeId) {
-        // 获取当前边的数据
         const edge = incomingEdges.find(e => e.id === edgeId);
         if (edge) {
-          // 使用边的source作为sourceId，与CcuCanvas中updateEdgeData的调用方式一致
           const sourceId = edge.source;
 
           onUpdateEdge(sourceId, id, {
@@ -257,33 +243,24 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   onChange={(e) => {
                     const selectedValue = e.target.value as string;
 
-                    // 检查是否为AVAILABLE_WB_格式的值
                     if (selectedValue === CcuSourceType.AVAILABLE_WB) {
                       if (wb) {
-                        // 计算实际升级花费
                         const sourceShip = edge.data?.sourceShip;
                         if (sourceShip) {
-                          // 目标船WB价格
                           const targetWbPrice = wb.price / 100;
-                          // 源船官方价格
                           const sourceShipPrice = sourceShip.msrp / 100;
-                          // 实际花费是WB价格减去源船价格
                           const actualPrice = targetWbPrice - sourceShipPrice;
-                          // 保存为正数
                           handleCustomPriceChange(edge.id, Math.max(0, actualPrice));
                         } else {
                           handleCustomPriceChange(edge.id, wb.price / 100);
                         }
                       }
                     } else if (selectedValue === CcuSourceType.HANGER) {
-                      // 如果选择机库CCU，设置源类型但不自动设置价格
-                      // 用户需要手动设置机库CCU的价格
                       if (edge.data?.customPrice === undefined) {
-                        // 如果之前没有设置过价格，设置一个默认价格
                         const sourceShip = edge.data?.sourceShip;
                         const targetShip = edge.data?.targetShip;
                         if (sourceShip && targetShip) {
-                          // 默认使用官方价格差作为机库CCU价格
+                          // Default to use the official price difference as the hangar CCU price
                           const priceDiff = (targetShip.msrp - sourceShip.msrp) / 100;
                           handleCustomPriceChange(edge.id, priceDiff);
                         }
@@ -307,7 +284,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
                       return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
-                      {intl.formatMessage({ id: "shipNode.hanger", defaultMessage: "Hanger" })}:&nbsp;
+                      {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
                       {upgrades.find(upgrade => {
                         const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
                         const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
@@ -325,7 +302,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                 </Select>
               </div>
 
-              {/* 当选择官方WB或第三方或机库CCU时，显示价格输入 */}
               {(edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
                 edgeSettings[edge.id]?.sourceType === CcuSourceType.THIRD_PARTY) && (
                   <div className="mb-2">

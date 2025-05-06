@@ -16,7 +16,7 @@ export default function LanguageSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleLanguageChange = (newLocale: 'zh-CN' | 'en-US' | 'ja-JP') => {
+  const handleLanguageChange = (newLocale: 'zh-CN' | 'en' | 'ja-JP') => {
     setLocale(newLocale);
     handleClose();
   };
@@ -36,7 +36,7 @@ export default function LanguageSwitcher() {
           switch (locale) {
             case 'zh-CN':
               return '中文';
-            case 'en-US':
+            case 'en':
               return 'English';
             case 'ja-JP':
               return '日本語';
@@ -55,8 +55,8 @@ export default function LanguageSwitcher() {
           中文
         </MenuItem>
         <MenuItem 
-          onClick={() => handleLanguageChange('en-US')}
-          selected={locale === 'en-US'}
+          onClick={() => handleLanguageChange('en')}
+          selected={locale === 'en'}
         >
           English
         </MenuItem>

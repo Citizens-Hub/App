@@ -30,10 +30,8 @@ export default function CcuEdge({
     targetY,
     targetPosition,
   });
-  // 设置默认的sourceType为OFFICIAL
   const sourceType = data.sourceType || CcuSourceType.OFFICIAL;
 
-  // 根据不同的来源类型确定价格
   let priceToShow = data.price || 0;
   let currency = 'USD';
   
@@ -47,7 +45,6 @@ export default function CcuEdge({
     currency = 'USD';
   }
 
-  // 为不同来源类型设置不同的边框颜色
   let edgeColor = 'stroke-blue-500';
   let bgColor = 'bg-blue-700';
   
@@ -65,7 +62,6 @@ export default function CcuEdge({
     bgColor = 'bg-cyan-500';
   }
 
-  // 根据sourceType获取本地化显示名称
   const getSourceTypeDisplay = (type: CcuSourceType) => {
     switch (type) {
       case CcuSourceType.OFFICIAL:
@@ -77,7 +73,7 @@ export default function CcuEdge({
       case CcuSourceType.AVAILABLE_WB:
         return intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" });
       case CcuSourceType.HANGER:
-        return intl.formatMessage({ id: "shipNode.hanger", defaultMessage: "Hanger" });
+        return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
       default:
         return type;
     }

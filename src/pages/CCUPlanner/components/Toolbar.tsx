@@ -21,11 +21,11 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
         variant="outlined"
         onClick={onClear}
         disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "清除画布" })}
+        title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
       >
         <Trash2 size={16} />
         <span>
-          <FormattedMessage id="toolbar.clear" defaultMessage="清除" />
+          <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
         </span>
       </Button>
       
@@ -33,11 +33,11 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
         variant="outlined"
         onClick={onSave}
         disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "保存工作流" })}
+        title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "Save" })}
       >
         <Save size={16} />
         <span>
-          <FormattedMessage id="toolbar.save" defaultMessage="保存" />
+          <FormattedMessage id="toolbar.save" defaultMessage="Save" />
         </span>
       </Button>
       
@@ -45,22 +45,22 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
         variant="outlined"
         onClick={onExport}
         disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "导出Json" })}
+        title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
       >
         <Download size={16} />
         <span>
-          <FormattedMessage id="toolbar.export" defaultMessage="导出" />
+          <FormattedMessage id="toolbar.export" defaultMessage="Export" />
         </span>
       </Button>
 
       <Button
         variant="outlined"
         onClick={onImport}
-        title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "导入Json" })}
+        title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
       >
         <Upload size={16} />
         <span>
-          <FormattedMessage id="toolbar.import" defaultMessage="导入" />
+          <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </span>
       </Button>
     </div>

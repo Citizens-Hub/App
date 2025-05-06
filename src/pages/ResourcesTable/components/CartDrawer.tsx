@@ -32,26 +32,24 @@ export default function CartDrawer({
 }: CartDrawerProps) {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   
-  // 计算购物清单总价
   const cartTotal = cart.reduce((total, item) => {
     const price = item.resource.nativePrice.discounted || item.resource.nativePrice.amount;
     return total + price;
   }, 0);
 
-  // 复制清单为文本
   const copyCartToClipboard = () => {
-    let cartText = "商品清单:\n\n";
+    let cartText = "List:\n\n";
     
     cart.forEach((item, index) => {
       const price = (item.resource.nativePrice.discounted || item.resource.nativePrice.amount) / 100;
       cartText += `${index + 1}. ${item.resource.name} - $${price.toFixed(2)}\n`;
     });
     
-    cartText += `\n总价: $${(cartTotal / 100).toFixed(2)} (约 ¥${(cartTotal * exchangeRate / 100).toFixed(2)})`;
+    cartText += `\nTotal: $${(cartTotal / 100).toFixed(2)} (~ ¥${(cartTotal * exchangeRate / 100).toFixed(2)})`;
     
     navigator.clipboard.writeText(cartText)
       .then(() => setSnackbarOpen(true))
-      .catch(err => console.error('复制失败:', err));
+      .catch(err => console.error('Failed to copy:', err));
   };
 
   return (

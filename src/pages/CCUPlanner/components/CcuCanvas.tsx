@@ -29,7 +29,7 @@ import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Snackbar } from '@mui/material';
 import { RootState } from '../../../store';
 import { useSelector } from 'react-redux';
-import Hanger from './Hanger';
+import Hangar from './Hangar';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -65,7 +65,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
 
-  // 处理起点船价格变化
+  // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
     setStartShipPrices(prev => ({
       ...prev,
@@ -75,12 +75,10 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
   const handleClose = () => setAlert((prev) => ({
     ...prev,
-    open: false,
-    // message: "",
-    // type: "success"
+    open: false
   }))
 
-  // 处理连接创建
+  // Handle connection creation
   const onConnect = useCallback(
     (connection: Connection) => {
       const sourceNode = nodes.find((node) => node.id === connection.source);
@@ -90,36 +88,36 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         const sourceShip = (sourceNode.data?.ship as Ship);
         const targetShip = (targetNode.data?.ship as Ship);
 
-        // 确保源舰船价格低于目标舰船价格
+        // Ensure the source ship price is lower than the target ship price
         if (sourceShip.msrp >= targetShip.msrp) {
           // console.warn('CCU只能从低价船升级到高价船');
           setAlert({
             open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU只能从低价船升级到高价船' }),
+            message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU can only be upgraded from low-priced ships to high-priced ships' }),
             type: 'warning'
           })
           return;
         }
 
-        // 检查是否已经有从源舰船到目标舰船的路径
+        // Check if there is already a path from the source ship to the target ship
         const hasExistingPath = (
           startNode: Node,
           endNodeId: string,
           visited = new Set<string>()
         ): boolean => {
-          // 如果当前节点已访问过，返回false避免循环
+          // If the current node has been visited, return false to avoid loops
           if (visited.has(startNode.id)) return false;
 
-          // 标记当前节点为已访问
+          // Mark the current node as visited
           visited.add(startNode.id);
 
-          // 如果找到目标节点，返回true
+          // If the target node is found, return true
           if (startNode.id === endNodeId) return true;
 
-          // 查找从当前节点出发的所有边
+          // Find all edges originating from the current node
           const outgoingEdges = edges.filter(edge => edge.source.split('-')[1] === startNode.id.split('-')[1]);
 
-          // 对于每条出边，递归检查是否有路径
+          // For each outgoing edge, recursively check if there is a path
           for (const edge of outgoingEdges) {
             const nextNode = nodes.find(node => node.id === edge.target);
             if (nextNode && hasExistingPath(nextNode, endNodeId, new Set(visited))) {
@@ -130,12 +128,11 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           return false;
         };
 
-        // 如果已经存在路径，则不创建新连接
+        // If a path already exists, do not create a new connection
         if (hasExistingPath(sourceNode, targetNode.id)) {
-          // console.warn('已经存在从源舰船到目标舰船的路径，不创建重复连接');
           setAlert({
             open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: '已经存在从源舰船到目标舰船的路径，不创建重复连接' }),
+            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: 'A path already exists from the source ship to the target ship, do not create a duplicate connection' }),
             type: 'warning'
           })
           return;
@@ -143,7 +140,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
         const priceDifference = targetShip.msrp - sourceShip.msrp;
 
-        // 创建自定义边缘
         const newEdge = {
           id: `edge-${sourceNode.id}-${targetNode.id}`,
           ...connection,
@@ -157,31 +153,28 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           } as CcuEdgeData,
         };
 
-        const hangerCcu = upgrades.find(upgrade => {
+        const hangarCcu = upgrades.find(upgrade => {
           const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
           const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
 
           return from === sourceShip.name.toUpperCase() && to === targetShip.name.toUpperCase()
         })
         
-        if (hangerCcu) {
-          // 如果存在机库CCU，则默认使用它
+        if (hangarCcu) {
+          // If there is a hangar CCU, use it by default
           newEdge.data.sourceType = CcuSourceType.HANGER;
-          newEdge.data.customPrice = hangerCcu.value;
+          newEdge.data.customPrice = hangarCcu.value;
         }
-        // 如果没有机库CCU，再检查是否有WB选项
+        // If there is no hangar CCU, check if there is a WB option
         else {
-          // 检查目标船只是否有可用的WB SKU
+          // Check if the target ship has an available WB SKU
           const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
           const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
 
-          // 如果存在WB SKU且WB价格大于源船只的msrp，则自动选择使用WB
+          // If there is a WB SKU and the WB price is greater than the source ship's msrp, automatically select WB
           if (targetWb && sourceShip.msrp < targetWb.price) {
-            // 目标船WB价格
             const targetWbPrice = targetWb.price / 100;
-            // 源船官方价格
             const sourceShipPrice = sourceShip.msrp / 100;
-            // 实际花费是WB价格减去源船价格
             const actualPrice = targetWbPrice - sourceShipPrice;
 
             newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
@@ -195,13 +188,12 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     [nodes, upgrades, setEdges, edges, ccus, intl]
   );
 
-  // 更新边缘数据
   const updateEdgeData = useCallback(
     (sourceId: string, targetId: string, newData: Partial<CcuEdgeData>) => {
       setEdges(edges => {
         return edges.map(edge => {
           if (edge.source === sourceId && edge.target === targetId) {
-            // 确保保留原始msrp差价，以便在显示时能够正确对比价格
+            // Ensure the original msrp difference is retained so that it can be displayed correctly
             const originalPrice = edge.data?.price;
 
             return {
@@ -209,7 +201,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
               data: {
                 ...(edge.data as CcuEdgeData),
                 ...newData,
-                // 保留原始价格差，除非明确要求修改
+                // Keep the original price difference unless explicitly requested to modify
                 price: newData.price !== undefined ? newData.price : originalPrice
               }
             };
@@ -223,20 +215,18 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
   const deleteEdge = useCallback((edgeId: string) => {
     setEdges(edges => edges.filter(edge => edge.id !== edgeId));
-  }, []);
+  }, [setEdges]);
 
-  // 处理节点删除
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
-      // 删除节点
       setNodes(nodes => nodes.filter(node => node.id !== nodeId));
 
-      // 删除与此节点相关的所有边缘连接
+      // Delete all edge connections related to this node
       setEdges(edges => edges.filter(edge =>
         edge.source !== nodeId && edge.target !== nodeId
       ));
 
-      // 删除相关的起点船价格
+      // Delete related starting ship prices
       setStartShipPrices(prev => {
         const newPrices = { ...prev };
         delete newPrices[nodeId];
@@ -246,7 +236,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     [setNodes, setEdges]
   );
 
-  // 处理节点复制
   const handleDuplicateNode = useCallback(
     (ship: Ship, position: XYPosition) => {
 
@@ -272,18 +261,17 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge]
   );
 
-  // 更新节点，向其传递传入的边缘信息
   useEffect(() => {
     setNodes(nodes => {
       return nodes.map(node => {
-        // 找到所有连接到此节点的边缘
+        // Find all edges connected to this node
         const incomingEdges = edges.filter(edge => edge.target === node.id);
 
         return {
           ...node,
           data: {
             ...node.data,
-            incomingEdges: incomingEdges.length > 0 ? incomingEdges : node.data.incomingEdges,
+            incomingEdges: incomingEdges,
             onUpdateEdge: updateEdgeData,
             onDeleteEdge: deleteEdge,
             onDeleteNode: handleDeleteNode,
@@ -296,32 +284,30 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     });
   }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge]);
 
-  // 处理拖放事件
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // 导入JSON文件
   const importFlowData = useCallback((jsonData: string) => {
     try {
       const { nodes: importedNodes, edges: importedEdges, startShipPrices: importedPrices } = JSON.parse(jsonData);
 
       if (!importedNodes || !Array.isArray(importedNodes)) {
-        throw new Error('无效的JSON格式：缺少节点数据');
+        throw new Error('Invalid JSON format: missing node data');
       }
 
-      // 确保导入的节点引用的舰船存在于当前舰船列表中
+      // Ensure the imported nodes reference ships that exist in the current ship list
       const validNodes = importedNodes.filter(node => {
         const shipId = node.data?.ship?.id;
         return shipId && ships.some(s => s.id === shipId);
       });
 
       if (validNodes.length === 0) {
-        throw new Error('没有找到有效的舰船节点');
+        throw new Error('No valid ship nodes found');
       }
 
-      // 确保所有边缘都有sourceType字段
+      // Ensure all edges have a sourceType field
       const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
         if (edge.data && !edge.data.sourceType) {
           return {
@@ -335,7 +321,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         return edge;
       }) || [];
 
-      // 只导入有效节点的相关边
+      // Only import edges related to valid nodes
       const validNodeIds = new Set(validNodes.map(node => node.id));
       const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) =>
         validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
@@ -345,7 +331,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
       setEdges(validEdges);
 
       if (importedPrices) {
-        // 仅保留有效节点的起始价格
+        // Only keep the starting prices for valid nodes
         const validPrices: Record<string, number | string> = {};
         Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
           if (validNodeIds.has(nodeId)) {
@@ -356,18 +342,18 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
       }
 
       if (reactFlowInstance) {
-        // 自动调整视图以显示所有节点
+        // Automatically adjust the view to display all nodes
         setTimeout(() => reactFlowInstance.fitView(), 100);
       }
 
       return true;
     } catch (error) {
-      console.error('导入JSON文件时出错:', error);
+      console.error('Error importing JSON file:', error);
       setAlert({
         open: true,
         message: intl.formatMessage(
-          { id: 'ccuPlanner.error.importFailed', defaultMessage: '导入失败: {errorMessage}' },
-          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: '无效的JSON格式' }) }
+          { id: 'ccuPlanner.error.importFailed', defaultMessage: 'Import failed: {errorMessage}' },
+          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: 'Invalid JSON format' }) }
         ),
         type: 'error'
       });
@@ -375,14 +361,12 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     }
   }, [ships, setNodes, setEdges, reactFlowInstance, intl]);
 
-  // 处理文件导入（通过按钮）
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   }, []);
 
-  // 处理文件选择
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -396,17 +380,14 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     };
     reader.readAsText(file);
 
-    // 重置input，以便可以重复选择相同的文件
     if (event.target) {
       event.target.value = '';
     }
   }, [importFlowData]);
 
-  // 处理文件拖放
   const onDropFile = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
 
-    // 检查是否有JSON文件
     const items = Array.from(event.dataTransfer.items);
     const jsonItem = items.find(item =>
       item.kind === 'file' && item.type === 'application/json'
@@ -427,7 +408,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
       }
     }
 
-    // 如果不是JSON文件，继续正常的舰船拖放处理
     const shipId = event.dataTransfer.getData('application/shipId');
     if (shipId) {
       const ship = ships.find((s) => s.id.toString() === shipId);
@@ -460,13 +440,11 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     }
   }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes]);
 
-  // 处理舰船拖动开始
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  // 清除画布
   const handleClear = useCallback(() => {
     setNodes([]);
     setEdges([]);
@@ -475,7 +453,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     localStorage.setItem('ccu-planner-data', "");
   }, [setNodes, setEdges]);
 
-  // 保存工作流
   const handleSave = useCallback(() => {
     if (!nodes.length) return;
 
@@ -495,14 +472,11 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     });
   }, [nodes, edges, startShipPrices, intl]);
 
-  // 导出为Json
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
 
-    // 检查节点范围
     getRectOfNodes(nodes);
 
-    // 导出为JSON文件
     const flowData = {
       nodes,
       edges,
@@ -513,28 +487,24 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
 
-    // 创建下载链接并触发下载
     const downloadLink = document.createElement('a');
     downloadLink.href = url;
     downloadLink.download = `ccu-planner-export-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(downloadLink);
     downloadLink.click();
 
-    // 清理
     setTimeout(() => {
       URL.revokeObjectURL(url);
       document.body.removeChild(downloadLink);
     }, 100);
   }, [reactFlowInstance, nodes, edges, startShipPrices]);
 
-  // 从localStorage加载保存的工作流
   useEffect(() => {
     const savedData = localStorage.getItem('ccu-planner-data');
     if (savedData && reactFlowInstance) {
       try {
         const { nodes: savedNodes, edges: savedEdges, startShipPrices: savedPrices } = JSON.parse(savedData);
 
-        // 确保所有边缘都有sourceType字段
         const processedEdges = savedEdges?.map((edge: Edge<CcuEdgeData>) => {
           if (edge.data && !edge.data.sourceType) {
             return {
@@ -566,17 +536,14 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     }
   }, []);
 
-  // 处理节点选择
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   }, []);
 
-  // 关闭路线信息面板
   const closeRouteInfoPanel = useCallback(() => {
     setSelectedNode(null);
   }, []);
 
-  // 处理画布点击，如果点击空白区域则取消节点选择
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
@@ -617,7 +584,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
               />
             </Panel>
             <Panel position="top-left" className="bg-white w-[340px] border border-gray-200 p-2">
-              <Hanger ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
+              <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>
           </ReactFlow>
 
@@ -634,7 +601,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         </ReactFlowProvider>
       </div>
 
-      {/* 隐藏的文件输入框，用于导入JSON */}
       <input
         ref={fileInputRef}
         type="file"

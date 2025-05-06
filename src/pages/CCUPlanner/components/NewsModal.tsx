@@ -65,34 +65,34 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.welcome" defaultMessage="欢迎使用星际公民升级规划工具" />
+            <FormattedMessage id="newsModal.welcome" defaultMessage="Welcome to the Star Citizen Upgrade Planner" />
           </Typography>
           <Typography component="p">
-            <FormattedMessage id="newsModal.developmentStage" defaultMessage="本工具还处在开发阶段，如果发现bug可以联系我" />
+            <FormattedMessage id="newsModal.developmentStage" defaultMessage="This tool is still in the development stage, if you find any bugs, please contact me" />
           </Typography>
           <Typography component="p">
-            <FormattedMessage id="newsModal.dataSource" defaultMessage="本工具的数据来源于手工收集，如有疏漏请联系我修改" />
+            <FormattedMessage id="newsModal.dataSource" defaultMessage="The data of this tool is collected manually, if there are any omissions, please contact me to modify" />
           </Typography>
           <Typography component="p">
-            <FormattedMessage id="newsModal.contact" defaultMessage="QQ群：1045858475" />
+            <FormattedMessage id="newsModal.contact" defaultMessage="" />
           </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.newDomain" defaultMessage="新域名已启用" />
+            <FormattedMessage id="newsModal.newDomain" defaultMessage="New domain name enabled" />
           </Typography>
           <Link href="https://citizenshub.app" target="_blank" rel="noopener noreferrer">
             citizenshub.app
           </Link>
           <Typography component="p">
-            <FormattedMessage id="newsModal.pleaseDownloadNewExtension" defaultMessage="由于原本的拓展并未将新域名的访问权限加入，请重新下载浏览器扩展" />
+            <FormattedMessage id="newsModal.pleaseDownloadNewExtension" defaultMessage="Due to the original extension did not add the new domain name access permission, please download the browser extension again" />
           </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.referralLinkTitle" defaultMessage="本人邀请链接" />
+            <FormattedMessage id="newsModal.referralLinkTitle" defaultMessage="My referral link" />
           </Typography>
           <Link href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" rel="noopener noreferrer">
             www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH
@@ -100,14 +100,6 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
-          {/* <Button 
-            variant="outlined" 
-            color="primary" 
-            onClick={onDismiss}
-            size="large"
-          >
-            不再提示
-          </Button> */}
           <Button 
             variant="contained" 
             color="primary" 
@@ -115,7 +107,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             size="large"
             disabled={!canClose}
           >
-            <FormattedMessage id="newsModal.understood" defaultMessage="了解了" />
+            <FormattedMessage id="newsModal.understood" defaultMessage="Got it" />
             {timeLeft > 0 && `(${timeLeft}s)`}
           </Button>
         </Box>

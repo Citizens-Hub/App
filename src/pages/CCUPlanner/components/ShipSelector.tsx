@@ -12,7 +12,8 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
   const intl = useIntl();
-  // 当搜索词或舰船列表变化时过滤舰船，并将有WB的船排在前面
+
+  // When the search term or ship list changes, filter the ships, and sort the ships with WB first
   useEffect(() => {
     let filtered = ships;
 
@@ -24,11 +25,10 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
       );
     }
 
-    // 排序：将有WB标记的船只排在前面
     filtered = [...filtered].sort((a, b) => {
       const aHasWB = ccus.find(c => c.id === a.id)?.skus.find(s => s.price < a.msrp) ? 1 : 0;
       const bHasWB = ccus.find(c => c.id === b.id)?.skus.find(s => s.price < b.msrp) ? 1 : 0;
-      return bHasWB - aHasWB; // 有WB的排在前面
+      return bHasWB - aHasWB;
     });
 
     setFilteredShips(filtered);
@@ -38,13 +38,13 @@ export default function ShipSelector({ ships, ccus, onDragStart }: ShipSelectorP
     <div className="h-[calc(100vh-113px)] overflow-y-auto">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <h2 className="text-xl font-bold px-2 pt-2">
-          <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="可用舰船" />
+          <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="Available Ships" />
         </h2>
 
         <div className="p-2 pb-4">
           <input
             type="text"
-            placeholder={intl.formatMessage({ id: 'ccuPlanner.searchPlaceholder', defaultMessage: '搜索舰船...' })}
+            placeholder={intl.formatMessage({ id: 'ccuPlanner.searchPlaceholder', defaultMessage: 'Search ships...' })}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="border border-gray-700 rounded-md px-3 py-2 w-full"
