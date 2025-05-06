@@ -95,5 +95,20 @@
   "routeInfoPanel.thirdParty": "第三方",
   "routeInfoPanel.hanger": "机库",
   "routeInfoPanel.manualOfficialWB": "手动：官方CCU",
-  "routeInfoPanel.manualThirdParty": "手动：第三方CCU"
+  "routeInfoPanel.manualThirdParty": "手动：第三方CCU",
+  
+  "navigate.title": "星际公民工具集",
+  "navigate.subtitle": "为星际公民玩家提供的实用工具集合",
+  "navigate.footer": "星际公民工具集",
+  "navigate.privacy": "隐私政策",
+  "navigate.visit": "访问",
+  
+  "navigate.upgradeTitle": "升级规划器",
+  "navigate.upgradeDesc": "创建您的CCU升级路径，规划最优升级方案",
+  
+  "navigate.storeTitle": "商店预览",
+  "navigate.storeDesc": "浏览星际公民商店中的所有商品",
+  
+  "navigate.privacyTitle": "隐私政策",
+  "navigate.privacyDesc": "查看我们的隐私政策"
 } 

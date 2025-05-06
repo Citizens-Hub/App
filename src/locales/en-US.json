@@ -95,5 +95,20 @@
   "routeInfoPanel.thirdParty": "Third Party",
   "routeInfoPanel.hanger": "Hanger",
   "routeInfoPanel.manualOfficialWB": "(M) CCU from RSI",
-  "routeInfoPanel.manualThirdParty": "(M) Third Party CCU"
+  "routeInfoPanel.manualThirdParty": "(M) Third Party CCU",
+  
+  "navigate.title": "Star Citizen Tools",
+  "navigate.subtitle": "Useful tools for Star Citizen players",
+  "navigate.footer": "Star Citizen Tools",
+  "navigate.privacy": "Privacy Policy",
+  "navigate.visit": "Visit",
+  
+  "navigate.upgradeTitle": "Upgrade Planner",
+  "navigate.upgradeDesc": "Create your CCU upgrade path, plan the optimal upgrade strategy",
+  
+  "navigate.storeTitle": "Store Preview",
+  "navigate.storeDesc": "Browse all items in the Star Citizen store",
+  
+  "navigate.privacyTitle": "Privacy Policy",
+  "navigate.privacyDesc": "View our privacy policy"
 } 

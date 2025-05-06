@@ -8,7 +8,7 @@ import {
   IconButton,
   Badge,
   Fab,
-  Button
+  // Button
 } from '@mui/material';
 import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
@@ -27,7 +27,7 @@ import ResourceDesktopView from './components/ResourceDesktopView';
 import CartDrawer from './components/CartDrawer';
 import CustomTooltip from './components/CustomTooltip';
 import CustomBeacon from './components/CustomBeacon';
-import { Link } from 'react-router';
+// import { Link } from 'react-router';
 import { useEffect } from 'react';
 // import Navigation from '../../components/Navigation';
 
@@ -106,11 +106,11 @@ export default function ResourcesTable() {
           <Typography variant={isMobile ? "h6" : "h5"}>
             <FormattedMessage id="app.title" defaultMessage="商店预览" />
           </Typography>
-          <Link to="/ccu-planner">
+          {/* <Link to="/ccu-planner">
             <Button variant="text" color="primary">
               <FormattedMessage id="navigation.ccuPlanner" defaultMessage="升级路线规划器" />
             </Button>
-          </Link>
+          </Link> */}
         </div>
         {!isMobile && (
           <Tooltip title={intl.formatMessage({ id: 'cart.view', defaultMessage: '查看清单' })}>

@@ -8,6 +8,7 @@ import { addUpgrade } from './store'
 import Privacy from './pages/Privacy/Privacy'
 import { FormattedMessage } from 'react-intl'
 import LanguageSwitcher from './components/LanguageSwitcher'
+import Navigate from './pages/Navigate/Navigate'
 
 // 为window对象添加SCTranslateApi类型定义
 declare global {
@@ -159,8 +160,9 @@ function App() {
       </Box>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<ResourcesTable />} />
+          <Route path="/" element={<Navigate />} />
           <Route path="/ccu-planner" element={<CCUPlanner />} />
+          <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/privacy" element={<Privacy />} />
         </Routes>
       </BrowserRouter>

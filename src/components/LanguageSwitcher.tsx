@@ -1,14 +1,14 @@
 import { Button, Menu, MenuItem } from '@mui/material';
-import { useLocale, Locale } from '../contexts/LocaleContext';
-import { useState, MouseEvent } from 'react';
-import { LanguageOutlined } from '@mui/icons-material';
+import { useState } from 'react';
+import { useLocale } from '../contexts/LocaleContext';
+import LanguageIcon from '@mui/icons-material/Language';
 
 export default function LanguageSwitcher() {
   const { locale, setLocale } = useLocale();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -16,7 +16,7 @@ export default function LanguageSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleLanguageChange = (newLocale: Locale) => {
+  const handleLanguageChange = (newLocale: 'zh-CN' | 'en-US') => {
     setLocale(newLocale);
     handleClose();
   };
@@ -24,11 +24,10 @@ export default function LanguageSwitcher() {
   return (
     <>
       <Button
-        variant="outlined"
+        color="inherit"
         onClick={handleClick}
+        startIcon={<LanguageIcon />}
         size="small"
-        sx={{ bgcolor: 'white' }}
-        startIcon={<LanguageOutlined />}
       >
         {locale === 'zh-CN' ? '中文' : 'English'}
       </Button>
