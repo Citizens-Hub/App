@@ -46,11 +46,20 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             <FormattedMessage id="newsModal.developmentStage" defaultMessage="本工具还处在开发阶段，如果发现bug可以联系我" />
           </Typography>
           <Typography component="p">
-            <FormattedMessage id="newsModal.contact" defaultMessage="QQ群：1045858475" />
-          </Typography>
-          <Typography component="p">
             <FormattedMessage id="newsModal.dataSource" defaultMessage="本工具的数据来源于手工收集，如有疏漏请联系我修改" />
           </Typography>
+          <Typography component="p">
+            <FormattedMessage id="newsModal.contact" defaultMessage="QQ群：1045858475" />
+          </Typography>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            <FormattedMessage id="newsModal.newDomain" defaultMessage="新域名已启用" />
+          </Typography>
+          <Link href="https://citizenshub.app" target="_blank" rel="noopener noreferrer">
+            citizenshub.app
+          </Link>
         </Box>
 
         <Box sx={{ mb: 3 }}>
@@ -58,7 +67,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             <FormattedMessage id="newsModal.referralLinkTitle" defaultMessage="本人邀请链接" />
           </Typography>
           <Link href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" rel="noopener noreferrer">
-            https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH
+            www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH
           </Link>
         </Box>
 

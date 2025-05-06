@@ -30,6 +30,18 @@ function App() {
   const dispatch = useDispatch();
 
   useEffect(() => {
+    const host = window.location.hostname;
+
+    if (host === 'localhost') {
+      return;
+    }
+
+    if (host !== "citizenshub.app") {
+      window.location.hostname = "citizenshub.app";
+    }
+  }, [])
+
+  useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {

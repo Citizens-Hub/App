@@ -71,11 +71,6 @@ export default function ResourcesTable() {
     return <Typography><FormattedMessage id="loading" defaultMessage="加载中..." /></Typography>;
   }
 
-  const allowedHosts = ['sc-sub.pages.dev', 'localhost', 'sc.oxdl.cn'];
-  if (!allowedHosts.includes(window.location.hostname)) {
-    return <Typography color="error"><FormattedMessage id="error.loading" defaultMessage="加载资源失败" /></Typography>;
-  }
-
   if (error) {
     return <Typography color="error">{error}</Typography>;
   }
