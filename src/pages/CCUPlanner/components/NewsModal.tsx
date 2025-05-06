@@ -2,6 +2,8 @@ import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box
 import { Close } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
 import { useState, useEffect } from 'react';
+import { useLocale } from '../../../contexts/LocaleContext';
+import DiscordIcon from './DiscordIcon';
 
 interface NewsModalProps {
   open: boolean;
@@ -10,9 +12,10 @@ interface NewsModalProps {
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
   const [canClose, setCanClose] = useState(false);
-
   const [timeLeft, setTimeLeft] = useState(4);
-  
+
+  const locale = useLocale();
+
   useEffect(() => {
     if (open) {
       setCanClose(false);
@@ -26,7 +29,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
       }
     }
   }, [open, timeLeft]);
-  
+
   const handleClose = () => {
     if (canClose) {
       onClose();
@@ -48,9 +51,9 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         }
       }}
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <DialogTitle sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         pb: 1
       }}>
@@ -78,6 +81,18 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
           </Typography>
         </Box>
 
+        {locale.locale === "en" &&
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Join our Discord server to get the latest news and updates:
+            </Typography>
+            <Link href="https://discord.gg/qFvv4YJ4" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
+              <DiscordIcon />
+              https://discord.gg/qFvv4YJ4
+            </Link>
+          </Box>
+        }
+
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             <FormattedMessage id="newsModal.newDomain" defaultMessage="New domain name enabled" />
@@ -100,9 +115,9 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
-          <Button 
-            variant="contained" 
-            color="primary" 
+          <Button
+            variant="contained"
+            color="primary"
             onClick={handleClose}
             size="large"
             disabled={!canClose}
