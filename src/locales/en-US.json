@@ -64,6 +64,7 @@
   "newsModal.referralLinkTitle": "My Referral Link",
   "newsModal.understood": "Got it",
   "newsModal.newDomain": "New domain is available",
+  "newsModal.pleaseDownloadNewExtension": "Since the original extension did not include the new domain, please download the extension again",
   "extensionModal.title": "Install Extension Instructions",
   "extensionModal.description": "Since the extension is not yet on the Chrome Store, it needs to be installed manually:",
   "extensionModal.step1": "Download and extract the extension files",

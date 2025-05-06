@@ -11,14 +11,14 @@ export default function useResourceData() {
 
   useEffect(() => {
     // 检查用户是否是首次打开
-    const todayDate = new Date().toDateString();
-    const lastVisitDate = localStorage.getItem('ccuPlannerLastVisit');
+    const currentVersion = '1.0.0';
+    const lastVisitVersion = localStorage.getItem('ccuPlannerLastVisit');
     
-    if (!lastVisitDate || lastVisitDate !== todayDate) {
+    if (!lastVisitVersion || lastVisitVersion !== currentVersion) {
       // 如果是当天第一次打开，显示新闻弹窗
       setShowNewsModal(true);
       // 更新访问日期
-      localStorage.setItem('ccuPlannerLastVisit', todayDate);
+      localStorage.setItem('ccuPlannerLastVisit', currentVersion);
     }
 
     const abortController = new AbortController();

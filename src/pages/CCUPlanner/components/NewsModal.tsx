@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box, Link } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
+import { useState, useEffect } from 'react';
 
 interface NewsModalProps {
   open: boolean;
@@ -8,10 +9,34 @@ interface NewsModalProps {
 }
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
+  const [canClose, setCanClose] = useState(false);
+
+  const [timeLeft, setTimeLeft] = useState(4);
+  
+  useEffect(() => {
+    if (open) {
+      setCanClose(false);
+
+      if (timeLeft > 0) {
+        setTimeout(() => {
+          setTimeLeft(timeLeft - 1);
+        }, 1000);
+      } else {
+        setCanClose(true);
+      }
+    }
+  }, [open, timeLeft]);
+  
+  const handleClose = () => {
+    if (canClose) {
+      onClose();
+    }
+  };
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       maxWidth="md"
       fullWidth
       slotProps={{
@@ -29,10 +54,10 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         alignItems: 'center',
         pb: 1
       }}>
-        <Typography variant="h5" component="h2" fontWeight="bold">
+        <Typography variant="h5" component="p" fontWeight="bold">
           <FormattedMessage id="newsModal.title" defaultMessage="Hello" />
         </Typography>
-        <IconButton onClick={onClose} size="large">
+        <IconButton onClick={handleClose} size="large" disabled={!canClose}>
           <Close />
         </IconButton>
       </DialogTitle>
@@ -60,6 +85,9 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
           <Link href="https://citizenshub.app" target="_blank" rel="noopener noreferrer">
             citizenshub.app
           </Link>
+          <Typography component="p">
+            <FormattedMessage id="newsModal.pleaseDownloadNewExtension" defaultMessage="由于原本的拓展并未将新域名的访问权限加入，请重新下载浏览器扩展" />
+          </Typography>
         </Box>
 
         <Box sx={{ mb: 3 }}>
@@ -83,10 +111,12 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
           <Button 
             variant="contained" 
             color="primary" 
-            onClick={onClose}
+            onClick={handleClose}
             size="large"
+            disabled={!canClose}
           >
             <FormattedMessage id="newsModal.understood" defaultMessage="了解了" />
+            {timeLeft > 0 && `(${timeLeft}s)`}
           </Button>
         </Box>
       </DialogContent>

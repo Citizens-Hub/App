@@ -159,8 +159,9 @@ export default function Hanger({ ships, onDragStart }: ShipSelectorProps) {
               </div>
             })
             :
-            <div className="text-center text-gray-400 mb-2">
-              <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" /> <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
+            <div className="text-center text-gray-400 mb-2 flex flex-col items-center justify-center gap-2">
+              <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" /> 
+              <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
             </div>
         )}
       </div>
