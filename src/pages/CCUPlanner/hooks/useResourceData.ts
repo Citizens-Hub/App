@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ccu, Ship, CcusData, ShipsData } from '../../../types';
+import { Ccu, Ship, CcusData, ShipsData, WbHistoryData } from '../../../types';
 
 export default function useResourceData() {
   const [ccus, setCcus] = useState<Ccu[]>([]);
@@ -7,6 +7,7 @@ export default function useResourceData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewsModal, setShowNewsModal] = useState(false);
+  const [wbHistory, setWbHistory] = useState<WbHistoryData[]>([]);
 
   useEffect(() => {
     const currentVersion = '1.0.0';
@@ -38,6 +39,15 @@ export default function useResourceData() {
         }
         const shipsData: ShipsData[] = await shipsResponse.json();
         setShips(shipsData[0].data.ships.sort((a, b) => a.msrp - b.msrp));
+
+        const wbHistoryResponse = await fetch('/history_wb.json', {
+          signal: abortController.signal
+        });
+        if (!wbHistoryResponse.ok) {
+          throw new Error('Network response error');
+        }
+        const wbHistoryData: WbHistoryData[] = await wbHistoryResponse.json();
+        setWbHistory(wbHistoryData);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -62,5 +72,5 @@ export default function useResourceData() {
     setShowNewsModal(false);
   };
 
-  return { ccus, ships, loading, error, showNewsModal, closeNewsModal };
+  return { ccus, ships, wbHistory, loading, error, showNewsModal, closeNewsModal };
 } 

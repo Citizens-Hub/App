@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 import { useIntl, FormattedMessage } from 'react-intl'
 
 export default function CCUPlanner() {
-  const { ships, ccus, loading, showNewsModal, closeNewsModal } = useResourceData()
+  const { ships, ccus, wbHistory, loading, showNewsModal, closeNewsModal } = useResourceData()
   const intl = useIntl()
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function CCUPlanner() {
       </div>
       
       <div className="flex-1 relative">
-        <CcuCanvas ships={ships} ccus={ccus} />
+        <CcuCanvas ships={ships} ccus={ccus} wbHistory={wbHistory} />
       </div>
 
       <NewsModal open={showNewsModal} onClose={closeNewsModal} />

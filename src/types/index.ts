@@ -110,3 +110,8 @@ export interface CcuEdgeData {
   sourceType?: CcuSourceType;
   customPrice?: number;
 }
+
+export interface WbHistoryData {
+  name: string;
+  price: string;
+}

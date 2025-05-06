@@ -1,0 +1,842 @@
+[
+  {
+    "name": "100i",
+    "price": 45
+  },
+  {
+    "name": "125a",
+    "price": 55
+  },
+  {
+    "name": "135c",
+    "price": 60
+  },
+  {
+    "name": "300i",
+    "price": ""
+  },
+  {
+    "name": "315p",
+    "price": ""
+  },
+  {
+    "name": "325a",
+    "price": ""
+  },
+  {
+    "name": "350r",
+    "price": ""
+  },
+  {
+    "name": "400i",
+    "price": 220
+  },
+  {
+    "name": "600i Executive-Edition",
+    "price": ""
+  },
+  {
+    "name": "600i Explorer",
+    "price": 435
+  },
+  {
+    "name": "600i Touring",
+    "price": 405
+  },
+  {
+    "name": "85X",
+    "price": ""
+  },
+  {
+    "name": "890 Jump",
+    "price": 890
+  },
+  {
+    "name": "A2 Hercules Starlifter",
+    "price": 600
+  },
+  {
+    "name": "Apollo Medivac",
+    "price": 250
+  },
+  {
+    "name": "Apollo Triage",
+    "price": 225
+  },
+  {
+    "name": "Ares Star Fighter Inferno",
+    "price": 220
+  },
+  {
+    "name": "Ares Star Fighter Ion",
+    "price": 220
+  },
+  {
+    "name": "Arrow",
+    "price": 60
+  },
+  {
+    "name": "Aurora CL",
+    "price": ""
+  },
+  {
+    "name": "Aurora ES",
+    "price": ""
+  },
+  {
+    "name": "Aurora LN",
+    "price": ""
+  },
+  {
+    "name": "Aurora LX",
+    "price": ""
+  },
+  {
+    "name": "Aurora MR",
+    "price": ""
+  },
+  {
+    "name": "Avenger Stalker",
+    "price": ""
+  },
+  {
+    "name": "Avenger Titan",
+    "price": ""
+  },
+  {
+    "name": "Avenger Titan Renegade",
+    "price": 65
+  },
+  {
+    "name": "Avenger Warlock",
+    "price": ""
+  },
+  {
+    "name": "Bengal",
+    "price": ""
+  },
+  {
+    "name": "Blade",
+    "price": 250
+  },
+  {
+    "name": "Blade (vanduul)",
+    "price": ""
+  },
+  {
+    "name": "Buccaneer",
+    "price": ""
+  },
+  {
+    "name": "C1 Spirit",
+    "price": 110
+  },
+  {
+    "name": "C2 Hercules Starlifter",
+    "price": 360
+  },
+  {
+    "name": "C8 Pisces",
+    "price": ""
+  },
+  {
+    "name": "C8R Pisces Rescue",
+    "price": 60
+  },
+  {
+    "name": "C8X Pisces Expedition",
+    "price": 40
+  },
+  {
+    "name": "Carrack",
+    "price": 500
+  },
+  {
+    "name": "Carrack Best in Show 2950 Edition",
+    "price": ""
+  },
+  {
+    "name": "Carrack Expedition",
+    "price": 525
+  },
+  {
+    "name": "Caterpillar",
+    "price": 295
+  },
+  {
+    "name": "Caterpillar Best In Show Edition",
+    "price": ""
+  },
+  {
+    "name": "Caterpillar Pirate Edition",
+    "price": ""
+  },
+  {
+    "name": "Collector",
+    "price": ""
+  },
+  {
+    "name": "Constellation Andromeda",
+    "price": ""
+  },
+  {
+    "name": "Constellation Aquila",
+    "price": 275
+  },
+  {
+    "name": "Constellation Phoenix",
+    "price": ""
+  },
+  {
+    "name": "Constellation Phoenix Emerald",
+    "price": 350
+  },
+  {
+    "name": "Constellation Taurus",
+    "price": 160
+  },
+  {
+    "name": "Corsair",
+    "price": 225
+  },
+  {
+    "name": "Crucible",
+    "price": ""
+  },
+  {
+    "name": "Cutlass Black",
+    "price": ""
+  },
+  {
+    "name": "Cutlass Black Best In Show Edition",
+    "price": ""
+  },
+  {
+    "name": "Cutlass Black Best in Show 2950 Edition",
+    "price": ""
+  },
+  {
+    "name": "Cutlass Blue",
+    "price": 150
+  },
+  {
+    "name": "Cutlass Red",
+    "price": 120
+  },
+  {
+    "name": "Cutter",
+    "price": 40
+  },
+  {
+    "name": "Defender",
+    "price": 185
+  },
+  {
+    "name": "Driller",
+    "price": ""
+  },
+  {
+    "name": "Eclipse",
+    "price": 275
+  },
+  {
+    "name": "Eclipse Best in Show 2950 Edition",
+    "price": ""
+  },
+  {
+    "name": "Endeavor",
+    "price": ""
+  },
+  {
+    "name": "Endeavor Discovery",
+    "price": ""
+  },
+  {
+    "name": "Endeavor Hope",
+    "price": ""
+  },
+  {
+    "name": "Endeavor Olympic",
+    "price": ""
+  },
+  {
+    "name": "F7A Hornet",
+    "price": ""
+  },
+  {
+    "name": "F7C Hornet",
+    "price": ""
+  },
+  {
+    "name": "F7C Hornet Wildfire",
+    "price": 165
+  },
+  {
+    "name": "F7C-M Super Hornet",
+    "price": ""
+  },
+  {
+    "name": "F7C-M Super Hornet Heartseeker",
+    "price": 175
+  },
+  {
+    "name": "F7C-R Hornet Tracker",
+    "price": ""
+  },
+  {
+    "name": "F7C-S Hornet Ghost",
+    "price": ""
+  },
+  {
+    "name": "F8A Lightning",
+    "price": ""
+  },
+  {
+    "name": "F8C Lightning",
+    "price": ""
+  },
+  {
+    "name": "F8C Lightning Executive-Edition",
+    "price": ""
+  },
+  {
+    "name": "Freelancer",
+    "price": ""
+  },
+  {
+    "name": "Freelancer DUR",
+    "price": 125
+  },
+  {
+    "name": "Freelancer MAX",
+    "price": 140
+  },
+  {
+    "name": "Freelancer MIS",
+    "price": 165
+  },
+  {
+    "name": "Fury",
+    "price": 50
+  },
+  {
+    "name": "Genesis Starliner",
+    "price": ""
+  },
+  {
+    "name": "Gladiator",
+    "price": ""
+  },
+  {
+    "name": "Gladius",
+    "price": ""
+  },
+  {
+    "name": "Gladius Valiant",
+    "price": 100
+  },
+  {
+    "name": "Glaive",
+    "price": ""
+  },
+  {
+    "name": "Hammerhead",
+    "price": 600
+  },
+  {
+    "name": "Hammerhead Best In Show Edition",
+    "price": ""
+  },
+  {
+    "name": "Hawk",
+    "price": 90
+  },
+  {
+    "name": "Herald",
+    "price": ""
+  },
+  {
+    "name": "Hull A",
+    "price": ""
+  },
+  {
+    "name": "Hull B",
+    "price": ""
+  },
+  {
+    "name": "Hull D",
+    "price": ""
+  },
+  {
+    "name": "Hull E",
+    "price": 550
+  },
+  {
+    "name": "Hurricane",
+    "price": 185
+  },
+  {
+    "name": "Idris-K",
+    "price": 250
+  },
+  {
+    "name": "Idris-M",
+    "price": ""
+  },
+  {
+    "name": "Idris-P",
+    "price": 1300
+  },
+  {
+    "name": "Javelin",
+    "price": 2700
+  },
+  {
+    "name": "Khartu-Al",
+    "price": ""
+  },
+  {
+    "name": "Kingship",
+    "price": ""
+  },
+  {
+    "name": "Kraken",
+    "price": 1400
+  },
+  {
+    "name": "Kraken Conversion Kit",
+    "price": 300
+  },
+  {
+    "name": "Kraken Privateer",
+    "price": 1700
+  },
+  {
+    "name": "Legionnaire",
+    "price": ""
+  },
+  {
+    "name": "Liberator",
+    "price": 500
+  },
+  {
+    "name": "M2 Hercules Starlifter",
+    "price": 480
+  },
+  {
+    "name": "M50",
+    "price": ""
+  },
+  {
+    "name": "MOLE",
+    "price": 275
+  },
+  {
+    "name": "MOLE Carbon",
+    "price": 275
+  },
+  {
+    "name": "MOLE Talus",
+    "price": 275
+  },
+  {
+    "name": "MPUV Cargo",
+    "price": ""
+  },
+  {
+    "name": "MPUV Personnel",
+    "price": ""
+  },
+  {
+    "name": "Mantis",
+    "price": 135
+  },
+  {
+    "name": "Merchantman",
+    "price": 425
+  },
+  {
+    "name": "Mercury Star Runner",
+    "price": 225
+  },
+  {
+    "name": "Mustang Alpha",
+    "price": ""
+  },
+  {
+    "name": "Mustang Alpha Vindicator",
+    "price": ""
+  },
+  {
+    "name": "Mustang Beta",
+    "price": ""
+  },
+  {
+    "name": "Mustang Delta",
+    "price": ""
+  },
+  {
+    "name": "Mustang Gamma",
+    "price": ""
+  },
+  {
+    "name": "Mustang Omega",
+    "price": ""
+  },
+  {
+    "name": "Nautilus",
+    "price": 675
+  },
+  {
+    "name": "Nautilus Solstice",
+    "price": 675
+  },
+  {
+    "name": "Nomad",
+    "price": 70
+  },
+  {
+    "name": "Odyssey",
+    "price": 625
+  },
+  {
+    "name": "Orion",
+    "price": ""
+  },
+  {
+    "name": "P-52 Merlin",
+    "price": 20
+  },
+  {
+    "name": "P-72 Archimedes",
+    "price": 30
+  },
+  {
+    "name": "P-72 Archimedes Emerald",
+    "price": 35
+  },
+  {
+    "name": "Pegasus",
+    "price": ""
+  },
+  {
+    "name": "Perseus",
+    "price": 600
+  },
+  {
+    "name": "Pirate Gladius",
+    "price": 90
+  },
+  {
+    "name": "Prospector",
+    "price": 140
+  },
+  {
+    "name": "Prowler",
+    "price": 395
+  },
+  {
+    "name": "RAFT",
+    "price": 110
+  },
+  {
+    "name": "Railen",
+    "price": 200
+  },
+  {
+    "name": "Razor",
+    "price": 120
+  },
+  {
+    "name": "Razor EX",
+    "price": 140
+  },
+  {
+    "name": "Razor LX",
+    "price": 135
+  },
+  {
+    "name": "Reclaimer",
+    "price": 350
+  },
+  {
+    "name": "Reclaimer Best In Show Edition",
+    "price": ""
+  },
+  {
+    "name": "Redeemer",
+    "price": 275
+  },
+  {
+    "name": "Reliant Kore",
+    "price": 50
+  },
+  {
+    "name": "Reliant Mako",
+    "price": 85
+  },
+  {
+    "name": "Reliant Sen",
+    "price": 75
+  },
+  {
+    "name": "Reliant Tana",
+    "price": 65
+  },
+  {
+    "name": "Retaliator Base",
+    "price": ""
+  },
+  {
+    "name": "Retaliator Bomber",
+    "price": 260
+  },
+  {
+    "name": "SRV",
+    "price": 130
+  },
+  {
+    "name": "Sabre",
+    "price": ""
+  },
+  {
+    "name": "Sabre Comet",
+    "price": 175
+  },
+  {
+    "name": "Sabre Firebird",
+    "price": 170
+  },
+  {
+    "name": "Sabre Raven",
+    "price": ""
+  },
+  {
+    "name": "San'tok.yāi",
+    "price": 195
+  },
+  {
+    "name": "Scorpius",
+    "price": 220
+  },
+  {
+    "name": "Scorpius Antares",
+    "price": 210
+  },
+  {
+    "name": "Scythe",
+    "price": ""
+  },
+  {
+    "name": "Esperia (human conversion)]]",
+    "price": ""
+  },
+  {
+    "name": "Scythe (vanduul)",
+    "price": ""
+  },
+  {
+    "name": "Starfarer",
+    "price": ""
+  },
+  {
+    "name": "Starfarer Gemini",
+    "price": ""
+  },
+  {
+    "name": "Talon",
+    "price": 100
+  },
+  {
+    "name": "Talon Shrike",
+    "price": 100
+  },
+  {
+    "name": "Terrapin",
+    "price": 195
+  },
+  {
+    "name": "Valkyrie",
+    "price": 330
+  },
+  {
+    "name": "Valkyrie Best in Show 2950 Edition",
+    "price": ""
+  },
+  {
+    "name": "Valkyrie Liberator Edition",
+    "price": 330
+  },
+  {
+    "name": "Vanguard Harbinger",
+    "price": 280
+  },
+  {
+    "name": "Vanguard Hoplite",
+    "price": 225
+  },
+  {
+    "name": "Vanguard Sentinel",
+    "price": 265
+  },
+  {
+    "name": "Vanguard Warden",
+    "price": 245
+  },
+  {
+    "name": "Void",
+    "price": ""
+  },
+  {
+    "name": "Vulcan",
+    "price": 185
+  },
+  {
+    "name": "Vulture",
+    "price": 150
+  },
+  {
+    "name": "ATLS",
+    "price": ""
+  },
+  {
+    "name": "Ballista",
+    "price": 120
+  },
+  {
+    "name": "Ballista Dunestalker",
+    "price": 125
+  },
+  {
+    "name": "Ballista Snowblind",
+    "price": 125
+  },
+  {
+    "name": "Centurion",
+    "price": 95
+  },
+  {
+    "name": "Cyclone",
+    "price": 40
+  },
+  {
+    "name": "Cyclone-AA",
+    "price": 65
+  },
+  {
+    "name": "Cyclone-MT",
+    "price": 65
+  },
+  {
+    "name": "Cyclone-RC",
+    "price": 50
+  },
+  {
+    "name": "Cyclone-RN",
+    "price": 50
+  },
+  {
+    "name": "Cyclone-TR",
+    "price": 50
+  },
+  {
+    "name": "Cydnus",
+    "price": ""
+  },
+  {
+    "name": "Dragonfly Black",
+    "price": 35
+  },
+  {
+    "name": "Dragonfly Star Kitten",
+    "price": ""
+  },
+  {
+    "name": "Dragonfly Yellowjacket",
+    "price": ""
+  },
+  {
+    "name": "G12",
+    "price": 55
+  },
+  {
+    "name": "G12a",
+    "price": 60
+  },
+  {
+    "name": "G12r",
+    "price": 55
+  },
+  {
+    "name": "Lynx Rover",
+    "price": 55
+  },
+  {
+    "name": "Mule",
+    "price": ""
+  },
+  {
+    "name": "Nova",
+    "price": 105
+  },
+  {
+    "name": "Nox",
+    "price": 35
+  },
+  {
+    "name": "Nox Kue",
+    "price": 40
+  },
+  {
+    "name": "PTV",
+    "price": ""
+  },
+  {
+    "name": "ROC",
+    "price": 50
+  },
+  {
+    "name": "ROC-DS",
+    "price": 70
+  },
+  {
+    "name": "Ranger CV",
+    "price": 30
+  },
+  {
+    "name": "Ranger RC",
+    "price": 30
+  },
+  {
+    "name": "Ranger TR",
+    "price": 35
+  },
+  {
+    "name": "STV",
+    "price": 35
+  },
+  {
+    "name": "Spartan",
+    "price": 65
+  },
+  {
+    "name": "Ursa Rover",
+    "price": ""
+  },
+  {
+    "name": "Ursa Rover Fortuna",
+    "price": 50
+  },
+  {
+    "name": "X1 Base",
+    "price": 35
+  },
+  {
+    "name": "X1 Force",
+    "price": 45
+  },
+  {
+    "name": "X1 Velocity",
+    "price": 40
+  }
+]

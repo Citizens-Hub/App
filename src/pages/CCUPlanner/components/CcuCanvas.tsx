@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useIntl } from 'react-intl';
 
-import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -42,9 +42,10 @@ const edgeTypes: EdgeTypes = {
 interface CcuCanvasProps {
   ships: Ship[];
   ccus: Ccu[];
+  wbHistory: WbHistoryData[];
 }
 
-export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
+export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -546,7 +547,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
   return (
     <div className="h-full flex">
       <div className="w-[450px] border-r border-gray-200 dark:border-gray-800">
-        <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
+        <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} />
       </div>
 
       <div className="w-full h-full relative" ref={reactFlowWrapper}>
