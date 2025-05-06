@@ -24,6 +24,23 @@ function App() {
 
   const dispatch = useDispatch();
 
+  const tryResolveCCU = (content: { name: string }) => {
+    const name = content.name;
+
+    let from = "";
+    let to = "";
+
+    try {
+      from = name.split("to")[0].split("-")[1].trim().toUpperCase()
+      to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+    } catch (error) {
+      console.warn("error parsing ccu", name, "error >>>>", error);
+      return false;
+    }
+
+    return { from, to };
+  }
+
   useEffect(() => {
     const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
 
@@ -77,11 +94,7 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            if (!content.name.includes("to")) {
-              console.log("found invalid upgrade >>>>>>>>>>>>>>", content, value);
-
-              return;
-            }
+            if (!tryResolveCCU(content)) return;
 
             dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
           });
@@ -97,11 +110,7 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            if (!content.name.includes("to")) {
-              console.log("found invalid upgrade >>>>>>>>>>>>>>", content, value);
-
-              return;
-            }
+            if (!tryResolveCCU(content)) return;
 
             dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
           });
