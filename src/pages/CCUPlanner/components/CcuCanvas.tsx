@@ -529,13 +529,6 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     }
   }, [reactFlowInstance, setNodes, setEdges]);
 
-  useEffect(() => {
-    const attribution = document.querySelector(".react-flow__attribution");
-    if (attribution) {
-      attribution.remove();
-    }
-  }, []);
-
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
   }, []);
