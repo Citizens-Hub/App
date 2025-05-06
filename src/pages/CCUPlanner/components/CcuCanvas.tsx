@@ -540,6 +540,8 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
+  
+  const proOptions = { hideAttribution: true };
 
   return (
     <div className="h-full flex">
@@ -552,6 +554,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            proOptions={proOptions}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
