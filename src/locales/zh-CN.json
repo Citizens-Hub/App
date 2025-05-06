@@ -82,7 +82,7 @@
   "routeInfoPanel.sortingSettings": "排序设置",
   "routeInfoPanel.conciergeValue": "消费额价值",
   "routeInfoPanel.conciergeTooltip": "在这里填写你获取1美元消费额的成本是多少美元, 如果你不在意消费额则填0, 升级的实际花销按照消费美元+消费人民币*汇率*(1+消费额换算比例),即花销为总花费换算为美元后再加上\"购买\"没有从官方购买获得的消费额的费用",
-  "routeInfoPanel.routesTooltip": "升级路径经过剪枝以确保能在有意义时间内完成计算, 只保证第一条路径为花费最优路径, 不保证存在不存在优于第二条（及以后）路径的路径",
+  "routeInfoPanel.pruneOptTooltip": "如果勾选，升级路径经过剪枝以确保能在有意义时间内完成计算, 只保证第一条路径为花费最优路径, 不保证存在不存在优于第二条（及以后）路径的路径",
   "routeInfoPanel.shipValue": "舰船价值",
   "routeInfoPanel.from": "从",
   "routeInfoPanel.to": "到",
@@ -96,19 +96,16 @@
   "routeInfoPanel.hangar": "机库",
   "routeInfoPanel.manualOfficialWB": "手动：官方CCU",
   "routeInfoPanel.manualThirdParty": "手动：第三方CCU",
-  
   "navigate.title": "星际公民工具集",
   "navigate.subtitle": "为星际公民玩家提供的实用工具集合",
   "navigate.footer": "星际公民工具集",
   "navigate.privacy": "隐私政策",
   "navigate.visit": "访问",
-  
   "navigate.upgradeTitle": "升级规划器",
   "navigate.upgradeDesc": "创建您的CCU升级路径，规划最优升级方案",
-  
   "navigate.storeTitle": "商店预览",
   "navigate.storeDesc": "浏览星际公民商店中的所有商品",
-  
   "navigate.privacyTitle": "隐私政策",
-  "navigate.privacyDesc": "查看我们的隐私政策"
-} 
+  "navigate.privacyDesc": "查看我们的隐私政策",
+  "routeInfoPanel.pruneOpt": "剪枝优化"
+}

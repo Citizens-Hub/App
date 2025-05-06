@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
-import { Button, Input, Tooltip } from '@mui/material';
+import { Button, Input, Switch, Tooltip } from '@mui/material';
 import { InfoOutlined } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
 
@@ -30,19 +30,20 @@ interface PathEdge {
   targetNode: Node;
 }
 
-String.prototype.getNodeShipId = function() {
+String.prototype.getNodeShipId = function () {
   return this.split('-')[1];
 }
 
-export default function RouteInfoPanel({ 
-  selectedNode, 
-  edges, 
-  nodes, 
-  onClose, 
-  startShipPrices, 
-  onStartShipPriceChange 
+export default function RouteInfoPanel({
+  selectedNode,
+  edges,
+  nodes,
+  onClose,
+  startShipPrices,
+  onStartShipPriceChange
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState("0.1");
+  const [pruneOpt, setPruneOpt] = useState(false);
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
   // Find all possible starting nodes (nodes with no incoming edges)
@@ -54,14 +55,14 @@ export default function RouteInfoPanel({
   // Initialize the starting ship price to msrp/100 USD
   useEffect(() => {
     const startNodes = findStartNodes();
-    
+
     startNodes.forEach(node => {
       // Only set the default price for nodes that haven't been set
       if (node.data?.ship?.msrp && startShipPrices[node.id] === undefined) {
         onStartShipPriceChange(node.id, node.data.ship.msrp / 100);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, findStartNodes]);
 
   // Get price and currency based on different source types
@@ -109,24 +110,24 @@ export default function RouteInfoPanel({
 
   // Find all possible paths from the starting node to the selected node
   const findAllPaths = useCallback((
-    startNode: Node, 
-    endNodeId: string, 
-    visited = new Set<string>(), 
-    currentPath: string[] = [], 
+    startNode: Node,
+    endNodeId: string,
+    visited = new Set<string>(),
+    currentPath: string[] = [],
     allPaths: string[][] = [],
     currentUsdCost = 0,
     currentCnyCost = 0
   ) => {
     currentPath.push(startNode.id);
     visited.add(startNode.id);
-    
+
     const totalCost = calculateTotalCost(currentUsdCost, currentCnyCost);
-    
+
     // If this node already has a lower cost record, prune
-    if (nodeBestCostRef.current[startNode.id] !== undefined && totalCost >= nodeBestCostRef.current[startNode.id]) {
+    if (pruneOpt && nodeBestCostRef.current[startNode.id] !== undefined && totalCost >= nodeBestCostRef.current[startNode.id]) {
       return allPaths;
     }
-    
+
     nodeBestCostRef.current[startNode.id] = totalCost;
 
     // If the ship ID of the reached node is the same as the ship ID of the target node, add the current path to all paths
@@ -139,12 +140,12 @@ export default function RouteInfoPanel({
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
           const { usdPrice, cnyPrice } = getPriceInfo(edge);
-          
+
           findAllPaths(
-            targetNode, 
-            endNodeId, 
-            new Set(visited), 
-            [...currentPath], 
+            targetNode,
+            endNodeId,
+            new Set(visited),
+            [...currentPath],
             allPaths,
             currentUsdCost + usdPrice,
             currentCnyCost + cnyPrice
@@ -223,7 +224,7 @@ export default function RouteInfoPanel({
 
     // Reset node minimum cost
     nodeBestCostRef.current = {};
-    
+
     const startNodes = findStartNodes();
     const allPathIds: string[][] = [];
 
@@ -275,14 +276,31 @@ export default function RouteInfoPanel({
           <FormattedMessage id="routeInfoPanel.sortingSettings" defaultMessage="Sorting Settings" />
         </div>
         <div className="flex flex-col gap-2 mt-2">
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="prunePath" className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+              <FormattedMessage id="routeInfoPanel.pruneOpt" defaultMessage="Pruning optimization" />
+              <Tooltip arrow title={
+                <span style={{ fontSize: '14px' }}>
+                  <FormattedMessage id="routeInfoPanel.pruneOptTooltip" defaultMessage="If checked, the upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown"/>
+                </span>
+              }>
+                <InfoOutlined sx={{ fontSize: 14 }} />
+              </Tooltip>
+            </label>
+            <Switch
+              id="prunePath"
+              checked={pruneOpt}
+              onChange={(e) => setPruneOpt(e.target.checked)}
+            />
+          </div>
           <div className="flex items-center justify-between">
             <label htmlFor="conciergeValue" className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <FormattedMessage id="routeInfoPanel.conciergeValue" defaultMessage="Concierge Value" />
               <Tooltip arrow title={
                 <span style={{ fontSize: '14px' }}>
-                  <FormattedMessage 
-                    id="routeInfoPanel.conciergeTooltip" 
-                    defaultMessage="Fill in how many dollars it costs you to get $1 of concierge value. If you don't care about concierge value, enter 0. The actual cost of upgrading is calculated as dollars spent + RMB spent * exchange rate * (1 + concierge conversion ratio)" 
+                  <FormattedMessage
+                    id="routeInfoPanel.conciergeTooltip"
+                    defaultMessage="Fill in how many dollars it costs you to get $1 of concierge value. If you don't care about concierge value, enter 0. The actual cost of upgrading is calculated as dollars spent + RMB spent * exchange rate * (1 + concierge conversion ratio)"
                   />
                 </span>
               }>
@@ -305,16 +323,6 @@ export default function RouteInfoPanel({
 
       <h4 className="text-lg font-bold mb-2 bg-gray-100 dark:bg-[#222] py-1 flex justify-center items-center gap-2">
         <FormattedMessage id="routeInfoPanel.title" defaultMessage="Alternative Upgrade Routes" />
-        <Tooltip arrow title={
-          <span style={{ fontSize: '14px' }}>
-            <FormattedMessage 
-              id="routeInfoPanel.routesTooltip" 
-              defaultMessage="The upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown" 
-            />
-          </span>
-        }>
-          <InfoOutlined sx={{ fontSize: 14 }} />
-        </Tooltip>
       </h4>
 
       {completePaths.length === 0 ? (
@@ -328,21 +336,21 @@ export default function RouteInfoPanel({
           }).map((completePath, pathIndex) => {
             const startNode = nodes.find(n => n.id === completePath.startNodeId);
             const startShip = startNode?.data?.ship as Ship;
-            
+
             return (
               <div key={pathIndex}>
                 <div className="mt-3">
                   <h5 className="font-medium mb-2 pb-1">
-                    <FormattedMessage 
-                      id="routeInfoPanel.routeNumber" 
-                      defaultMessage="Route {number}: {nodes} nodes" 
+                    <FormattedMessage
+                      id="routeInfoPanel.routeNumber"
+                      defaultMessage="Route {number}: {nodes} nodes"
                       values={{
                         number: pathIndex + 1,
                         nodes: completePath.path.length
                       }}
                     />
                   </h5>
-                  
+
                   {/* 起点船价格设置 */}
                   {startShip && (
                     <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
@@ -368,7 +376,7 @@ export default function RouteInfoPanel({
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="space-y-2">
                     {completePath.edges.map((pathEdge, edgeIndex) => {
                       const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
@@ -426,12 +434,12 @@ export default function RouteInfoPanel({
 
                             {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
                               <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
+                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
                                 <span className="text-black dark:text-white">${usdPrice.toFixed(2)}</span>
                               </span>
                             ) : (
                               <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />: 
+                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
                                 <span className="text-black dark:text-white">￥{cnyPrice.toFixed(2)}</span>
                               </span>
                             )}
@@ -448,7 +456,7 @@ export default function RouteInfoPanel({
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
                         <span className="text-black dark:text-white mr-1">
-                          <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />: 
+                          <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />:
                         </span>
                         <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                       </div>
@@ -459,7 +467,7 @@ export default function RouteInfoPanel({
                     <div className='flex justify-between gap-4'>
                       <div className="text-sm">
                         <span className="text-black dark:text-white mr-1">
-                          <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />: 
+                          <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
                         </span>
                         <span className="text-blue-400">
                           {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
