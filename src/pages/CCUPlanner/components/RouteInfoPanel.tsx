@@ -43,7 +43,7 @@ export default function RouteInfoPanel({
   onStartShipPriceChange
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState("0.1");
-  const [pruneOpt, setPruneOpt] = useState(false);
+  const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
   // Find all possible starting nodes (nodes with no incoming edges)
@@ -155,7 +155,7 @@ export default function RouteInfoPanel({
     }
 
     return allPaths;
-  }, [edges, nodes, getPriceInfo, calculateTotalCost]);
+  }, [calculateTotalCost, pruneOpt, edges, nodes, getPriceInfo]);
 
   // 将节点ID路径转换为完整的路径对象
   const buildCompletePaths = useCallback((pathIds: string[][]) => {
@@ -290,7 +290,10 @@ export default function RouteInfoPanel({
             <Switch
               id="prunePath"
               checked={pruneOpt}
-              onChange={(e) => setPruneOpt(e.target.checked)}
+              onChange={(e) => {
+                setPruneOpt(e.target.checked);
+                localStorage.setItem('pruneOpt', e.target.checked.toString());
+              }}
             />
           </div>
           <div className="flex items-center justify-between">
