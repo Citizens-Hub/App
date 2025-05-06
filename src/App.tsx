@@ -179,8 +179,8 @@ function App() {
         display: 'flex',
       }}>
         <LanguageSwitcher />
-        <IconButton 
-          onClick={toggleDarkMode} 
+        <IconButton
+          onClick={toggleDarkMode}
           color="inherit"
           sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
           className="text-gray-800 dark:text-white"
