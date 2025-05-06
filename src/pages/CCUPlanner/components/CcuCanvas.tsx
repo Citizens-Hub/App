@@ -540,7 +540,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
-  
+
   const proOptions = { hideAttribution: true };
 
   return (

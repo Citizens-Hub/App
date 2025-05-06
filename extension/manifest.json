@@ -32,6 +32,7 @@
     {
       "matches": [
         "https://citizenshub.app/*",
+        "https://staging.citizenshub.app/*",
         "https://sc.oxdl.cn/*",
         "*://localhost/*"
       ],

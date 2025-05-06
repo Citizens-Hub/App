@@ -27,6 +27,7 @@ enum SCBoxTranslateStatus {
 
 function App() {
   const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
+  // const [isStaging, setIsStaging] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -37,9 +38,13 @@ function App() {
       return;
     }
 
-    if (host !== "citizenshub.app") {
+    if (!host.includes("citizenshub.app")) {
       window.location.hostname = "citizenshub.app";
     }
+
+    // if (host.includes("staging.citizenshub.app")) {
+    //   setIsStaging(true);
+    // }
   }, [])
 
   useEffect(() => {
@@ -75,6 +80,12 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
+            if (!content.name.includes("to")) {
+              console.log("found invalid upgrade >>>>>>>>>>>>>>", content, value);
+
+              return;
+            }
+
             dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
           });
         }
@@ -88,6 +99,12 @@ function App() {
           listItems?.querySelectorAll('li').forEach(li => {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
+
+            if (!content.name.includes("to")) {
+              console.log("found invalid upgrade >>>>>>>>>>>>>>", content, value);
+
+              return;
+            }
 
             dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
           });
@@ -144,7 +161,7 @@ function App() {
             variant="outlined"
             onClick={toggleTranslate}
             size="small"
-            sx={{ ml:1, bgcolor: 'white' }}
+            sx={{ ml: 1, bgcolor: 'white' }}
             className="flex items-center gap-2"
           >
             <img src="/scbox.png" className="w-4 h-4" />
