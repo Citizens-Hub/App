@@ -164,11 +164,17 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
       </span>
 
       <div className="flex flex-col items-center">
-        <img
-          src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-          alt={ship.name}
-          className="w-full h-30 object-cover rounded-sm mb-12"
-        />
+        <div className="w-full h-30 object-cover rounded-sm mb-12 relative">
+          <div className="absolute top-2 right-2 flex flex-row gap-2">
+            {wb && <div className="text-sm text-white bg-orange-400 rounded-sm py-0.5 px-2">WB</div>}
+            {ship.flyableStatus !== 'Flyable' && <div className="text-sm text-white bg-sky-400 rounded-sm py-0.5 px-2">{ship.flyableStatus}</div>}
+          </div>
+          <img
+            src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+            alt={ship.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
 
         <div className="flex flex-row items-center gap-2 mb-1">
           <h3 className="text-xl font-bold">{ship.name}</h3>

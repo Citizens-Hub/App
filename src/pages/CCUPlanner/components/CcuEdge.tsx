@@ -49,14 +49,14 @@ export default function CcuEdge({
   let bgColor = 'bg-blue-700';
   
   if (sourceType === CcuSourceType.OFFICIAL_WB) {
-    edgeColor = 'stroke-orange-400';
-    bgColor = 'bg-orange-600';
+    edgeColor = 'stroke-red-500';
+    bgColor = 'bg-red-600';
   } else if (sourceType === CcuSourceType.THIRD_PARTY) {
     edgeColor = 'stroke-purple-500';
     bgColor = 'bg-purple-700';
   } else if (sourceType === CcuSourceType.AVAILABLE_WB) {
-    edgeColor = 'stroke-red-500';
-    bgColor = 'bg-red-700';
+    edgeColor = 'stroke-orange-400';
+    bgColor = 'bg-orange-400';
   } else if (sourceType === CcuSourceType.HANGER) {
     edgeColor = 'stroke-cyan-300';
     bgColor = 'bg-cyan-500';
