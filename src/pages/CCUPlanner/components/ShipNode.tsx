@@ -215,7 +215,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         </div>
       </div>
 
-      {/* 编辑界面 */}
       {isEditing && incomingEdges.length > 0 && (
         <div className="mt-4 border-t border-gray-200 pt-4">
           <h4 className="font-bold mb-2">
