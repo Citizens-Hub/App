@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
-import { Copy } from 'lucide-react';
+import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ interface ShipNodeProps {
   data: {
     ship: Ship;
     onUpdateEdge?: (sourceId: string, targetId: string, data: Partial<CcuEdgeData>) => void;
+    onDeleteEdge?: (edgeId: string) => void;
     onDeleteNode?: (nodeId: string) => void;
     onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
@@ -24,7 +25,7 @@ interface ShipNodeProps {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus } = data;
+  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
 
@@ -235,9 +236,16 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                 <span className="text-sm text-gray-600">
                   <FormattedMessage id="shipNode.ccuSource" defaultMessage="CCU Source" />
                 </span>
-                <span>{edge.data?.sourceShip?.name ||
-                  intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
-                }</span>
+                <span className='flex flex-row items-center gap-1'>
+                  {edge.data?.sourceShip?.name ||
+                    intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
+                  }
+                  <IconButton size='small' onClick={() => {
+                    onDeleteEdge?.(edge.id);
+                  }}>
+                    <X className='w-4 h-4' />
+                  </IconButton>
+                </span>
               </div>
 
               <div className="mb-2">

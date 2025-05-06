@@ -221,6 +221,10 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
     [setEdges]
   );
 
+  const deleteEdge = useCallback((edgeId: string) => {
+    setEdges(edges => edges.filter(edge => edge.id !== edgeId));
+  }, []);
+
   // 处理节点删除
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
@@ -256,6 +260,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         data: {
           ship,
           onUpdateEdge: updateEdgeData,
+          onDeleteEdge: deleteEdge,
           onDeleteNode: handleDeleteNode,
           onDuplicateNode: handleDuplicateNode,
           ccus
@@ -264,7 +269,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, updateEdgeData, handleDeleteNode, ccus]
+    [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge]
   );
 
   // 更新节点，向其传递传入的边缘信息
@@ -280,6 +285,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
             ...node.data,
             incomingEdges: incomingEdges.length > 0 ? incomingEdges : node.data.incomingEdges,
             onUpdateEdge: updateEdgeData,
+            onDeleteEdge: deleteEdge,
             onDeleteNode: handleDeleteNode,
             onDuplicateNode: handleDuplicateNode,
             id: node.id,
@@ -288,7 +294,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         };
       });
     });
-  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge]);
 
   // 处理拖放事件
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -443,6 +449,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
         data: {
           ship,
           onUpdateEdge: updateEdgeData,
+          onDeleteEdge: deleteEdge,
           onDeleteNode: handleDeleteNode,
           onDuplicateNode: handleDuplicateNode,
           ccus
@@ -451,7 +458,7 @@ export default function CcuCanvas({ ships, ccus }: CcuCanvasProps) {
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [reactFlowInstance, ships, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, importFlowData, ccus]);
+  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes]);
 
   // 处理舰船拖动开始
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
