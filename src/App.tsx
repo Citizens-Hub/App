@@ -16,6 +16,7 @@ import { useLocale } from './contexts/LocaleContext'
 import QQIcon from './icons/QQIcon'
 import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 import GithubIcon from './icons/GithubIcon'
+import { reportError } from './report'
 
 enum SCBoxTranslateStatus {
   Available,
