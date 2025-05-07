@@ -155,8 +155,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
         };
 
         const hangarCcu = upgrades.find(upgrade => {
-          const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
-          const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+          const from = upgrade.parsed.from.toUpperCase()
+          const to = upgrade.parsed.to.toUpperCase()
 
           return from === sourceShip.name.toUpperCase() && to === targetShip.name.toUpperCase()
         })

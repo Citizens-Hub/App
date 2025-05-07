@@ -82,14 +82,14 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
         {hangarExpanded && (
           upgrades.length > 0 ?
             upgrades.map(upgrade => {
-              const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
-              const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+              const from = upgrade.parsed.from
+              const to = upgrade.parsed.to
 
-              const fromShip = ships.find(ship => ship.name.toUpperCase() === from)
-              const toShip = ships.find(ship => ship.name.toUpperCase() === to)
+              const fromShip = ships.find(ship => ship.name.toUpperCase().trim() === from.toUpperCase().trim())
+              const toShip = ships.find(ship => ship.name.toUpperCase().trim() === to.toUpperCase().trim())
 
               if (!fromShip || !toShip) {
-                return <></>
+                return <div key={upgrade.name}></div>
               }
 
               return <div

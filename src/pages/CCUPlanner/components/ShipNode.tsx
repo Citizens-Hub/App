@@ -284,15 +284,15 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   )}
                   {
                     upgrades.find(upgrade => {
-                      const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
-                      const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+                      const from = upgrade.parsed.from.toUpperCase()
+                      const to = upgrade.parsed.to.toUpperCase()
 
                       return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
                       {upgrades.find(upgrade => {
-                        const from = upgrade.name.split("to")[0].split("-")[1].trim().toUpperCase()
-                        const to = (upgrade.name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+                        const from = upgrade.parsed.from.toUpperCase()
+                        const to = upgrade.parsed.to.toUpperCase()
 
                         return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
                       })?.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}

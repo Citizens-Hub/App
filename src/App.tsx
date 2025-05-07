@@ -31,8 +31,16 @@ function App() {
     let to = "";
 
     try {
-      from = name.split("to")[0].split("-")[1].trim().toUpperCase()
-      to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
+      const regExp = /Upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+Edition)/
+      const match = name.match(regExp);
+
+      if (!match) {
+        from = name.split("to")[0].split("-")[1].trim()
+        to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+      } else {
+        from = match[1].trim() || name.split("to")[0].split("-")[1].trim()
+        to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+      }
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
       reportError({
@@ -102,9 +110,17 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            if (!tryResolveCCU(content, htmlString)) return;
+            const parsed = tryResolveCCU(content, htmlString);
 
-            dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
+            if (!parsed) return;
+
+            dispatch(addUpgrade({ 
+              from: content.match_items[0], 
+              to: content.target_items[0], 
+              name: content.name, 
+              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+              parsed
+            }));
           });
         }
         if (event.data.message.requestId > 2) {
@@ -118,9 +134,17 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            if (!tryResolveCCU(content, htmlString)) return;
+            const parsed = tryResolveCCU(content, htmlString);
 
-            dispatch(addUpgrade({ from: content.match_items[0], to: content.target_items[0], name: content.name, value: parseInt((value as string).replace("$", "").replace(" USD", "")) }));
+            if (!parsed) return;
+
+            dispatch(addUpgrade({ 
+              from: content.match_items[0], 
+              to: content.target_items[0], 
+              name: content.name, 
+              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+              parsed
+            }));
           });
         }
       }
