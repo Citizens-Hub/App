@@ -158,7 +158,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           const from = upgrade.parsed.from.toUpperCase()
           const to = upgrade.parsed.to.toUpperCase()
 
-          return from === sourceShip.name.toUpperCase() && to === targetShip.name.toUpperCase()
+          return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
         })
         
         if (hangarCcu) {

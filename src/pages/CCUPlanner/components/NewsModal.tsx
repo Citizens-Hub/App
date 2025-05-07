@@ -12,7 +12,7 @@ interface NewsModalProps {
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
   const [canClose, setCanClose] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(4);
+  const [timeLeft, setTimeLeft] = useState(3);
 
   const locale = useLocale();
 

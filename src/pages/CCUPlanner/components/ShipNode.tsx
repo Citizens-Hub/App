@@ -261,15 +261,12 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                         }
                       }
                     } else if (selectedValue === CcuSourceType.HANGER) {
-                      if (edge.data?.customPrice === undefined) {
-                        const sourceShip = edge.data?.sourceShip;
-                        const targetShip = edge.data?.targetShip;
-                        if (sourceShip && targetShip) {
-                          // Default to use the official price difference as the hangar CCU price
-                          const priceDiff = (targetShip.msrp - sourceShip.msrp) / 100;
-                          handleCustomPriceChange(edge.id, priceDiff);
-                        }
-                      }
+                      handleCustomPriceChange(edge.id, upgrades.find(upgrade => {
+                        const from = upgrade.parsed.from.toUpperCase()
+                        const to = upgrade.parsed.to.toUpperCase()
+
+                        return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
+                      })?.value || 0)
                     }
                     handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
@@ -287,14 +284,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       const from = upgrade.parsed.from.toUpperCase()
                       const to = upgrade.parsed.to.toUpperCase()
 
-                      return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
+                      return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
                       {upgrades.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
-                        return from === edge.data?.sourceShip?.name.toUpperCase() && to === edge.data?.targetShip?.name.toUpperCase()
+                        return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                       })?.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                     </option>
                   }
