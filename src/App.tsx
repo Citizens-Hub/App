@@ -217,6 +217,16 @@ function App() {
         zIndex: 1000,
         display: 'flex',
       }}>
+        {
+          locale === "zh-CN" && (<Button 
+            size="small"
+            sx={{
+              px: 1
+            }} 
+            onClick={() => window.open("https://www.bilibili.com/opus/1064226212306485248", "_blank")}>
+              使用说明
+          </Button>)
+        }
         <LanguageSwitcher />
         <IconButton
           onClick={toggleDarkMode}
