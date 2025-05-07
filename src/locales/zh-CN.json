@@ -107,5 +107,7 @@
   "navigate.storeDesc": "浏览星际公民商店中的所有商品",
   "navigate.privacyTitle": "隐私政策",
   "navigate.privacyDesc": "查看我们的隐私政策",
-  "routeInfoPanel.pruneOpt": "剪枝优化"
+  "routeInfoPanel.pruneOpt": "剪枝优化",
+  "shipNode.historical": "历史WB",
+  "routeInfoPanel.historical": "历史WB"
 }

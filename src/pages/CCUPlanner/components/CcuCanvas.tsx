@@ -278,12 +278,13 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             onDeleteNode: handleDeleteNode,
             onDuplicateNode: handleDuplicateNode,
             id: node.id,
-            ccus
+            ccus,
+            wbHistory
           }
         };
       });
     });
-  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge, wbHistory]);
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();

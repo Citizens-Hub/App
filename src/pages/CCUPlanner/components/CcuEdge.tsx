@@ -43,6 +43,9 @@ export default function CcuEdge({
   } else if (sourceType === CcuSourceType.HANGER && data.customPrice !== undefined) {
     priceToShow = data.customPrice;
     currency = 'USD';
+  } else if (sourceType === CcuSourceType.HISTORICAL && data.customPrice !== undefined) {
+    priceToShow = data.customPrice;
+    currency = 'USD';
   }
 
   let edgeColor = 'stroke-blue-500';
@@ -60,6 +63,9 @@ export default function CcuEdge({
   } else if (sourceType === CcuSourceType.HANGER) {
     edgeColor = 'stroke-cyan-300';
     bgColor = 'bg-cyan-500';
+  } else if (sourceType === CcuSourceType.HISTORICAL) {
+    edgeColor = 'stroke-gray-500';
+    bgColor = 'bg-gray-500';
   }
 
   const getSourceTypeDisplay = (type: CcuSourceType) => {
@@ -74,6 +80,8 @@ export default function CcuEdge({
         return intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" });
       case CcuSourceType.HANGER:
         return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
+      case CcuSourceType.HISTORICAL:
+        return intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" });
       default:
         return type;
     }

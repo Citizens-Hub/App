@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
-import { Ship, CcuSourceType, CcuEdgeData, Ccu } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
@@ -17,6 +17,7 @@ interface ShipNodeProps {
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
     ccus: Ccu[];
+    wbHistory: WbHistoryData[];
   };
   xPos: number;
   yPos: number;
@@ -25,7 +26,7 @@ interface ShipNodeProps {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus } = data;
+  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus, wbHistory } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
 
@@ -33,6 +34,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
+  const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
 
   const [edgeSettings, setEdgeSettings] = useState<{
     [key: string]: {
@@ -267,6 +269,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
                         return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                       })?.value || 0)
+                    } else if (selectedValue === CcuSourceType.HISTORICAL) {
+                      handleCustomPriceChange(edge.id, Number(historical?.price) - Number(edge?.data?.sourceShip?.msrp) / 100)
                     }
                     handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
@@ -277,6 +281,11 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   {wb && Number(edge?.data?.sourceShip?.msrp) < wb.price && (
                     <option value={CcuSourceType.AVAILABLE_WB}>
                       {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                    </option>
+                  )}
+                  {historical && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historical.price) && (
+                    <option value={CcuSourceType.HISTORICAL}>
+                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {(Number(historical.price) - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                     </option>
                   )}
                   {

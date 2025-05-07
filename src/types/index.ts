@@ -100,7 +100,8 @@ export enum CcuSourceType {
   AVAILABLE_WB = "线上WB",
   HANGER = "机库CCU",
   OFFICIAL_WB = "官方WB",
-  THIRD_PARTY = "第三方"
+  THIRD_PARTY = "第三方",
+  HISTORICAL = "历史"
 }
 
 export interface CcuEdgeData {

@@ -79,9 +79,6 @@ export default function RouteInfoPanel({
         cnyPrice = 0;
         break;
       case CcuSourceType.AVAILABLE_WB:
-        usdPrice = edge.data.customPrice || edge.data.price / 100;
-        cnyPrice = 0;
-        break;
       case CcuSourceType.OFFICIAL_WB:
         usdPrice = edge.data.customPrice || edge.data.price / 100;
         cnyPrice = 0;
@@ -91,6 +88,7 @@ export default function RouteInfoPanel({
         usdPrice = 0;
         break;
       case CcuSourceType.HANGER:
+      case CcuSourceType.HISTORICAL:
         usdPrice = edge.data.customPrice || edge.data.price / 100;
         cnyPrice = 0;
         break;
@@ -427,6 +425,8 @@ export default function RouteInfoPanel({
                                       return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
                                     case CcuSourceType.HANGER:
                                       return <FormattedMessage id="routeInfoPanel.hangar" defaultMessage="Hangar" />
+                                    case CcuSourceType.HISTORICAL:
+                                      return <FormattedMessage id="routeInfoPanel.historical" defaultMessage="Historical" />
                                     case CcuSourceType.OFFICIAL_WB:
                                       return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
                                   }
