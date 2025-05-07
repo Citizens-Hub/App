@@ -15,6 +15,7 @@ import DiscordIcon from './icons/DiscordIcon'
 import { useLocale } from './contexts/LocaleContext'
 import QQIcon from './icons/QQIcon'
 import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
+import GithubIcon from './icons/GithubIcon'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -243,6 +244,14 @@ function App() {
             <DiscordIcon />
           </IconButton>
         }
+        <IconButton
+          onClick={() => window.open("https://github.com/EduarteXD/citizenshub", "_blank")}
+          color="inherit"
+          sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+          className="text-gray-800 dark:text-white"
+        >
+          <GithubIcon />
+        </IconButton>
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
