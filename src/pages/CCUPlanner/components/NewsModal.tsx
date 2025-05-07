@@ -3,7 +3,7 @@ import { Close } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
 import { useState, useEffect } from 'react';
 import { useLocale } from '../../../contexts/LocaleContext';
-import DiscordIcon from './DiscordIcon';
+import DiscordIcon from '../../../icons/DiscordIcon';
 
 interface NewsModalProps {
   open: boolean;

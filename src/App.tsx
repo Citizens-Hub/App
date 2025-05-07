@@ -11,6 +11,9 @@ import LanguageSwitcher from './components/LanguageSwitcher'
 import Navigate from './pages/Navigate/Navigate'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import DiscordIcon from './icons/DiscordIcon'
+import { useLocale } from './contexts/LocaleContext'
+import QQIcon from './icons/QQIcon'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -21,6 +24,8 @@ enum SCBoxTranslateStatus {
 function App() {
   const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
   const [darkMode, setDarkMode] = useState<boolean>();
+
+  const { locale } = useLocale();
 
   const dispatch = useDispatch();
 
@@ -114,10 +119,10 @@ function App() {
 
             if (!parsed) return;
 
-            dispatch(addUpgrade({ 
-              from: content.match_items[0], 
-              to: content.target_items[0], 
-              name: content.name, 
+            dispatch(addUpgrade({
+              from: content.match_items[0],
+              to: content.target_items[0],
+              name: content.name,
               value: parseInt((value as string).replace("$", "").replace(" USD", "")),
               parsed
             }));
@@ -138,10 +143,10 @@ function App() {
 
             if (!parsed) return;
 
-            dispatch(addUpgrade({ 
-              from: content.match_items[0], 
-              to: content.target_items[0], 
-              name: content.name, 
+            dispatch(addUpgrade({
+              from: content.match_items[0],
+              to: content.target_items[0],
+              name: content.name,
               value: parseInt((value as string).replace("$", "").replace(" USD", "")),
               parsed
             }));
@@ -219,6 +224,24 @@ function App() {
         >
           {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
+        {
+          locale === "zh-CN" ? (<IconButton
+            onClick={() => window.open("http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475", "_blank")}
+            color="inherit"
+            sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+            className="text-gray-800 dark:text-white"
+          >
+            {/* <DiscordIcon /> */}
+            <QQIcon />
+          </IconButton>) : <IconButton
+            onClick={() => window.open("https://discord.gg/qFvv4YJ4", "_blank")}
+            color="inherit"
+            sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+            className="text-gray-800 dark:text-white"
+          >
+            <DiscordIcon />
+          </IconButton>
+        }
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
