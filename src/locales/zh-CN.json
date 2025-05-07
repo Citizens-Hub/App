@@ -113,5 +113,7 @@
   "changelogs.heading": "更新日志",
   "routeInfoPanel.pruneOpt": "剪枝优化",
   "shipNode.historical": "历史WB",
-  "routeInfoPanel.historical": "历史WB"
+  "routeInfoPanel.historical": "历史WB",
+  "ccuPlanner.showHistoryWB": "显示历史WB",
+  "ccuPlanner.showHistoryWBTooltip": "这是一个测试功能，数据可能不准确"
 }

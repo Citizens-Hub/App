@@ -74,7 +74,7 @@ h1 {
   line-height: 1.1;
 }
 
-li {
+.wmde-markdown > ul > li {
   &::before {
     content: "•";
     color: #9697ac;

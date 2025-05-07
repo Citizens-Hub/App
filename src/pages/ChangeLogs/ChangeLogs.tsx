@@ -58,7 +58,7 @@ export default function ChangeLogs() {
     const fetchChangelogs = async () => {
       try {
         setLoading(true);
-        
+
         // 获取中文更新日志
         const chineseResponse = await fetch('/changes.md');
         if (!chineseResponse.ok) {
@@ -90,9 +90,9 @@ export default function ChangeLogs() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        <FormattedMessage id="changelogs.heading" defaultMessage="更新日志" />
+        <FormattedMessage id="changelogs.heading" defaultMessage="Change Logs" />
       </Typography>
-      
+
       <Box sx={{ mt: 4, width: '50vw', maxWidth: '800px', margin: '0 auto' }}>
         {loading && (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -114,10 +114,10 @@ export default function ChangeLogs() {
                 <Tab label="English" {...a11yProps(1)} />
               </Tabs>
             </Box>
-            
+
             <TabPanel value={tabValue} index={0}>
-              <Box sx={{ 
-                backgroundColor: 'background.paper', 
+              <Box sx={{
+                backgroundColor: 'background.paper',
                 borderRadius: 1,
                 p: 3,
                 textAlign: 'left',
@@ -126,15 +126,16 @@ export default function ChangeLogs() {
                 <MarkdownPreview source={chineseMarkdown} />
               </Box>
             </TabPanel>
-            
+
             <TabPanel value={tabValue} index={1}>
-              <Box sx={{ 
-                backgroundColor: 'background.paper', 
+              <Box sx={{
+                backgroundColor: 'background.paper',
                 borderRadius: 1,
                 p: 3,
                 textAlign: 'left',
                 margin: '0 auto'
-              }}>
+              }}
+              >
                 <MarkdownPreview source={englishMarkdown} />
               </Box>
             </TabPanel>
