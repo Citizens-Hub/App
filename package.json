@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "zip-extension && tsc -b && vite build",
+    "build": "pnpm run zip-extension && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "zip-extension": "node scripts/zipExtension.cjs"
