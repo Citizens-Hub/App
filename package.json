@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc -b && vite build",
+    "build": "zip-extension && tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "zip-extension": "node scripts/zipExtension.cjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -34,7 +35,9 @@
     "eslint": "^9.22.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
+    "fs-extra": "^11.3.0",
     "globals": "^16.0.0",
+    "jszip": "^3.10.1",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.26.1",
     "vite": "^6.3.1",
