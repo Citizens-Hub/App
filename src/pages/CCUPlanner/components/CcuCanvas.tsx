@@ -543,15 +543,66 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
     setSelectedNode(null);
   }, []);
 
+  //MS on mobile, creates and adds the node to the canvas 
+  const onMobileAdd = useCallback((ship: Ship) => {
+    if (!reactFlowInstance || !reactFlowWrapper.current) return;
+
+    //MS compute center in screen coords
+    const bounds = reactFlowWrapper.current.getBoundingClientRect();
+    const centerScreen = {
+      x: bounds.width / 2,
+      y: bounds.height / 2,
+    };
+
+    //MS project to canvas coords
+    const rawPos = reactFlowInstance.project(centerScreen);
+
+    //MS optional: snap to 100px grid
+    const gridSize = 100;
+    const position: XYPosition = {
+      x: Math.round(rawPos.x / gridSize) * gridSize,
+      y: Math.round(rawPos.y / gridSize) * gridSize,
+    };
+
+    //MS build your node
+    const newNode: Node = {
+      id: `ship-${ship.id}-${Date.now()}`,
+      type: 'ship',
+      position,
+      data: {
+        ship,
+        onUpdateEdge: updateEdgeData,
+        onDeleteEdge: deleteEdge,
+        onDeleteNode: handleDeleteNode,
+        onDuplicateNode: handleDuplicateNode,
+        ccus,
+        wbHistory,
+      },
+    };
+
+    //MS drop it in
+    setNodes((nds) => nds.concat(newNode));
+  }, [
+    reactFlowInstance,
+    reactFlowWrapper,
+    updateEdgeData,
+    deleteEdge,
+    handleDeleteNode,
+    handleDuplicateNode,
+    ccus,
+    wbHistory,
+    setNodes,
+  ]);
+
   const proOptions = { hideAttribution: true };
 
   return (
-    <div className="h-full flex">
-      <div className="w-[450px] border-r border-gray-200 dark:border-gray-800">
-        <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} />
+     <div className="h-screen w-full flex md:flex-row flex-col">
+      <div className="md:w-[450px] w-full h-auto border-r border-gray-200 dark:border-gray-800 relative">
+        <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="w-full h-full relative" ref={reactFlowWrapper}>
+      <div className="md:w-full md:h-full w-screen h-screen flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -569,10 +620,10 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             edgeTypes={edgeTypes}
             fitView
           >
-            <Controls className='dark:invert-90 !shadow-none flex flex-col gap-1' />
-            <MiniMap className='dark:invert-90' />
+            <Controls position="top-right" className='dark:invert-90 !shadow-none flex flex-col gap-1' />
+            <MiniMap className='dark:invert-90 md:visible hidden' />
             <Background color="#333" gap={32} />
-            <Panel position="bottom-center" className="bg-white dark:bg-[#121212]">
+            <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
               <Toolbar
                 nodes={nodes}
                 onClear={handleClear}
