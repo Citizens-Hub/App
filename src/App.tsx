@@ -34,8 +34,15 @@ function App() {
       from = name.split("to")[0].split("-")[1].trim().toUpperCase()
       to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ").toUpperCase()
     } catch (error) {
-      console.warn("error parsing ccu", name, "error >>>>", error);
-      console.warn("original html string >>>>", htmlString);
+      console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
+      reportError({
+        errorType: "CCU_PARSING_ERROR",
+        errorMessage: JSON.stringify({
+          htmlString,
+          name,
+          error,
+        }),
+      });
       return false;
     }
 
