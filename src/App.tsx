@@ -32,7 +32,7 @@ function App() {
 
   const dispatch = useDispatch();
 
-  const tryResolveCCU = (content: { name: string }, htmlString: string) => {
+  const tryResolveCCU = (content: { name: string }) => {
     const name = content.name;
 
     let from = "";
@@ -54,9 +54,8 @@ function App() {
       reportError({
         errorType: "CCU_PARSING_ERROR",
         errorMessage: JSON.stringify({
-          htmlString,
-          name,
-          error,
+          content,
+          error: String(error),
         }),
       });
       return false;
@@ -118,7 +117,7 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            const parsed = tryResolveCCU(content, htmlString);
+            const parsed = tryResolveCCU(content);
 
             if (!parsed) return;
 
@@ -142,7 +141,7 @@ function App() {
             const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
             const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            const parsed = tryResolveCCU(content, htmlString);
+            const parsed = tryResolveCCU(content);
 
             if (!parsed) return;
 
