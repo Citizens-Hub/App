@@ -1,6 +1,6 @@
 import { CssBaseline, ThemeProvider, createTheme, Button, Box, IconButton } from '@mui/material'
 import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { Route, BrowserRouter, Routes } from 'react-router'
 import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 import { useDispatch } from 'react-redux'
@@ -64,13 +64,16 @@ function App() {
     return { from, to };
   }
 
-  useEffect(() => {
-    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-
-    if (localStorage.getItem('darkMode') === null) {
-      setDarkMode(!isLight);
-    }
-  }, [])
+  useLayoutEffect(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved !== null) {
+      setDarkMode(saved === 'true');
+      } else {
+        setDarkMode(
+          window.matchMedia('(prefers-color-scheme: dark)').matches
+		);
+	  }
+  }, []);
 
   useEffect(() => {
     const host = window.location.hostname;
