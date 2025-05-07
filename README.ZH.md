@@ -1,6 +1,6 @@
-向大家介绍本人刚刚开发的CCU规划工具：
-Citizen's Hub Ship Upgrade Planner
-read-normal-img
+# Citizen's Hub Ship Upgrade Planner
+
+![](https://i1.hdslb.com/bfs/new_dyn/1624ec15d9e8cfcdcaa1a9b5a558267d203970966.png@1192w.avif)
 
 工具地址：https://citizenshub.app/ccu-planner
 
@@ -10,7 +10,8 @@ QQ群：1045858475
 
 Discord：https://discord.gg/GZznXzPF
 
-主播主播，这款软件和CCU Games或是其他软件相比有什么优势吗
+## 主播主播，这款软件和CCU Games或是其他软件相比有什么优势吗
+
 必须承认的是，市面上已经有很多优秀的星际公民辅助工具可以帮你完成 CCU 链的规划了
 
 但就我个人而言，他们的 CCU 链功能在编辑或管理升级路径时不太直观
@@ -27,28 +28,30 @@ Discord：https://discord.gg/GZznXzPF
 
 我觉得，相对于传统规划软件而言，我的软件可以让原本在使用Excel规划他们的 CCU 的专业用户收益更多
 
-那我应该如何使用它呢
+## 那我应该如何使用它呢
+
 如果你是第一次使用，你肯定已经迫不及待地想要开始创建你的第一个链了，那么首先你所需要决定的，就是链条的起点和终点
 
 对于马上要开始的舰队周而言，我想将我的 ATLS GEO 升级到 Starlancer Tac，那么我们首先选择插入这两个节点
 
 FYI：虽然目前本项目还只有手动路径规划，但是我已经完成了半自动和全自动规划的原型设计，这两个功能很快就可以和大家见面了
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/5492edc83747a2c1ae57719c843a5b7a203970966.png@1192w.avif)
 
 你可以在左侧的可用舰船中找到他们并将其拖动到画布中，同时，你可以看到在可用舰船选择器的顶部有几个现在可用的 WB 包，那么，为了省下更多的钱给自己加个鸡腿，我们把这几个包都规划到路径中
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/ec228d0cd385bba5ce1ca38bb8722324203970966.png@1192w.avif)
 
 规划 CCU 路径的精髓就在于在路径上插入足够的 WBCCU 包，让我们打开显示历史 WB 的选项，看看有什么历史wb可供选择（历史有过 WB 的舰船有更大的可能会在未来出新的 WB）
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/946247ad40b5ff9bc38ec3ecfcc26ef0203970966.png@1192w.avif)
 
 简单起见，作为一个案例，我们只在线路上添加了几个包，这样子我们就得到了一个 CCU 链，点击我们的目标舰船即可看到详细的升级路径和成本了
 
 特别提醒一下：如果你需要使用历史 WB 来做你的规划，你需要点击舰船节点卡片的编辑路径按钮，为某一条路径选择历史 WB，在连接节点时，只有当前线上有售的 WB 和机库中的 CCU 会被自动设置
 
-主播主播，我想使用我机库中的CCU应该怎么办
+## 主播主播，我想使用我机库中的CCU应该怎么办
+
 在画布的左上角有一个我的机库栏，这里就是显示你机库中的 CCU 的地方了，你需要点击下载扩展程序，解压之后进入
 
 chrome://extensions/
@@ -57,9 +60,10 @@ chrome://extensions/
 
 完成安装之后，你需要检查一下你是否已经登录了星际公民的官方网站，如果一切顺利，点击我的机库栏目中的刷新按钮（不是浏览器的刷新按钮！不过当然，在完成扩展程序安装后你需要刷新一下页面，不过之后就不用了），很快这里就会显示你所拥有的 CCU 了
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/e0914b01fff9fba50b1be866ac0053d3203970966.png@1192w.avif)
 
-那么，如果我想从闲鱼买 CCU 呢
+## 那么，如果我想从闲鱼买 CCU 呢
+
 很简单，找到一个靠谱的卖家，然后询问一下他所出售的 CCU 的价格
 
 举个栗子，如果有人在卖从 Nova 到 Vanguard Sentinel 的 CCU，价格是10人民币（这当然是我胡诌的，Vanguard Sentinel 现在没有这么便宜的 WB）
@@ -68,18 +72,18 @@ read-normal-img
 
 FYI：现在这里还只能输入人民币，在未来我会对此功能进行修改以便让你可以选择更多类型的货币
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/c4d365455f14c8095f0e15115f44c0ae203970966.png@1192w.avif)
 
-另外一个 Case
+## 另外一个 Case
 如果 Vanguard Sentinel 会在舰队周 WB，那么这时候你就有两条路径可以选择了——你可以从闲鱼购买CCU，或是等待官方的 WB，但是你拿不定主意，因为你即想要省钱，又想要消费额
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/a432764b0bc2ae7aa4f4645fccedef9c203970966.png@1192w.avif)
 
 很简单！复制一个 Vanguard Sentinel 的节点，再创建一条从 Nova 到 Vanguard Sentinel 的连接，并选择历史 WB（或是手动： 官方CCU，这样你可以设置一个自定义的猜测价格）
 
 你可能已经注意到了，历史 WB 的 Vanguard Sentinel 节点并没有被连接到 MOLE，不用担心！这条线路在你最终查看 Starlancer TAC 的升级线路时也会被纳入计算，你只需要确保有和当前节点对应的舰船相同的节点被创建了连线即可
 
-read-normal-img
+![](https://i1.hdslb.com/bfs/new_dyn/4d2e0a71d880b83ae224fee2454049e1203970966.png@1192w.avif)
 
 还记得我们刚才说的 “既要，又要” 难题吗，让我们用量化的方式来考虑这个问题吧：
 
@@ -89,8 +93,6 @@ read-normal-img
 
 哦，差点忘了说，你可以在右边的面板中设置你购买你的起点船的花费，这样可以更好的计算整个线路的总价值
 
-我可以看到我的回购/机库中的舰船/船包并将其纳入到CCU链的构建中吗
+##我可以看到我的回购/机库中的舰船/船包并将其纳入到CCU链的构建中吗
+
 在做了，未来会支持
-
-
-
