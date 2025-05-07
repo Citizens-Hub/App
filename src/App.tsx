@@ -14,6 +14,7 @@ import Brightness7Icon from '@mui/icons-material/Brightness7'
 import DiscordIcon from './icons/DiscordIcon'
 import { useLocale } from './contexts/LocaleContext'
 import QQIcon from './icons/QQIcon'
+import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -267,6 +268,7 @@ function App() {
           <Route path="/ccu-planner" element={<CCUPlanner />} />
           <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/changelog" element={<ChangeLogs />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

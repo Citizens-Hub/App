@@ -107,6 +107,10 @@
   "navigate.storeDesc": "浏览星际公民商店中的所有商品",
   "navigate.privacyTitle": "隐私政策",
   "navigate.privacyDesc": "查看我们的隐私政策",
+  "navigate.changelogTitle": "更新日志",
+  "navigate.changelogDesc": "查看应用程序的最新变化和更新",
+  "changelogs.title": "更新日志",
+  "changelogs.heading": "更新日志",
   "routeInfoPanel.pruneOpt": "剪枝优化",
   "shipNode.historical": "历史WB",
   "routeInfoPanel.historical": "历史WB"

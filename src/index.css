@@ -74,6 +74,16 @@ h1 {
   line-height: 1.1;
 }
 
+li {
+  &::before {
+    content: "•";
+    color: #9697ac;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+  }
+}
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;

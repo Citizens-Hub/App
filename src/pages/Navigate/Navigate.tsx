@@ -24,11 +24,17 @@ export default function Navigate() {
       icon: '🛒'
     },
     {
-      titleId: 'navigate.privacyTitle',
-      descriptionId: 'navigate.privacyDesc',
-      path: '/privacy',
-      icon: '📜'
-    }
+      titleId: 'navigate.changelogTitle',
+      descriptionId: 'navigate.changelogDesc',
+      path: '/changelog',
+      icon: '📋'
+    },
+    // {
+    //   titleId: 'navigate.privacyTitle',
+    //   descriptionId: 'navigate.privacyDesc',
+    //   path: '/privacy',
+    //   icon: '📜'
+    // }
   ];
 
   return (
