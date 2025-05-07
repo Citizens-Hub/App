@@ -42,7 +42,7 @@ export default function RouteInfoPanel({
   startShipPrices,
   onStartShipPriceChange
 }: RouteInfoPanelProps) {
-  const [conciergeValue, setConciergeValue] = useState("0.1");
+  const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
@@ -315,7 +315,10 @@ export default function RouteInfoPanel({
                 className="w-24"
                 inputProps={{ min: 0, max: 1, step: 0.1 }}
                 value={conciergeValue}
-                onChange={(e) => setConciergeValue(e.target.value)}
+                onChange={(e) => {
+                  setConciergeValue(e.target.value);
+                  localStorage.setItem('conciergeValue', e.target.value);
+                }}
               />
             </div>
           </div>
