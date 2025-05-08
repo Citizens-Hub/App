@@ -23,7 +23,7 @@ export default function CCUPlanner() {
   )
 
   return (
-    <div className="h-full w-[100vw] flex flex-col absolute lg:top-0 top-15 left-0">
+    <div className="h-11/12 lg:h-full w-[95vw] flex flex-col absolute lg:top-0 top-15 left-0">
       <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <h1 className="text-2xl font-bold">
           <FormattedMessage id="ccuPlanner.heading" defaultMessage="Ship Upgrade Planner" />
@@ -33,7 +33,7 @@ export default function CCUPlanner() {
         </p>
       </div>
       
-      <div className="flex-1 relative">
+      <div className="flex-1 relative max-w-[95vw] max-h-[98vh]">
         <CcuCanvas ships={ships} ccus={ccus} wbHistory={wbHistory} />
       </div>
 

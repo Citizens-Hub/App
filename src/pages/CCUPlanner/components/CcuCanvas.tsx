@@ -54,7 +54,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
-  const isMobile = useMediaQuery('(max-width: 800px)');
+  const isMobile = useMediaQuery('(max-width: 644px)');
   const [alert, setAlert] = useState<{
     open: boolean,
     message: string,
@@ -598,12 +598,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const proOptions = { hideAttribution: true };
 
   return (
-     <div className="h-[100%] w-full flex md:flex-row flex-col">
-      <div className="md:w-[450px] w-full md:h-full border-r border-gray-200 dark:border-gray-800 relative">
+     <div className="h-[100%] w-full flex sm:flex-row flex-col">
+      <div className="sm:w-[450px] w-full sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="md:w-full md:h-full w-screen h-full flex-1 relative" ref={reactFlowWrapper}>
+      <div className="md:w-full sm:h-full w-screen h-full flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -622,7 +622,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             fitView
           >
             <Controls position={isMobile ? "top-right" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
-            <MiniMap className='dark:invert-90 md:block hidden' />
+            <MiniMap className='dark:invert-90 sm:block hidden' />
             <Background color="#333" gap={32} />
             <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
               <Toolbar
