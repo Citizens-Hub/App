@@ -131,5 +131,7 @@
   "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate",
   "pathBuilder.step1": "Step 1: Select your starting ships",
   "pathBuilder.step2": "Step 2: Select all ships that need to be included to the path",
-  "pathBuilder.selectedShips": "Selected Ships"
+  "pathBuilder.selectedShips": "Selected Ships",
+  "pathBuilder.historicalWb": "Historical",
+  "pathBuilder.warbound": "Warbound"
 }
