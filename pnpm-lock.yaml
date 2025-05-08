@@ -36,7 +36,7 @@ importers:
         specifier: ^19.0.0
         version: 19.1.0
       react-dom:
-        specifier: ^19.0.0
+        specifier: ^19.1.0
         version: 19.1.0(react@19.1.0)
       react-intl:
         specifier: ^7.1.11
