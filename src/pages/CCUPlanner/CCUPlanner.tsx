@@ -23,7 +23,7 @@ export default function CCUPlanner() {
   )
 
   return (
-    <div className="h-full w-[100vw] flex flex-col absolute sm:top-0 top-10 left-0">
+    <div className="h-full w-[100vw] flex flex-col absolute lg:top-0 top-10 left-0">
       <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <h1 className="text-2xl font-bold">
           <FormattedMessage id="ccuPlanner.heading" defaultMessage="Ship Upgrade Planner" />
