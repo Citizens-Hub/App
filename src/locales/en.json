@@ -43,9 +43,9 @@
   "toolbar.import": "Import",
   "toolbar.pathBuilder": "Path Builder",
   "pathBuilder.title": "Path Builder",
-  "pathBuilder.prevLayer": "Previous Layer",
+  "pathBuilder.prevLayer": "Prev",
   "pathBuilder.nextLayer": "Next Layer",
-  "pathBuilder.layerInfo": "Layer: {currentLayer}, Value: {value}",
+  "pathBuilder.layerInfo": "Level: {currentLayer}, Value: {value}",
   "pathBuilder.selectedPath": "Path",
   "pathBuilder.noSelection": "No ships selected yet",
   "pathBuilder.searchPlaceholder": "Search ships...",
@@ -128,5 +128,8 @@
   "routeInfoPanel.pruneOptTooltip": "If checked, the upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown",
   "shipNode.historical": "Historical WB",
   "routeInfoPanel.historical": "Historical WB",
-  "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate"
+  "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate",
+  "pathBuilder.step1": "Step 1: Select your starting ships",
+  "pathBuilder.step2": "Step 2: Select all ships that need to be included to the path",
+  "pathBuilder.selectedShips": "Selected Ships"
 }

@@ -759,7 +759,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
       <PathBuilder 
         open={pathBuilderOpen} 
         onClose={handleClosePathBuilder} 
-        ships={ships} 
+        ships={ships}
+        ccus={ccus}
+        wbHistory={wbHistory}
         onCreatePath={handleCreatePath} 
       />
     </div>
