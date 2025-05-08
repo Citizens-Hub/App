@@ -88,7 +88,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
       </div>
 
   {(!isMobile || searchTerm !== '') &&
-	  <div className="grid grid-cols-1 items-start overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] md:h-10/12">
+	  <div className="grid grid-cols-1 items-start overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] md:h-[calc(100vh-263px)]">
         {filteredShips.map((ship) => (
           <div
             key={ship.id}
