@@ -26,7 +26,7 @@ import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
-import { Alert, Snackbar } from '@mui/material';
+import { Alert, Snackbar, useMediaQuery } from '@mui/material';
 import { RootState } from '../../../store';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
@@ -54,6 +54,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
+  const isMobile = useMediaQuery('(max-width: 800px)');
   const [alert, setAlert] = useState<{
     open: boolean,
     message: string,
@@ -597,12 +598,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const proOptions = { hideAttribution: true };
 
   return (
-     <div className="h-screen w-full flex md:flex-row flex-col">
-      <div className="md:w-[450px] w-full h-auto border-r border-gray-200 dark:border-gray-800 relative">
+     <div className="h-[calc(100%-15px)] w-full flex md:flex-row flex-col">
+      <div className="md:w-[450px] w-full md:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="md:w-full md:h-full w-screen h-screen flex-1 relative" ref={reactFlowWrapper}>
+      <div className="md:w-full md:h-full w-screen h-full flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -620,8 +621,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             edgeTypes={edgeTypes}
             fitView
           >
-            <Controls position="top-right" className='dark:invert-90 !shadow-none flex flex-col gap-1' />
-            <MiniMap className='dark:invert-90 md:visible hidden' />
+            <Controls position={isMobile ? "top-right" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
+            <MiniMap className='dark:invert-90 md:block hidden' />
             <Background color="#333" gap={32} />
             <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
               <Toolbar

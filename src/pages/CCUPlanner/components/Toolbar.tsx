@@ -16,7 +16,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
   const intl = useIntl();
   
   return (
-    <div className="p-2 shadow-md flex gap-2">
+    <div className="p-4 md:p-2 shadow-md flex gap-2">
       <Button
         variant="outlined"
         onClick={onClear}

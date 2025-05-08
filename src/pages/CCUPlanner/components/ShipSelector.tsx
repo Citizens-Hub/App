@@ -56,8 +56,8 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
 	}
 
   return (
-	<div className="h-full overflow-y-auto w-full">
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800">
+	<div className="md:h-full overflow-y-auto w-full">
+      <div className="sticky top-0 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-xl font-bold px-2 pt-2">
           <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="Available Ships" />
         </h2>
@@ -88,7 +88,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
       </div>
 
   {(!isMobile || searchTerm !== '') &&
-	  <div className="grid grid-cols-1 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212]">
+	  <div className="grid grid-cols-1 items-start overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] md:h-10/12">
         {filteredShips.map((ship) => (
           <div
             key={ship.id}
