@@ -598,7 +598,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const proOptions = { hideAttribution: true };
 
   return (
-     <div className="h-[calc(100%-15px)] w-full flex md:flex-row flex-col">
+     <div className="h-[100%] w-full flex md:flex-row flex-col">
       <div className="md:w-[450px] w-full md:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
