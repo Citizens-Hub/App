@@ -30,6 +30,7 @@ import { Alert, Snackbar } from '@mui/material';
 import { RootState } from '../../../store';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
+import PathBuilder from './PathBuilder';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -63,6 +64,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
     message: "",
     type: "success"
   });
+  const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
 
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
 
@@ -545,6 +547,132 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
   const proOptions = { hideAttribution: true };
 
+  // 处理路径规划器
+  const handleOpenPathBuilder = useCallback(() => {
+    setPathBuilderOpen(true);
+  }, []);
+
+  const handleClosePathBuilder = useCallback(() => {
+    setPathBuilderOpen(false);
+  }, []);
+
+  // 从路径规划器创建路径
+  const handleCreatePath = useCallback((path: Ship[]) => {
+    if (path.length < 2) return;
+
+    // 检查是否存在节点，找到合适的位置放置新节点
+    const nodePositions = nodes.map(node => ({
+      x: node.position.x,
+      y: node.position.y
+    }));
+
+    // 计算新节点的起始位置
+    let startX = 100;
+    const startY = 100;
+    
+    if (nodePositions.length > 0) {
+      // 找到当前所有节点的最右边位置
+      const maxX = Math.max(...nodePositions.map(pos => pos.x));
+      startX = maxX + 300; // 从最右边位置向右300px开始
+    }
+
+    // 创建所有节点
+    const newNodes: Node[] = [];
+    const newNodeIds: string[] = [];
+    
+    path.forEach((ship, index) => {
+      const timestamp = Date.now();
+      const nodeId = `ship-${ship.id}-${timestamp + index}`;
+      newNodeIds.push(nodeId);
+      
+      const shipNode = {
+        id: nodeId,
+        type: 'ship',
+        position: { x: startX, y: startY + index * 200 },
+        data: {
+          ship,
+          onUpdateEdge: updateEdgeData,
+          onDeleteEdge: deleteEdge,
+          onDeleteNode: handleDeleteNode,
+          onDuplicateNode: handleDuplicateNode,
+          ccus,
+          wbHistory,
+          id: nodeId
+        },
+      };
+      
+      newNodes.push(shipNode);
+    });
+    
+    // 创建边
+    const newEdges: Edge[] = [];
+    
+    for (let i = 0; i < path.length - 1; i++) {
+      const sourceShip = path[i];
+      const targetShip = path[i + 1];
+      const sourceNodeId = newNodeIds[i];
+      const targetNodeId = newNodeIds[i + 1];
+      
+      // 只有当目标船价值高于源船时才创建连接
+      if (sourceShip.msrp < targetShip.msrp) {
+        const priceDifference = targetShip.msrp - sourceShip.msrp;
+        
+        const newEdge = {
+          id: `edge-${sourceNodeId}-${targetNodeId}`,
+          source: sourceNodeId,
+          target: targetNodeId,
+          type: 'ccu',
+          animated: true,
+          data: {
+            price: priceDifference,
+            sourceShip,
+            targetShip,
+            sourceType: CcuSourceType.OFFICIAL,
+          } as CcuEdgeData,
+        };
+        
+        // 检查是否有机库升级包
+        const hangarCcu = upgrades.find(upgrade => {
+          const from = upgrade.parsed.from.toUpperCase()
+          const to = upgrade.parsed.to.toUpperCase()
+          return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
+        });
+        
+        if (hangarCcu) {
+          newEdge.data.sourceType = CcuSourceType.HANGER;
+          newEdge.data.customPrice = hangarCcu.value;
+        }
+        // 检查是否有现有的WB选项
+        else {
+          const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
+          const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
+          
+          if (targetWb && sourceShip.msrp < targetWb.price) {
+            const targetWbPrice = targetWb.price / 100;
+            const sourceShipPrice = sourceShip.msrp / 100;
+            const actualPrice = targetWbPrice - sourceShipPrice;
+            
+            newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
+            newEdge.data.customPrice = Math.max(0, actualPrice);
+          }
+        }
+        
+        newEdges.push(newEdge);
+      }
+    }
+    
+    // 添加新节点和边
+    setNodes(nodes => [...nodes, ...newNodes]);
+    setEdges(edges => [...edges, ...newEdges]);
+    
+    // 提示创建成功
+    setAlert({
+      open: true,
+      message: intl.formatMessage({ id: 'ccuPlanner.success.pathCreated', defaultMessage: '路径规划创建成功！' }),
+      type: 'success'
+    });
+  }, [nodes, upgrades, ccus, setNodes, setEdges, intl, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, wbHistory]);
+
   return (
     <div className="h-full flex">
       <div className="w-[450px] border-r border-gray-200 dark:border-gray-800">
@@ -579,6 +707,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 onSave={handleSave}
                 onExport={handleExport}
                 onImport={handleImport}
+                onOpenPathBuilder={handleOpenPathBuilder}
               />
             </Panel>
             <Panel position="top-left" className="bg-white dark:bg-[#121212] w-[340px] border border-gray-200 dark:border-gray-800 p-2">
@@ -621,11 +750,18 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           severity={alert.type}
           variant="filled"
           sx={{ width: '100%' }}
-
         >
           {alert.message}
         </Alert>
       </Snackbar>
+      
+      {/* 路径规划器 */}
+      <PathBuilder 
+        open={pathBuilderOpen} 
+        onClose={handleClosePathBuilder} 
+        ships={ships} 
+        onCreatePath={handleCreatePath} 
+      />
     </div>
   );
 } 

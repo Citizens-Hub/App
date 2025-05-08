@@ -1,5 +1,5 @@
 import { Button } from '@mui/material';
-import { Trash2, Download, Save, Upload } from 'lucide-react';
+import { Trash2, Download, Save, Upload, Route } from 'lucide-react';
 import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -8,10 +8,11 @@ interface ToolbarProps {
   onSave: () => void;
   onExport: () => void;
   onImport: () => void;
-  nodes: Node[];
+  onOpenPathBuilder?: () => void;
+  nodes?: Node[];
 }
 
-export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: ToolbarProps) {
+export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, nodes = [] }: ToolbarProps) {
   const hasContent = nodes.length > 0;
   const intl = useIntl();
   
@@ -63,6 +64,20 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, nodes }: 
           <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </span>
       </Button>
+      
+      {onOpenPathBuilder && (
+        <Button
+          variant="outlined"
+          onClick={onOpenPathBuilder}
+          title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
+          color="primary"
+        >
+          <Route size={16} />
+          <span>
+            <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
+          </span>
+        </Button>
+      )}
     </div>
   );
 } 
