@@ -16,48 +16,30 @@ interface PathBuilderProps {
 export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
   const [selectedShips, setSelectedShips] = useState<Ship[]>([]);
-  // 每一层选择的船只
-  const [layerShips, setLayerShips] = useState<Ship[][]>([]);
-  const [currentLayer, setCurrentLayer] = useState<number>(0);
+  const [stepShips, setLayerShips] = useState<Ship[][]>([]);
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [filteredShips, setFilteredShips] = useState<Ship[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 重置状态
   useEffect(() => {
     if (open) {
       setSelectedShips([]);
       setLayerShips([]);
-      setCurrentLayer(0);
+      setCurrentStep(0);
       setSearchTerm('');
     }
   }, [open]);
 
-  // 获取当前层的价值
   const getCurrentLayerValue = useCallback(() => {
-    if (currentLayer > 0 && layerShips[currentLayer - 1] && layerShips[currentLayer - 1].length > 0) {
-      return layerShips[currentLayer - 1][0].msrp;
+    if (currentStep > 0 && stepShips[currentStep - 1] && stepShips[currentStep - 1].length > 0) {
+      return stepShips[currentStep - 1][0].msrp;
     }
     return 0;
-  }, [currentLayer, layerShips]);
+  }, [currentStep, stepShips]);
 
-  // 根据当前层和搜索词筛选舰船
   useEffect(() => {
     let filtered = ships;
 
-    // // 如果当前层已经有选择的船只（包括第一层）
-    // if (layerShips[currentLayer] && layerShips[currentLayer].length > 0) {
-    //   // 显示与当前层第一艘船价值相当的船只
-    //   const currentLayerValue = layerShips[currentLayer][0].msrp;
-    //   filtered = ships.filter(ship => Math.abs(ship.msrp - currentLayerValue) < 10);
-    // }
-    // // 如果是非第一层且尚未选择船只
-    // else if (currentLayer > 0) {
-    //   const prevLayerValue = getCurrentLayerValue();
-    //   // 未选择船只时，显示价值大于上一层的船只
-    //   filtered = ships.filter(ship => ship.msrp > prevLayerValue);
-    // }
-
-    // 根据搜索词筛选
     if (searchTerm) {
       filtered = filtered.filter(ship =>
         ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -66,16 +48,14 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
       );
     }
 
-    // 按价格排序
     filtered = [...filtered].sort((a, b) => a.msrp - b.msrp);
 
     setFilteredShips(filtered);
-  }, [ships, currentLayer, layerShips, searchTerm, getCurrentLayerValue]);
+  }, [ships, currentStep, stepShips, searchTerm, getCurrentLayerValue]);
 
-  // 更新选择路径
   const updateSelectedPath = () => {
     const newSelectedShips: Ship[] = [];
-    layerShips.forEach(layer => {
+    stepShips.forEach(layer => {
       if (layer && layer.length > 0) {
         newSelectedShips.push(layer[0]);
       }
@@ -83,21 +63,20 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
     setSelectedShips(newSelectedShips);
   };
 
-  // 移至下一层
-  const nextLayer = () => {
-    if (layerShips[currentLayer] && layerShips[currentLayer].length > 0) {
-      setCurrentLayer(currentLayer + 1);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const nextStep = () => {
+    if (stepShips[currentStep] && stepShips[currentStep].length > 0) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
-  // 移至上一层
-  const prevLayer = () => {
-    if (currentLayer > 0) {
-      setCurrentLayer(currentLayer - 1);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
     }
   };
 
-  // 创建路径
   const handleCreatePath = () => {
     if (selectedShips.length >= 2) {
       onCreatePath(selectedShips);
@@ -105,15 +84,6 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
     }
   };
 
-  // // 获取当前层显示的价值
-  // const getDisplayLayerValue = () => {
-  //   if (layerShips[currentLayer] && layerShips[currentLayer].length > 0) {
-  //     return layerShips[currentLayer][0].msrp;
-  //   }
-  //   return 0;
-  // };
-
-  // 从路径中删除船只
   const removeShipFromLayer = (layerIndex: number, shipIndex: number) => {
     setLayerShips(prev => {
       const newLayerShips = [...prev];
@@ -159,81 +129,27 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
       <DialogContent className="p-0">
         <div className="flex flex-col">
           <div className="border-b border-gray-200 p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4 justify-between w-full">
-              <Button
-                variant="outlined"
-                onClick={prevLayer}
-                disabled={currentLayer === 0}
-              >
-                <FormattedMessage id="pathBuilder.prevLayer" defaultMessage="Prev" />
-              </Button>
-
-              <div className="text-lg font-medium">
-                {
-                  currentLayer === 0 ? (
-                    <FormattedMessage
-                      id="pathBuilder.step1"
-                      defaultMessage="Step 1: Select your starting ships"
-                    />
-                  ) : (
-                    <FormattedMessage
-                      id="pathBuilder.step2"
-                      defaultMessage="Step 2: Select all ships that need to be included to the path"
-                    />
-                  )
-                }
-                {/* <FormattedMessage 
-                  id="pathBuilder.layerInfo" 
-                  defaultMessage="Level: {currentLayer}, Value: {value}"
-                  values={{ 
-                    currentLayer: currentLayer + 1, 
-                    value: getDisplayLayerValue() > 0 ? (getDisplayLayerValue() / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '-' 
-                  }}
-                /> */}
-              </div>
-
-              <Button
-                variant="outlined"
-                onClick={nextLayer}
-                disabled={!layerShips[currentLayer] || layerShips[currentLayer].length === 0}
-              >
-                <FormattedMessage id="pathBuilder.nextLayer" defaultMessage="Next" />
-              </Button>
+            <div className="text-lg font-medium text-center">
+              {
+                currentStep === 0 ? (
+                  <FormattedMessage
+                    id="pathBuilder.step1"
+                    defaultMessage="Step 1: Select your starting ships"
+                  />
+                ) : (
+                  <FormattedMessage
+                    id="pathBuilder.step2"
+                    defaultMessage="Step 2: Select all ships that need to be included to the path"
+                  />
+                )
+              }
             </div>
           </div>
-
-          {/* <div className="border-b border-gray-200 p-4">
-            <h3 className="mb-2 font-medium">
-              <FormattedMessage id="pathBuilder.selectedShips" defaultMessage="Selected Ships" />
-            </h3>
-            <div className="flex flex-wrap gap-4 items-center">
-              {layerShips[currentLayer]?.length === 0 ? (
-                <div className="text-gray-500">
-                  <FormattedMessage id="pathBuilder.noSelection" defaultMessage="No selection" />
-                </div>
-              ) : (
-                layerShips[currentLayer]?.map((ship, index) => (
-                  <div
-                    key={`layer-${index}`}
-                    className={`border rounded-md p-3 ${currentLayer === index ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : ''}`}
-                    onClick={() => setCurrentLayer(index)}
-                  >
-                    <div key={ship.id}>
-                      <img src={ship.medias.productThumbMediumAndSmall} alt={ship.name} className="w-16 h-16 object-cover mr-2" />
-                      <div>
-                        <h3 className="font-medium">{ship.name}</h3>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div> */}
 
           <div className="p-4 border-b border-gray-200">
             <input
               type="text"
-              placeholder={intl.formatMessage({ id: 'pathBuilder.searchPlaceholder', defaultMessage: '搜索舰船...' })}
+              placeholder={intl.formatMessage({ id: 'pathBuilder.searchPlaceholder', defaultMessage: 'Search ship...' })}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="border border-gray-500 rounded-md px-3 py-2 w-full"
@@ -250,17 +166,17 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
                 return <div key={ship.id} className="flex items-center justify-between">
                   <div
                     onClick={() => {
-                      if (layerShips[currentLayer]?.includes(ship)) {
-                        removeShipFromLayer(currentLayer, layerShips[currentLayer]?.indexOf(ship) || 0)
+                      if (stepShips[currentStep]?.includes(ship)) {
+                        removeShipFromLayer(currentStep, stepShips[currentStep]?.indexOf(ship) || 0)
                       } else {
                         setLayerShips(prev => {
                           const newLayerShips = [...prev];
-                          newLayerShips[currentLayer] = [...(prev[currentLayer] || []), ship];
+                          newLayerShips[currentStep] = [...(prev[currentStep] || []), ship];
                           return newLayerShips;
                         });
                       }
                     }}
-                    className={`p-2 h-fit cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 w-full ${layerShips[currentLayer]?.includes(ship) ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
+                    className={`p-2 h-fit cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 w-full ${stepShips[currentStep]?.includes(ship) ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                   >
                     <div className="flex items-center text-left">
                       <img
@@ -283,7 +199,24 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
                     </div>
                   </div>
                   {
-                    wb && <div className="flex flex-col items-center justify-center px-2 mx-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer">
+                    wb && <div
+                      className={`flex flex-col items-center justify-center px-2 mx-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${stepShips[currentStep]?.find(s => s.name === `${ship.name}-wb`) ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
+                      onClick={() => {
+                        const wbShip = {
+                          ...ship,
+                          name: `${ship.name}-wb`,
+                        }
+
+                        if (stepShips[currentStep]?.find(s => s.name === `${ship.name}-wb`)) {
+                          removeShipFromLayer(currentStep, stepShips[currentStep]?.findIndex(s => s.name === `${ship.name}-wb`) || 0)
+                        } else {
+                          setLayerShips(prev => {
+                            const newLayerShips = [...prev];
+                            newLayerShips[currentStep] = [...(prev[currentStep] || []), wbShip];
+                            return newLayerShips;
+                          });
+                        }
+                      }}>
                       <div className="text-lg text-blue-400 font-bold text-center">
                         {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                       </div>
@@ -293,7 +226,25 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, onC
                     </div>
                   }
                   {
-                    historical && <div className="flex flex-col items-center justify-center px-2 mx-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer">
+                    historical && <div 
+                      className={`flex flex-col items-center justify-center px-2 mx-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${stepShips[currentStep]?.find(s => s.name === `${ship.name}-historical`) ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
+                      onClick={() => {
+                        const historicalShip = {
+                          ...ship,
+                          name: `${ship.name}-historical`,
+                        }
+
+                        if (stepShips[currentStep]?.find(s => s.name === `${ship.name}-historical`)) {
+                          removeShipFromLayer(currentStep, stepShips[currentStep]?.findIndex(s => s.name === `${ship.name}-historical`) || 0)
+                        } else {
+                          setLayerShips(prev => {
+                            const newLayerShips = [...prev];
+                            newLayerShips[currentStep] = [...(prev[currentStep] || []), historicalShip];
+                            return newLayerShips;
+                          });
+                        }
+                      }}
+                    >
                       <div className="text-lg text-blue-400 font-bold text-center">
                         {Number(historical.price).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                       </div>
