@@ -476,16 +476,16 @@ export default function RouteInfoPanel({
                           <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
                         </span>
                         <span className="text-blue-400">
-                          {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                          {conciergeValue !== "0" && " + "}
-                          {conciergeValue !== "0" && (completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                          <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                          {conciergeValue !== "0" && <span> + </span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>}
                         </span>
                       </div>
                       <div className="text-sm">
                         <span className="text-blue-400">
                           {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                          {conciergeValue !== "0" && " + "}
-                          {conciergeValue !== "0" && (completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                          {conciergeValue !== "0" && <span> + </span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>}
                         </span>
                       </div>
                     </div>
