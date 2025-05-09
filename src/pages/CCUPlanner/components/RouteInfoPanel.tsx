@@ -42,7 +42,7 @@ export default function RouteInfoPanel({
   startShipPrices,
   onStartShipPriceChange
 }: RouteInfoPanelProps) {
-  const [conciergeValue, setConciergeValue] = useState("0.1");
+  const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const nodeBestCostRef = useRef<Record<string, number>>({});
 
@@ -259,7 +259,7 @@ export default function RouteInfoPanel({
         <img
           src={selectedNode.data.ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={selectedNode.data.ship.name}
-          className="mb-2 m-auto"
+          className="mb-2 m-auto w-[360px]"
         />
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg flex gap-2 w-full justify-center">
           <span className='text-black dark:text-white'>
@@ -315,7 +315,10 @@ export default function RouteInfoPanel({
                 className="w-24"
                 inputProps={{ min: 0, max: 1, step: 0.1 }}
                 value={conciergeValue}
-                onChange={(e) => setConciergeValue(e.target.value)}
+                onChange={(e) => {
+                  setConciergeValue(e.target.value);
+                  localStorage.setItem('conciergeValue', e.target.value);
+                }}
               />
             </div>
           </div>
@@ -473,16 +476,16 @@ export default function RouteInfoPanel({
                           <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
                         </span>
                         <span className="text-blue-400">
-                          {(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                          {conciergeValue !== "0" && " + "}
-                          {conciergeValue !== "0" && (completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                          <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                          {conciergeValue !== "0" && <span> + </span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>}
                         </span>
                       </div>
                       <div className="text-sm">
                         <span className="text-blue-400">
                           {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
-                          {conciergeValue !== "0" && " + "}
-                          {conciergeValue !== "0" && (completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                          {conciergeValue !== "0" && <span> + </span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>}
                         </span>
                       </div>
                     </div>

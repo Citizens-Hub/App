@@ -90,8 +90,17 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
         const sourceShip = (sourceNode.data?.ship as Ship);
         const targetShip = (targetNode.data?.ship as Ship);
 
+        if (sourceShip.msrp === 0) {
+          setAlert({
+            open: true,
+            message: intl.formatMessage({ id: 'ccuPlanner.error.sourceShipPriceZero', defaultMessage: 'Can\'t upgrade from this ship' }),
+            type: 'warning'
+          })
+          return;
+        }
+
         // Ensure the source ship price is lower than the target ship price
-        if (sourceShip.msrp >= targetShip.msrp) {
+        if (sourceShip.msrp >= targetShip.msrp && targetShip.msrp !== 0) {
           // console.warn('CCU只能从低价船升级到高价船');
           setAlert({
             open: true,
@@ -99,6 +108,24 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             type: 'warning'
           })
           return;
+        }
+
+        const hangarCcu = upgrades.find(upgrade => {
+          const from = upgrade.parsed.from.toUpperCase()
+          const to = upgrade.parsed.to.toUpperCase()
+
+          return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
+        })
+
+        if (targetShip.msrp === 0) {
+          if (hangarCcu === undefined) {
+            setAlert({
+              open: true,
+              message: intl.formatMessage({ id: 'ccuPlanner.error.targetShipPriceZero', defaultMessage: 'This ship can only be upgraded using a hangar CCU' }),
+              type: 'warning'
+            })
+            return;
+          }
         }
 
         // Check if there is already a path from the source ship to the target ship
@@ -154,13 +181,6 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             sourceType: CcuSourceType.OFFICIAL,
           } as CcuEdgeData,
         };
-
-        const hangarCcu = upgrades.find(upgrade => {
-          const from = upgrade.parsed.from.toUpperCase()
-          const to = upgrade.parsed.to.toUpperCase()
-
-          return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
-        })
         
         if (hangarCcu) {
           // If there is a hangar CCU, use it by default

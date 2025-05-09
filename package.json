@@ -20,7 +20,7 @@
     "@uiw/react-markdown-preview": "^5.1.4",
     "lucide-react": "^0.507.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.1.0",
     "react-intl": "^7.1.11",
     "react-joyride": "^2.9.3",
     "react-redux": "^9.2.0",

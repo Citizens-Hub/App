@@ -53,11 +53,25 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             dispatch(clearUpgrades());
 
             window.postMessage({
-              type: 'ccuPlannerAppIntegrationRequest',
-              message: {
-                type: "connect",
-                requestId: 1
-              }
+              "type": "httpRequest",
+              "request": {
+                  "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+                  "data": null,
+                  "responseType": "json",
+                  "method": "post"
+              },
+              "requestId": 9999
+            }, '*');
+        
+            window.postMessage({
+              type: "httpRequest",
+              request: {
+                url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+                data: {},
+                responseType: "json",
+                method: "post"
+              },
+              "requestId": 10000
             }, '*');
 
             window.postMessage({

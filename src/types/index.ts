@@ -95,6 +95,36 @@ export interface ShipsData {
   };
 }
 
+export interface StoreShipsData {
+  id: string;
+  title: string;
+  name: string;
+  url: string;
+  slug: string;
+  type: string;
+  focus: string;
+  msrp: number;
+  purchasable: boolean;
+  productionStatus: string;
+  lastUpdate: string;
+  publishStart: string;
+  __typename: string;
+  manufacturerId: number;
+  featuredForShipList: boolean;
+  minCrew: number;
+  maxCrew: number;
+  manufacturer: {
+    name: string;
+    __typename: string;
+  };
+  imageComposer: {
+    name: string;
+    slot: string;
+    url: string;
+    __typename: string;
+  }[];
+}
+
 export enum CcuSourceType {
   OFFICIAL = "官方",
   AVAILABLE_WB = "线上WB",
