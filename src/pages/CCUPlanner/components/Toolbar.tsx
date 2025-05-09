@@ -17,7 +17,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
   const intl = useIntl();
   
   return (
-    <div className="p-2 shadow-md flex gap-2">
+    <div className="p-4 md:p-2 my-0 lg:m-0 shadow-md flex gap-2">
       <Button
         variant="outlined"
         onClick={onClear}
@@ -25,7 +25,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
       >
         <Trash2 size={16} />
-        <span>
+        <span className="md:block hidden">
           <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
         </span>
       </Button>
@@ -37,7 +37,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "Save" })}
       >
         <Save size={16} />
-        <span>
+        <span className="md:block hidden">
           <FormattedMessage id="toolbar.save" defaultMessage="Save" />
         </span>
       </Button>
@@ -49,7 +49,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
       >
         <Download size={16} />
-        <span>
+        <span className="md:block hidden">
           <FormattedMessage id="toolbar.export" defaultMessage="Export" />
         </span>
       </Button>
@@ -60,7 +60,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
       >
         <Upload size={16} />
-        <span>
+        <span className="md:block hidden">
           <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </span>
       </Button>
