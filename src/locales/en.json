@@ -129,12 +129,12 @@
   "shipNode.historical": "Historical WB",
   "routeInfoPanel.historical": "Historical WB",
   "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate",
-  "ccuPlanner.noStock": "Not in RSI Store",
   "pathBuilder.step1": "Step 1: Select your starting ships",
   "pathBuilder.step2": "Step 2: Select all ships that need to be included to the path",
   "pathBuilder.selectedShips": "Selected Ships",
   "pathBuilder.historicalWb": "Historical",
   "pathBuilder.warbound": "Warbound",
+  "ccuPlanner.noStock": "No CCU in RSI Store",
   "ccuPlanner.error.sourceShipPriceZero": "Can't upgrade from this ship",
   "ccuPlanner.error.targetShipPriceZero": "This ship can only be upgraded using a hangar CCU"
 }
