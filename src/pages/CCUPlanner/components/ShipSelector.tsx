@@ -15,6 +15,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
   const [showHistoryWB, setShowHistoryWB] = useState(false);
+  const [onlyShowAvailable, setOnlyShowAvailable] = useState(false);
   const intl = useIntl();
 
   // When the search term or ship list changes, filter the ships, and sort the ships with WB first
@@ -43,12 +44,19 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
       });
     }
 
+    if (onlyShowAvailable) {
+      filtered = filtered.filter(ship => {
+        const ccu = ccus.find(c => c.id === ship.id);
+        return ccu;
+      });
+    }
+
     setFilteredShips(filtered);
-  }, [searchTerm, ships, ccus, showHistoryWB, wbHistory]);
+  }, [searchTerm, ships, ccus, showHistoryWB, wbHistory, onlyShowAvailable]);
 
   return (
     <div className="h-[calc(100vh-113px)] overflow-y-auto">
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800">
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800 px-2">
         <h2 className="text-xl font-bold px-2 pt-2">
           <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="Available Ships" />
         </h2>
@@ -76,6 +84,20 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
           </label>
           <Switch checked={showHistoryWB} onChange={(e) => setShowHistoryWB(e.target.checked)} />
         </div>
+
+        <div className='flex items-center gap-2 px-2 pb-2 justify-between'>
+          <label className='flex items-center gap-2'>
+            <FormattedMessage id="ccuPlanner.onlyShowAvailable" defaultMessage="Only show available ships" />
+            {/* <Tooltip title={
+              <span style={{ fontSize: '14px' }}>
+                <FormattedMessage id="ccuPlanner.onlyShowAvailableTooltip" defaultMessage="This is a test function, the data may not be accurate" />
+              </span>
+            }>
+              <InfoOutlined sx={{ fontSize: 16 }} />
+            </Tooltip> */}
+          </label>
+          <Switch checked={onlyShowAvailable} onChange={(e) => setOnlyShowAvailable(e.target.checked)} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1">
@@ -102,6 +124,11 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
                   <h3 className="font-medium">{ship.name}</h3>
                 </div>
                 <div className="text-xs text-gray-400 flex items-center gap-1">
+                  {
+                    !ccus.find(c => c.id === ship.id) && <div className="text-xs text-white bg-red-300 rounded-sm px-1">
+                      <FormattedMessage id="ccuPlanner.noStock" defaultMessage="No stock" />
+                    </div>
+                  }
                   {ship.manufacturer.name}
                 </div>
                 <div className="text-sm text-blue-400 font-bold flex items-center gap-2">

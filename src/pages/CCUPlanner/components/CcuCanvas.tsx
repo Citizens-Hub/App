@@ -675,7 +675,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
   return (
     <div className="h-full flex">
-      <div className="w-[450px] border-r border-gray-200 dark:border-gray-800">
+      <div className="min-w-[450px] max-w-[600px] border-r border-gray-200 dark:border-gray-800">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} />
       </div>
 
