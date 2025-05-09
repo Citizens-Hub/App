@@ -259,7 +259,7 @@ export default function RouteInfoPanel({
         <img
           src={selectedNode.data.ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={selectedNode.data.ship.name}
-          className="mb-2 m-auto"
+          className="mb-2 m-auto w-[360px]"
         />
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg flex gap-2 w-full justify-center">
           <span className='text-black dark:text-white'>
