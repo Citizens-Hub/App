@@ -603,7 +603,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="md:w-full sm:h-full w-screen h-full flex-1 relative" ref={reactFlowWrapper}>
+      <div className="md:w-full sm:h-full w-full h-full flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -633,7 +633,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 onImport={handleImport}
               />
             </Panel>
-            <Panel position="top-left" className="bg-white dark:bg-[#121212] w-[340px] border border-gray-200 dark:border-gray-800 p-2">
+            <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2">
               <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>
           </ReactFlow>

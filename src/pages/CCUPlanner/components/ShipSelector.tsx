@@ -56,7 +56,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
 	}
 
   return (
-	<div className="md:h-full h-auto overflow-y-auto w-full">
+	<div className="md:h-full h-auto overflow-y-auto w-full mx-1 sm:m-0">
       <div className="sticky top-0 bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-xl font-bold px-2 pt-2">
           <FormattedMessage id="ccuPlanner.availableShips" defaultMessage="Available Ships" />
