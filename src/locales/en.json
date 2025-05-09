@@ -134,7 +134,7 @@
   "pathBuilder.selectedShips": "Selected Ships",
   "pathBuilder.historicalWb": "Historical",
   "pathBuilder.warbound": "Warbound",
-  "ccuPlanner.noStock": "No CCU in RSI Store",
+  "ccuPlanner.noStock": "CCU Unavailable",
   "ccuPlanner.error.sourceShipPriceZero": "Can't upgrade from this ship",
   "ccuPlanner.error.targetShipPriceZero": "This ship can only be upgraded using a hangar CCU",
   "pathBuilder.nextStep": "Next Step",
