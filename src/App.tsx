@@ -17,6 +17,8 @@ import QQIcon from './icons/QQIcon'
 import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 import GithubIcon from './icons/GithubIcon'
 import { reportError } from './report'
+import Login from './pages/Login/Login'
+import Admin from './pages/CCUPlanner/Admin/Admin'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -291,6 +293,9 @@ function App() {
           <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/changelog" element={<ChangeLogs />} />
+
+          <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
