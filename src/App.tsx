@@ -34,7 +34,7 @@ function App() {
 
   const dispatch = useDispatch();
 
-  const tryResolveCCU = (content: { name: string }) => {
+  const tryResolveCCU = (content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
     const name = content.name;
 
     let from = "";
@@ -45,11 +45,16 @@ function App() {
       const match = name.match(regExp);
 
       if (!match) {
-        from = name.split("to")[0].split("-")[1].trim()
-        to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+        from = content.match_items[0].name
+        to = content.target_items[0].name
       } else {
         from = match[1].trim() || name.split("to")[0].split("-")[1].trim()
         to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+      }
+
+      if (!from || !to) {
+        from = name.split("to")[0].split("-")[1].trim()
+        to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
       }
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
