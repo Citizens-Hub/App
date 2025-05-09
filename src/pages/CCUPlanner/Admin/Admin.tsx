@@ -34,9 +34,10 @@ export default function Admin() {
   const handleProcessStoreShips = useCallback((ships: StoreShipsData[]) => {
     ships.forEach(ship => {
       if (shipsRef.current.find(s => s.id === Number(ship.id))) {
+        // console.log("ship already in list >>>>>>>>>>>>", ship);
         return;
       }
-      
+
       console.log("found ship not in list >>>>>>>>>>>>", ship);
 
       shipsRef.current.push({
@@ -61,6 +62,8 @@ export default function Admin() {
     });
 
     requestsLeftRef.current--;
+
+    console.log("requestsLeftRef.current >>>>>>>>>>>>", requestsLeftRef.current)
 
     if (requestsLeftRef.current < 0) {
       showNotification('ships.updated', 'success');
@@ -107,6 +110,7 @@ export default function Admin() {
                       operationName: "GetShipList",
                       variables: {
                         query: {
+                          page: i + 1,
                           limit: 25,
                           sort: {
                             field: "name",
@@ -148,8 +152,6 @@ export default function Admin() {
         }
         if (event.data.message.requestId === 1) {
           shipsRef.current = event.data.message.value.data[0].data.ships;
-
-          // console.log(shipsRef.current[0);
 
           window.postMessage({
             type: 'ccuPlannerAppIntegrationRequest',
@@ -200,25 +202,31 @@ export default function Admin() {
 
   const setToken = () => {
     window.postMessage({
-      "type": "httpRequest",
-      "request": {
-        "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-        "data": null,
-        "responseType": "json",
-        "method": "post"
-      },
-      "requestId": 9999
+      type: 'ccuPlannerAppIntegrationRequest',
+      message: {
+        "type": "httpRequest",
+        "request": {
+          "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+          "data": null,
+          "responseType": "json",
+          "method": "post"
+        },
+        "requestId": 9999
+      }
     }, '*');
 
     window.postMessage({
-      type: "httpRequest",
-      request: {
-        url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
-        data: {},
-        responseType: "json",
-        method: "post"
-      },
-      "requestId": 10000
+      type: 'ccuPlannerAppIntegrationRequest',
+      message: {
+        type: "httpRequest",
+        request: {
+          url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+          data: {},
+          responseType: "json",
+          method: "post"
+        },
+        "requestId": 10000
+      }
     }, '*');
   }
 
