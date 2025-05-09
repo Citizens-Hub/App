@@ -374,7 +374,7 @@ export default function RouteInfoPanel({
                           type="number"
                           className="w-24"
                           inputProps={{ min: 0, max: startShip.msrp / 100, step: 1 }}
-                          value={startShipPrices[completePath.startNodeId]}
+                          value={startShipPrices[completePath.startNodeId] || ""}
                           onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
                         />
                       </div>

@@ -146,3 +146,12 @@ export interface WbHistoryData {
   name: string;
   price: string;
 }
+
+export interface HangarItem {
+  id: number;
+  name: string;
+  type: string; // 'ccu', 'ship' 等
+  fromShip?: string;
+  toShip?: string;
+  price?: number;
+}

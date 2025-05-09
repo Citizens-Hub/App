@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useIntl } from 'react-intl';
 
-import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData, HangarItem } from '../../../types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -30,6 +30,7 @@ import { Alert, Snackbar } from '@mui/material';
 import { RootState } from '../../../store';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
+import PathBuilder from './PathBuilder';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -63,8 +64,19 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
     message: "",
     type: "success"
   });
+  const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
 
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
+
+  // Convert upgrades to HangarItem format
+  const hangarItems: HangarItem[] = upgrades.map(upgrade => ({
+    id: Date.now() + Math.random(), // Generate unique ID
+    name: upgrade.name,
+    type: 'ccu',
+    fromShip: upgrade.parsed.from,
+    toShip: upgrade.parsed.to,
+    price: upgrade.value
+  }));
 
   // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
@@ -100,7 +112,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
         // Ensure the source ship price is lower than the target ship price
         if (sourceShip.msrp >= targetShip.msrp && targetShip.msrp !== 0) {
-          // console.warn('CCU只能从低价船升级到高价船');
+          // console.warn('CCU can only be upgraded from low-priced ships to high-priced ships');
           setAlert({
             open: true,
             message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU can only be upgraded from low-priced ships to high-priced ships' }),
@@ -565,6 +577,342 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
   const proOptions = { hideAttribution: true };
 
+  // Handle path builder
+  const handleOpenPathBuilder = useCallback(() => {
+    setPathBuilderOpen(true);
+  }, []);
+
+  const handleClosePathBuilder = useCallback(() => {
+    setPathBuilderOpen(false);
+  }, []);
+
+  // Create path from path builder
+  const handleCreatePath = useCallback((stepShips: Ship[][]) => {
+    if (stepShips.length < 2) return;
+
+    // Check if nodes exist and find suitable position for new nodes
+    const nodePositions = nodes.map(node => ({
+      x: node.position.x,
+      y: node.position.y
+    }));
+
+    // Calculate starting position for new nodes
+    let startX = 100;
+    const startY = 100;
+
+    if (nodePositions.length > 0) {
+      // Find the rightmost position of all current nodes
+      const maxX = Math.max(...nodePositions.map(pos => pos.x));
+      startX = maxX + 300; // Start 300px to the right of the rightmost position
+    }
+
+    // Create all nodes and edges
+    const newNodes: Node[] = [];
+    const newEdges: Edge[] = [];
+
+    // Get all target ships (endpoints)
+    const targetShips = stepShips[1];
+    
+    // Get all source ships
+    const sourceShips = stepShips[0];
+    
+    // Get actual ship price (considering discounts)
+    const getShipPrice = (ship: Ship): number => {
+      // First check if it's a historical or wb name
+      let checkedShipName = ship.name;
+      
+      // Handle cases where ship data doesn't include suffix but stepShips does
+      const matchingTargetShip = stepShips[1].find(s => 
+        s.id === ship.id && (s.name.endsWith('-wb') || s.name.endsWith('-historical'))
+      );
+      
+      if (matchingTargetShip) {
+        checkedShipName = matchingTargetShip.name;
+      }
+      
+      if (checkedShipName.endsWith('-wb')) {
+        return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
+      } else if (checkedShipName.endsWith('-historical')) {
+        const historicalPrice = Number(wbHistory.find(wb => 
+          wb.name.toUpperCase() === checkedShipName.toUpperCase() || 
+          wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
+        
+        return historicalPrice || ship.msrp;
+      }
+      return ship.msrp;
+    };
+    
+    // Get all ship prices and sort them
+    const allShips = [...sourceShips, ...targetShips];
+    const uniqueShips = allShips.filter((ship, index, self) => 
+      index === self.findIndex(s => s.id === ship.id)
+    );
+    
+    // Create mapping of ships to their actual prices
+    const shipActualPrices = new Map<string, number>();
+    uniqueShips.forEach(ship => {
+      shipActualPrices.set(ship.id.toString(), getShipPrice(ship));
+    });
+    
+    // Sort ships by actual price
+    const sortedShips = uniqueShips.sort((a, b) => 
+      (shipActualPrices.get(a.id.toString()) || 0) - (shipActualPrices.get(b.id.toString()) || 0)
+    );
+    
+    // Create price level mapping
+    const priceLevels: Map<number, Ship[]> = new Map();
+    sortedShips.forEach(ship => {
+      const price = shipActualPrices.get(ship.id.toString())!;
+      if (!priceLevels.has(price)) {
+        priceLevels.set(price, []);
+      }
+      priceLevels.get(price)?.push(ship);
+    });
+    
+    // Sort price levels
+    const sortedPriceLevels = Array.from(priceLevels.keys()).sort((a, b) => a - b);
+    
+    // Create nodes for each price level
+    let levelX = startX;
+    const levelSpacing = 500; // Horizontal spacing between price levels
+    const shipNodeMap: Map<string, Node> = new Map(); // Track created nodes
+    
+    sortedPriceLevels.forEach((price, levelIndex) => {
+      const shipsAtLevel = priceLevels.get(price) || [];
+      
+      // Calculate vertical spacing for current level
+      const nodeHeight = 500;
+      const levelY = startY;
+      const shipsSpacing = Math.max(nodeHeight, 600 / (shipsAtLevel.length || 1));
+      
+      shipsAtLevel.forEach((ship, shipIndex) => {
+        // Check if node for this ship already exists
+        const shipKey = `${ship.id}`;
+        if (shipNodeMap.has(shipKey)) {
+          return; // Skip if node already exists
+        }
+        
+        const yPos = levelY + shipIndex * shipsSpacing;
+        const timestamp = Date.now();
+        const nodeId = `ship-${ship.id}-${timestamp + shipIndex + levelIndex * 100}`;
+        
+        const shipNode: Node = {
+          id: nodeId,
+          type: 'ship',
+          position: { x: levelX, y: yPos },
+          data: {
+            ship: {
+              ...ship,
+              name: ship.name.replace('-historical', '').replace('-wb', '')
+            },
+            onUpdateEdge: updateEdgeData,
+            onDeleteEdge: deleteEdge,
+            onDeleteNode: handleDeleteNode,
+            onDuplicateNode: handleDuplicateNode,
+            ccus,
+            wbHistory,
+            id: nodeId
+          },
+        };
+        
+        newNodes.push(shipNode);
+        shipNodeMap.set(shipKey, shipNode);
+      });
+      
+      // Move to next price level
+      levelX += levelSpacing;
+    });
+    
+    // Create upgrade edges
+    const createdNodes = Array.from(shipNodeMap.values());
+    
+    // New connection creation logic: Create edges for all ships (including source ships)
+    // Process each price level
+    for (let i = 0; i < sortedPriceLevels.length; i++) {
+      const currentPrice = sortedPriceLevels[i];
+      
+      // Get nodes at current price level
+      const currentLevelShips = createdNodes.filter(node => {
+        const ship = node.data.ship as Ship;
+        const actualPrice = shipActualPrices.get(ship.id.toString());
+        return actualPrice !== undefined && Math.abs(actualPrice - currentPrice) < 1;
+      });
+      
+      // Create connections for each current level node
+      currentLevelShips.forEach(sourceNode => {
+        const sourceShip = sourceNode.data.ship as Ship;
+        const sourcePriceValue = shipActualPrices.get(sourceShip.id.toString()) || 0;
+        
+        // Special handling for source ships
+        const isSourceShip = sourceShips.some(ship => ship.id === sourceShip.id);
+        const isTargetShip = targetShips.some(ship => ship.id === sourceShip.id);
+        
+        // Skip if source ship price is 0 or not upgradeable
+        if (sourcePriceValue === 0) {
+          return;
+        }
+        
+        // Only create connections for target ships or source ships
+        if (!isSourceShip && !isTargetShip) {
+          return;
+        }
+
+        // For each source ship, find valid target ships
+        let foundConnectionInAnyLevel = false;
+        
+        for (let j = 0; j < sortedPriceLevels.length; j++) {
+          // Only connect to higher price levels
+          if (sortedPriceLevels[j] <= currentPrice) {
+            continue;
+          }
+          
+          // If connection found in lower price level, don't continue to higher levels
+          if (foundConnectionInAnyLevel) {
+            break;
+          }
+          
+          const nextLevelPrice = sortedPriceLevels[j];
+          
+          // Get nodes at next price level
+          const nextLevelShips = createdNodes.filter(node => {
+            const ship = node.data.ship as Ship;
+            const actualPrice = shipActualPrices.get(ship.id.toString());
+            return actualPrice !== undefined && Math.abs(actualPrice - nextLevelPrice) < 1;
+          });
+          
+          // Filter valid target nodes (price higher than current node and part of target path)
+          const validTargets = nextLevelShips.filter(targetNode => {
+            const targetShip = targetNode.data.ship as Ship;
+            const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
+            
+            // Ensure target price is strictly higher than source price
+            if (sourcePriceValue >= targetPriceValue || targetPriceValue === 0) {
+              return false;
+            }
+            
+            // Check if ship is part of target upgrade path
+            const isTargetPathShip = targetShips.some(ship => ship.id === targetShip.id);
+            return isTargetPathShip;
+          });
+          
+          // If valid target nodes found at current level, create connections
+          if (validTargets.length > 0) {
+            validTargets.forEach(targetNode => {
+              const targetShip = targetNode.data.ship as Ship;
+              const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
+              const priceDifference = targetPriceValue - sourcePriceValue;
+              
+              // Ensure price difference is greater than 0
+              if (priceDifference <= 0) {
+                return;
+              }
+              
+              // Check for upgrade token
+              const hangarCcu = upgrades.find(upgrade => {
+                const from = upgrade.parsed.from.toUpperCase();
+                const to = upgrade.parsed.to.toUpperCase();
+                return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
+              });
+              
+              const newEdge: Edge = {
+                id: `edge-${sourceNode.id}-${targetNode.id}`,
+                source: sourceNode.id,
+                target: targetNode.id,
+                type: 'ccu',
+                animated: true,
+                data: {
+                  price: priceDifference,
+                  sourceShip,
+                  targetShip,
+                  sourceType: CcuSourceType.OFFICIAL,
+                } as CcuEdgeData,
+              };
+              
+              if (hangarCcu) {
+                // If there's a hangar CCU, use it
+                newEdge.data.sourceType = CcuSourceType.HANGER;
+                newEdge.data.customPrice = hangarCcu.value;
+              } else {
+                // Handle special price cases
+                const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.id)?.name;
+                
+                if (targetShipNameInPath?.endsWith('-historical')) {
+                  const historicalPrice = Number(wbHistory.find(wb => 
+                    wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() || 
+                    wb.name.toUpperCase() === targetShip.name.trim().toUpperCase())?.price) * 100 || targetShip.msrp;
+                  
+                  if (historicalPrice && historicalPrice !== targetShip.msrp) {
+                    const historicalPriceUSD = historicalPrice / 100;
+                    const sourcePriceUSD = sourcePriceValue / 100;
+                    const actualPrice = historicalPriceUSD - sourcePriceUSD;
+                    
+                    // Ensure price difference is greater than 0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
+                    
+                    newEdge.data.sourceType = CcuSourceType.HISTORICAL;
+                    newEdge.data.customPrice = Math.max(0, actualPrice);
+                  }
+                } 
+                else if (targetShipNameInPath?.endsWith('-wb')) {
+                  const wbPrice = ccus.find(c => c.id === targetShip.id)?.skus.find(sku => 
+                    sku.price !== targetShip.msrp && sku.available)?.price || targetShip.msrp;
+                    
+                  if (wbPrice && wbPrice !== targetShip.msrp) {
+                    const wbPriceUSD = wbPrice / 100;
+                    const sourcePriceUSD = sourcePriceValue / 100;
+                    const actualPrice = wbPriceUSD - sourcePriceUSD;
+                    
+                    // Ensure price difference is greater than 0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
+                    
+                    newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
+                    newEdge.data.customPrice = Math.max(0, actualPrice);
+                  }
+                }
+                else {
+                  const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
+                  const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
+                  
+                  if (targetWb && sourcePriceValue < targetWb.price) {
+                    const targetWbPrice = targetWb.price / 100;
+                    const sourceShipPrice = sourcePriceValue / 100;
+                    const actualPrice = targetWbPrice - sourceShipPrice;
+                    
+                    // Ensure price difference is greater than 0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
+                    
+                    newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
+                    newEdge.data.customPrice = Math.max(0, actualPrice);
+                  }
+                }
+              }
+              
+              newEdges.push(newEdge);
+            });
+            
+            // Mark connection found at current level, don't try higher levels
+            foundConnectionInAnyLevel = true;
+          }
+        }
+      });
+    }
+    
+    // Update graph
+    setNodes(nodes => [...nodes, ...newNodes]);
+    setEdges(edges => [...edges, ...newEdges]);
+    
+    // If instance exists, adjust view to show all nodes
+    if (reactFlowInstance) {
+      setTimeout(() => reactFlowInstance.fitView(), 100);
+    }
+  }, [nodes, upgrades, ccus, setNodes, setEdges, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, wbHistory, reactFlowInstance]);
+
   return (
     <div className="h-full flex">
       <div className="min-w-[450px] max-w-[600px] border-r border-gray-200 dark:border-gray-800">
@@ -599,6 +947,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 onSave={handleSave}
                 onExport={handleExport}
                 onImport={handleImport}
+                onOpenPathBuilder={handleOpenPathBuilder}
               />
             </Panel>
             <Panel position="top-left" className="bg-white dark:bg-[#121212] w-[340px] border border-gray-200 dark:border-gray-800 p-2">
@@ -627,13 +976,13 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
         onChange={handleFileSelect}
       />
 
-      <Snackbar 
+      <Snackbar
         anchorOrigin={{
           vertical: 'top',
           horizontal: 'center'
-        }} 
-        open={alert.open} 
-        autoHideDuration={6000} 
+        }}
+        open={alert.open}
+        autoHideDuration={6000}
         onClose={handleClose}
       >
         <Alert
@@ -641,11 +990,21 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           severity={alert.type}
           variant="filled"
           sx={{ width: '100%' }}
-
         >
           {alert.message}
         </Alert>
       </Snackbar>
+
+      {/* 路径规划器 */}
+      <PathBuilder
+        open={pathBuilderOpen}
+        onClose={handleClosePathBuilder}
+        ships={ships}
+        ccus={ccus}
+        wbHistory={wbHistory}
+        hangarItems={hangarItems}
+        onCreatePath={handleCreatePath}
+      />
     </div>
   );
 } 
