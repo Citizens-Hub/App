@@ -616,12 +616,28 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
     // 获取所有起点船只
     const sourceShips = stepShips[0];
     
-    // 获取起点和终点的价格范围
+    // 获取船只的实际价格（考虑打折）
     const getShipPrice = (ship: Ship): number => {
-      if (ship.name.endsWith('-wb')) {
+      // 先检查是否为historical或wb名称
+      let checkedShipName = ship.name;
+      
+      // 处理ship数据中不包含后缀但stepShips中包含后缀的情况
+      const matchingTargetShip = stepShips[1].find(s => 
+        s.id === ship.id && (s.name.endsWith('-wb') || s.name.endsWith('-historical'))
+      );
+      
+      if (matchingTargetShip) {
+        checkedShipName = matchingTargetShip.name;
+      }
+      
+      if (checkedShipName.endsWith('-wb')) {
         return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
-      } else if (ship.name.endsWith('-historical')) {
-        return Number(wbHistory.find(wb => wb.name.toUpperCase() === ship.name.toUpperCase())?.price) * 100 || ship.msrp;
+      } else if (checkedShipName.endsWith('-historical')) {
+        const historicalPrice = Number(wbHistory.find(wb => 
+          wb.name.toUpperCase() === checkedShipName.toUpperCase() || 
+          wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
+        
+        return historicalPrice || ship.msrp;
       }
       return ship.msrp;
     };
@@ -632,13 +648,21 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
       index === self.findIndex(s => s.id === ship.id)
     );
     
-    // 按价格对船只进行排序
-    const sortedShips = uniqueShips.sort((a, b) => getShipPrice(a) - getShipPrice(b));
+    // 创建船只和其实际价格的映射
+    const shipActualPrices = new Map<string, number>();
+    uniqueShips.forEach(ship => {
+      shipActualPrices.set(ship.id.toString(), getShipPrice(ship));
+    });
+    
+    // 按实际价格对船只进行排序
+    const sortedShips = uniqueShips.sort((a, b) => 
+      (shipActualPrices.get(a.id.toString()) || 0) - (shipActualPrices.get(b.id.toString()) || 0)
+    );
     
     // 创建价格层级映射
     const priceLevels: Map<number, Ship[]> = new Map();
     sortedShips.forEach(ship => {
-      const price = getShipPrice(ship);
+      const price = shipActualPrices.get(ship.id.toString())!;
       if (!priceLevels.has(price)) {
         priceLevels.set(price, []);
       }
@@ -710,13 +734,14 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
       // 获取当前价格层级的节点
       const currentLevelShips = createdNodes.filter(node => {
         const ship = node.data.ship as Ship;
-        return Math.abs(getShipPrice(ship) - currentPrice) < 1;
+        const actualPrice = shipActualPrices.get(ship.id.toString());
+        return actualPrice !== undefined && Math.abs(actualPrice - currentPrice) < 1;
       });
       
       // 为每个当前层级节点创建连接
       currentLevelShips.forEach(sourceNode => {
         const sourceShip = sourceNode.data.ship as Ship;
-        const sourcePriceValue = getShipPrice(sourceShip);
+        const sourcePriceValue = shipActualPrices.get(sourceShip.id.toString()) || 0;
         
         // 特殊处理起点船只
         const isSourceShip = sourceShips.some(ship => ship.id === sourceShip.id);
@@ -731,26 +756,36 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
         if (!isSourceShip && !isTargetShip) {
           return;
         }
+
+        // 对于每个源船，寻找有效的目标船
+        let foundConnectionInAnyLevel = false;
         
-        // 尝试查找下一个价格层级
-        let foundConnection = false;
-        
-        // 逐步尝试连接更高层级，直到找到一个可用连接
-        for (let j = i + 1; j < sortedPriceLevels.length && !foundConnection; j++) {
+        for (let j = 0; j < sortedPriceLevels.length; j++) {
+          // 只连接到价格更高的层级
+          if (sortedPriceLevels[j] <= currentPrice) {
+            continue;
+          }
+          
+          // 如果已经在较低价格层级找到连接，不再继续连接到更高层级
+          if (foundConnectionInAnyLevel) {
+            break;
+          }
+          
           const nextLevelPrice = sortedPriceLevels[j];
           
           // 获取下一价格层级的节点
           const nextLevelShips = createdNodes.filter(node => {
             const ship = node.data.ship as Ship;
-            return Math.abs(getShipPrice(ship) - nextLevelPrice) < 1;
+            const actualPrice = shipActualPrices.get(ship.id.toString());
+            return actualPrice !== undefined && Math.abs(actualPrice - nextLevelPrice) < 1;
           });
           
           // 过滤出可用的目标节点（价格高于当前节点且属于目标路径）
           const validTargets = nextLevelShips.filter(targetNode => {
             const targetShip = targetNode.data.ship as Ship;
-            const targetPriceValue = getShipPrice(targetShip);
+            const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
             
-            // 确保目标价格高于源价格
+            // 确保目标价格严格高于源价格
             if (sourcePriceValue >= targetPriceValue || targetPriceValue === 0) {
               return false;
             }
@@ -760,12 +795,17 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             return isTargetPathShip;
           });
           
-          // 如果在当前层级找到了可连接的目标节点
+          // 如果在当前层级找到了可连接的目标节点，创建连接
           if (validTargets.length > 0) {
             validTargets.forEach(targetNode => {
               const targetShip = targetNode.data.ship as Ship;
-              const targetPriceValue = getShipPrice(targetShip);
+              const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
               const priceDifference = targetPriceValue - sourcePriceValue;
+              
+              // 确保价格差大于0
+              if (priceDifference <= 0) {
+                return;
+              }
               
               // 查找是否有升级券
               const hangarCcu = upgrades.find(upgrade => {
@@ -794,22 +834,28 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 newEdge.data.customPrice = hangarCcu.value;
               } else {
                 // 处理特殊价格情况
-                const targetShipName = stepShips[1].find(ship => ship.id === targetShip.id)?.name;
+                const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.id)?.name;
                 
-                if (targetShipName?.endsWith('-historical')) {
+                if (targetShipNameInPath?.endsWith('-historical')) {
                   const historicalPrice = Number(wbHistory.find(wb => 
-                    wb.name.toUpperCase() === targetShip.name.toUpperCase())?.price) * 100 || targetShip.msrp;
+                    wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() || 
+                    wb.name.toUpperCase() === targetShip.name.trim().toUpperCase())?.price) * 100 || targetShip.msrp;
                   
                   if (historicalPrice && historicalPrice !== targetShip.msrp) {
                     const historicalPriceUSD = historicalPrice / 100;
                     const sourcePriceUSD = sourcePriceValue / 100;
                     const actualPrice = historicalPriceUSD - sourcePriceUSD;
                     
+                    // 确保价格差大于0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
+                    
                     newEdge.data.sourceType = CcuSourceType.HISTORICAL;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
                   }
                 } 
-                else if (targetShipName?.endsWith('-wb')) {
+                else if (targetShipNameInPath?.endsWith('-wb')) {
                   const wbPrice = ccus.find(c => c.id === targetShip.id)?.skus.find(sku => 
                     sku.price !== targetShip.msrp && sku.available)?.price || targetShip.msrp;
                     
@@ -817,6 +863,11 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                     const wbPriceUSD = wbPrice / 100;
                     const sourcePriceUSD = sourcePriceValue / 100;
                     const actualPrice = wbPriceUSD - sourcePriceUSD;
+                    
+                    // 确保价格差大于0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
                     
                     newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
@@ -831,6 +882,11 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                     const sourceShipPrice = sourcePriceValue / 100;
                     const actualPrice = targetWbPrice - sourceShipPrice;
                     
+                    // 确保价格差大于0
+                    if (actualPrice <= 0) {
+                      return;
+                    }
+                    
                     newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
                   }
@@ -840,8 +896,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               newEdges.push(newEdge);
             });
             
-            // 标记为已找到连接，不再尝试更高层级
-            foundConnection = true;
+            // 标记已在当前层级找到连接，不再尝试连接到更高价格层级
+            foundConnectionInAnyLevel = true;
           }
         }
       });

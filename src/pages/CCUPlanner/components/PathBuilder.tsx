@@ -499,7 +499,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                   variant="contained"
                   disabled={
                     currentStep === 1
-                      ? selectedCcus.length === 0  // 在CCU选择步骤，只要求有选中的CCU
+                      ? false
                       : !(stepShips[currentStep]?.length > 0)  // 在其他步骤，要求有选中的船只
                   }
                   color="primary"
