@@ -33,6 +33,15 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
     filtered = [...filtered].sort((a, b) => {
       const aHasWB = ccus.find(c => c.id === a.id)?.skus.find(s => s.price < a.msrp) ? 1 : 0;
       const bHasWB = ccus.find(c => c.id === b.id)?.skus.find(s => s.price < b.msrp) ? 1 : 0;
+
+      if (a.msrp === 0) {
+        return 1;
+      }
+
+      if (b.msrp === 0) {
+        return -1;
+      }
+
       return bHasWB - aHasWB;
     });
 
