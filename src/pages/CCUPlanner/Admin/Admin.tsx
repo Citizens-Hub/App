@@ -1,7 +1,8 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Container, Typography, Box, Paper, Grid, Snackbar, Alert } from '@mui/material';
-import { LoaderCircle, Ship, RefreshCw } from 'lucide-react';
+import { LoaderCircle, RefreshCw, ShipWheel } from 'lucide-react';
+import { Ship, StoreShipsData } from '../../../types';
 
 export default function Admin() {
   const intl = useIntl();
@@ -15,15 +16,126 @@ export default function Admin() {
     severity: 'success' as 'success' | 'error' | 'info' | 'warning'
   });
 
+  const shipsRef = useRef<Ship[]>([]);
+  const requestsLeftRef = useRef(0);
+
   useEffect(() => {
     document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'admin.title', defaultMessage: 'Admin Panel' });
   }, [intl]);
 
+  const showNotification = useCallback((messageId: string, severity: 'success' | 'error' | 'info' | 'warning') => {
+    setNotification({
+      open: true,
+      message: intl.formatMessage({ id: messageId }),
+      severity
+    });
+  }, [intl]);
+
+  const handleProcessStoreShips = useCallback((ships: StoreShipsData[]) => {
+    ships.forEach(ship => {
+      if (shipsRef.current.find(s => s.id === Number(ship.id))) {
+        return;
+      }
+      
+      console.log("found ship not in list >>>>>>>>>>>>", ship);
+
+      shipsRef.current.push({
+        id: Number(ship.id),
+        name: ship.name,
+        medias: {
+          productThumbMediumAndSmall: "https://robertsspaceindustries.com" + ship.imageComposer[0].url,
+          slideShow: "https://robertsspaceindustries.com" + ship.imageComposer[0].url
+        },
+        manufacturer: {
+          id: ship.manufacturerId,
+          name: ship.manufacturer.name
+        },
+        focus: ship.focus,
+        type: ship.type,
+        flyableStatus: ship.productionStatus === "flight-ready" ? "Flyable" : "Concept",
+        owned: false,
+        msrp: ship.msrp,
+        link: ship.url,
+        skus: []
+      });
+    });
+
+    requestsLeftRef.current--;
+
+    if (requestsLeftRef.current < 0) {
+      showNotification('ships.updated', 'success');
+      fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ships`, {
+        method: 'PUT',
+        body: JSON.stringify({ data: { ships: shipsRef.current } }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+    }
+  }, [showNotification]);
+
   useEffect(() => {
-    setContextToken();
+    setToken();
+
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
+        if (event.data.message.requestId < -1) {
+          handleProcessStoreShips(event.data.message.value.data[0].data.store.search.resources);
+        }
+        if (event.data.message.requestId === -1) {
+          // console.log(event.data.message.value.data[0].data.store);
+
+          const totalCount = event.data.message.value.data[0].data.store.search.totalCount;
+          const perPage = event.data.message.value.data[0].data.store.search.count;
+          const pages = Math.ceil(totalCount / perPage);
+
+          requestsLeftRef.current = pages - 1;
+
+          for (let i = 1; i < pages; i++) {
+            window.postMessage({
+              type: 'ccuPlannerAppIntegrationRequest',
+              message: {
+                type: "httpRequest",
+                request: {
+                  url: "https://robertsspaceindustries.com/graphql",
+                  responseType: "json",
+                  method: "post",
+                  data: [
+                    {
+                      operationName: "GetShipList",
+                      variables: {
+                        query: {
+                          limit: 25,
+                          sort: {
+                            field: "name",
+                            direction: "asc"
+                          },
+                          ships: {
+                            imageComposer: [
+                              {
+                                name: "1000",
+                                size: "SIZE_1000",
+                                ratio: "RATIO_16_9",
+                                extension: "JPG"
+                              }
+                            ],
+                            all: true
+                          }
+                        }
+                      },
+                      query: "query GetShipList($query: SearchQuery!) {\n  store(name: \"pledge\", browse: true) {\n    search(query: $query) {\n      shipFiltersOptions {\n        classification {\n          label\n          value\n          __typename\n        }\n        sale {\n          label\n          value\n          __typename\n        }\n        msrp {\n          from\n          to\n          __typename\n        }\n        status {\n          label\n          value\n          __typename\n        }\n        maxCrew {\n          from\n          to\n          __typename\n        }\n        minCrew {\n          from\n          to\n          __typename\n        }\n        size\n        __typename\n      }\n      count\n      totalCount\n      resources {\n        ...RSIShipFragment\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment RSIShipFragment on RSIShip {\n  ...RSIShipBaseFragment\n  manufacturerId\n  featuredForShipList\n  minCrew\n  maxCrew\n  manufacturer {\n    ...RSIManufacturerMinimalFragment\n    __typename\n  }\n  imageComposer {\n    ...ImageComposerFragment\n    __typename\n  }\n  __typename\n}\n\nfragment RSIManufacturerMinimalFragment on RSIManufacturer {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment RSIShipBaseFragment on RSIShip {\n  id\n  title\n  name\n  url\n  slug\n  type\n  focus\n  msrp\n  purchasable\n  productionStatus\n  lastUpdate\n  publishStart\n  __typename\n}"
+                    }
+                  ]
+                },
+                requestId: -(i + 1)
+              }
+            }, '*');
+          }
+
+          handleProcessStoreShips(event.data.message.value.data[0].data.store.search.resources);
+        }
         if (event.data.message.requestId === 0) {
           fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ccus`, {
             method: 'PUT',
@@ -35,14 +147,48 @@ export default function Admin() {
           });
         }
         if (event.data.message.requestId === 1) {
-          fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ships`, {
-            method: 'PUT',
-            body: JSON.stringify({ data: { ships: event.data.message.value.data[0].data.ships } }),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+          shipsRef.current = event.data.message.value.data[0].data.ships;
+
+          // console.log(shipsRef.current[0);
+
+          window.postMessage({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                url: "https://robertsspaceindustries.com/graphql",
+                responseType: "json",
+                method: "post",
+                data: [
+                  {
+                    operationName: "GetShipList",
+                    variables: {
+                      query: {
+                        limit: 25,
+                        sort: {
+                          field: "name",
+                          direction: "asc"
+                        },
+                        ships: {
+                          imageComposer: [
+                            {
+                              name: "1000",
+                              size: "SIZE_1000",
+                              ratio: "RATIO_16_9",
+                              extension: "JPG"
+                            }
+                          ],
+                          all: true
+                        }
+                      }
+                    },
+                    query: "query GetShipList($query: SearchQuery!) {\n  store(name: \"pledge\", browse: true) {\n    search(query: $query) {\n      shipFiltersOptions {\n        classification {\n          label\n          value\n          __typename\n        }\n        sale {\n          label\n          value\n          __typename\n        }\n        msrp {\n          from\n          to\n          __typename\n        }\n        status {\n          label\n          value\n          __typename\n        }\n        maxCrew {\n          from\n          to\n          __typename\n        }\n        minCrew {\n          from\n          to\n          __typename\n        }\n        size\n        __typename\n      }\n      count\n      totalCount\n      resources {\n        ...RSIShipFragment\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment RSIShipFragment on RSIShip {\n  ...RSIShipBaseFragment\n  manufacturerId\n  featuredForShipList\n  minCrew\n  maxCrew\n  manufacturer {\n    ...RSIManufacturerMinimalFragment\n    __typename\n  }\n  imageComposer {\n    ...ImageComposerFragment\n    __typename\n  }\n  __typename\n}\n\nfragment RSIManufacturerMinimalFragment on RSIManufacturer {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment RSIShipBaseFragment on RSIShip {\n  id\n  title\n  name\n  url\n  slug\n  type\n  focus\n  msrp\n  purchasable\n  productionStatus\n  lastUpdate\n  publishStart\n  __typename\n}"
+                  }
+                ]
+              },
+              requestId: -1
             }
-          });
+          }, '*');
         }
       }
     }
@@ -50,9 +196,20 @@ export default function Admin() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [handleProcessStoreShips]);
 
-  const setContextToken = () => {
+  const setToken = () => {
+    window.postMessage({
+      "type": "httpRequest",
+      "request": {
+        "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+        "data": null,
+        "responseType": "json",
+        "method": "post"
+      },
+      "requestId": 9999
+    }, '*');
+
     window.postMessage({
       type: "httpRequest",
       request: {
@@ -61,7 +218,7 @@ export default function Admin() {
         responseType: "json",
         method: "post"
       },
-      "requestId": -1
+      "requestId": 10000
     }, '*');
   }
 
@@ -73,6 +230,7 @@ export default function Admin() {
         type: "httpRequest",
         request: {
           "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+          // url: "https://robertsspaceindustries.com/graphql",
           "responseType": "json",
           "method": "post",
           "data": [
@@ -124,14 +282,6 @@ export default function Admin() {
     }, 1000);
   };
 
-  const showNotification = (messageId: string, severity: 'success' | 'error' | 'info' | 'warning') => {
-    setNotification({
-      open: true,
-      message: intl.formatMessage({ id: messageId }),
-      severity
-    });
-  };
-
   const handleCloseNotification = () => {
     setNotification(prev => ({ ...prev, open: false }));
   };
@@ -149,7 +299,7 @@ export default function Admin() {
         }}>
           <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Ship className="w-6 h-6 mr-2" />
+              <ShipWheel className="w-6 h-6 mr-2" />
               <Typography variant="h5">
                 <FormattedMessage id="admin.ships.title" defaultMessage="飞船数据" />
               </Typography>
