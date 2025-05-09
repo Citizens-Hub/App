@@ -25,7 +25,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
   const [filteredCcus, setFilteredCcus] = useState<HangarItem[]>([]);
   const [ccuSearchTerm, setCcuSearchTerm] = useState('');
 
-  // 是否有可用的CCU
+  // Whether there are available CCUs
   const hasCcus = hangarItems?.some(item => item.type === 'ccu');
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
     }
   }, [open]);
 
-  // 筛选用户机库中的CCU
+  // Filter CCUs from user's hangar
   useEffect(() => {
     if (!hangarItems) return;
 
@@ -74,7 +74,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
       );
     }
 
-    // 判断是否为最后一步（选择船只）
+    // Check if it's the last step (selecting ships)
     const isLastStep = hasCcus ? currentStep === 2 : currentStep === 1;
 
     if (isLastStep) {
@@ -86,14 +86,14 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
         return ship.msrp > prevStepMsrpMin
       });
 
-      // 如果有选中的CCU，将CCU的起点和终点船只添加到已选船只中
+      // If there are selected CCUs, add their source and target ships to the selected ships
       if (selectedCcus.length > 0) {
         selectedCcus.forEach(ccu => {
-          // 查找CCU对应的起点和终点船只
+          // Find the source and target ships for the CCU
           const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
           const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
 
-          // 如果找到了对应的船只，从过滤列表中移除
+          // If the corresponding ships are found, remove them from the filtered list
           if (fromShip) {
             filtered = filtered.filter(ship => ship.id !== fromShip.id);
           }
@@ -120,18 +120,18 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
   };
 
   const nextStep = () => {
-    // 如果是从CCU选择步骤进入最后一步，自动添加CCU的起点和终点船只
+    // If entering the last step from CCU selection step, automatically add CCU's source and target ships
     if (hasCcus && currentStep === 1 && selectedCcus.length > 0) {
       const ccuShips: Ship[] = [];
 
       selectedCcus.forEach(ccu => {
-        // 查找CCU对应的起点和终点船只
+        // Find the source and target ships for the CCU
         const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
         const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
 
         console.log(fromShip, toShip);
 
-        // 如果找到了对应的船只，添加到已选船只中
+        // If the corresponding ships are found, add them to the selected ships
         if (fromShip) {
           ccuShips.push(fromShip);
         }
@@ -172,7 +172,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
           ...newLayerShips[layerIndex].slice(shipIndex + 1)
         ];
 
-        // 如果此层没有船只了，清除此层及后续层级
+        // If there are no ships in this layer, clear this layer and subsequent layers
         if (newLayerShips[layerIndex].length === 0) {
           newLayerShips.splice(layerIndex);
         }
@@ -182,7 +182,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
     updateSelectedPath();
   };
 
-  // 移除船只的所有版本
+  // Remove all versions of a ship
   const removeAllShipVersions = (shipId: number, shipName: string) => {
     setLayerShips(prev => {
       const newLayerShips = [...prev];
@@ -191,7 +191,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
           !(s.id === shipId || s.name === `${shipName}-wb` || s.name === `${shipName}-historical`)
         );
 
-        // 如果此层没有船只了，清除此层
+        // If there are no ships in this layer, clear this layer
         if (newLayerShips[currentStep].length === 0) {
           newLayerShips.splice(currentStep);
         }
@@ -200,7 +200,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
     });
   };
 
-  // 选择或取消选择CCU
+  // Select or deselect CCU
   const toggleCcu = (ccu: HangarItem) => {
     setSelectedCcus(prev => {
       const isSelected = prev.some(item => item.id === ccu.id);
@@ -212,7 +212,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
     });
   };
 
-  // 检查船只是否是CCU的一部分
+  // Check if a ship is part of a CCU
   const isShipPartOfCcu = (shipName: string) => {
     return selectedCcus.some(
       ccu => ccu.fromShip?.toLowerCase() === shipName.toLowerCase() ||
@@ -220,10 +220,10 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
     );
   };
 
-  // 渲染步骤标题
+  // Render step title
   const renderStepTitle = () => {
     if (hasCcus) {
-      // 有CCU时的三步流程
+      // Three-step process when CCU is available
       switch (currentStep) {
         case 0:
           return <FormattedMessage id="pathBuilder.step1" defaultMessage="选择你的起始船只" />;
@@ -235,7 +235,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
           return null;
       }
     } else {
-      // 没有CCU时的两步流程
+      // Two-step process when no CCU is available
       switch (currentStep) {
         case 0:
           return <FormattedMessage id="pathBuilder.step1" defaultMessage="选择你的起始船只" />;
@@ -279,7 +279,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
           </div>
 
           {(currentStep === 0 || (hasCcus && currentStep === 2) || (!hasCcus && currentStep === 1)) ? (
-            // 船只选择步骤
+            // Ship selection step
             <>
               <div className="p-4 border-b border-gray-200">
                 <input
@@ -307,9 +307,9 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                     const isWbSelected = stepShips[step]?.some(s => s.name === `${ship.name}-wb`);
                     const isHistoricalSelected = stepShips[step]?.some(s => s.name === `${ship.name}-historical`);
 
-                    // 检查是否是CCU的一部分（在最后一步显示）
+                    // Check if the ship is part of a CCU (shown in the last step)
                     const isPartOfCcu = hasCcus && currentStep === 2 && isShipPartOfCcu(ship.name);
-                    const isDisabled = isPartOfCcu; // 如果是CCU的一部分，则禁用
+                    const isDisabled = isPartOfCcu; // If it's part of a CCU, disable it
 
                     return <div key={ship.id} className="flex items-center justify-between">
                       <div
@@ -317,13 +317,13 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                           if (isDisabled) return;
 
                           if (isSelected) {
-                            // 如果已选择普通版本，则取消选择
+                            // If the normal version is already selected, deselect it
                             const shipIndex = stepShips[step]?.findIndex(s =>
                               s.id === ship.id && s.name === ship.name
                             ) || 0;
                             removeShipFromLayer(step, shipIndex);
                           } else {
-                            // 如果选择普通版本，先移除所有版本，再添加普通版本
+                            // If selecting the normal version, first remove all versions, then add the normal version
                             removeAllShipVersions(ship.id, ship.name);
                             setLayerShips(prev => {
                               const newLayerShips = [...prev];
@@ -370,10 +370,10 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                               className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isWbSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                               onClick={() => {
                                 if (isWbSelected) {
-                                  // 如果已选择Warbound版本，则取消选择
+                                  // If the Warbound version is already selected, deselect it
                                   removeShipFromLayer(step, stepShips[step]?.findIndex(s => s.name === `${ship.name}-wb`) || 0);
                                 } else {
-                                  // 若选择Warbound版本，先移除所有版本，再添加Warbound版本
+                                  // If selecting the Warbound version, first remove all versions, then add the Warbound version
                                   removeAllShipVersions(ship.id, ship.name);
                                   const wbShip = {
                                     ...ship,
@@ -399,10 +399,10 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                               className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isHistoricalSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                               onClick={() => {
                                 if (isHistoricalSelected) {
-                                  // 如果已选择Historical版本，则取消选择
+                                  // If the Historical version is already selected, deselect it
                                   removeShipFromLayer(step, stepShips[step]?.findIndex(s => s.name === `${ship.name}-historical`) || 0);
                                 } else {
-                                  // 若选择Historical版本，先移除所有版本，再添加Historical版本
+                                  // If selecting the Historical version, first remove all versions, then add the Historical version
                                   removeAllShipVersions(ship.id, ship.name);
                                   const historicalShip = {
                                     ...ship,
@@ -432,12 +432,12 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
               </div>
             </>
           ) : (
-            // CCU选择步骤
+            // CCU selection step
             <>
               <div className="p-4 border-b border-gray-200">
                 <input
                   type="text"
-                  placeholder={intl.formatMessage({ id: 'pathBuilder.searchCcuPlaceholder', defaultMessage: '搜索CCU...' })}
+                  placeholder={intl.formatMessage({ id: 'pathBuilder.searchCcuPlaceholder', defaultMessage: 'Search CCU...' })}
                   value={ccuSearchTerm}
                   onChange={(e) => setCcuSearchTerm(e.target.value)}
                   className="border border-gray-500 rounded-md px-3 py-2 w-full"
@@ -467,7 +467,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                     );
                   }) : (
                     <div className="p-4 text-center text-gray-500">
-                      <FormattedMessage id="pathBuilder.noCcus" defaultMessage="没有找到可用的CCU" />
+                      <FormattedMessage id="pathBuilder.noCcus" defaultMessage="No CCUs found" />
                     </div>
                   )}
                 </div>
@@ -475,7 +475,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
             </>
           )}
 
-          {/* 底部操作栏 */}
+          {/* Bottom action bar */}
           <div className="border-t border-gray-200 p-4 flex justify-end gap-2">
             <Button onClick={() => {
               if (currentStep === 0) {
@@ -486,9 +486,9 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
             }} variant="outlined">
               {
                 currentStep === 0 ? (
-                  <FormattedMessage id="pathBuilder.cancel" defaultMessage="取消" />
+                  <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
                 ) : (
-                  <FormattedMessage id="pathBuilder.prevStep" defaultMessage="上一步" />
+                  <FormattedMessage id="pathBuilder.prevStep" defaultMessage="Previous step" />
                 )
               }
             </Button>
@@ -500,11 +500,11 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                   disabled={
                     currentStep === 1
                       ? false
-                      : !(stepShips[currentStep]?.length > 0)  // 在其他步骤，要求有选中的船只
+                      : !(stepShips[currentStep]?.length > 0)  // In other steps, require selected ships
                   }
                   color="primary"
                 >
-                  <FormattedMessage id="pathBuilder.nextStep" defaultMessage="下一步" />
+                  <FormattedMessage id="pathBuilder.nextStep" defaultMessage="Next step" />
                 </Button>
               ) : (
                 <Button
@@ -513,7 +513,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
                   disabled={!(stepShips[1]?.length > 0)}
                   color="primary"
                 >
-                  <FormattedMessage id="pathBuilder.createPath" defaultMessage="创建路径" />
+                  <FormattedMessage id="pathBuilder.createPath" defaultMessage="Create path" />
                 </Button>
               )
             }
