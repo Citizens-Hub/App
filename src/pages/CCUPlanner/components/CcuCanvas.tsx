@@ -990,7 +990,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             fitView
           >
             <Controls position={isMobile ? "top-right" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
-            <MiniMap className='dark:invert-90 sm:block hidden' />
+            <MiniMap className='dark:invert-90 xl:block hidden' />
             <Background color="#333" gap={32} />
             <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
               <Toolbar
