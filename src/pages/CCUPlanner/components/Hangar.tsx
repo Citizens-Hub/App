@@ -52,13 +52,13 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             setIsRefreshing(true);
             dispatch(clearUpgrades());
 
-            window.postMessage({
-              type: 'ccuPlannerAppIntegrationRequest',
-              message: {
-                type: "connect",
-                requestId: 1
-              }
-            }, '*');
+            // window.postMessage({
+            //   type: 'ccuPlannerAppIntegrationRequest',
+            //   message: {
+            //     type: "connect",
+            //     requestId: 1
+            //   }
+            // }, '*');
 
             window.postMessage({
               type: 'ccuPlannerAppIntegrationRequest',

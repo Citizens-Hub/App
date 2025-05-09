@@ -22,23 +22,23 @@ export default function useResourceData() {
 
     const fetchData = async () => {
       try {
-        const ccusResponse = await fetch('/ccus.json', {
+        const ccusResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ccus`, {
           signal: abortController.signal
         });
         if (!ccusResponse.ok) {
           throw new Error('Network response error');
         }
-        const ccusData: CcusData[] = await ccusResponse.json();
-        setCcus(ccusData[0].data.to.ships);
+        const ccusData: CcusData = await ccusResponse.json();
+        setCcus(ccusData.data.to.ships);
 
-        const shipsResponse = await fetch('/ships.json', {
+        const shipsResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ships`, {
           signal: abortController.signal
         });
         if (!shipsResponse.ok) {
           throw new Error('Network response error');
         }
-        const shipsData: ShipsData[] = await shipsResponse.json();
-        setShips(shipsData[0].data.ships.sort((a, b) => a.msrp - b.msrp));
+        const shipsData: ShipsData = await shipsResponse.json();
+        setShips(shipsData.data.ships.sort((a, b) => a.msrp - b.msrp));
 
         const wbHistoryResponse = await fetch('/history_wb.json', {
           signal: abortController.signal
