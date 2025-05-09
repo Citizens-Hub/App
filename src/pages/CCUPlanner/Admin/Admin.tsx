@@ -20,6 +20,7 @@ export default function Admin() {
   }, [intl]);
 
   useEffect(() => {
+    setContextToken();
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
@@ -50,6 +51,19 @@ export default function Admin() {
 
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  const setContextToken = () => {
+    window.postMessage({
+      type: "httpRequest",
+      request: {
+        url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+        data: {},
+        responseType: "json",
+        method: "post"
+      },
+      "requestId": -1
+    }, '*');
+  }
 
   const handleUpdateShips = () => {
     setLoading(prev => ({ ...prev, ships: true }));
@@ -89,6 +103,7 @@ export default function Admin() {
           "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
           "responseType": "json",
           "method": "post",
+          "auth": true,
           "data": [
             {
               "operationName": "filterShips",

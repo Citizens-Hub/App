@@ -116,5 +116,6 @@
   "routeInfoPanel.pruneOptTooltip": "If checked, the upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown",
   "shipNode.historical": "Historical WB",
   "routeInfoPanel.historical": "Historical WB",
-  "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate"
+  "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate",
+  "ccuPlanner.noStock": "Not in RSI Store"
 }
