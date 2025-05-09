@@ -6,7 +6,7 @@ Tool Link: https://citizenshub.app/ccu-planner
 
 GitHub Repository: https://github.com/EduarteXD/citizenshub
 
-Discord: https://discord.gg/GZznXzPF
+Discord: https://discord.gg/AEuRtb5Vy8
 
 ## What are the advantages of this software compared to CCU Game or others?
 
