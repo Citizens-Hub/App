@@ -129,12 +129,12 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart }: Sh
                     ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) ? <div className="text-xs text-white bg-orange-400 rounded-sm px-1">WB</div> :
                       wbHistory.find(h => h.name === ship.name && h.price !== '') && showHistoryWB && <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
                   }
-                  {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 rounded-sm px-1">{ship.flyableStatus}</div>}
+                  {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{ship.flyableStatus}</div>}
                   <h3 className="font-medium">{ship.name}</h3>
                 </div>
                 <div className="text-xs text-gray-400 flex items-center gap-1">
                   {
-                    !ccus.find(c => c.id === ship.id) && <div className="text-xs text-white bg-red-300 rounded-sm px-1">
+                    !ccus.find(c => c.id === ship.id) && <div className="text-xs text-white bg-red-300 dark:bg-pink-700 rounded-sm px-1">
                       <FormattedMessage id="ccuPlanner.noStock" defaultMessage="No stock" />
                     </div>
                   }
