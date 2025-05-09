@@ -192,7 +192,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             sourceType: CcuSourceType.OFFICIAL,
           } as CcuEdgeData,
         };
-
+        
         if (hangarCcu) {
           // If there is a hangar CCU, use it by default
           newEdge.data.sourceType = CcuSourceType.HANGER;
