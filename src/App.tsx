@@ -251,7 +251,7 @@ function App() {
             {/* <DiscordIcon /> */}
             <QQIcon />
           </IconButton>) : <IconButton
-            onClick={() => window.open("https://discord.gg/qFvv4YJ4", "_blank")}
+            onClick={() => window.open("https://discord.gg/AEuRtb5Vy8", "_blank")}
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
             className="text-gray-800 dark:text-white"

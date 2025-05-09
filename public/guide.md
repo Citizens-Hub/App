@@ -8,7 +8,7 @@ Github仓库：https://github.com/EduarteXD/citizenshub
 
 QQ群：1045858475
 
-Discord：https://discord.gg/GZznXzPF
+Discord：https://discord.gg/AEuRtb5Vy8
 
 ## 主播主播，这款软件和CCU Games或是其他软件相比有什么优势吗
 

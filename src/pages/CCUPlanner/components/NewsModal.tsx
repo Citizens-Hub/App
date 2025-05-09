@@ -86,9 +86,9 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             <Typography variant="h6" gutterBottom>
               Join our Discord server to get the latest news and updates:
             </Typography>
-            <Link href="https://discord.gg/qFvv4YJ4" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
+            <Link href="https://discord.gg/AEuRtb5Vy8" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
               <DiscordIcon />
-              https://discord.gg/qFvv4YJ4
+              https://discord.gg/AEuRtb5Vy8
             </Link>
           </Box>
         }
