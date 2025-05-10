@@ -18,7 +18,7 @@ import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 import GithubIcon from './icons/GithubIcon'
 import { reportError } from './report'
 import Login from './pages/Login/Login'
-import Admin from './pages/CCUPlanner/Admin/Admin'
+import Admin from './pages/Admin/Admin'
 
 enum SCBoxTranslateStatus {
   Available,
@@ -221,7 +221,10 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{
-        position: 'fixed',
+        position: 'absolute',
+        md: {
+          position: 'fixed',
+        },
         top: 20,
         right: 20,
         zIndex: 1000,

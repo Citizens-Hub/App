@@ -2,7 +2,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Container, Typography, Box, Paper, Grid, Snackbar, Alert } from '@mui/material';
 import { LoaderCircle, RefreshCw, ShipWheel } from 'lucide-react';
-import { Ship, StoreShipsData } from '../../../types';
+import { Ship, StoreShipsData } from '../../types';
 
 export default function Admin() {
   const intl = useIntl();

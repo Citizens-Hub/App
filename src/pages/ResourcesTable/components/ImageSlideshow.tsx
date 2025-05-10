@@ -30,7 +30,7 @@ export default function ImageSlideshow({
 
   // 决定图片容器的大小
   const containerSize = isMobile ? 
-    { width: '100%', height: 200 } : 
+    { width: '100%', height: 230 } : 
     { width: 280, height: 160 };
   
   // 处理点击图片事件
