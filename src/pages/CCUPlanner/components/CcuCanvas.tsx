@@ -193,7 +193,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             sourceType: CcuSourceType.OFFICIAL,
           } as CcuEdgeData,
         };
-        
+
         if (hangarCcu) {
           // If there is a hangar CCU, use it by default
           newEdge.data.sourceType = CcuSourceType.HANGER;
@@ -664,53 +664,55 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
     // Get all target ships (endpoints)
     const targetShips = stepShips[1];
-    
+
     // Get all source ships
     const sourceShips = stepShips[0];
-    
+
     // Get actual ship price (considering discounts)
     const getShipPrice = (ship: Ship): number => {
       // First check if it's a historical or wb name
       let checkedShipName = ship.name;
-      
+
       // Handle cases where ship data doesn't include suffix but stepShips does
-      const matchingTargetShip = stepShips[1].find(s => 
+      const matchingTargetShip = stepShips[1].find(s =>
         s.id === ship.id && (s.name.endsWith('-wb') || s.name.endsWith('-historical'))
       );
-      
+
       if (matchingTargetShip) {
         checkedShipName = matchingTargetShip.name;
       }
-      
+
+      const actualShipName = checkedShipName.replace('-wb', '').replace('-historical', '');
+
       if (checkedShipName.endsWith('-wb')) {
         return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
       } else if (checkedShipName.endsWith('-historical')) {
-        const historicalPrice = Number(wbHistory.find(wb => 
-          wb.name.toUpperCase() === checkedShipName.toUpperCase() || 
+        const historicalPrice = Number(wbHistory.find(wb =>
+          wb.name.toUpperCase() === actualShipName.toUpperCase() ||
           wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
-        
+
         return historicalPrice || ship.msrp;
       }
       return ship.msrp;
     };
-    
+
     // Get all ship prices and sort them
     const allShips = [...sourceShips, ...targetShips];
-    const uniqueShips = allShips.filter((ship, index, self) => 
+    const uniqueShips = allShips.filter((ship, index, self) =>
       index === self.findIndex(s => s.id === ship.id)
     );
-    
+
     // Create mapping of ships to their actual prices
     const shipActualPrices = new Map<string, number>();
     uniqueShips.forEach(ship => {
       shipActualPrices.set(ship.id.toString(), getShipPrice(ship));
     });
-    
+
     // Sort ships by actual price
-    const sortedShips = uniqueShips.sort((a, b) => 
+    const sortedShips = uniqueShips.sort((a, b) =>
       (shipActualPrices.get(a.id.toString()) || 0) - (shipActualPrices.get(b.id.toString()) || 0)
     );
-    
+
     // Create price level mapping
     const priceLevels: Map<number, Ship[]> = new Map();
     sortedShips.forEach(ship => {
@@ -720,34 +722,34 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
       }
       priceLevels.get(price)?.push(ship);
     });
-    
+
     // Sort price levels
     const sortedPriceLevels = Array.from(priceLevels.keys()).sort((a, b) => a - b);
-    
+
     // Create nodes for each price level
     let levelX = startX;
     const levelSpacing = 500; // Horizontal spacing between price levels
     const shipNodeMap: Map<string, Node> = new Map(); // Track created nodes
-    
+
     sortedPriceLevels.forEach((price, levelIndex) => {
       const shipsAtLevel = priceLevels.get(price) || [];
-      
+
       // Calculate vertical spacing for current level
       const nodeHeight = 500;
       const levelY = startY;
       const shipsSpacing = Math.max(nodeHeight, 600 / (shipsAtLevel.length || 1));
-      
+
       shipsAtLevel.forEach((ship, shipIndex) => {
         // Check if node for this ship already exists
         const shipKey = `${ship.id}`;
         if (shipNodeMap.has(shipKey)) {
           return; // Skip if node already exists
         }
-        
+
         const yPos = levelY + shipIndex * shipsSpacing;
         const timestamp = Date.now();
         const nodeId = `ship-${ship.id}-${timestamp + shipIndex + levelIndex * 100}`;
-        
+
         const shipNode: Node = {
           id: nodeId,
           type: 'ship',
@@ -766,44 +768,50 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             id: nodeId
           },
         };
-        
+
         newNodes.push(shipNode);
         shipNodeMap.set(shipKey, shipNode);
       });
-      
+
       // Move to next price level
       levelX += levelSpacing;
     });
-    
+
     // Create upgrade edges
     const createdNodes = Array.from(shipNodeMap.values());
-    
+
+    // console.log(sortedPriceLevels, "sortedPriceLevels")
+
     // New connection creation logic: Create edges for all ships (including source ships)
     // Process each price level
     for (let i = 0; i < sortedPriceLevels.length; i++) {
       const currentPrice = sortedPriceLevels[i];
-      
+
       // Get nodes at current price level
       const currentLevelShips = createdNodes.filter(node => {
         const ship = node.data.ship as Ship;
         const actualPrice = shipActualPrices.get(ship.id.toString());
+        // console.log(ship.name, actualPrice, "actualPrice")
         return actualPrice !== undefined && Math.abs(actualPrice - currentPrice) < 1;
       });
-      
+
+      // console.log(currentLevelShips, "currentLevelShips")
+
       // Create connections for each current level node
       currentLevelShips.forEach(sourceNode => {
         const sourceShip = sourceNode.data.ship as Ship;
-        const sourcePriceValue = shipActualPrices.get(sourceShip.id.toString()) || 0;
-        
+        // const sourcePriceValue = shipActualPrices.get(sourceShip.id.toString()) || 0;
+        const sourcePriceValue = sourceShip.msrp;
+
         // Special handling for source ships
         const isSourceShip = sourceShips.some(ship => ship.id === sourceShip.id);
         const isTargetShip = targetShips.some(ship => ship.id === sourceShip.id);
-        
+
         // Skip if source ship price is 0 or not upgradeable
         if (sourcePriceValue === 0) {
           return;
         }
-        
+
         // Only create connections for target ships or source ships
         if (!isSourceShip && !isTargetShip) {
           return;
@@ -811,61 +819,61 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
 
         // For each source ship, find valid target ships
         let foundConnectionInAnyLevel = false;
-        
+
         for (let j = 0; j < sortedPriceLevels.length; j++) {
           // Only connect to higher price levels
           if (sortedPriceLevels[j] <= currentPrice) {
             continue;
           }
-          
+
           // If connection found in lower price level, don't continue to higher levels
           if (foundConnectionInAnyLevel) {
             break;
           }
-          
+
           const nextLevelPrice = sortedPriceLevels[j];
-          
+
           // Get nodes at next price level
           const nextLevelShips = createdNodes.filter(node => {
             const ship = node.data.ship as Ship;
             const actualPrice = shipActualPrices.get(ship.id.toString());
             return actualPrice !== undefined && Math.abs(actualPrice - nextLevelPrice) < 1;
           });
-          
+
           // Filter valid target nodes (price higher than current node and part of target path)
           const validTargets = nextLevelShips.filter(targetNode => {
             const targetShip = targetNode.data.ship as Ship;
             const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
-            
+
             // Ensure target price is strictly higher than source price
             if (sourcePriceValue >= targetPriceValue || targetPriceValue === 0) {
               return false;
             }
-            
+
             // Check if ship is part of target upgrade path
             const isTargetPathShip = targetShips.some(ship => ship.id === targetShip.id);
             return isTargetPathShip;
           });
-          
+
           // If valid target nodes found at current level, create connections
           if (validTargets.length > 0) {
             validTargets.forEach(targetNode => {
               const targetShip = targetNode.data.ship as Ship;
               const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
               const priceDifference = targetPriceValue - sourcePriceValue;
-              
+
               // Ensure price difference is greater than 0
               if (priceDifference <= 0) {
                 return;
               }
-              
+
               // Check for upgrade token
               const hangarCcu = upgrades.find(upgrade => {
                 const from = upgrade.parsed.from.toUpperCase();
                 const to = upgrade.parsed.to.toUpperCase();
                 return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
               });
-              
+
               const newEdge: Edge = {
                 id: `edge-${sourceNode.id}-${targetNode.id}`,
                 source: sourceNode.id,
@@ -879,7 +887,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                   sourceType: CcuSourceType.OFFICIAL,
                 } as CcuEdgeData,
               };
-              
+
               if (hangarCcu) {
                 // If there's a hangar CCU, use it
                 newEdge.data.sourceType = CcuSourceType.HANGER;
@@ -887,40 +895,40 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               } else {
                 // Handle special price cases
                 const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.id)?.name;
-                
+
                 if (targetShipNameInPath?.endsWith('-historical')) {
-                  const historicalPrice = Number(wbHistory.find(wb => 
-                    wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() || 
+                  const historicalPrice = Number(wbHistory.find(wb =>
+                    wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() ||
                     wb.name.toUpperCase() === targetShip.name.trim().toUpperCase())?.price) * 100 || targetShip.msrp;
-                  
+
                   if (historicalPrice && historicalPrice !== targetShip.msrp) {
                     const historicalPriceUSD = historicalPrice / 100;
                     const sourcePriceUSD = sourcePriceValue / 100;
                     const actualPrice = historicalPriceUSD - sourcePriceUSD;
-                    
+
                     // Ensure price difference is greater than 0
                     if (actualPrice <= 0) {
                       return;
                     }
-                    
+
                     newEdge.data.sourceType = CcuSourceType.HISTORICAL;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
                   }
-                } 
+                }
                 else if (targetShipNameInPath?.endsWith('-wb')) {
-                  const wbPrice = ccus.find(c => c.id === targetShip.id)?.skus.find(sku => 
+                  const wbPrice = ccus.find(c => c.id === targetShip.id)?.skus.find(sku =>
                     sku.price !== targetShip.msrp && sku.available)?.price || targetShip.msrp;
-                    
+
                   if (wbPrice && wbPrice !== targetShip.msrp) {
                     const wbPriceUSD = wbPrice / 100;
                     const sourcePriceUSD = sourcePriceValue / 100;
                     const actualPrice = wbPriceUSD - sourcePriceUSD;
-                    
+
                     // Ensure price difference is greater than 0
                     if (actualPrice <= 0) {
                       return;
                     }
-                    
+
                     newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
                   }
@@ -928,37 +936,37 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 else {
                   const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
                   const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
-                  
+
                   if (targetWb && sourcePriceValue < targetWb.price) {
                     const targetWbPrice = targetWb.price / 100;
                     const sourceShipPrice = sourcePriceValue / 100;
                     const actualPrice = targetWbPrice - sourceShipPrice;
-                    
+
                     // Ensure price difference is greater than 0
                     if (actualPrice <= 0) {
                       return;
                     }
-                    
+
                     newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
                     newEdge.data.customPrice = Math.max(0, actualPrice);
                   }
                 }
               }
-              
+
               newEdges.push(newEdge);
             });
-            
+
             // Mark connection found at current level, don't try higher levels
             foundConnectionInAnyLevel = true;
           }
         }
       });
     }
-    
+
     // Update graph
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
-    
+
     // If instance exists, adjust view to show all nodes
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
@@ -966,7 +974,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   }, [nodes, upgrades, ccus, setNodes, setEdges, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, wbHistory, reactFlowInstance]);
 
   return (
-     <div className="h-[100%] w-full flex sm:flex-row flex-col">
+    <div className="h-[100%] w-full flex sm:flex-row flex-col">
       <div className="sm:w-[450px] w-full sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
