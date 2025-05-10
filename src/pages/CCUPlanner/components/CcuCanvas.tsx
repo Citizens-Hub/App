@@ -1010,7 +1010,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
                 onOpenPathBuilder={handleOpenPathBuilder}
               />
             </Panel>
-            <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2">
+            <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
               <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>
           </ReactFlow>

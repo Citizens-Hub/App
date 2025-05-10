@@ -101,16 +101,11 @@ export default function ResourcesTable() {
         }}
       />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }} className="app-header">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: 8, md: { mt: 0 } }} className="app-header">
         <div className='flex flex-row items-center gap-4'>
           <Typography variant={isMobile ? "h6" : "h5"}>
             <FormattedMessage id="app.title" defaultMessage="商店预览" />
           </Typography>
-          {/* <Link to="/ccu-planner">
-            <Button variant="text" color="primary">
-              <FormattedMessage id="navigation.ccuPlanner" defaultMessage="升级路线规划器" />
-            </Button>
-          </Link> */}
         </div>
         {!isMobile && (
           <Tooltip title={intl.formatMessage({ id: 'cart.view', defaultMessage: '查看清单' })}>
