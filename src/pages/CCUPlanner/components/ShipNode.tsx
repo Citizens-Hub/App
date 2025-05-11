@@ -161,7 +161,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   };
 
   return (
-    <div className={`bg-gray-50 dark:bg-[#121212] border-2 border-blue-400 dark:border-sky-700 rounded-lg p-4 w-64 scale-50 shadow-lg ${selected ? 'ring-2 ring-blue-500 dark:ring-sky-700' : ''}`}>
+    <div className={`bg-gray-50 dark:bg-[#121212] border-2 border-blue-400 dark:border-sky-700 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500 dark:ring-sky-700' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
       <span className="text-sm absolute left-[20px] top-[165px] text-gray-600 -translate-y-1/2">
