@@ -73,7 +73,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         <IconButton onClick={() => setMenuOpen(!menuOpen)}>
           <MenuIcon />
         </IconButton>
-        {intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}
+        <span className="hidden md:block">{intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}</span>
       </div>
       <div className="flex items-center gap-2 justify-end">
         {
