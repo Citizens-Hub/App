@@ -17,6 +17,7 @@
 
 - Fixed first screen loading style error on MacOS and Linux
 - Set up new automated tasks to capture RSI data, filling in missing ships in the database
+- Clicking the button on the ship card no longer accidentally opens the panel on the right
 
 ### UI
 
