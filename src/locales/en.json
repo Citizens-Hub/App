@@ -165,8 +165,8 @@
   "admin.ccus.update": "Update",
   "ccuPlanner.onlyShowAvailable": "Only show available ships",
   "cart.view": "View Cart",
-  "pagination.total": "Total ",
-  "pagination.items": " Items",
+  "pagination.total": " ",
+  "pagination.items": " Items In Total",
   "ccuPlanner.seoDescription": "Star Citizen CCU Upgrade Planner - Help you plan and optimize ship upgrade paths",
   "ccuPlanner.seoTitle": "CCU Planner - Citizen's Hub"
 }
