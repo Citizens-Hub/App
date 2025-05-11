@@ -8,28 +8,22 @@ import {
   IconButton,
   Badge,
   Fab,
-  // Button
 } from '@mui/material';
 import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-// 导入自定义Hook
 import useResourceData from './hooks/useResourceData';
 import useSlideshow from './hooks/useSlideshow';
 import useCart from './hooks/useCart';
 import useSearch from './hooks/useSearch';
 import useJoyride from './hooks/useJoyride';
 
-// 导入自定义组件
 import ResourceMobileView from './components/ResourceMobileView';
 import ResourceDesktopView from './components/ResourceDesktopView';
 import CartDrawer from './components/CartDrawer';
 import CustomTooltip from './components/CustomTooltip';
 import CustomBeacon from './components/CustomBeacon';
-// import { Link } from 'react-router';
-import { useEffect } from 'react';
-// import Navigation from '../../components/Navigation';
 
 export default function ResourcesTable() {
   const intl = useIntl();
@@ -49,10 +43,6 @@ export default function ResourcesTable() {
     handleChangeRowsPerPage,
     handleSearchChange
   } = useSearch(resources);
-
-  useEffect(() => {
-    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'app.title', defaultMessage: '商店预览' });
-  }, [intl]);
   
   // 幻灯片逻辑
   const { slideshowIndices, handlePrevSlide, handleNextSlide } = useSlideshow(
@@ -79,7 +69,7 @@ export default function ResourcesTable() {
   const tooltipComponent = (props: TooltipRenderProps) => <CustomTooltip {...props} locale={locale} />;
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden', px: isMobile ? 1 : 0 }}>
+    <Box sx={{ maxWidth: '1280px', overflow: 'hidden', px: isMobile ? 1 : 0 }}>
       {/* <Navigation /> */}
       <Joyride
         callback={handleJoyrideCallback}

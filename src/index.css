@@ -27,6 +27,13 @@
   src : url('/fonts/ZhuoJianGanLanJianTi-Regular.ttf');
 }
 
+@font-face{
+  font-family: 'NotoSansJP';
+  src : url('/fonts/NotoSansJP-Regular.ttf');
+}
+
+
+
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -53,7 +60,7 @@ a:hover {
 }
 
 * {
-  font-family: 'Quantico', 'ZhuoJianGanLanJianTi', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-family: 'Quantico', 'ZhuoJianGanLanJianTi', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
 .hide-scrollbar {

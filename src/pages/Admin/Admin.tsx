@@ -19,10 +19,6 @@ export default function Admin() {
   const shipsRef = useRef<Ship[]>([]);
   const requestsLeftRef = useRef(0);
 
-  useEffect(() => {
-    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'admin.title', defaultMessage: 'Admin Panel' });
-  }, [intl]);
-
   const showNotification = useCallback((messageId: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setNotification({
       open: true,

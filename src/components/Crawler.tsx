@@ -91,8 +91,6 @@ export default function Crawler() {
 
   // MARK: Buybacks
 
-
-
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;

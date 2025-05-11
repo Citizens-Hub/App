@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Container, Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { useLocale } from '../../contexts/LocaleContext';
 
 interface TabPanelProps {
@@ -38,17 +38,12 @@ function a11yProps(index: number) {
 }
 
 export default function ChangeLogs() {
-  const intl = useIntl();
   const { locale } = useLocale();
   const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(locale === 'zh-CN' ? 0 : 1);
-
-  useEffect(() => {
-    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'changelogs.title', defaultMessage: '更新日志' });
-  }, [intl]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -88,7 +83,7 @@ export default function ChangeLogs() {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
       <Typography variant="h4" component="h1" gutterBottom>
         <FormattedMessage id="changelogs.heading" defaultMessage="Change Logs" />
       </Typography>
