@@ -40,13 +40,13 @@ export default function useResourceData() {
         const shipsData: ShipsData = await shipsResponse.json();
         setShips(shipsData.data.ships.sort((a, b) => a.msrp - b.msrp));
 
-        const wbHistoryResponse = await fetch('/history_wb.json', {
+        const wbHistoryResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wbs/history`, {
           signal: abortController.signal
         });
         if (!wbHistoryResponse.ok) {
           throw new Error('Network response error');
         }
-        const wbHistoryData: WbHistoryData[] = await wbHistoryResponse.json();
+        const wbHistoryData: WbHistoryData[] = (await wbHistoryResponse.json()).data;
         setWbHistory(wbHistoryData);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
