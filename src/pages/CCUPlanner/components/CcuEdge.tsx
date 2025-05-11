@@ -100,10 +100,10 @@ export default function CcuEdge({
         <div
           style={{
             position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            transform: `translate(-100%, -100%) translate(${labelX * 2}px,${labelY * 2}px)`,
             pointerEvents: 'all',
           }}
-          className={`${bgColor} text-white px-2 py-1 rounded-md shadow-md text-sm`}
+          className={`${bgColor} text-white px-2 py-1 rounded-md shadow-md text-sm scale-50`}
         >
           {sourceType && <span className="text-xs mr-1">{getSourceTypeDisplay(sourceType)}</span>}
           +{(() => {
