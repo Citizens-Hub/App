@@ -4,8 +4,33 @@ import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton } from "@mui/material";
 
+// 定义请求类型接口
+interface RequestItem {
+  type: string;
+  message?: {
+    type: string;
+    request: {
+      url: string;
+      responseType: string;
+      method: string;
+      data: null | object | object[];
+    };
+    requestId: string;
+  };
+  request?: {
+    url: string;
+    data: null | object | object[];
+    responseType: string;
+    method: string;
+  };
+  requestId?: number | string;
+}
+
 export default function Crawler() {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const requestQueueRef = useRef<RequestItem[]>([]);
+  const activeRequestsRef = useRef<Set<string | number>>(new Set());
+  const maxConcurrentRequests = 5;
 
   const userRef = useRef<UserInfo>({
     id: 0,
@@ -89,19 +114,45 @@ export default function Crawler() {
     });
   }, [dispatch]);
 
+  // 处理请求队列
+  const processNextRequests = useCallback(() => {
+    while (activeRequestsRef.current.size < maxConcurrentRequests && requestQueueRef.current.length > 0) {
+      const requestItem = requestQueueRef.current.shift()!;
+      const requestId = requestItem.requestId || (requestItem.message?.requestId);
+      
+      if (requestId) {
+        activeRequestsRef.current.add(requestId);
+      }
+      
+      window.postMessage(requestItem, '*');
+    }
+  }, []);
+
+  // 添加请求到队列
+  const addToQueue = useCallback((request: RequestItem) => {
+    requestQueueRef.current.push(request);
+    processNextRequests();
+  }, [processNextRequests]);
+
   // MARK: Buybacks
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
+      
+      // 处理响应
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
-        if (event.data.message.requestId === "user-info") {
-          userRef.current = event.data.message.value.data[0].data.account
+        const requestId = event.data.message.requestId;
+        
+        // 用户信息响应
+        if (requestId === "user-info") {
+          userRef.current = event.data.message.value.data[0].data.account;
 
           dispatch(addUser(userRef.current));
           dispatch(clearUpgrades(userRef.current.id));
 
-          window.postMessage({
+          // 获取第一页CCU
+          addToQueue({
             type: 'ccuPlannerAppIntegrationRequest',
             message: {
               type: "httpRequest",
@@ -113,20 +164,24 @@ export default function Crawler() {
               },
               requestId: "ccus-1"
             }
-          }, '*');
+          });
         }
-        if (event.data.message.requestId.startsWith("ccus-")) {
-          const requestId = Number(event.data.message.requestId.split("-")[1]);
+        
+        // CCU页面响应
+        if (typeof requestId === 'string' && requestId.startsWith("ccus-")) {
+          const pageId = requestId.split("-")[1];
 
           const htmlString = event.data.message.value.data;
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlString, 'text/html');
 
-          if (requestId === 1) {
+          // 第一页时，处理分页
+          if (pageId === "1") {
             const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
 
+            // 将后续页面加入请求队列
             for (let i = 2; i <= totalPages; i++) {
-              window.postMessage({
+              addToQueue({
                 type: 'ccuPlannerAppIntegrationRequest',
                 message: {
                   type: "httpRequest",
@@ -138,11 +193,18 @@ export default function Crawler() {
                   },
                   requestId: `ccus-${i}`
                 }
-              }, '*');
+              });
             }
           }
 
           parseHangarItems(doc);
+        }
+        
+        // 请求完成，从活跃请求中移除
+        if (requestId) {
+          activeRequestsRef.current.delete(requestId);
+          // 处理下一批请求
+          processNextRequests();
         }
       }
     }
@@ -150,26 +212,32 @@ export default function Crawler() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems]);
+  }, [dispatch, parseHangarItems, processNextRequests, addToQueue]);
 
   return <IconButton
     color="primary"
     size="small"
     onClick={() => {
       setIsRefreshing(true);
+      
+      // 清空请求队列和活跃请求集合
+      requestQueueRef.current = [];
+      activeRequestsRef.current.clear();
 
-      window.postMessage({
-        "type": "httpRequest",
-        "request": {
-          "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-          "data": null,
-          "responseType": "json",
-          "method": "post"
+      // 添加认证请求到队列
+      addToQueue({
+        type: "httpRequest",
+        request: {
+          url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+          data: null,
+          responseType: "json",
+          method: "post"
         },
-        "requestId": 9999
-      }, '*');
+        requestId: 9999
+      });
 
-      window.postMessage({
+      // 添加上下文请求到队列
+      addToQueue({
         type: "httpRequest",
         request: {
           url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
@@ -177,10 +245,11 @@ export default function Crawler() {
           responseType: "json",
           method: "post"
         },
-        "requestId": 10000
-      }, '*');
+        requestId: 10000
+      });
 
-      window.postMessage({
+      // 添加用户信息请求到队列
+      addToQueue({
         type: 'ccuPlannerAppIntegrationRequest',
         message: {
           type: "httpRequest",
@@ -198,7 +267,7 @@ export default function Crawler() {
           },
           requestId: "user-info"
         }
-      }, '*');
+      });
     }}
   >
     <Refresh className={isRefreshing ? 'animate-spin' : ''} />
