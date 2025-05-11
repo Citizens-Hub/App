@@ -121,7 +121,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
       </div>
 
       {(!isMobile || searchTerm !== '') &&
-        <div className="grid grid-cols-1 items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px)] sm:max-h-full max-h-[calc(100vh-425px)]">
+        <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px)] sm:max-h-full max-h-[calc(100vh-425px)]">
           {filteredShips.map((ship) => (
             <div
               key={ship.id}
