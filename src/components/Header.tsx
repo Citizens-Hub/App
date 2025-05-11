@@ -230,7 +230,8 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <Avatar src="/MadeByTheCommunity_Black.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
             </span>
             &copy; {new Date().getFullYear()} Citizens' Hub
-            <div className="text-black dark:text-white text-xs mt-1">App version: v1.0.2 (5112343)</div>
+            <div className="text-black dark:text-white text-xs mt-1">App version: v1.0.2</div>
+            <div className="text-black dark:text-white text-xs mt-1 scale-80">Build ({__BUILD_TIME__})</div>
           </div>
         </div>
       </Drawer>
