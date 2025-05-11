@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { Route, BrowserRouter, Routes } from 'react-router'
 import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 import { useDispatch } from 'react-redux'
-import { addUpgrade } from './store'
+// import { addUpgrade } from './store'
 import Privacy from './pages/Privacy/Privacy'
 import { FormattedMessage } from 'react-intl'
 import LanguageSwitcher from './components/LanguageSwitcher'
@@ -16,7 +16,7 @@ import { useLocale } from './contexts/LocaleContext'
 import QQIcon from './icons/QQIcon'
 import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 import GithubIcon from './icons/GithubIcon'
-import { reportError } from './report'
+// import { reportError } from './report'
 import Login from './pages/Login/Login'
 import Admin from './pages/Admin/Admin'
 
@@ -34,42 +34,42 @@ function App() {
 
   const dispatch = useDispatch();
 
-  const tryResolveCCU = (content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
-    const name = content.name;
+  // const tryResolveCCU = (content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
+  //   const name = content.name;
 
-    let from = "";
-    let to = "";
+  //   let from = "";
+  //   let to = "";
 
-    try {
-      const regExp = /Upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+Edition)/
-      const match = name.match(regExp);
+  //   try {
+  //     const regExp = /Upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+Edition)/
+  //     const match = name.match(regExp);
 
-      if (!match) {
-        from = content.match_items[0].name
-        to = content.target_items[0].name
-      } else {
-        from = match[1].trim() || name.split("to")[0].split("-")[1].trim()
-        to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
-      }
+  //     if (!match) {
+  //       from = content.match_items[0].name
+  //       to = content.target_items[0].name
+  //     } else {
+  //       from = match[1].trim() || name.split("to")[0].split("-")[1].trim()
+  //       to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+  //     }
 
-      if (!from || !to) {
-        from = name.split("to")[0].split("-")[1].trim()
-        to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
-      }
-    } catch (error) {
-      console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
-      reportError({
-        errorType: "CCU_PARSING_ERROR",
-        errorMessage: JSON.stringify({
-          content,
-          error: String(error),
-        }),
-      });
-      return false;
-    }
+  //     if (!from || !to) {
+  //       from = name.split("to")[0].split("-")[1].trim()
+  //       to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+  //     }
+  //   } catch (error) {
+  //     console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
+  //     reportError({
+  //       errorType: "CCU_PARSING_ERROR",
+  //       errorMessage: JSON.stringify({
+  //         content,
+  //         error: String(error),
+  //       }),
+  //     });
+  //     return false;
+  //   }
 
-    return { from, to };
-  }
+  //   return { from, to };
+  // }
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem('darkMode');
@@ -89,7 +89,7 @@ function App() {
       return;
     }
 
-    if (!host.includes("citizenshub.app") && !host.includes("sc-sub.pages.dev")) {
+    if (!host.includes("citizenshub.app")) {
       window.location.hostname = "citizenshub.app";
     }
   }, [])
@@ -97,74 +97,74 @@ function App() {
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
-      if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
-        if (event.data.message.requestId === 2) {
-          const htmlString = event.data.message.value.data;
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(htmlString, 'text/html');
+      // if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
+      //   if (event.data.message.requestId === 2) {
+      //     const htmlString = event.data.message.value.data;
+      //     const parser = new DOMParser();
+      //     const doc = parser.parseFromString(htmlString, 'text/html');
 
-          const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
+      //     const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
 
-          for (let i = 2; i <= totalPages; i++) {
-            window.postMessage({
-              type: 'ccuPlannerAppIntegrationRequest',
-              message: {
-                type: "httpRequest",
-                request: {
-                  "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&product-type=upgrade`,
-                  "responseType": "text",
-                  "method": "get",
-                  "data": null
-                },
-                requestId: i + 1
-              }
-            }, '*');
-          }
+      //     for (let i = 2; i <= totalPages; i++) {
+      //       window.postMessage({
+      //         type: 'ccuPlannerAppIntegrationRequest',
+      //         message: {
+      //           type: "httpRequest",
+      //           request: {
+      //             "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&product-type=upgrade`,
+      //             "responseType": "text",
+      //             "method": "get",
+      //             "data": null
+      //           },
+      //           requestId: i + 1
+      //         }
+      //       }, '*');
+      //     }
 
-          const listItems = doc.body.querySelector('.list-items');
+      //     const listItems = doc.body.querySelector('.list-items');
 
-          listItems?.querySelectorAll('li').forEach(li => {
-            const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
-            const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
+      //     listItems?.querySelectorAll('li').forEach(li => {
+      //       const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
+      //       const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            const parsed = tryResolveCCU(content);
+      //       const parsed = tryResolveCCU(content);
 
-            if (!parsed) return;
+      //       if (!parsed) return;
 
-            dispatch(addUpgrade({
-              from: content.match_items[0],
-              to: content.target_items[0],
-              name: content.name,
-              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-              parsed
-            }));
-          });
-        }
-        if (event.data.message.requestId > 2) {
-          const htmlString = event.data.message.value.data;
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(htmlString, 'text/html');
+      //       dispatch(addUpgrade({
+      //         from: content.match_items[0],
+      //         to: content.target_items[0],
+      //         name: content.name,
+      //         value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+      //         parsed
+      //       }));
+      //     });
+      //   }
+      //   if (event.data.message.requestId > 2) {
+      //     const htmlString = event.data.message.value.data;
+      //     const parser = new DOMParser();
+      //     const doc = parser.parseFromString(htmlString, 'text/html');
 
-          const listItems = doc.body.querySelector('.list-items');
+      //     const listItems = doc.body.querySelector('.list-items');
 
-          listItems?.querySelectorAll('li').forEach(li => {
-            const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
-            const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
+      //     listItems?.querySelectorAll('li').forEach(li => {
+      //       const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
+      //       const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
 
-            const parsed = tryResolveCCU(content);
+      //       const parsed = tryResolveCCU(content);
 
-            if (!parsed) return;
+      //       if (!parsed) return;
 
-            dispatch(addUpgrade({
-              from: content.match_items[0],
-              to: content.target_items[0],
-              name: content.name,
-              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-              parsed
-            }));
-          });
-        }
-      }
+      //       dispatch(addUpgrade({
+      //         from: content.match_items[0],
+      //         to: content.target_items[0],
+      //         name: content.name,
+      //         value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+      //         parsed
+      //       }));
+      //     });
+      //   }
+      // }
       if (event.data?.type === 'SC-BOX-TRANSLATE-API-AVAILABLE') {
         setTranslateApiAvailable(SCBoxTranslateStatus.Available);
       }

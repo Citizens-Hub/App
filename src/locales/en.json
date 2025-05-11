@@ -142,5 +142,7 @@
   "pathBuilder.noCcus": "No CCU was found in your hangar",
   "pathBuilder.step2Ccu": "Select CCUs you want to use",
   "pathBuilder.ccuPart": "CCU Part",
-  "pathBuilder.searchCcuPlaceholder": "Search CCUs..."
+  "pathBuilder.searchCcuPlaceholder": "Search CCUs...",
+  "ccuPlanner.canGift": "Giftable",
+  "ccuPlanner.searchHangar": "Search Hangar"
 }

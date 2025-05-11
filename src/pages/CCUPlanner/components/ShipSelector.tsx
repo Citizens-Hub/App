@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Ccu, Ship, WbHistoryData } from '../../../types';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Button, Switch, Tooltip, useMediaQuery } from '@mui/material';
-import { InfoOutlined } from '@mui/icons-material';
+import { Button, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
+import { InfoOutlined, Search } from '@mui/icons-material';
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -80,12 +80,21 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
         </h2>
 
         <div className="p-2 pb-4">
-          <input
-            type="text"
+          <TextField
+            size="small"
+            fullWidth
             placeholder={intl.formatMessage({ id: 'ccuPlanner.searchPlaceholder', defaultMessage: 'Search ships...' })}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border border-gray-700 rounded-md px-3 py-2 w-full"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              }
+            }}
           />
         </div>
 

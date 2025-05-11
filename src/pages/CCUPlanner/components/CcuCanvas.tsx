@@ -70,7 +70,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
 
   // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = upgrades.map(upgrade => ({
+  const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
     id: Date.now() + Math.random(), // Generate unique ID
     name: upgrade.name,
     type: 'ccu',
@@ -122,7 +122,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           return;
         }
 
-        const hangarCcu = upgrades.find(upgrade => {
+        const hangarCcu = upgrades.ccus.find(upgrade => {
           const from = upgrade.parsed.from.toUpperCase()
           const to = upgrade.parsed.to.toUpperCase()
 
@@ -868,7 +868,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               }
 
               // Check for upgrade token
-              const hangarCcu = upgrades.find(upgrade => {
+              const hangarCcu = upgrades.ccus.find(upgrade => {
                 const from = upgrade.parsed.from.toUpperCase();
                 const to = upgrade.parsed.to.toUpperCase();
                 return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();

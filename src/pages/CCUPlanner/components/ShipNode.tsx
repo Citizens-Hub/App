@@ -71,17 +71,20 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     }
   }, [incomingEdges]);
 
-  const handleEditToggle = () => {
+  const handleEditToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     setIsEditing(!isEditing);
   };
 
-  const handleDeleteNode = () => {
+  const handleDeleteNode = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     if (onDeleteNode) {
       onDeleteNode(id);
     }
   };
 
-  const handleDuplicateNode = () => {
+  const handleDuplicateNode = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     onDuplicateNode?.(ship, { x: xPos, y: yPos });
   };
 
@@ -233,7 +236,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   {edge.data?.sourceShip?.name ||
                     intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
                   }
-                  <IconButton size='small' onClick={() => {
+                  <IconButton size='small' onClick={(e) => {
+                    e.stopPropagation();
                     onDeleteEdge?.(edge.id);
                   }}>
                     <X className='w-4 h-4' />
@@ -247,6 +251,9 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   size="small"
                   native
                   value={edgeSettings[edge.id]?.sourceType}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
                   onChange={(e) => {
                     const selectedValue = e.target.value as string;
 
@@ -263,7 +270,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                         }
                       }
                     } else if (selectedValue === CcuSourceType.HANGER) {
-                      handleCustomPriceChange(edge.id, upgrades.find(upgrade => {
+                      handleCustomPriceChange(edge.id, upgrades.ccus.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
@@ -289,14 +296,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                     </option>
                   )}
                   {
-                    upgrades.find(upgrade => {
+                    upgrades.ccus.find(upgrade => {
                       const from = upgrade.parsed.from.toUpperCase()
                       const to = upgrade.parsed.to.toUpperCase()
 
                       return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
-                      {upgrades.find(upgrade => {
+                      {upgrades.ccus.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
@@ -328,6 +335,9 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       type="number"
                       className="text-sm w-full"
                       value={edgeSettings[edge.id]?.customPrice ?? edge.data?.customPrice ?? ''}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
                       onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
                       placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
                         edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? 'USD' : 'CNY'}

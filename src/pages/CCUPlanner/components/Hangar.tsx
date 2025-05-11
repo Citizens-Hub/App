@@ -1,11 +1,13 @@
-import { IconButton, Link } from "@mui/material";
+import { IconButton, Link, TextField, InputAdornment } from "@mui/material";
 import { Ccu, Ship } from "../../../types";
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { clearUpgrades, RootState } from "../../../store";
-import { ExpandLess, ExpandMore, Refresh } from "@mui/icons-material";
+import { useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../store";
+import { ExpandLess, ExpandMore, Search } from "@mui/icons-material";
 import ExtensionModal from "./ExtensionModal";
 import { FormattedMessage, useIntl } from "react-intl";
+import Crawler from "../../../components/Crawler";
+import { Gift } from "lucide-react";
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -16,86 +18,58 @@ interface ShipSelectorProps {
 export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [hangarExpanded, setHangarExpanded] = useState(true);
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const intl = useIntl();
   const upgrades = useSelector((state: RootState) => state.upgrades.items);
-  const dispatch = useDispatch();
+  const users = useSelector((state: RootState) => state.upgrades.users);
 
   const handleExtensionLinkClick = () => {
-    // 不阻止默认行为，允许实际下载
     setExtensionModalOpen(true);
   };
 
-  // 处理刷新动画结束
-  useEffect(() => {
-    if (isRefreshing) {
-      const timer = setTimeout(() => {
-        setIsRefreshing(false);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isRefreshing]);
+  const filteredUpgrades = upgrades.ccus.filter(upgrade => {
+    const from = upgrade.parsed.from.toLowerCase();
+    const to = upgrade.parsed.to.toLowerCase();
+    const query = searchQuery.toLowerCase();
+    return from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
+  });
 
   return (
     <>
       <div className="flex items-center justify-left gap-2 px-1">
-        <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="我的机库" />
+        <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="My Hangar" />
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>
-        <IconButton
-          color="primary"
-          size="small"
-          onClick={() => {
-            setIsRefreshing(true);
-            dispatch(clearUpgrades());
-
-            window.postMessage({
-              "type": "httpRequest",
-              "request": {
-                  "url": "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-                  "data": null,
-                  "responseType": "json",
-                  "method": "post"
-              },
-              "requestId": 9999
-            }, '*');
-        
-            window.postMessage({
-              type: "httpRequest",
-              request: {
-                url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
-                data: {},
-                responseType: "json",
-                method: "post"
-              },
-              "requestId": 10000
-            }, '*');
-
-            window.postMessage({
-              type: 'ccuPlannerAppIntegrationRequest',
-              message: {
-                type: "httpRequest",
-                request: {
-                  "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&product-type=upgrade",
-                  "responseType": "text",
-                  "method": "get",
-                  "data": null
-                },
-                requestId: 2
-              }
-            }, '*');
-          }}
-        >
-          <Refresh className={isRefreshing ? 'animate-spin' : ''} />
-        </IconButton>
+        <Crawler />
       </div>
+
+      {hangarExpanded && (
+        <div className="my-2 px-1">
+          <TextField
+            size="small"
+            fullWidth
+            placeholder={intl.formatMessage({ id: 'ccuPlanner.searchHangar', defaultMessage: 'Search Hangar' })}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              }
+            }}
+          />
+        </div>
+      )}
+
       <div className="max-h-[calc(100vh-500px)] overflow-y-auto">
         {hangarExpanded && (
-          upgrades.length > 0 ?
-            upgrades.map(upgrade => {
+          filteredUpgrades.length > 0 ?
+            filteredUpgrades.map(upgrade => {
               const from = upgrade.parsed.from
               const to = upgrade.parsed.to
 
@@ -138,7 +112,15 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 </div>
 
                 <div className="text-xs text-gray-400 flex items-center justify-between w-full px-3">
-                  <span>↓ <FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="升级到" /></span>
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    {upgrade.canGift &&
+                      <span className="text-xs text-gray-400">
+                        <Gift className="w-4 h-4" />
+                      </span>
+                    }
+                    {users.find(user => user.id === upgrade.belongsTo)?.nickname}
+                  </span>
+                  <span>↓ <FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="upgrade to" /></span>
                   <span className="flex items-center gap-1">
                     <FormattedMessage id="ccuPlanner.cost" defaultMessage="花费" />
                     <span className="text-blue-400 font-bold">{upgrade.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
@@ -174,15 +156,20 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             })
             :
             <div className="text-center text-gray-400 mb-2 flex flex-col items-center justify-center gap-2">
-              <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" /> 
-              <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
+              {searchQuery ? (
+                <FormattedMessage id="ccuPlanner.noSearchResults" defaultMessage="没有找到匹配的结果" />
+              ) : (
+                <>
+                  <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" />
+                  <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
+                </>
+              )}
             </div>
         )}
       </div>
-      {/* 扩展程序安装说明弹窗 */}
-      <ExtensionModal 
-        open={extensionModalOpen} 
-        onClose={() => setExtensionModalOpen(false)} 
+      <ExtensionModal
+        open={extensionModalOpen}
+        onClose={() => setExtensionModalOpen(false)}
       />
     </>
   )
