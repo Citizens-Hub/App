@@ -1,5 +1,7 @@
 import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+const version = '1.0.0';
+
 interface HangarItem {
   name: string,
   value: number,
@@ -38,26 +40,43 @@ export interface UserInfo {
   avatar: string,
 }
 
-const stringsSlice = createSlice({
-  name: 'strings',
-  initialState: {
+const getInitialState = (): {
+  items: HangarItems,
+  users: UserInfo[],
+  version: string,
+} => {
+  const localState = localStorage.getItem('state');
+
+  if (localState && JSON.parse(localState).version === version) {
+    return JSON.parse(localState);
+  }
+
+  return {
     items: {
       ccus: [],
       ships: [],
       bundles: [],
-    } as HangarItems,
-    users: [] as UserInfo[],
-  },
+    },
+    users: [],
+    version,
+  };
+};
+
+const stringsSlice = createSlice({
+  name: 'strings',
+  initialState: getInitialState(),
   reducers: {
     addCCU: (state, action: PayloadAction<CCUItem>) => {
       if (!state.items.ccus.find(item => item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value)) {
         state.items.ccus.push(action.payload);
       }
+      localStorage.setItem('state', JSON.stringify(state));
     },
     addUser: (state, action: PayloadAction<UserInfo>) => {
       if (!state.users.find(user => user.id === action.payload.id)) {
         state.users.push(action.payload);
       }
+      localStorage.setItem('state', JSON.stringify(state));
     },
     clearUpgrades: (state) => {
       state.items = {
@@ -65,6 +84,7 @@ const stringsSlice = createSlice({
         ships: [],
         bundles: [],
       };
+      localStorage.setItem('state', JSON.stringify(state));
     }
   }
 });
