@@ -101,6 +101,7 @@ export default function Crawler() {
           userRef.current = event.data.message.value.data[0].data.account
 
           dispatch(addUser(userRef.current));
+          dispatch(clearUpgrades(userRef.current.id));
 
           window.postMessage({
             type: 'ccuPlannerAppIntegrationRequest',
@@ -158,7 +159,6 @@ export default function Crawler() {
     size="small"
     onClick={() => {
       setIsRefreshing(true);
-      dispatch(clearUpgrades());
 
       window.postMessage({
         "type": "httpRequest",

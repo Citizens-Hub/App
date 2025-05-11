@@ -78,11 +78,12 @@ const stringsSlice = createSlice({
       }
       localStorage.setItem('state', JSON.stringify(state));
     },
-    clearUpgrades: (state) => {
+    clearUpgrades: (state, action: PayloadAction<number>) => {
+      const currentUser = action.payload;
       state.items = {
-        ccus: [],
-        ships: [],
-        bundles: [],
+        ccus: state.items.ccus.filter(item => item.belongsTo !== currentUser),
+        ships: state.items.ships.filter(item => item.belongsTo !== currentUser),
+        bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
       };
       localStorage.setItem('state', JSON.stringify(state));
     }
