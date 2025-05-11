@@ -221,9 +221,14 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               </div>
             </div>
           </div>
-          <div className="text-center text-sm text-gray-500">
+          <div className="text-center text-sm text-gray-500 dark:text-gray-300">
             This is an unofficial <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link> application, not affiliated with the Cloud Imperium group of companies.
-            <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
+            <span className="dark:hidden">
+              <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
+            </span>
+            <span className="hidden dark:block">
+              <Avatar src="/MadeByTheCommunity_Black.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
+            </span>
             &copy; {new Date().getFullYear()} Citizens' Hub
           </div>
         </div>
