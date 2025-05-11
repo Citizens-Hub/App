@@ -127,7 +127,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
               key={ship.id}
               draggable
               onDragStart={(event) => onDragStart(event, ship)}
-              className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900 flex justify-between items-center"
+              className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900 flex justify-between items-center w-full"
             >
               <div className="flex items-center text-left">
                 <img

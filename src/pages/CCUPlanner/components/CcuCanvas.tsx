@@ -999,7 +999,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             edgeTypes={edgeTypes}
             fitView
           >
-            <Controls position={isMobile ? "top-right" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
+            <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
             <MiniMap className='dark:invert-90 xl:block hidden' />
             <Background color="#333" gap={32} />
             <Panel position="top-right" className="bg-white dark:bg-[#121212] absolute">
