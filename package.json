@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "pnpm run zip-extension && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "zip-extension": "node scripts/zipExtension.cjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
