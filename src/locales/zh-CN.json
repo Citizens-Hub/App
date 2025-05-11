@@ -166,5 +166,7 @@
   "ccuPlanner.onlyShowAvailable": "仅显示可用舰船",
   "cart.view": "查看购物车",
   "pagination.total": "总计",
-  "pagination.items": "项目"
+  "pagination.items": "项目",
+  "ccuPlanner.seoDescription": "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径",
+  "ccuPlanner.seoTitle": "CCU规划工具 - Citizen's Hub"
 }
