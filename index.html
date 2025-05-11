@@ -1,38 +1,48 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="/src/App.css" rel="stylesheet">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
-    <title>Citizens' Hub</title>
-    <script>
-      document.documentElement.classList.toggle(
-        "dark",
-        localStorage.theme === "dark" ||
-          (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
-      );
-    </script>
-    <meta name="description" content="Citizens' Hub can help you easily create and manage CCU links in Star-Citizen">
-    <!-- Analytics -->
-    <!-- 
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="/src/App.css" rel="stylesheet">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+  <title>Citizens' Hub</title>
+  <script>
+    document.documentElement.classList.toggle(
+      "dark",
+      localStorage.theme === "dark" ||
+      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    );
+  </script>
+  <meta name="description" content="Citizens' Hub can help you easily create and manage CCU links in Star-Citizen">
+  <!-- Analytics -->
+  <!-- 
       如果您计划部署此应用的您自己的版本，请保留下方的统计代码，你可以再加入你自己的新的统计代码
       If you plan to deploy your own version of this application, please keep the statistics code below. You can add your own new statistics code
     -->
-    <script>
-      var _hmt = _hmt || [];
-      (function() {
-        var hm = document.createElement("script");
-        hm.src = "https://hm.baidu.com/hm.js?cd151814b5e1826e5d649ddbc7e0bfce";
-        var s = document.getElementsByTagName("script")[0]; 
-        s.parentNode.insertBefore(hm, s);
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <script>
+    var _hmt = _hmt || [];
+    (function () {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?cd151814b5e1826e5d649ddbc7e0bfce";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach(sw => sw.unregister())
+      })
+    }
+  </script>
+</body>
+
 </html>
