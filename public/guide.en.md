@@ -1,4 +1,4 @@
-# Citizen's Hub Ship Upgrade Planner
+# Citizens' Hub Ship Upgrade Planner
 
 ![](https://i1.hdslb.com/bfs/new_dyn/1624ec15d9e8cfcdcaa1a9b5a558267d203970966.png@1192w.avif)
 

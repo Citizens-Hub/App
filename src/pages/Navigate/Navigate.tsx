@@ -7,7 +7,7 @@ export default function Navigate() {
   const intl = useIntl();
 
   useEffect(() => {
-    document.title = "Citizen's Hub - " + intl.formatMessage({ id: 'navigate.title', defaultMessage: 'Star Citizen Tools' });
+    document.title = "Citizens' Hub - " + intl.formatMessage({ id: 'navigate.title', defaultMessage: 'Star Citizen Tools' });
   }, [intl]);
 
   const navigationItems = [

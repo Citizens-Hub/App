@@ -30,7 +30,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const pathname = useLocation().pathname;
 
   useEffect(() => {
-    document.title = "Citizen's Hub - " + intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })
+    document.title = "Citizens' Hub - " + intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })
   }, [intl, pathname])
 
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           <div className="text-center text-sm text-gray-500">
             This is an unofficial <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link> application, not affiliated with the Cloud Imperium group of companies.
             <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
-            &copy; {new Date().getFullYear()} Citizen's Hub
+            &copy; {new Date().getFullYear()} Citizens' Hub
           </div>
         </div>
       </Drawer>

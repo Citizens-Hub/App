@@ -1,4 +1,4 @@
-# Citizen's Hub
+# Citizens' Hub
 
 Planning your ship upgrades has never been easier!
 

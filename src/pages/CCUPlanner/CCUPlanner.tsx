@@ -15,7 +15,7 @@ export default function CCUPlanner() {
         <meta name="description" content={intl.formatMessage({ id: "ccuPlanner.seoDescription", defaultMessage: "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径" })} />
         <meta name="keywords" content="Star Citizen, CCU, 星际公民, 舰船升级, 规划工具" />
         <link rel="canonical" href="https://citizenshub.app/ccu-planner" />
-        <meta property="og:title" content={intl.formatMessage({ id: "ccuPlanner.seoTitle", defaultMessage: "CCU规划工具 - Citizen's Hub" })} />
+        <meta property="og:title" content={intl.formatMessage({ id: "ccuPlanner.seoTitle", defaultMessage: "CCU规划工具 - Citizens' Hub" })} />
         <meta property="og:description" content={intl.formatMessage({ id: "ccuPlanner.seoDescription", defaultMessage: "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径" })} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://citizenshub.app/ccu-planner" />
@@ -33,7 +33,7 @@ export default function CCUPlanner() {
         <meta name="description" content={intl.formatMessage({ id: "ccuPlanner.seoDescription", defaultMessage: "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径" })} />
         <meta name="keywords" content="Star Citizen, CCU, 星际公民, 舰船升级, 规划工具" />
         <link rel="canonical" href="https://citizenshub.app/ccu-planner" />
-        <meta property="og:title" content={intl.formatMessage({ id: "ccuPlanner.seoTitle", defaultMessage: "CCU规划工具 - Citizen's Hub" })} />
+        <meta property="og:title" content={intl.formatMessage({ id: "ccuPlanner.seoTitle", defaultMessage: "CCU规划工具 - Citizens' Hub" })} />
         <meta property="og:description" content={intl.formatMessage({ id: "ccuPlanner.seoDescription", defaultMessage: "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径" })} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://citizenshub.app/ccu-planner" />
@@ -43,7 +43,7 @@ export default function CCUPlanner() {
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebApplication",
-            "name": "CCU规划工具 - Citizen's Hub",
+            "name": "CCU规划工具 - Citizens' Hub",
             "description": "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "Any",
