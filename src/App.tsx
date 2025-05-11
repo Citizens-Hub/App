@@ -8,6 +8,7 @@ import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
 import Login from './pages/Login/Login'
 import Admin from './pages/Admin/Admin'
 import Header from './components/Header'
+import Navigate from './pages/Navigate/Navigate'
 
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
@@ -66,7 +67,7 @@ function App() {
       <BrowserRouter>
         <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
         <Routes>
-          <Route path="/" element={<CCUPlanner />} />
+          <Route path="/" element={<Navigate />} />
           <Route path="/ccu-planner" element={<CCUPlanner />} />
           <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/privacy" element={<Privacy />} />

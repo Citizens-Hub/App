@@ -4,7 +4,7 @@ import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../t
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
+import { selectHangarItems } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ShipNodeProps {
@@ -30,7 +30,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
 
-  const upgrades = useSelector((state: RootState) => state.upgrades.items);
+  const upgrades = useSelector(selectHangarItems);
 
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
@@ -270,7 +270,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                         }
                       }
                     } else if (selectedValue === CcuSourceType.HANGER) {
-                      handleCustomPriceChange(edge.id, upgrades.ccus.find(upgrade => {
+                      handleCustomPriceChange(edge.id, upgrades.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
@@ -296,14 +296,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                     </option>
                   )}
                   {
-                    upgrades.ccus.find(upgrade => {
+                    upgrades.find(upgrade => {
                       const from = upgrade.parsed.from.toUpperCase()
                       const to = upgrade.parsed.to.toUpperCase()
 
                       return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
-                      {upgrades.ccus.find(upgrade => {
+                      {upgrades.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 

@@ -2,21 +2,12 @@ import { LoaderCircle } from 'lucide-react'
 import useResourceData from './hooks/useResourceData'
 import CcuCanvas from './components/CcuCanvas'
 import NewsModal from './components/NewsModal'
-import { useEffect } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
-import { useLocation } from 'react-router'
 import { Helmet } from 'react-helmet'
 
 export default function CCUPlanner() {
   const { ships, ccus, wbHistory, loading, showNewsModal, closeNewsModal } = useResourceData()
-  const pathname = useLocation().pathname
   const intl = useIntl()
-
-  useEffect(() => {
-    if (pathname !== '/ccu-planner') {
-      window.location.href = '/ccu-planner'
-    }
-  }, [pathname])
   
   if (loading) return (
     <div>

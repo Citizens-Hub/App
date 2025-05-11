@@ -27,10 +27,11 @@ import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Snackbar, useMediaQuery } from '@mui/material';
-import { RootState } from '../../../store';
+import { selectHangarItems } from '../../../store';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';
+import UserSelector from './UserSelector';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -67,10 +68,11 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   });
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
 
-  const upgrades = useSelector((state: RootState) => state.upgrades.items);
+  // const upgrades = useSelector((state: RootState) => state.upgrades.items);
+  const upgrades = useSelector(selectHangarItems);
 
   // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
+  const hangarItems: HangarItem[] = upgrades.map(upgrade => ({
     id: Date.now() + Math.random(), // Generate unique ID
     name: upgrade.name,
     type: 'ccu',
@@ -122,7 +124,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           return;
         }
 
-        const hangarCcu = upgrades.ccus.find(upgrade => {
+        const hangarCcu = upgrades.find(upgrade => {
           const from = upgrade.parsed.from.toUpperCase()
           const to = upgrade.parsed.to.toUpperCase()
 
@@ -868,7 +870,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               }
 
               // Check for upgrade token
-              const hangarCcu = upgrades.ccus.find(upgrade => {
+              const hangarCcu = upgrades.find(upgrade => {
                 const from = upgrade.parsed.from.toUpperCase();
                 const to = upgrade.parsed.to.toUpperCase();
                 return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
@@ -1000,6 +1002,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
             <Controls position={isMobile ? "top-right" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
             <MiniMap className='dark:invert-90 xl:block hidden' />
             <Background color="#333" gap={32} />
+            <Panel position="top-right" className="bg-white dark:bg-[#121212] absolute">
+              <UserSelector />
+            </Panel>
             <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
               <Toolbar
                 nodes={nodes}

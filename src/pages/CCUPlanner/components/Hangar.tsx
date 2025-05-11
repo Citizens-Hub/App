@@ -2,7 +2,7 @@ import { IconButton, Link, TextField, InputAdornment } from "@mui/material";
 import { Ccu, Ship } from "../../../types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { RootState } from "../../../store";
+import { RootState, selectHangarItems } from "../../../store";
 import { ExpandLess, ExpandMore, Search } from "@mui/icons-material";
 import ExtensionModal from "./ExtensionModal";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -21,17 +21,24 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const intl = useIntl();
-  const upgrades = useSelector((state: RootState) => state.upgrades.items);
+  const upgrades = useSelector(selectHangarItems);
   const users = useSelector((state: RootState) => state.upgrades.users);
 
   const handleExtensionLinkClick = () => {
     setExtensionModalOpen(true);
   };
 
-  const filteredUpgrades = upgrades.ccus.filter(upgrade => {
+  const filteredUpgrades = upgrades.filter(upgrade => {
     const from = upgrade.parsed.from.toLowerCase();
     const to = upgrade.parsed.to.toLowerCase();
     const query = searchQuery.toLowerCase();
+
+    // if (selectedUser !== -1) {
+    //   if (upgrade.belongsTo !== selectedUser && !upgrade.canGift) {
+    //     return false;
+    //   }
+    // }
+
     return from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
   });
 
@@ -81,7 +88,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               }
 
               return <div
-                key={fromShip.id + toShip.id}
+                key={fromShip.id + toShip.id + upgrade.belongsTo + (upgrade.canGift ? "giftable" : "") + (upgrade.isBuyBack ? "buyback" : "")}
                 className="flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0"
               >
                 <div className="text-xs text-gray-400">

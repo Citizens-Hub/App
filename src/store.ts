@@ -44,6 +44,7 @@ const getInitialState = (): {
   items: HangarItems,
   users: UserInfo[],
   version: string,
+  selectedUser: number
 } => {
   const localState = localStorage.getItem('state');
 
@@ -58,6 +59,7 @@ const getInitialState = (): {
       bundles: [],
     },
     users: [],
+    selectedUser: -1,
     version,
   };
 };
@@ -86,15 +88,21 @@ const stringsSlice = createSlice({
         bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
       };
       localStorage.setItem('state', JSON.stringify(state));
+    },
+    setSelectedUser: (state, action: PayloadAction<number>) => {
+      state.selectedUser = action.payload;
+      localStorage.setItem('state', JSON.stringify(state));
     }
   }
 });
 
-export const { addCCU, addUser, clearUpgrades } = stringsSlice.actions;
+export const selectHangarItems = (state: RootState) => state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1);
+
+export const { addCCU, addUser, clearUpgrades, setSelectedUser } = stringsSlice.actions;
 
 export const store = configureStore({
   reducer: {
-    upgrades: stringsSlice.reducer
+    upgrades: stringsSlice.reducer,
   }
 });
 
