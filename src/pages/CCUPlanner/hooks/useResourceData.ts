@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ccu, Ship, CcusData, ShipsData, WbHistoryData } from '../../../types';
+import { Ccu, Ship, WbHistoryData } from '../../../types';
 
 export default function useResourceData() {
   const [ccus, setCcus] = useState<Ccu[]>([]);
@@ -23,41 +23,37 @@ export default function useResourceData() {
 
     const fetchData = async () => {
       try {
-        const ccusResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ccus`, {
-          signal: abortController.signal
-        });
-        if (!ccusResponse.ok) {
+        const [ccusResponse, shipsResponse, wbHistoryResponse, exchangeRateResponse] = await Promise.all([
+          fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ccus`, {
+            signal: abortController.signal
+          }),
+          fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ships`, {
+            signal: abortController.signal
+          }),
+          fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wbs/history`, {
+            signal: abortController.signal
+          }),
+          fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
+            signal: abortController.signal
+          })
+        ]);
+
+        if (!ccusResponse.ok || !shipsResponse.ok || !wbHistoryResponse.ok || !exchangeRateResponse.ok) {
           throw new Error('Network response error');
         }
-        const ccusData: CcusData = await ccusResponse.json();
+
+        const [ccusData, shipsData, wbHistoryData, exchangeRateData] = await Promise.all([
+          ccusResponse.json(),
+          shipsResponse.json(),
+          wbHistoryResponse.json(),
+          exchangeRateResponse.json()
+        ]);
+
         setCcus(ccusData.data.to.ships);
-
-        const shipsResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ships`, {
-          signal: abortController.signal
-        });
-        if (!shipsResponse.ok) {
-          throw new Error('Network response error');
-        }
-        const shipsData: ShipsData = await shipsResponse.json();
-        setShips(shipsData.data.ships.sort((a, b) => a.msrp - b.msrp));
-
-        const wbHistoryResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wbs/history`, {
-          signal: abortController.signal
-        });
-        if (!wbHistoryResponse.ok) {
-          throw new Error('Network response error');
-        }
-        const wbHistoryData: WbHistoryData[] = (await wbHistoryResponse.json()).data;
-        setWbHistory(wbHistoryData);
-
-        const exchangeRateResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
-          signal: abortController.signal
-        });
-        if (!exchangeRateResponse.ok) {
-          throw new Error('汇率获取失败');
-        }
-        const exchangeRateData = await exchangeRateResponse.json();
+        setShips(shipsData.data.ships.sort((a: Ship, b: Ship) => a.msrp - b.msrp));
+        setWbHistory(wbHistoryData.data);
         setExchangeRates(exchangeRateData.usd);
+        
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -65,8 +61,6 @@ export default function useResourceData() {
         setError('Failed to load data');
         console.error('Error fetching data:', err);
       } finally {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
-
         setLoading(false);
       }
     };
