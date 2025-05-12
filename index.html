@@ -42,6 +42,16 @@
         registrations.forEach(sw => sw.unregister())
       })
     }
+
+    // if ('serviceWorker' in navigator) {
+    //   navigator.serviceWorker.register('/service-worker.js')
+    //     .then(registration => {
+    //       console.log('[SW] Registration success:', registration);
+    //     })
+    //     .catch(error => {
+    //       console.error('[SW] Registration failed:', error);
+    //     });
+    // }
   </script>
 </body>
 
