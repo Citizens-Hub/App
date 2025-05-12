@@ -40,4 +40,4 @@
 
 [![discord badge](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
 
-如果您对本隐私政策有任何疑问，请通过 Discord 服务器与我们联系。 
+如果您对本隐私政策有任何疑问，请通过 Discord 服务器与我们联系。

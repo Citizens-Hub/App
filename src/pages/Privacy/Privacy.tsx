@@ -17,8 +17,8 @@ function TabPanel(props: TabPanelProps) {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`changelog-tabpanel-${index}`}
-      aria-labelledby={`changelog-tab-${index}`}
+      id={`privacy-tabpanel-${index}`}
+      aria-labelledby={`privacy-tab-${index}`}
       {...other}
     >
       {value === index && (
@@ -32,12 +32,12 @@ function TabPanel(props: TabPanelProps) {
 
 function a11yProps(index: number) {
   return {
-    id: `changelog-tab-${index}`,
-    'aria-controls': `changelog-tabpanel-${index}`,
+    id: `privacy-tab-${index}`,
+    'aria-controls': `privacy-tabpanel-${index}`,
   };
 }
 
-export default function ChangeLogs() {
+export default function Privacy() {
   const { locale } = useLocale();
   const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
