@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Container, Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
+import { Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage } from 'react-intl';
 import { useLocale } from '../../contexts/LocaleContext';
@@ -83,7 +83,7 @@ export default function ChangeLogs() {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
+    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto'>
       <Typography variant="h4" component="h1" gutterBottom>
         <FormattedMessage id="changelogs.heading" defaultMessage="Change Logs" />
       </Typography>
@@ -137,6 +137,6 @@ export default function ChangeLogs() {
           </Box>
         )}
       </Box>
-    </Container>
+    </div>
   );
 }
