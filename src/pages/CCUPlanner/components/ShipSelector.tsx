@@ -114,7 +114,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
 
         <div className='flex items-center gap-2 px-2 pb-2 justify-between'>
           <label className='flex items-center gap-2'>
-            <FormattedMessage id="ccuPlanner.onlyShowAvailable" defaultMessage="Only show available ships" />u
+            <FormattedMessage id="ccuPlanner.onlyShowAvailable" defaultMessage="Only show available ships" />
           </label>
           <Switch checked={onlyShowAvailable} onChange={(e) => setOnlyShowAvailable(e.target.checked)} />
         </div>
