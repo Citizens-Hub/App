@@ -1,94 +1,142 @@
-import React from 'react';
-import { Container, Typography, Box } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Container, Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
+import MarkdownPreview from '@uiw/react-markdown-preview';
+import { FormattedMessage } from 'react-intl';
+import { useLocale } from '../../contexts/LocaleContext';
 
-const Privacy: React.FC = () => {
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
   return (
-    <Container maxWidth="md" sx={{ mt: 8 }}>
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Privacy Policy
-        </Typography>
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`changelog-tabpanel-${index}`}
+      aria-labelledby={`changelog-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ pt: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Introduction
-        </Typography>
-        <Typography component="p">
-          This Privacy Policy describes how the Star Citizen CCU Planner extension ("we", "our", or "extension")
-          collects, uses, and shares information about you when you use our browser extension.
-        </Typography>
+function a11yProps(index: number) {
+  return {
+    id: `changelog-tab-${index}`,
+    'aria-controls': `changelog-tabpanel-${index}`,
+  };
+}
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Information We Collect
-        </Typography>
-        <Typography component="p">
-          Our extension only collects information necessary for its functionality:
-        </Typography>
-        <Typography component="ul" sx={{ pl: 4 }}>
-          <li>Authentication tokens from robertsspaceindustries.com to enable access to your account data</li>
-          <li>Information about your Star Citizen ships, upgrades, and hangar contents</li>
-          <li>Extension preferences and settings you configure</li>
-        </Typography>
+export default function ChangeLogs() {
+  const { locale } = useLocale();
+  const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
+  const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(locale === 'zh-CN' ? 0 : 1);
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          How We Use Your Information
-        </Typography>
-        <Typography component="p">
-          We use the information we collect to:
-        </Typography>
-        <Typography component="ul" sx={{ pl: 4 }}>
-          <li>Display your Star Citizen ships and upgrades</li>
-          <li>Calculate optimal upgrade paths</li>
-          <li>Save your preferences and settings</li>
-        </Typography>
-        <Typography component="p">
-          All data is stored locally on your device. We do not transmit your data to our servers.
-        </Typography>
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Data Sharing
-        </Typography>
-        <Typography component="p">
-          We do not share your personal information with third parties. The extension only communicates with
-          robertsspaceindustries.com to retrieve your account data.
-        </Typography>
+  useEffect(() => {
+    const fetchChangelogs = async () => {
+      try {
+        setLoading(true);
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Data Security
-        </Typography>
-        <Typography component="p">
-          Your data is stored locally in your browser's storage. We implement reasonable security measures to
-          protect your information, but no method of transmission or storage is 100% secure.
-        </Typography>
+        // 获取中文更新日志
+        const chineseResponse = await fetch('/privacy.md');
+        if (!chineseResponse.ok) {
+          throw new Error(`无法获取中文更新日志: ${chineseResponse.status}`);
+        }
+        const chineseText = await chineseResponse.text();
+        setChineseMarkdown(chineseText);
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Your Rights
-        </Typography>
-        <Typography component="p">
-          You can clear all stored data by uninstalling the extension or clearing your browser's storage for this extension.
-        </Typography>
+        // 获取英文更新日志
+        const englishResponse = await fetch('/privacy.en.md');
+        if (!englishResponse.ok) {
+          throw new Error(`Unable to fetch English changelog: ${englishResponse.status}`);
+        }
+        const englishText = await englishResponse.text();
+        setEnglishMarkdown(englishText);
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Changes to This Privacy Policy
-        </Typography>
-        <Typography component="p">
-          We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new
-          Privacy Policy in the extension. You are advised to review this Privacy Policy periodically for any changes.
-        </Typography>
+        setError(null);
+      } catch (err) {
+        console.error('获取更新日志时出错:', err);
+        setError((err as Error).message || '获取更新日志时出错');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-        <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
-          Contact Us
-        </Typography>
-        <Typography component="p">
-          If you have any questions about this Privacy Policy, please contact us through the extension's support channels.
-        </Typography>
+    fetchChangelogs();
+  }, []);
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>
-          Last updated: 2025-05-06
-        </Typography>
+  return (
+    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        <FormattedMessage id="privacy.heading" defaultMessage="Privacy Policy" />
+      </Typography>
+
+      <Box sx={{ mt: 4, width: '50vw', maxWidth: '800px', margin: '0 auto' }}>
+        {loading && (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+            <CircularProgress />
+          </Box>
+        )}
+
+        {error && (
+          <Typography color="error">
+            {error}
+          </Typography>
+        )}
+
+        {!loading && !error && (
+          <Box>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs value={tabValue} onChange={handleTabChange} centered>
+                <Tab label="中文" {...a11yProps(0)} />
+                <Tab label="English" {...a11yProps(1)} />
+              </Tabs>
+            </Box>
+
+            <TabPanel value={tabValue} index={0}>
+              <Box sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 1,
+                p: 3,
+                textAlign: 'left',
+                margin: '0 auto'
+              }}>
+                <MarkdownPreview source={chineseMarkdown} />
+              </Box>
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={1}>
+              <Box sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 1,
+                p: 3,
+                textAlign: 'left',
+                margin: '0 auto'
+              }}
+              >
+                <MarkdownPreview source={englishMarkdown} />
+              </Box>
+            </TabPanel>
+          </Box>
+        )}
       </Box>
     </Container>
   );
-};
-
-export default Privacy;
-
+}

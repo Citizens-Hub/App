@@ -169,5 +169,6 @@
   "pagination.items": "项目",
   "ccuPlanner.seoDescription": "星际公民(Star Citizen)CCU升级规划工具 - 帮助您规划和优化舰船升级路径",
   "ccuPlanner.seoTitle": "CCU规划工具 - Citizens' Hub",
-  "userSelector.currentUser": "为{user}创建规划"
+  "userSelector.currentUser": "为{user}创建规划",
+  "privacy.heading": "隐私协议"
 }
