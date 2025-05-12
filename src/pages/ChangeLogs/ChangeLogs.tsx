@@ -88,7 +88,7 @@ export default function ChangeLogs() {
         <FormattedMessage id="changelogs.heading" defaultMessage="Change Logs" />
       </Typography>
 
-      <Box sx={{ mt: 4, width: '50vw', maxWidth: '800px', margin: '0 auto' }}>
+      <Box sx={{ mt: 4, maxWidth: '800px', margin: '0 auto' }}>
         {loading && (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
             <CircularProgress />
