@@ -69,7 +69,7 @@ export default function ResourcesTable() {
   const tooltipComponent = (props: TooltipRenderProps) => <CustomTooltip {...props} locale={locale} />;
 
   return (
-    <Box sx={{ maxWidth: '1280px', overflow: 'hidden', px: isMobile ? 1 : 0 }}>
+    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto'>
       {/* <Navigation /> */}
       <Joyride
         callback={handleJoyrideCallback}
@@ -91,7 +91,7 @@ export default function ResourcesTable() {
         }}
       />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: 8, md: { mt: 0 } }} className="app-header">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
         <div className='flex flex-row items-center gap-4'>
           <Typography variant={isMobile ? "h6" : "h5"}>
             <FormattedMessage id="app.title" defaultMessage="商店预览" />
@@ -200,6 +200,6 @@ export default function ResourcesTable() {
         onClose={closeCart}
         onRemoveFromCart={removeFromCart}
       />
-    </Box>
+    </div>
   );
 }

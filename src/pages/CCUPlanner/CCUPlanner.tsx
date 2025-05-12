@@ -20,7 +20,7 @@ export default function CCUPlanner() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://citizenshub.app/ccu-planner" />
       </Helmet>
-      <h1 className="flex items-center gap-4">
+      <h1 className="flex items-center gap-4 px-8">
         <LoaderCircle className="w-8 h-8 animate-spin" />
         <FormattedMessage id="ccuPlanner.loading" defaultMessage="Loading CCU Planner..." />
       </h1>
