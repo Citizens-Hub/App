@@ -881,16 +881,15 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     }
 
     levelShips.forEach((level, index) => {
-      console.log(upgrades.ccus)
       level.forEach(targetShip => {
         for (let i = index - 1; i >= 0; i--) {
           const sourceShips = levelShips[i].filter(ship => {
             const originShip = stepShips[1].find(s => s.id === ship.data.ship.id);
-            const sourceShipValue = getShipPrice(ship.data.ship);
+            const targetShipCost = getShipPrice(targetShip.data.ship);
 
             const exactMatchCCU = (upgrades.ccus.some(upgrade => upgrade.parsed.from.toUpperCase() === ship.data.ship.name.trim().toUpperCase()) && upgrades.ccus.some(upgrade => upgrade.parsed.to.toUpperCase() === targetShip.data.ship.name.trim().toUpperCase()))
 
-            if (sourceShipValue >= targetShip.data.ship.msrp && !exactMatchCCU) {
+            if (ship.data.ship.msrp >= targetShipCost && !exactMatchCCU) {
               return false;
             }
 
