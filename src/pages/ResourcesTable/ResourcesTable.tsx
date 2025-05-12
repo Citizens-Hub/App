@@ -69,7 +69,7 @@ export default function ResourcesTable() {
   const tooltipComponent = (props: TooltipRenderProps) => <CustomTooltip {...props} locale={locale} />;
 
   return (
-    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto'>
+    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
       {/* <Navigation /> */}
       <Joyride
         callback={handleJoyrideCallback}
