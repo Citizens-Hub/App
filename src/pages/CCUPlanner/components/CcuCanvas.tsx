@@ -31,7 +31,7 @@ import { selectHangarItems } from '../../../store';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';
-import UserSelector from './UserSelector';
+import UserSelector from '../../../components/UserSelector';
 
 const nodeTypes: NodeTypes = {
   ship: ShipNode,
@@ -45,9 +45,12 @@ interface CcuCanvasProps {
   ships: Ship[];
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
+  exchangeRates: {
+    [currency: string]: number;
+  };
 }
 
-export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
+export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: CcuCanvasProps) {
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +75,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
   const upgrades = useSelector(selectHangarItems);
 
   // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = upgrades.map(upgrade => ({
+  const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
     id: Date.now() + Math.random(), // Generate unique ID
     name: upgrade.name,
     type: 'ccu',
@@ -124,7 +127,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
           return;
         }
 
-        const hangarCcu = upgrades.find(upgrade => {
+        const hangarCcu = upgrades.ccus.find(upgrade => {
           const from = upgrade.parsed.from.toUpperCase()
           const to = upgrade.parsed.to.toUpperCase()
 
@@ -870,7 +873,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               }
 
               // Check for upgrade token
-              const hangarCcu = upgrades.find(upgrade => {
+              const hangarCcu = upgrades.ccus.find(upgrade => {
                 const from = upgrade.parsed.from.toUpperCase();
                 const to = upgrade.parsed.to.toUpperCase();
                 return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
@@ -1028,6 +1031,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory }: CcuCanvasProps) {
               onClose={closeRouteInfoPanel}
               startShipPrices={startShipPrices}
               onStartShipPriceChange={handleStartShipPriceChange}
+              exchangeRates={exchangeRates}
             />
           )}
         </ReactFlowProvider>

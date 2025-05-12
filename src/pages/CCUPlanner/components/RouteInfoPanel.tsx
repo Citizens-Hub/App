@@ -3,7 +3,9 @@ import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip } from '@mui/material';
 import { InfoOutlined } from '@mui/icons-material';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -17,6 +19,9 @@ interface RouteInfoPanelProps {
   onClose: () => void;
   startShipPrices: Record<string, number | string>;
   onStartShipPriceChange: (nodeId: string, price: number | string) => void;
+  exchangeRates: {
+    [currency: string]: number;
+  };
 }
 
 interface PathNode {
@@ -40,12 +45,15 @@ export default function RouteInfoPanel({
   nodes,
   onClose,
   startShipPrices,
-  onStartShipPriceChange
+  onStartShipPriceChange,
+  exchangeRates
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const nodeBestCostRef = useRef<Record<string, number>>({});
-
+  const { currency } = useSelector((state: RootState) => state.upgrades);
+  const exchangeRate = exchangeRates[currency.toLowerCase()];
+  const { locale } = useIntl();
   // Find all possible starting nodes (nodes with no incoming edges)
   const findStartNodes = useCallback(() => {
     const nodesWithIncomingEdges = new Set(edges.map(edge => edge.target));
@@ -103,8 +111,8 @@ export default function RouteInfoPanel({
   // TODO: Exchange Rate
   const calculateTotalCost = useCallback((usdPrice: number, cnyPrice: number) => {
     const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
-    return usdPrice * 7.3 + cnyPrice * conciergeMultiplier;
-  }, [conciergeValue]);
+    return usdPrice * exchangeRate + cnyPrice * conciergeMultiplier;
+  }, [conciergeValue, exchangeRate]);
 
   // Find all possible paths from the starting node to the selected node
   const findAllPaths = useCallback((
@@ -464,10 +472,10 @@ export default function RouteInfoPanel({
                         <span className="text-black dark:text-white mr-1">
                           <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />:
                         </span>
-                        <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                        <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                       </div>
                       <div className="text-sm">
-                        <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>
+                        <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
                       </div>
                     </div>
                     <div className='flex justify-between gap-4'>
@@ -476,16 +484,16 @@ export default function RouteInfoPanel({
                           <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
                         </span>
                         <span className="text-blue-400">
-                          <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                          <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                           {conciergeValue !== "0" && <span> + </span>}
-                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>}
                         </span>
                       </div>
                       <div className="text-sm">
                         <span className="text-blue-400">
-                          {(completePath.totalUsdPrice * 7.3 + completePath.totalCnyPrice).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}
+                          {(completePath.totalUsdPrice * exchangeRate + completePath.totalCnyPrice).toLocaleString(locale, { style: 'currency', currency })}
                           {conciergeValue !== "0" && <span> + </span>}
-                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })}</span>}
+                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency })}</span>}
                         </span>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, setSelectedUser } from '../../../store';
+import { RootState, setSelectedUser } from '../store';
 import { Avatar, Box, Typography, Stack, Tooltip, IconButton } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { X } from 'lucide-react';
@@ -46,7 +46,7 @@ export default function UserSelector() {
       {selectedUser !== -1 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" sx={{ ml: 1 }}>
-            <FormattedMessage id="userSelector.currentUser" defaultMessage="Planning for {user}" values={{ user: users.find(user => user.id === selectedUser)?.nickname || users.find(user => user.id === selectedUser)?.username }} />
+            <FormattedMessage id="userSelector.currentUser" defaultMessage="Active: {user}" values={{ user: users.find(user => user.id === selectedUser)?.nickname || users.find(user => user.id === selectedUser)?.username }} />
           </Typography>
           <IconButton size="small" onClick={() => handleUserSelect(-1)}>
             <X className='w-4 h-4' />

@@ -10,6 +10,8 @@ import Brightness7Icon from '@mui/icons-material/Brightness7'
 import { MenuIcon } from "lucide-react";
 import { navigation } from "../const/navigation";
 import { useLocation } from "react-router";
+import { useSelector } from "react-redux";
+import { RootState } from "../store";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -25,6 +27,7 @@ enum SCBoxTranslateStatus {
 export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { currency } = useSelector((state: RootState) => state.upgrades);
   const intl = useIntl();
   const { locale } = intl;
   const pathname = useLocation().pathname;
@@ -87,6 +90,13 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           </Button>)
         }
         <LanguageSwitcher />
+        <Button
+          color="inherit"
+          size="small"
+          onClick={() => window.location.href = "/app-settings"}
+        >
+          {currency}
+        </Button>
         <IconButton
           onClick={toggleDarkMode}
           color="inherit"

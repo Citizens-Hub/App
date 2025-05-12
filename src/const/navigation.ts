@@ -4,8 +4,22 @@ export const navigation = [
     path: "/ccu-planner",
   },
   {
+    name: "navigation.hangar",
+    path: "/hangar",
+    hidden: true,
+  },
+  {
+    name: "navigation.fleaMarket",
+    path: "/flea-market",
+    hidden: true,
+  },
+  {
     name: "navigation.storePreview",
     path: "/store-preview",
+  },
+  {
+    name: "navigation.appSettings",
+    path: "/app-settings",
   },
   {
     name: "navigation.privacy",

@@ -8,6 +8,7 @@ export default function useResourceData() {
   const [error, setError] = useState<string | null>(null);
   const [showNewsModal, setShowNewsModal] = useState(false);
   const [wbHistory, setWbHistory] = useState<WbHistoryData[]>([]);
+  const [exchangeRates, setExchangeRates] = useState({});
 
   useEffect(() => {
     const currentVersion = '1.0.1';
@@ -48,6 +49,15 @@ export default function useResourceData() {
         }
         const wbHistoryData: WbHistoryData[] = (await wbHistoryResponse.json()).data;
         setWbHistory(wbHistoryData);
+
+        const exchangeRateResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
+          signal: abortController.signal
+        });
+        if (!exchangeRateResponse.ok) {
+          throw new Error('汇率获取失败');
+        }
+        const exchangeRateData = await exchangeRateResponse.json();
+        setExchangeRates(exchangeRateData.usd);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -72,5 +82,5 @@ export default function useResourceData() {
     setShowNewsModal(false);
   };
 
-  return { ccus, ships, wbHistory, loading, error, showNewsModal, closeNewsModal };
+  return { ccus, ships, wbHistory, exchangeRates, loading, error, showNewsModal, closeNewsModal };
 } 

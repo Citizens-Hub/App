@@ -4,7 +4,7 @@ import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../t
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { selectHangarItems } from '../../../store';
+import { RootState, selectHangarItems } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ShipNodeProps {
@@ -30,6 +30,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
 
+  const { currency } = useSelector((state: RootState) => state.upgrades);
   const upgrades = useSelector(selectHangarItems);
 
   const skus = ccus.find(c => c.id === ship.id)?.skus
@@ -270,7 +271,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                         }
                       }
                     } else if (selectedValue === CcuSourceType.HANGER) {
-                      handleCustomPriceChange(edge.id, upgrades.find(upgrade => {
+                      handleCustomPriceChange(edge.id, upgrades.ccus.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
@@ -296,14 +297,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                     </option>
                   )}
                   {
-                    upgrades.find(upgrade => {
+                    upgrades.ccus.find(upgrade => {
                       const from = upgrade.parsed.from.toUpperCase()
                       const to = upgrade.parsed.to.toUpperCase()
 
                       return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
                     }) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
-                      {upgrades.find(upgrade => {
+                      {upgrades.ccus.find(upgrade => {
                         const from = upgrade.parsed.from.toUpperCase()
                         const to = upgrade.parsed.to.toUpperCase()
 
@@ -328,7 +329,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                         intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
                         edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ?
                           intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
-                          intl.formatMessage({ id: "shipNode.priceCNY", defaultMessage: "Price (CNY)" })
+                          intl.formatMessage({ id: "shipNode.priceCNY", defaultMessage: "Price ({currency})" }, { currency })
                       }:
                     </label>
                     <Input
@@ -340,7 +341,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       }}
                       onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
                       placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
-                        edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? 'USD' : 'CNY'}
+                        edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? 'USD' : currency}
                     />
                   </div>
                 )}

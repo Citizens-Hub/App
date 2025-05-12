@@ -6,7 +6,7 @@ import { FormattedMessage, useIntl } from 'react-intl'
 import { Helmet } from 'react-helmet'
 
 export default function CCUPlanner() {
-  const { ships, ccus, wbHistory, loading, showNewsModal, closeNewsModal } = useResourceData()
+  const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useResourceData()
   const intl = useIntl()
   
   if (loading) return (
@@ -58,7 +58,7 @@ export default function CCUPlanner() {
       </Helmet>
 
       <div className="flex-1 relative w-full h-full">
-        <CcuCanvas ships={ships} ccus={ccus} wbHistory={wbHistory} />
+        <CcuCanvas ships={ships} ccus={ccus} exchangeRates={exchangeRates} wbHistory={wbHistory} />
       </div>
 
       <NewsModal open={showNewsModal} onClose={closeNewsModal} />

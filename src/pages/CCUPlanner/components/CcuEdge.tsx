@@ -1,6 +1,8 @@
 import { EdgeProps, EdgeLabelRenderer, getBezierPath } from 'reactflow';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 import { useIntl } from 'react-intl';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -19,6 +21,9 @@ export default function CcuEdge({
   markerEnd,
 }: CcuEdgeProps) {
   const intl = useIntl();
+  const { locale } = intl;
+
+  const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   
   if (!data) return null;
 
@@ -39,7 +44,7 @@ export default function CcuEdge({
     priceToShow = data.customPrice;
   } else if (sourceType === CcuSourceType.THIRD_PARTY && data.customPrice !== undefined) {
     priceToShow = data.customPrice;
-    currency = 'CNY';
+    currency = selectedCurrency;
   } else if (sourceType === CcuSourceType.HANGER && data.customPrice !== undefined) {
     priceToShow = data.customPrice;
     currency = 'USD';
@@ -109,11 +114,11 @@ export default function CcuEdge({
           +{(() => {
             switch (true) {
               case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
-                return (priceToShow / 100).toLocaleString('en-US', { style: 'currency', currency });
+                return (priceToShow / 100).toLocaleString(locale, { style: 'currency', currency });
               case currency === 'USD':
-                return priceToShow.toLocaleString('en-US', { style: 'currency', currency });
+                return priceToShow.toLocaleString(locale, { style: 'currency', currency });
               default:
-                return priceToShow.toLocaleString('zh-CN', { style: 'currency', currency });
+                return priceToShow.toLocaleString(locale, { style: 'currency', currency });
             }
           })()}
         </div>

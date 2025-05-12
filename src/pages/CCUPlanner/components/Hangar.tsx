@@ -28,7 +28,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     setExtensionModalOpen(true);
   };
 
-  const filteredUpgrades = upgrades.filter(upgrade => {
+  const filteredUpgrades = upgrades.ccus.filter(upgrade => {
     const from = upgrade.parsed.from.toLowerCase();
     const to = upgrade.parsed.to.toLowerCase();
     const query = searchQuery.toLowerCase();

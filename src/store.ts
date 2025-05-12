@@ -40,16 +40,32 @@ export interface UserInfo {
   avatar: string,
 }
 
+const getDefaultCurrency = () => {
+  const locale = navigator.language;
+  if (locale.includes('zh')) {
+    return 'CNY';
+  }
+  if (locale.includes('jp')) {
+    return 'JPY';
+  }
+  return 'USD';
+}
+
 const getInitialState = (): {
   items: HangarItems,
   users: UserInfo[],
   version: string,
-  selectedUser: number
+  selectedUser: number,
+  currency: string
 } => {
   const localState = localStorage.getItem('state');
 
   if (localState && JSON.parse(localState).version === version) {
-    return JSON.parse(localState);
+    const state =  JSON.parse(localState);
+    return {
+      ...state,
+      currency: state.currency || getDefaultCurrency(),
+    };
   }
 
   return {
@@ -60,6 +76,7 @@ const getInitialState = (): {
     },
     users: [],
     selectedUser: -1,
+    currency: getDefaultCurrency(),
     version,
   };
 };
@@ -92,13 +109,31 @@ const stringsSlice = createSlice({
     setSelectedUser: (state, action: PayloadAction<number>) => {
       state.selectedUser = action.payload;
       localStorage.setItem('state', JSON.stringify(state));
+    },
+    setCurrency: (state, action: PayloadAction<string>) => {
+      state.currency = action.payload;
+      localStorage.setItem('state', JSON.stringify(state));
     }
   }
 });
 
-export const selectHangarItems = (state: RootState) => state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1);
+export const selectHangarItems = (state: RootState) => {
+  return {
+    ccus: state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
+    ships: state.upgrades.items.ships.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
+    bundles: state.upgrades.items.bundles.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
+  };
+};
 
-export const { addCCU, addUser, clearUpgrades, setSelectedUser } = stringsSlice.actions;
+export const selectUsersHangarItems = (state: RootState) => {
+  return {
+    ccus: state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
+    ships: state.upgrades.items.ships.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
+    bundles: state.upgrades.items.bundles.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
+  };
+};
+
+export const { addCCU, addUser, clearUpgrades, setSelectedUser, setCurrency } = stringsSlice.actions;
 
 export const store = configureStore({
   reducer: {

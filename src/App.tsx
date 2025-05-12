@@ -9,6 +9,8 @@ import Login from './pages/Login/Login'
 import Admin from './pages/Admin/Admin'
 import Header from './components/Header'
 import Navigate from './pages/Navigate/Navigate'
+import Hangar from './pages/Hangar/Hangar'
+import Settings from './pages/Settings/Settings'
 
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
@@ -69,7 +71,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate />} />
           <Route path="/ccu-planner" element={<CCUPlanner />} />
+          <Route path="/hangar" element={<Hangar />} />
           <Route path="/store-preview" element={<ResourcesTable />} />
+          <Route path="/app-settings" element={<Settings />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/changelog" element={<ChangeLogs />} />
 

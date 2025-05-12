@@ -16,7 +16,7 @@ export default function LanguageSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleLanguageChange = (newLocale: 'zh-CN' | 'en' | 'ja-JP') => {
+  const handleLanguageChange = (newLocale: 'zh-CN' | 'en' | 'ja-JP' | 'de-DE') => {
     setLocale(newLocale);
     handleClose();
   };
@@ -40,6 +40,8 @@ export default function LanguageSwitcher() {
               return 'English';
             case 'ja-JP':
               return '日本語';
+            case 'de-DE':
+              return 'Deutsch';
           }
         })()}
       </Button>
@@ -65,6 +67,12 @@ export default function LanguageSwitcher() {
           selected={locale === 'ja-JP'}
         >
           日本語
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleLanguageChange('de-DE')}
+          selected={locale === 'de-DE'}
+        >
+          Deutsch
         </MenuItem>
       </Menu>
     </>
