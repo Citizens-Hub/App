@@ -79,7 +79,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         <span className="hidden md:block">{intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}</span>
       </div>
       <div className="flex items-center gap-2 justify-end">
-        {
+        {/* {
           locale === "zh-CN" && (<Button
             size="small"
             sx={{
@@ -88,7 +88,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             onClick={() => window.open("https://www.bilibili.com/opus/1064226212306485248", "_blank")}>
             使用说明
           </Button>)
-        }
+        } */}
         <LanguageSwitcher />
         <Button
           color="inherit"

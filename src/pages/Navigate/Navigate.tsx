@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardContent, Container, Grid, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Grid, Typography } from '@mui/material';
 import { Link } from 'react-router';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useEffect } from 'react';
@@ -38,7 +38,7 @@ export default function Navigate() {
   ];
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto'>
       <Box sx={{ textAlign: 'center', mb: 6 }}>
         <Typography variant="h3" component="h1" gutterBottom>
           <FormattedMessage id="navigate.title" defaultMessage="Star Citizen Tools" />
@@ -95,6 +95,6 @@ export default function Navigate() {
           © {new Date().getFullYear()} <FormattedMessage id="navigate.footer" defaultMessage="Star Citizen Tools" /> | <Link to="/privacy" style={{ color: 'inherit' }}><FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" /></Link>
         </Typography>
       </Box>
-    </Container>
+    </div>
   );
 }
