@@ -1,4 +1,4 @@
-import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 
 const version = '1.0.0';
 
@@ -117,21 +117,33 @@ const stringsSlice = createSlice({
   }
 });
 
-export const selectHangarItems = (state: RootState) => {
-  return {
-    ccus: state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
-    ships: state.upgrades.items.ships.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
-    bundles: state.upgrades.items.bundles.filter(item => item.belongsTo === state.upgrades.selectedUser || item.canGift || state.upgrades.selectedUser === -1),
-  };
-};
+export const selectHangarItems = createSelector(
+  (state: RootState) => state.upgrades.items.ccus,
+  (state: RootState) => state.upgrades.items.ships,
+  (state: RootState) => state.upgrades.items.bundles,
+  (state: RootState) => state.upgrades.selectedUser,
+  (ccus, ships, bundles, selectedUser) => {
+    return {
+      ccus: ccus.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
+      ships: ships.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
+      bundles: bundles.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
+    };
+  }
+);
 
-export const selectUsersHangarItems = (state: RootState) => {
-  return {
-    ccus: state.upgrades.items.ccus.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
-    ships: state.upgrades.items.ships.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
-    bundles: state.upgrades.items.bundles.filter(item => item.belongsTo === state.upgrades.selectedUser || state.upgrades.selectedUser === -1),
-  };
-};
+export const selectUsersHangarItems = createSelector(
+  (state: RootState) => state.upgrades.items.ccus,
+  (state: RootState) => state.upgrades.items.ships,
+  (state: RootState) => state.upgrades.items.bundles,
+  (state: RootState) => state.upgrades.selectedUser,
+  (ccus, ships, bundles, selectedUser) => {
+    return {
+      ccus: ccus.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
+      ships: ships.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
+      bundles: bundles.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
+    };
+  }
+);
 
 export const { addCCU, addUser, clearUpgrades, setSelectedUser, setCurrency } = stringsSlice.actions;
 

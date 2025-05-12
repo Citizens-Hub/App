@@ -787,6 +787,15 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
     // console.log(sortedPriceLevels, "sortedPriceLevels")
 
+    const levelShips: Node[][] = [];
+
+    // levelShips.push(stepShips[0].map(ship => ({
+    //   id: `ship-${ship.id}-${Date.now()}`,
+    //   type: 'ship',
+    //   position: { x: 0, y: 0 },
+    //   data: { ship }
+    // })))
+
     // New connection creation logic: Create edges for all ships (including source ships)
     // Process each price level
     for (let i = 0; i < sortedPriceLevels.length; i++) {
@@ -871,24 +880,62 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               if (priceDifference <= 0) {
                 return;
               }
+            });
 
-              // Check for upgrade token
+            foundConnectionInAnyLevel = true;
+          }
+        }
+      });
+
+      levelShips.push(currentLevelShips);
+    }
+
+    levelShips.forEach((level, index) => {
+      console.log(upgrades.ccus)
+      level.forEach(targetShip => {
+        for (let i = index - 1; i >= 0; i--) {
+          const sourceShips = levelShips[i].filter(ship => {
+            const originShip = stepShips[1].find(s => s.id === ship.data.ship.id);
+            const sourceShipValue = getShipPrice(ship.data.ship);
+
+            const exactMatchCCU = (upgrades.ccus.some(upgrade => upgrade.parsed.from.toUpperCase() === ship.data.ship.name.trim().toUpperCase()) && upgrades.ccus.some(upgrade => upgrade.parsed.to.toUpperCase() === targetShip.data.ship.name.trim().toUpperCase()))
+
+            if (sourceShipValue >= targetShip.data.ship.msrp && !exactMatchCCU) {
+              return false;
+            }
+
+            if (stepShips[0].find(s => s.id === ship.data.ship.id)) {
+              return true;
+            }
+
+            return originShip?.name.endsWith('-wb') || 
+              originShip?.name.endsWith('-historical') || 
+              // If the sourceShip is upgraded from a hangar CCU, it can have an outgoing edge
+              upgrades.ccus.some(upgrade => upgrade.parsed.to.toUpperCase() === ship.data.ship.name.trim().toUpperCase()) ||
+              // If sourceShip and targetShip are directly matched by a CCU, it can have an outgoing edge
+              exactMatchCCU
+          });
+
+          if (sourceShips.length > 0) {
+            sourceShips.forEach(sourceShip => {
+              const priceDifference = targetShip.data.ship.msrp - sourceShip.data.ship.msrp;
+
               const hangarCcu = upgrades.ccus.find(upgrade => {
                 const from = upgrade.parsed.from.toUpperCase();
                 const to = upgrade.parsed.to.toUpperCase();
-                return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
+                return from === sourceShip.data.ship.name.trim().toUpperCase() && to === targetShip.data.ship.name.trim().toUpperCase();
               });
 
               const newEdge: Edge = {
-                id: `edge-${sourceNode.id}-${targetNode.id}`,
-                source: sourceNode.id,
-                target: targetNode.id,
+                id: `edge-${sourceShip.id}-${targetShip.id}`,
+                source: sourceShip.id,
+                target: targetShip.id,
                 type: 'ccu',
                 animated: true,
                 data: {
                   price: priceDifference,
-                  sourceShip,
-                  targetShip,
+                  sourceShip: sourceShip.data.ship,
+                  targetShip: targetShip.data.ship,
                   sourceType: CcuSourceType.OFFICIAL,
                 } as CcuEdgeData,
               };
@@ -899,16 +946,16 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
                 newEdge.data.customPrice = hangarCcu.value;
               } else {
                 // Handle special price cases
-                const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.id)?.name;
+                const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.data.ship.id)?.name;
 
                 if (targetShipNameInPath?.endsWith('-historical')) {
                   const historicalPrice = Number(wbHistory.find(wb =>
                     wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() ||
-                    wb.name.toUpperCase() === targetShip.name.trim().toUpperCase())?.price) * 100 || targetShip.msrp;
+                    wb.name.toUpperCase() === targetShip.data.ship.name.trim().toUpperCase())?.price) * 100 || targetShip.data.ship.msrp;
 
-                  if (historicalPrice && historicalPrice !== targetShip.msrp) {
+                  if (historicalPrice && historicalPrice !== targetShip.data.ship.msrp) {
                     const historicalPriceUSD = historicalPrice / 100;
-                    const sourcePriceUSD = sourcePriceValue / 100;
+                    const sourcePriceUSD = sourceShip.data.ship.msrp / 100;
                     const actualPrice = historicalPriceUSD - sourcePriceUSD;
 
                     // Ensure price difference is greater than 0
@@ -921,12 +968,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
                   }
                 }
                 else if (targetShipNameInPath?.endsWith('-wb')) {
-                  const wbPrice = ccus.find(c => c.id === targetShip.id)?.skus.find(sku =>
-                    sku.price !== targetShip.msrp && sku.available)?.price || targetShip.msrp;
+                  const wbPrice = ccus.find(c => c.id === targetShip.data.ship.id)?.skus.find(sku =>
+                    sku.price !== targetShip.data.ship.msrp && sku.available)?.price || targetShip.data.ship.msrp;
 
-                  if (wbPrice && wbPrice !== targetShip.msrp) {
+                  if (wbPrice && wbPrice !== targetShip.data.ship.msrp) {
                     const wbPriceUSD = wbPrice / 100;
-                    const sourcePriceUSD = sourcePriceValue / 100;
+                    const sourcePriceUSD = sourceShip.data.ship.msrp / 100;
                     const actualPrice = wbPriceUSD - sourcePriceUSD;
 
                     // Ensure price difference is greater than 0
@@ -939,12 +986,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
                   }
                 }
                 else {
-                  const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
-                  const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
+                  const targetShipSkus = ccus.find(c => c.id === targetShip.data.ship.id)?.skus;
+                  const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.data.ship.msrp && sku.available);
 
-                  if (targetWb && sourcePriceValue < targetWb.price) {
+                  if (targetWb && sourceShip.data.ship.msrp < targetWb.price) {
                     const targetWbPrice = targetWb.price / 100;
-                    const sourceShipPrice = sourcePriceValue / 100;
+                    const sourceShipPrice = sourceShip.data.ship.msrp / 100;
                     const actualPrice = targetWbPrice - sourceShipPrice;
 
                     // Ensure price difference is greater than 0
@@ -959,14 +1006,13 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               }
 
               newEdges.push(newEdge);
-            });
+            })
 
-            // Mark connection found at current level, don't try higher levels
-            foundConnectionInAnyLevel = true;
+            break;
           }
         }
-      });
-    }
+      })
+    })
 
     // Update graph
     setNodes(nodes => [...nodes, ...newNodes]);

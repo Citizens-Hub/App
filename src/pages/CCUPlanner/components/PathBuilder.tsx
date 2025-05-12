@@ -129,7 +129,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
         const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
         const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
 
-        console.log(fromShip, toShip);
+        // console.log(fromShip, toShip);
 
         // If the corresponding ships are found, add them to the selected ships
         if (fromShip) {
