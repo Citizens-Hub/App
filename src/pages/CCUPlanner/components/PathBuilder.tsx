@@ -186,14 +186,15 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
   const removeAllShipVersions = (shipId: number, shipName: string) => {
     setLayerShips(prev => {
       const newLayerShips = [...prev];
-      if (newLayerShips[currentStep]) {
-        newLayerShips[currentStep] = newLayerShips[currentStep].filter(s =>
+      const step = Math.min(currentStep, 1);
+      if (newLayerShips[step]) {
+        newLayerShips[step] = newLayerShips[step].filter(s =>
           !(s.id === shipId || s.name === `${shipName}-wb` || s.name === `${shipName}-historical`)
         );
 
         // If there are no ships in this layer, clear this layer
-        if (newLayerShips[currentStep].length === 0) {
-          newLayerShips.splice(currentStep);
+        if (newLayerShips[step].length === 0) {
+          newLayerShips.splice(step);
         }
       }
       return newLayerShips;

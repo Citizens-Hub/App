@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -8,8 +8,6 @@ import ReactFlow, {
   addEdge,
   Connection,
   Node,
-  NodeTypes,
-  EdgeTypes,
   ReactFlowProvider,
   Panel,
   ReactFlowInstance,
@@ -32,14 +30,6 @@ import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';
 import UserSelector from '../../../components/UserSelector';
-
-const nodeTypes: NodeTypes = {
-  ship: ShipNode,
-};
-
-const edgeTypes: EdgeTypes = {
-  ccu: CcuEdge,
-};
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -457,7 +447,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       }
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = reactFlowInstance.project({
+      const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
@@ -1023,6 +1013,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
   }, [nodes, upgrades, ccus, setNodes, setEdges, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, wbHistory, reactFlowInstance]);
+
+  const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
+  const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);
 
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">
