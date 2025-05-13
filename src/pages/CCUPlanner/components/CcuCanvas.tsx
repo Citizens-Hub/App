@@ -1043,10 +1043,10 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
             <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
             <MiniMap className='dark:invert-90 xl:block hidden' />
             <Background color="#333" gap={32} />
-            <Panel position="top-right" className="bg-white dark:bg-[#121212] absolute">
+            <Panel position="top-right" className="bg-white dark:bg-[#121212]">
               <UserSelector />
             </Panel>
-            <Panel position="bottom-center" className="bg-white dark:bg-[#121212] absolute">
+            <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px]">
               <Toolbar
                 nodes={nodes}
                 onClear={handleClear}
@@ -1055,7 +1055,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
                 onImport={handleImport}
                 onOpenPathBuilder={handleOpenPathBuilder}
               />
-            </Panel>
+            </div>
             <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
               <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
             </Panel>

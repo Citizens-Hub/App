@@ -36,7 +36,7 @@ export default function ResourceDesktopView({
   onRemoveFromCart
 }: ResourceDesktopViewProps) {
   return (
-    <TableContainer component={Box}>
+    <TableContainer component={Box} sx={{ height: 'calc(100vh - 280px)', overflow: 'auto' }}>
       <Table sx={{ minWidth: 650 }} aria-label="resources table">
         <TableHead>
           <TableRow>
