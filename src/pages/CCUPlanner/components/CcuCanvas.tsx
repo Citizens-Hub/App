@@ -1018,7 +1018,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">
-      <div className="min-w-[300px] sm:w-fit w-full sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
+      <div className="min-w-[320px] w-full sm:w-fit sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
