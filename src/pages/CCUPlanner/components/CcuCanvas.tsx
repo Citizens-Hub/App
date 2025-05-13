@@ -1046,7 +1046,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
             <Panel position="top-right" className="bg-white dark:bg-[#121212]">
               <UserSelector />
             </Panel>
-            <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px]">
+            <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
               <Toolbar
                 nodes={nodes}
                 onClear={handleClear}
