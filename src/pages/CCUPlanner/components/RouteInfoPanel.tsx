@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
-import { Button, Input, Switch, Tooltip } from '@mui/material';
-import { InfoOutlined } from '@mui/icons-material';
+import { Button, Input, Switch, Tooltip, IconButton } from '@mui/material';
+import { InfoOutlined, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
@@ -50,6 +50,7 @@ export default function RouteInfoPanel({
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
+  const [currentPage, setCurrentPage] = useState(0);
   const nodeBestCostRef = useRef<Record<string, number>>({});
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
@@ -248,6 +249,27 @@ export default function RouteInfoPanel({
     onStartShipPriceChange(nodeId, price);
   };
 
+  const sortedPaths = useMemo(() => {
+    if (!completePaths.length) return [];
+    return [...completePaths].sort((a, b) => {
+      return (a.totalUsdPrice + a.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue))) - (b.totalUsdPrice + b.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue)))
+    });
+  }, [completePaths, conciergeValue]);
+
+  const totalPages = sortedPaths.length;
+  
+  const goToNextPage = () => {
+    setCurrentPage((prev) => (prev + 1) % totalPages);
+  };
+
+  const goToPrevPage = () => {
+    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+  };
+
+  useEffect(() => {
+    setCurrentPage(0); // 重置为第一页当选择的节点改变时
+  }, [selectedNode]);
+
   if (!selectedNode) return null;
 
   return (
@@ -337,171 +359,195 @@ export default function RouteInfoPanel({
         <FormattedMessage id="routeInfoPanel.title" defaultMessage="Alternative Upgrade Routes" />
       </h4>
 
-      {completePaths.length === 0 ? (
+      {sortedPaths.length === 0 ? (
         <p className="text-gray-400">
           <FormattedMessage id="routeInfoPanel.noRoutes" defaultMessage="No available upgrade routes found" />
         </p>
       ) : (
-        <div className="space-y-6">
-          {completePaths.sort((a, b) => {
-            return (a.totalUsdPrice + a.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue))) - (b.totalUsdPrice + b.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue)))
-          }).map((completePath, pathIndex) => {
-            const startNode = nodes.find(n => n.id === completePath.startNodeId);
-            const startShip = startNode?.data?.ship as Ship;
+        <div>
+          {/* 分页导航 */}
+          <div className="flex justify-between items-center mb-4">
+            <IconButton onClick={goToPrevPage} disabled={totalPages <= 1}>
+              <ArrowBackIos fontSize="small" />
+            </IconButton>
+            <div className="text-sm">
+              <FormattedMessage 
+                id="routeInfoPanel.pagination" 
+                defaultMessage="Route {current} of {total}" 
+                values={{
+                  current: currentPage + 1,
+                  total: totalPages
+                }} 
+              />
+            </div>
+            <IconButton onClick={goToNextPage} disabled={totalPages <= 1}>
+              <ArrowForwardIos fontSize="small" />
+            </IconButton>
+          </div>
 
-            return (
-              <div key={pathIndex}>
-                <div className="mt-3">
-                  <h5 className="font-medium mb-2 pb-1">
-                    <FormattedMessage
-                      id="routeInfoPanel.routeNumber"
-                      defaultMessage="Route {number}: {nodes} nodes"
-                      values={{
-                        number: pathIndex + 1,
-                        nodes: completePath.path.length
-                      }}
-                    />
-                  </h5>
+          {/* 只显示当前页的路径 */}
+          {sortedPaths.length > 0 && (
+            <div className="space-y-6">
+              {(() => {
+                const completePath = sortedPaths[currentPage];
+                const pathIndex = currentPage;
+                const startNode = nodes.find(n => n.id === completePath.startNodeId);
+                const startShip = startNode?.data?.ship as Ship;
 
-                  {/* 起点船价格设置 */}
-                  {startShip && (
-                    <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
-                      <div className="flex items-center gap-2 mb-2">
-                        <img
-                          src={startShip.medias.productThumbMediumAndSmall}
-                          alt={startShip.name}
-                          className="w-8 h-8 rounded object-cover"
-                        />
-                        <span className="font-medium">{startShip.name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm text-gray-600 dark:text-gray-400">
-                          <FormattedMessage id="routeInfoPanel.startShipPrice" defaultMessage="Start Ship Price ($)" />
-                        </label>
-                        <Input
-                          type="number"
-                          className="w-24"
-                          inputProps={{ min: 0, max: startShip.msrp / 100, step: 1 }}
-                          value={startShipPrices[completePath.startNodeId] || ""}
-                          onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    {completePath.edges.map((pathEdge, edgeIndex) => {
-                      const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
-                      const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
-
-                      return (
-                        <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 dark:border-gray-800 last:border-b-0 flex flex-col gap-2">
-                          <div className="flex mb-1 gap-2 justify-between w-full">
-                            <div className='flex gap-4'>
-                              <img
-                                src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
-                                alt={pathEdge.sourceNode.data?.ship?.name}
-                                className="w-8 h-8 rounded object-cover"
-                              />
-                              <span className="text-gray-400">
-                                <FormattedMessage id="routeInfoPanel.from" defaultMessage="From" />
-                                {' '}
-                                <span className='text-black dark:text-white'>{pathEdge.sourceNode.data?.ship?.name}</span>
-                              </span>
-                            </div>
-                            <div className='flex gap-4'>
-                              <span className="text-gray-400">
-                                <FormattedMessage id="routeInfoPanel.to" defaultMessage="To" />
-                                {' '}
-                                <span className='text-black dark:text-white'>{pathEdge.targetNode.data?.ship?.name}</span>
-                              </span>
-                              <img
-                                src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
-                                alt={pathEdge.targetNode.data?.ship?.name}
-                                className="w-8 h-8 rounded object-cover"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">
-                              <span className="text-black dark:text-white">{
-                                (() => {
-                                  switch (sourceType) {
-                                    case CcuSourceType.OFFICIAL:
-                                      return <FormattedMessage id="routeInfoPanel.official" defaultMessage="Official" />
-                                    case CcuSourceType.AVAILABLE_WB:
-                                      return <FormattedMessage id="routeInfoPanel.availableWB" defaultMessage="WB" />
-                                    case CcuSourceType.THIRD_PARTY:
-                                      return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
-                                    case CcuSourceType.HANGER:
-                                      return <FormattedMessage id="routeInfoPanel.hangar" defaultMessage="Hangar" />
-                                    case CcuSourceType.HISTORICAL:
-                                      return <FormattedMessage id="routeInfoPanel.historical" defaultMessage="Historical" />
-                                    case CcuSourceType.OFFICIAL_WB:
-                                      return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
-                                  }
-                                })()
-                              }</span>{' '}
-                              <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />
+                return (
+                  <div key={pathIndex}>
+                    {/* 价格总结 */}
+                    <div className="bg-gray-100 dark:bg-[#222] p-2 rounded mt-2">
+                      <div className="flex flex-col gap-2 px-2">
+                        <div className='flex justify-between gap-4'>
+                          <div className="text-sm">
+                            <span className="text-black dark:text-white mr-1">
+                              <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />:
                             </span>
-
-                            {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
-                              <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                <span className="text-black dark:text-white">${usdPrice.toFixed(2)}</span>
-                              </span>
-                            ) : (
-                              <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                <span className="text-black dark:text-white">￥{cnyPrice.toFixed(2)}</span>
-                              </span>
-                            )}
+                            <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                        <div className='flex justify-between gap-4'>
+                          <div className="text-sm">
+                            <span className="text-black dark:text-white mr-1">
+                              <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
+                            </span>
+                            <span className="text-blue-400">
+                              <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                              {conciergeValue !== "0" && <span> + </span>}
+                              {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>}
+                            </span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-blue-400">
+                              {(completePath.totalUsdPrice * exchangeRate + completePath.totalCnyPrice).toLocaleString(locale, { style: 'currency', currency })}
+                              {conciergeValue !== "0" && <span> + </span>}
+                              {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency })}</span>}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      {/* <h5 className="font-medium mb-2 pb-1">
+                        <FormattedMessage
+                          id="routeInfoPanel.routeNumber"
+                          defaultMessage="Route {number}: {nodes} nodes"
+                          values={{
+                            number: pathIndex + 1,
+                            nodes: completePath.path.length
+                          }}
+                        />
+                      </h5> */}
 
-                {/* 价格总结 */}
-                <div className="bg-gray-100 dark:bg-[#222] p-2 rounded mt-2">
-                  <div className="flex flex-col gap-2 px-2">
-                    <div className='flex justify-between gap-4'>
-                      <div className="text-sm">
-                        <span className="text-black dark:text-white mr-1">
-                          <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />:
-                        </span>
-                        <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-blue-400">{completePath.totalCnyPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
-                      </div>
-                    </div>
-                    <div className='flex justify-between gap-4'>
-                      <div className="text-sm">
-                        <span className="text-black dark:text-white mr-1">
-                          <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
-                        </span>
-                        <span className="text-blue-400">
-                          <span>{(completePath.totalUsdPrice + completePath.totalCnyPrice / 7.3).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
-                          {conciergeValue !== "0" && <span> + </span>}
-                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice / 7.3 * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>}
-                        </span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-blue-400">
-                          {(completePath.totalUsdPrice * exchangeRate + completePath.totalCnyPrice).toLocaleString(locale, { style: 'currency', currency })}
-                          {conciergeValue !== "0" && <span> + </span>}
-                          {conciergeValue !== "0" && <span>{(completePath.totalCnyPrice * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency })}</span>}
-                        </span>
+                      {/* 起点船价格设置 */}
+                      {startShip && (
+                        <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
+                          <div className="flex items-center gap-2 mb-2">
+                            <img
+                              src={startShip.medias.productThumbMediumAndSmall}
+                              alt={startShip.name}
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                            <span className="font-medium">{startShip.name}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-600 dark:text-gray-400">
+                              <FormattedMessage id="routeInfoPanel.startShipPrice" defaultMessage="Start Ship Price ($)" />
+                            </label>
+                            <Input
+                              type="number"
+                              className="w-24"
+                              inputProps={{ min: 0, max: startShip.msrp / 100, step: 1 }}
+                              value={startShipPrices[completePath.startNodeId] || ""}
+                              onChange={(e) => handleStartShipPriceChange(completePath.startNodeId, e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        {completePath.edges.map((pathEdge, edgeIndex) => {
+                          const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
+                          const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
+
+                          return (
+                            <div key={edgeIndex} className="p-2 rounded text-sm border-b border-gray-200 dark:border-gray-800 last:border-b-0 flex flex-col gap-2">
+                              <div className="flex mb-1 gap-2 justify-between w-full">
+                                <div className='flex gap-4'>
+                                  <img
+                                    src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                    alt={pathEdge.sourceNode.data?.ship?.name}
+                                    className="w-8 h-8 rounded object-cover"
+                                  />
+                                  <span className="text-gray-400">
+                                    <FormattedMessage id="routeInfoPanel.from" defaultMessage="From" />
+                                    {' '}
+                                    <span className='text-black dark:text-white'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                                  </span>
+                                </div>
+                                <div className='flex gap-4'>
+                                  <span className="text-gray-400">
+                                    <FormattedMessage id="routeInfoPanel.to" defaultMessage="To" />
+                                    {' '}
+                                    <span className='text-black dark:text-white'>{pathEdge.targetNode.data?.ship?.name}</span>
+                                  </span>
+                                  <img
+                                    src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                    alt={pathEdge.targetNode.data?.ship?.name}
+                                    className="w-8 h-8 rounded object-cover"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  <span className="text-black dark:text-white">{
+                                    (() => {
+                                      switch (sourceType) {
+                                        case CcuSourceType.OFFICIAL:
+                                          return <FormattedMessage id="routeInfoPanel.official" defaultMessage="Official" />
+                                        case CcuSourceType.AVAILABLE_WB:
+                                          return <FormattedMessage id="routeInfoPanel.availableWB" defaultMessage="WB" />
+                                        case CcuSourceType.THIRD_PARTY:
+                                          return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
+                                        case CcuSourceType.HANGER:
+                                          return <FormattedMessage id="routeInfoPanel.hangar" defaultMessage="Hangar" />
+                                        case CcuSourceType.HISTORICAL:
+                                          return <FormattedMessage id="routeInfoPanel.historical" defaultMessage="Historical" />
+                                        case CcuSourceType.OFFICIAL_WB:
+                                          return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
+                                      }
+                                    })()
+                                  }</span>{' '}
+                                  <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />
+                                </span>
+
+                                {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
+                                  <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+                                    <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                    <span className="text-black dark:text-white">${usdPrice.toFixed(2)}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+                                    <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                    <span className="text-black dark:text-white">￥{cnyPrice.toFixed(2)}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
     </div>
