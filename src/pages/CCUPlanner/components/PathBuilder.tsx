@@ -293,7 +293,7 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
               </div>
 
               <div className="flex-1">
-                <div className="h-[calc(100vh-350px)] overflow-auto flex flex-col justify-start">
+                <div className="h-[calc(100vh-400px)] overflow-auto flex flex-col justify-start">
                   {filteredShips.map((ship) => {
                     const skus = ccus.find(c => c.id === ship.id)?.skus
                     const wb = skus?.find(sku => sku.price !== ship.msrp)

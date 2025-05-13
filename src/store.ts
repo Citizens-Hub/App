@@ -31,6 +31,9 @@ interface HangarItems {
   ccus: CCUItem[],
   ships: ShipItem[],
   bundles: BundleItem[],
+  predicts: {
+    [shipId: number]: number,
+  },
 }
 
 export interface UserInfo {
@@ -65,6 +68,10 @@ const getInitialState = (): {
     return {
       ...state,
       currency: state.currency || getDefaultCurrency(),
+      items: {
+        ...state.items,
+        predicts: state.items.predicts || { },
+      },
     };
   }
 
@@ -73,6 +80,7 @@ const getInitialState = (): {
       ccus: [],
       ships: [],
       bundles: [],
+      predicts: {},
     },
     users: [],
     selectedUser: -1,
@@ -97,12 +105,21 @@ const stringsSlice = createSlice({
       }
       localStorage.setItem('state', JSON.stringify(state));
     },
+    addPredict: (state, action: PayloadAction<{ shipId: number, price: number }>) => {
+      state.items.predicts[action.payload.shipId] = action.payload.price;
+      localStorage.setItem('state', JSON.stringify(state));
+    },
+    removePredict: (state, action: PayloadAction<number>) => {
+      delete state.items.predicts[action.payload];
+      localStorage.setItem('state', JSON.stringify(state));
+    },
     clearUpgrades: (state, action: PayloadAction<number>) => {
       const currentUser = action.payload;
       state.items = {
         ccus: state.items.ccus.filter(item => item.belongsTo !== currentUser),
         ships: state.items.ships.filter(item => item.belongsTo !== currentUser),
         bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
+        predicts: state.items.predicts,
       };
       localStorage.setItem('state', JSON.stringify(state));
     },
@@ -145,7 +162,7 @@ export const selectUsersHangarItems = createSelector(
   }
 );
 
-export const { addCCU, addUser, clearUpgrades, setSelectedUser, setCurrency } = stringsSlice.actions;
+export const { addCCU, addUser, clearUpgrades, setSelectedUser, setCurrency, addPredict, removePredict } = stringsSlice.actions;
 
 export const store = configureStore({
   reducer: {
