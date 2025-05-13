@@ -191,5 +191,6 @@
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
   "settings.confirmClearUser": "Confirm Clear User Data?",
-  "settings.confirmClearUserDescription": "This action will clear all local storage data of the selected user. This action cannot be undone."
+  "settings.confirmClearUserDescription": "This action will clear all local storage data of the selected user. This action cannot be undone.",
+  "routeInfoPanel.pagination": "Route {current} of {total}"
 }

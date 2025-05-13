@@ -201,5 +201,6 @@
   "common.cancel": "取消",
   "common.confirm": "确认",
   "settings.confirmClearUser": "确认清除用户数据？",
-  "settings.confirmClearUserDescription": "此操作将清除选定用户的所有本地存储数据。此操作不可撤销"
+  "settings.confirmClearUserDescription": "此操作将清除选定用户的所有本地存储数据。此操作不可撤销",
+  "routeInfoPanel.pagination": "路径 {current} / {total}"
 }
