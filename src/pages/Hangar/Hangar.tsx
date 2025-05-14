@@ -3,7 +3,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Search, Delete, Add } from '@mui/icons-material';
-import { RootState, selectUsersHangarItems, addPredict, removePredict } from '../../store';
+import { selectUsersHangarItems, addPredict, removePredict } from '../../store/upgradesStore';
+import { RootState } from '../../store';
 import useResourceData from './hooks/useResourceData';
 import UserSelector from '../../components/UserSelector';
 

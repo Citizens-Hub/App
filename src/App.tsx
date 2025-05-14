@@ -1,19 +1,44 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
 import { useEffect, useLayoutEffect, useState } from 'react'
-import { Route, BrowserRouter, Routes } from 'react-router'
+import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
 import Privacy from './pages/Privacy/Privacy'
 import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
-import Login from './pages/Login/Login'
+import Auth from './pages/Auth/Auth'
 import Admin from './pages/Admin/Admin'
 import Header from './components/Header'
 import Navigate from './pages/Navigate/Navigate'
 import Hangar from './pages/Hangar/Hangar'
 import Settings from './pages/Settings/Settings'
+import FleaMarket from './pages/FleaMarket/FleaMarket'
+import { useSelector } from 'react-redux'
+import { RootState } from './store'
+import { UserRole } from './store/userStore'
+// import { useGoogleOneTapLogin } from '@react-oauth/google';
+
+function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
+  const { pathname } = useLocation();
+  const { user } = useSelector((state: RootState) => state.user);
+
+  if (user.role < minRole) {
+    return <RouterNavigate to="/login" replace state={pathname} />
+  }
+
+  return children;
+}
 
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
+
+  // useGoogleOneTapLogin({
+  //   onSuccess: credentialResponse => {
+  //     console.log(credentialResponse);
+  //   },
+  //   onError: () => {
+  //     console.log('Login Failed');
+  //   },
+  // });
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem('darkMode');
@@ -72,13 +97,14 @@ function App() {
           <Route path="/" element={<Navigate />} />
           <Route path="/ccu-planner" element={<CCUPlanner />} />
           <Route path="/hangar" element={<Hangar />} />
+          <Route path="/flea-market" element={<FleaMarket />} />
           <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/app-settings" element={<Settings />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/changelog" element={<ChangeLogs />} />
-
-          <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
+          <Route path="/login" element={<Auth action="login" />} />
+          <Route path="/register" element={<Auth action="register" />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

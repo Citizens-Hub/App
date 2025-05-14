@@ -25,7 +25,7 @@ import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Snackbar, useMediaQuery } from '@mui/material';
-import { selectHangarItems } from '../../../store';
+import { selectHangarItems } from '../../../store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';

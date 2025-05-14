@@ -1,4 +1,4 @@
-import { Button, Menu, MenuItem } from '@mui/material';
+import { IconButton, Menu, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useLocale } from '../contexts/LocaleContext';
 import LanguageIcon from '@mui/icons-material/Language';
@@ -23,16 +23,15 @@ export default function LanguageSwitcher() {
 
   return (
     <>
-      <Button
+      <IconButton
         color="inherit"
         onClick={handleClick}
-        startIcon={<LanguageIcon />}
         size="small"
-        sx={{
-          px: 1
-        }}
+        sx={{ ml: 1 }}
+        className="text-gray-800 dark:text-white"
       >
-        {(() => {
+        <LanguageIcon />
+        {/* {(() => {
           switch (locale) {
             case 'zh-CN':
               return '中文';
@@ -43,8 +42,8 @@ export default function LanguageSwitcher() {
             case 'de-DE':
               return 'Deutsch';
           }
-        })()}
-      </Button>
+        })()} */}
+      </IconButton>
       <Menu
         anchorEl={anchorEl}
         open={open}

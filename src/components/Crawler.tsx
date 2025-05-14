@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addCCU, addUser, clearUpgrades, UserInfo } from "../store";
+import { addCCU, addUser, clearUpgrades, UserInfo } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton } from "@mui/material";

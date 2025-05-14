@@ -1,4 +1,4 @@
-import { Avatar, Button, Drawer, IconButton, Link } from "@mui/material";
+import { Avatar, Box, Button, Drawer, IconButton, Link, Menu, MenuItem } from "@mui/material";
 import { FormattedMessage, useIntl } from "react-intl";
 import DiscordIcon from "../icons/DiscordIcon";
 import GithubIcon from "../icons/GithubIcon";
@@ -9,9 +9,10 @@ import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import { MenuIcon } from "lucide-react";
 import { navigation } from "../const/navigation";
-import { useLocation } from "react-router";
-import { useSelector } from "react-redux";
-import { RootState } from "../store";
+import { useLocation, useNavigate } from "react-router";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../store/";
+import { logout } from "../store/userStore";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -27,7 +28,11 @@ enum SCBoxTranslateStatus {
 export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { currency } = useSelector((state: RootState) => state.upgrades);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  // const { currency } = useSelector((state: RootState) => state.upgrades);
+  const { user } = useSelector((state: RootState) => state.user);
   const intl = useIntl();
   const { locale } = intl;
   const pathname = useLocation().pathname;
@@ -90,13 +95,13 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           </Button>)
         } */}
         <LanguageSwitcher />
-        <Button
+        {/* <Button
           color="inherit"
           size="small"
-          onClick={() => window.location.href = "/app-settings"}
+          onClick={() => navigate('/app-settings')}
         >
           {currency}
-        </Button>
+        </Button> */}
         <IconButton
           onClick={toggleDarkMode}
           color="inherit"
@@ -131,6 +136,48 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         >
           <GithubIcon />
         </IconButton>
+        {
+          !user?.role ? (
+            <Box sx={{ position: 'relative' }}>
+              <IconButton
+                onClick={(event) => setAnchorEl(event.currentTarget)}
+                sx={{ p: 0 }}
+              >
+                <Avatar src={user?.avatar} />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={() => setAnchorEl(null)}
+              >
+                <MenuItem onClick={() => navigate('/login')}>
+                  <FormattedMessage id="user.login" defaultMessage="Login/Register" />
+                </MenuItem>
+              </Menu>
+            </Box>
+          ) : (
+            <Box sx={{ position: 'relative' }}>
+              <IconButton
+                onClick={(event) => setAnchorEl(event.currentTarget)}
+                sx={{ p: 0 }}
+              >
+                <Avatar src={user?.avatar} />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={() => setAnchorEl(null)}
+              >
+                <MenuItem onClick={() => navigate('/app-settings')}>
+                  <FormattedMessage id="user.profile" defaultMessage="Profile" />
+                </MenuItem>
+                <MenuItem onClick={() => dispatch(logout())}>
+                  <FormattedMessage id="user.logout" defaultMessage="Logout" />
+                </MenuItem>
+              </Menu>
+            </Box>
+          )
+        }
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
@@ -183,7 +230,11 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                   key={item.name}
                   href={item.path}
                   underline="none"
-                  onClick={() => setMenuOpen(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    navigate(item.path);
+                  }}
                   className={`py-2 px-3 rounded-md transition-colors hover:bg-opacity-10 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/10'
                     }`}
                   sx={{

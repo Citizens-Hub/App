@@ -155,3 +155,22 @@ export interface HangarItem {
   toShip?: string;
   price?: number;
 }
+
+export enum ListingType {
+  WTS = 'WTS',
+  WTB = 'WTB'
+}
+
+export interface ListingItem {
+  id: string;
+  type: ListingType;
+  name: string;
+  description: string;
+  imageUrl: string;
+  languages: string[];
+  communicationTools: string[];
+  price?: string;
+  seller: string;
+  createdAt: Date;
+}
+

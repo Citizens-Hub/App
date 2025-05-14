@@ -1,6 +1,7 @@
 import { useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState, clearUpgrades, setCurrency } from '../../store';
+import { clearUpgrades, setCurrency } from '../../store/upgradesStore';
+import { RootState } from '../../store';
 import {
   Typography,
   Button,
@@ -21,6 +22,7 @@ const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
 enum Page {
   Preferences = 'preferences',
   LocalData = 'localData',
+  Profile = 'profile',
 }
 
 export default function Settings() {
@@ -28,7 +30,7 @@ export default function Settings() {
   const dispatch = useDispatch();
   const users = useSelector((state: RootState) => state.upgrades.users);
 
-  const [currentPage, setCurrentPage] = useState<Page>(Page.Preferences);
+  const [currentPage, setCurrentPage] = useState<Page>(Page.Profile);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const [clearAllDataDialog, setClearAllDataDialog] = useState(false);
   const [clearUserDataDialog, setClearUserDataDialog] = useState(false);
@@ -80,6 +82,12 @@ export default function Settings() {
       )}
 
       <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Profile ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Profile)}>
+          <FormattedMessage id="settings.profile" defaultMessage="Profile" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="settings.profileDescription" defaultMessage="Manage your profile here." />
+          </Typography>
+        </div>
         <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Preferences ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Preferences)}>
           <FormattedMessage id="settings.preferences" defaultMessage="Preferences" />
           <Typography variant='body2' color='text.secondary'>
@@ -96,6 +104,15 @@ export default function Settings() {
 
       <div className='w-full'>
         <div className='max-w-[700px] py-4 px-4 flex flex-col gap-6'>
+          {
+            currentPage === Page.Profile && (
+              <>
+                <div className='text-2xl font-bold'>
+                  <FormattedMessage id="settings.profile" defaultMessage="Profile" />
+                </div>
+              </>
+            )
+          }
           {
             currentPage === Page.Preferences && (
               <>
@@ -130,7 +147,7 @@ export default function Settings() {
           {
             currentPage === Page.LocalData && (
               <div className='flex flex-col gap-4'>
-                <div className='text-2xl flex flex-row items-center gap-2 justify-between'>
+                <div className='text-2xl font-bold flex flex-row items-center gap-2 justify-between'>
                   <FormattedMessage id="settings.localData" defaultMessage="Local Data" />
                 </div>
                 <Typography variant="body1" gutterBottom>

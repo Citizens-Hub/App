@@ -1,5 +1,9 @@
 export const navigation = [
   {
+    name: "navigation.home",
+    path: "/",
+  },
+  {
     name: "navigation.ccuPlanner",
     path: "/ccu-planner",
   },
@@ -11,7 +15,6 @@ export const navigation = [
   {
     name: "navigation.fleaMarket",
     path: "/flea-market",
-    hidden: true,
   },
   {
     name: "navigation.storePreview",
