@@ -82,10 +82,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           <MenuIcon />
         </IconButton>
         {
-          pathname !== "/" && <>
+          pathname !== "/" && <span className="hidden md:block">
             <Link
               href="/"
-              className="hidden md:block"
               sx={{
                 textDecoration: 'none',
                 color: 'inherit',
@@ -98,7 +97,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               {intl.formatMessage({ id: "navigation.home", defaultMessage: "Home" })}
             </Link>
             {" > "}
-          </>
+          </span>
         }
         <span className="hidden md:block">{intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}</span>
       </div>
