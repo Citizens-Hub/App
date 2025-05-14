@@ -141,7 +141,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             <Box sx={{ position: 'relative' }}>
               <IconButton
                 onClick={(event) => setAnchorEl(event.currentTarget)}
-                sx={{ p: 0 }}
+                sx={{ p: 0, ml: 1 }}
               >
                 <Avatar src={user?.avatar} />
               </IconButton>
@@ -159,7 +159,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             <Box sx={{ position: 'relative' }}>
               <IconButton
                 onClick={(event) => setAnchorEl(event.currentTarget)}
-                sx={{ p: 0 }}
+                sx={{ p: 0, ml: 1 }}
               >
                 <Avatar src={user?.avatar} />
               </IconButton>

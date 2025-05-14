@@ -225,6 +225,7 @@
   "message.loginSuccess": "Login successfully",
   "message.noTokenProvided": "No token provided",
   "message.internalServerError": "Internal server error",
+  "message.emailRegistrationDisabled": "Email registration is disabled for now",
   "navigate.welcome": "Welcome Aboard",
   "navigate.ccuPlanner": "CCU Planner",
   "navigate.storePreview": "Store Preview",

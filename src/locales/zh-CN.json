@@ -232,6 +232,7 @@
   "message.loginSuccess": "登录成功",
   "message.noTokenProvided": "未提供令牌",
   "message.internalServerError": "内部服务器错误",
+  "message.emailRegistrationDisabled": "暂时不开放邮箱注册",
   "navigate.welcome": "欢迎来到",
   "navigate.ccuPlanner": "CCU规划器",
   "navigate.storePreview": "订阅商店预览",
