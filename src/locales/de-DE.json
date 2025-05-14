@@ -109,7 +109,7 @@
   "routeInfoPanel.hangar": "Hangar",
   "routeInfoPanel.manualOfficialWB": "(M) CCU von RSI",
   "routeInfoPanel.manualThirdParty": "(M) Drittanbieter-CCU",
-  "navigate.title": "Star Citizen Tools",
+  "navigate.title": "Citizens' Hub",
   "navigate.subtitle": "Nützliche Tools für Star Citizen Spieler",
   "navigate.footer": "Star Citizen Tools",
   "navigate.privacy": "Datenschutzrichtlinie",
@@ -192,4 +192,4 @@
   "common.confirm": "Bestätigen",
   "settings.confirmClearUser": "Benutzerdaten wirklich löschen?",
   "settings.confirmClearUserDescription": "Diese Aktion löscht alle lokalen Speicher-Daten des ausgewählten Benutzers. Diese Aktion kann nicht rückgängig gemacht werden."
-} 
+}

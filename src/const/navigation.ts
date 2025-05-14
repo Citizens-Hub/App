@@ -15,6 +15,7 @@ export const navigation = [
   {
     name: "navigation.fleaMarket",
     path: "/flea-market",
+    hidden: true,
   },
   {
     name: "navigation.storePreview",
@@ -27,10 +28,12 @@ export const navigation = [
   {
     name: "navigation.privacy",
     path: "/privacy",
+    hidden: true,
   },
   {
     name: "navigation.changelog",
     path: "/changelog",
+    hidden: true,
   },
   {
     name: "navigation.login",

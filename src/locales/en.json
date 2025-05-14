@@ -109,7 +109,7 @@
   "routeInfoPanel.hangar": "Hangar",
   "routeInfoPanel.manualOfficialWB": "(M) CCU from RSI",
   "routeInfoPanel.manualThirdParty": "(M) Third Party CCU",
-  "navigate.title": "Star Citizen Tools",
+  "navigate.title": "Citizens' Hub",
   "navigate.subtitle": "Useful tools for Star Citizen players",
   "navigate.footer": "Star Citizen Tools",
   "navigate.privacy": "Privacy Policy",
@@ -219,10 +219,15 @@
   "message.invalidEmail": "Invalid email format",
   "message.passwordTooShort": "Password must be at least 6 characters",
   "message.emailAlreadyExists": "Email already exists",
-  "message.registerSuccess": "Register successfully", 
+  "message.registerSuccess": "Register successfully",
   "message.serverError": "Server error",
   "message.invalidCredentials": "Invalid credentials",
   "message.loginSuccess": "Login successfully",
   "message.noTokenProvided": "No token provided",
-  "message.internalServerError": "Internal server error"
+  "message.internalServerError": "Internal server error",
+  "navigate.welcome": "Welcome Aboard",
+  "navigate.ccuPlanner": "CCU Planner",
+  "navigate.storePreview": "Store Preview",
+  "login.submit": "Sign in",
+  "login.google": "Continue with Google"
 }

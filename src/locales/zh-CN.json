@@ -109,7 +109,7 @@
   "routeInfoPanel.hangar": "机库",
   "routeInfoPanel.manualOfficialWB": "手动：官方CCU",
   "routeInfoPanel.manualThirdParty": "手动：第三方CCU",
-  "navigate.title": "星际公民工具集",
+  "navigate.title": "Citizens' Hub",
   "navigate.subtitle": "为星际公民玩家提供的实用工具集合",
   "navigate.footer": "星际公民工具集",
   "navigate.privacy": "隐私政策",
@@ -213,7 +213,7 @@
   "settings.profile": "账户",
   "settings.profileDescription": "管理您的账户设置",
   "register.title": "注册",
-  "login.submit": "Sign In",
+  "login.submit": "登录",
   "login.confirmPassword": "确认密码",
   "register.submit": "注册",
   "login.emailError": "邮件地址无效",
@@ -231,5 +231,13 @@
   "message.invalidCredentials": "无效的凭证",
   "message.loginSuccess": "登录成功",
   "message.noTokenProvided": "未提供令牌",
-  "message.internalServerError": "内部服务器错误"
+  "message.internalServerError": "内部服务器错误",
+  "navigate.welcome": "欢迎来到",
+  "navigate.ccuPlanner": "CCU规划器",
+  "navigate.storePreview": "订阅商店预览",
+  "login.noAccount": "还没有账号？",
+  "login.register": "去注册",
+  "login.haveAccount": "已经有账号了？",
+  "login.login": "去登录",
+  "login.google": "使用Google账号继续"
 }

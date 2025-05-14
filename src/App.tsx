@@ -58,7 +58,7 @@ function App() {
       return;
     }
 
-    if (!host.includes("citizenshub.app")) {
+    if (!host.includes("citizenshub.app") && !host.includes("citizenshub.pages.dev")) {
       window.location.hostname = "citizenshub.app";
     }
   }, [])

@@ -19,6 +19,7 @@ import { md5 } from 'js-md5';
 import { Helmet } from 'react-helmet';
 import { useGoogleLogin } from '@react-oauth/google';
 import GoogleIcon from '../../icons/GoogleIcon';
+import BackgroundVideo from '../../components/BackgroundVideo';
 
 interface LoginResponse {
   success: boolean;
@@ -206,8 +207,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         setOpenSnackbar(true);
 
         setTimeout(() => {
-          navigate('/admin');
-        }, 1500);
+          navigate('/');
+        }, 500);
       } else {
         setError(data.message);
         // 重置 Turnstile
@@ -311,12 +312,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       <Helmet>
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
       </Helmet>
-      <div className='absolute top-0 left-0 w-full h-full overflow-hidden'>
-        <video className='w-full h-full object-cover blur-sm scale-105 grayscale-80 opacity-80' src="/videos/bg.mp4" autoPlay muted loop />
-        <p className="absolute bottom-5 left-5 text-lg text-gray-600">
-          「-SMrP-」- <Link href="https://www.bilibili.com/video/BV1JHEAz6E16" target="_blank" className="underline text-blue-600">BV1JHEAz6E16</Link>
-        </p>
-      </div>
+      <BackgroundVideo />
       <Box
         sx={{
           marginTop: 8,
@@ -342,7 +338,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
           <Box component="form" onSubmit={action === 'login' ? handleLogin : handleRegister} sx={{ mt: 4 }}>
             <Button variant="outlined" sx={{ py: 1 }} fullWidth startIcon={<GoogleIcon />} onClick={() => googleLogin()}>
-              Sign in with Google
+              <FormattedMessage id="login.google" defaultMessage="Continue with Google" />
             </Button>
 
             <Box sx={{ mt: 2, mb: 2, display: 'flex', alignItems: 'center' }}>
@@ -471,7 +467,13 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity="success" sx={{ width: '100%' }}>
-          <FormattedMessage id="login.success" defaultMessage="Login successful" />
+          {
+            action === 'login' ? (
+              <FormattedMessage id="login.success" defaultMessage="Login successful" />
+            ) : (
+              <FormattedMessage id="register.success" defaultMessage="Register successful" />
+            )
+          }
         </Alert>
       </Snackbar>
     </Container>
