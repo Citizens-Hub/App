@@ -113,7 +113,7 @@ export default function Settings() {
   };
 
   return (
-    <div className='absolute top-[65px] left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
+    <div className='absolute top-[65px] h-[calc(100vh-65px)] overflow-y-scroll left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
