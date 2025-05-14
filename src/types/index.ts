@@ -25,6 +25,18 @@ export interface Resource {
   isPackage: boolean;
 }
 
+export interface ProfileData {
+  name: string | null;
+  avatar: string | null;
+  description: string | null;
+  contacts: string | null;
+  homepage: string | null;
+  sharedHangar: string | null;
+
+  // immutable
+  email: string | null;
+  emailVerified: 0 | 1;
+}
 export interface ResourcesData {
   data: {
     store: {
@@ -155,3 +167,22 @@ export interface HangarItem {
   toShip?: string;
   price?: number;
 }
+
+export enum ListingType {
+  WTS = 'WTS',
+  WTB = 'WTB'
+}
+
+export interface ListingItem {
+  id: string;
+  type: ListingType;
+  name: string;
+  description: string;
+  imageUrl: string;
+  languages: string[];
+  communicationTools: string[];
+  price?: string;
+  seller: string;
+  createdAt: Date;
+}
+

@@ -4,7 +4,8 @@ import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../t
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { RootState, selectHangarItems } from '../../../store';
+import { selectHangarItems } from '../../../store/upgradesStore';
+import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ShipNodeProps {

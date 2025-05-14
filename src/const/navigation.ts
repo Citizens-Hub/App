@@ -1,5 +1,9 @@
 export const navigation = [
   {
+    name: "navigation.home",
+    path: "/",
+  },
+  {
     name: "navigation.ccuPlanner",
     path: "/ccu-planner",
   },
@@ -24,10 +28,12 @@ export const navigation = [
   {
     name: "navigation.privacy",
     path: "/privacy",
+    hidden: true,
   },
   {
     name: "navigation.changelog",
     path: "/changelog",
+    hidden: true,
   },
   {
     name: "navigation.login",

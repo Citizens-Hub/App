@@ -1,8 +1,9 @@
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, setSelectedUser } from '../store';
+import { setSelectedUser } from '../store/upgradesStore';
 import { Avatar, Box, Typography, Stack, Tooltip, IconButton } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { X } from 'lucide-react';
+import { RootState } from '../store';
 
 export default function UserSelector() {
   const users = useSelector((state: RootState) => state.upgrades.users);

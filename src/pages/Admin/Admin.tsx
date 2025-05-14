@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Container, Typography, Box, Paper, Grid, Snackbar, Alert } from '@mui/material';
 import { LoaderCircle, RefreshCw, ShipWheel } from 'lucide-react';
 import { Ship, StoreShipsData } from '../../types';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 
 export default function Admin() {
   const intl = useIntl();
@@ -18,6 +20,8 @@ export default function Admin() {
 
   const shipsRef = useRef<Ship[]>([]);
   const requestsLeftRef = useRef(0);
+
+  const { user } = useSelector((state: RootState) => state.user);
 
   const showNotification = useCallback((messageId: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setNotification({
@@ -68,11 +72,11 @@ export default function Admin() {
         body: JSON.stringify({ data: { ships: shipsRef.current } }),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${user.token}`
         }
       });
     }
-  }, [showNotification]);
+  }, [showNotification, user.token]);
 
   useEffect(() => {
     setToken();
@@ -142,7 +146,7 @@ export default function Admin() {
             body: JSON.stringify({ data: event.data.message.value.data[0].data }),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Authorization': `Bearer ${user.token}`
             }
           });
         }
@@ -194,7 +198,7 @@ export default function Admin() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleProcessStoreShips]);
+  }, [handleProcessStoreShips, user.token]);
 
   const setToken = () => {
     window.postMessage({
