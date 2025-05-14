@@ -41,6 +41,11 @@ export const navigation = [
     hidden: true,
   },
   {
+    name: "navigation.register",
+    path: "/register",
+    hidden: true,
+  },
+  {
     name: "navigation.admin",
     path: "/admin",
     hidden: true,
