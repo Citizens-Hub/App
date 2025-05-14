@@ -15,7 +15,6 @@ import FleaMarket from './pages/FleaMarket/FleaMarket'
 import { useSelector } from 'react-redux'
 import { RootState } from './store'
 import { UserRole } from './store/userStore'
-// import { useGoogleOneTapLogin } from '@react-oauth/google';
 
 function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
   const { pathname } = useLocation();
@@ -30,15 +29,6 @@ function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: U
 
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
-
-  // useGoogleOneTapLogin({
-  //   onSuccess: credentialResponse => {
-  //     console.log(credentialResponse);
-  //   },
-  //   onError: () => {
-  //     console.log('Login Failed');
-  //   },
-  // });
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem('darkMode');
