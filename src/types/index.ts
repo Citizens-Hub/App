@@ -25,6 +25,18 @@ export interface Resource {
   isPackage: boolean;
 }
 
+export interface ProfileData {
+  name: string | null;
+  avatar: string | null;
+  description: string | null;
+  contacts: string | null;
+  homepage: string | null;
+  sharedHangar: string | null;
+
+  // immutable
+  email: string | null;
+  emailVerified: 0 | 1;
+}
 export interface ResourcesData {
   data: {
     store: {

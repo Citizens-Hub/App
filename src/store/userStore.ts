@@ -7,7 +7,7 @@ export enum UserRole {
 }
 
 export interface User {
-  id: number,
+  id: string,
   username: string,
   nickname: string,
   avatar: string,
@@ -26,7 +26,7 @@ const getInitialState = () => {
 
   return {
     user: {
-      id: -1,
+      id: '',
       username: '',
       nickname: '',
       avatar: '',

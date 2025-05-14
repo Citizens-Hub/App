@@ -109,7 +109,6 @@ export default function RouteInfoPanel({
   }, []);
 
   // Calculate the converted value of the cost (USD cost * 7.3 + CNY cost * (1 + concierge value))
-  // TODO: Exchange Rate
   const calculateTotalCost = useCallback((usdPrice: number, cnyPrice: number) => {
     const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
     return usdPrice * exchangeRate + cnyPrice * conciergeMultiplier;

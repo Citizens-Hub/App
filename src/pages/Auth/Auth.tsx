@@ -25,7 +25,7 @@ interface LoginResponse {
   success: boolean;
   message: string;
   user: {
-    id: number;
+    id: string;
     username: string;
     nickname: string;
     avatar: string;

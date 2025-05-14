@@ -13,8 +13,11 @@ export default function Navigate() {
         <div className='md:text-[96px] text-7xl font-bold text-blue-300'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div> */}
-        <div className="text-center text-gray-100 text-md sm:text-sl">
+        <div className="text-center text-gray-100 text-md sm:text-sm">
           <FormattedMessage id="navigate.welcome" defaultMessage="Welcome Aboard" />
+        </div>
+        <div className='text-center text-gray-100 text-lg sm:text-md'>
+          <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
         <div className='text-lg sm:text-2xl text-center text-gray-100 flex gap-2 m-auto text-nowrap'>
           <Link to="/ccu-planner" style={{ color: 'inherit' }}><FormattedMessage id="navigate.ccuPlanner" defaultMessage="CCU Planner" /></Link> |
