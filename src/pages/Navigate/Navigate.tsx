@@ -13,10 +13,10 @@ export default function Navigate() {
         <div className='md:text-[96px] text-7xl font-bold text-blue-300'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div> */}
-        <div className="text-center text-gray-100 text-md sm:text-sm">
+        <div className="text-center text-gray-100 text-sm sm:text-lg">
           <FormattedMessage id="navigate.welcome" defaultMessage="Welcome Aboard" />
         </div>
-        <div className='text-center text-gray-100 text-lg sm:text-md'>
+        <div className='text-center text-gray-100 text-lg sm:text-xl'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
         <div className='text-lg sm:text-3xl text-center text-gray-100 flex gap-2 m-auto text-nowrap'>
