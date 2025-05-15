@@ -19,11 +19,11 @@ export default function Navigate() {
         <div className='text-center text-gray-100 text-lg sm:text-md'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
-        <div className='text-lg sm:text-2xl text-center text-gray-100 flex gap-2 m-auto text-nowrap'>
+        <div className='text-lg sm:text-3xl text-center text-gray-100 flex gap-2 m-auto text-nowrap'>
           <Link to="/ccu-planner" style={{ color: 'inherit' }}><FormattedMessage id="navigate.ccuPlanner" defaultMessage="CCU Planner" /></Link> |
           <Link to="/store-preview" style={{ color: 'inherit' }}><FormattedMessage id="navigate.storePreview" defaultMessage="Store Preview" /></Link>
         </div>
-        <div className='text-xs text-center text-gray-200 m-auto text-nowrap'>
+        <div className='text-xs sm:text-lg text-center text-gray-200 m-auto text-nowrap'>
           © {new Date().getFullYear()} <FormattedMessage id="navigate.title" defaultMessage="Star Citizen Tools" />
           &nbsp;|&nbsp;<Link to="/privacy" style={{ color: 'inherit' }}><FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" /></Link>
         </div>
