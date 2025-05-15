@@ -122,17 +122,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
 
       {(!isMobile || searchTerm !== '') &&
         <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px)] sm:max-h-full max-h-[calc(100vh-425px)]">
-          <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8578998445296852"
-            crossOrigin="anonymous"></script>
-          <ins className="adsbygoogle"
-            style={{ display: 'block' }}
-            data-ad-format="fluid"
-            data-ad-layout-key="-hb-4+10-6a+bh"
-            data-ad-client="ca-pub-8578998445296852"
-            data-ad-slot="9470009919"></ins>
-          <script>
-            (adsbygoogle = window.adsbygoogle || []).push({ });
-          </script>
+          {/* <ShipBlockAd /> */}
           {filteredShips.map((ship) => (
             <div
               key={ship.id}
