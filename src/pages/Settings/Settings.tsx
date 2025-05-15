@@ -167,7 +167,7 @@ export default function Settings() {
                   <Skeleton variant="text" width="100%" height={40} />
                 </h1>) : (<>
                   <Alert severity="info">
-                    <FormattedMessage id="settings.stillDeveloping" defaultMessage="The account system is still under development yet." />
+                    <FormattedMessage id="settings.stillDeveloping" defaultMessage="The account system is still under development, you may not be able to sync your settings across devices yet." />
                   </Alert>
                   <div className='flex flex-row items-center gap-2 justify-between'>
                     <div>
