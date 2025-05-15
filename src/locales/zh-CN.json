@@ -79,7 +79,7 @@
   "newsModal.newDomain": "新域名已启用",
   "newsModal.pleaseDownloadNewExtension": "由于原本的扩展并未将新域名的访问权限加入，请重新下载浏览器扩展",
   "extensionModal.title": "安装扩展说明",
-  "extensionModal.description": "由于扩展尚未上架Chrome商店，需要手动安装：",
+  "extensionModal.description": "为浏览器安装扩展程序:",
   "extensionModal.step1": "下载并解压扩展文件",
   "extensionModal.step2": "打开Chrome浏览器，在地址栏输入chrome://extensions/",
   "extensionModal.step3": "开启右上角的\"开发者模式\"",
@@ -241,5 +241,8 @@
   "login.register": "去注册",
   "login.haveAccount": "已经有账号了？",
   "login.login": "去登录",
-  "login.google": "使用Google账号继续"
+  "login.google": "使用Google账号继续",
+  "extensionModal.chromeEdge": "Chrome和Edge",
+  "extensionModal.firefox": "Firefox",
+  "extensionModal.manualLink": "手动安装"
 }

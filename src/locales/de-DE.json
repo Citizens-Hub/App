@@ -79,7 +79,7 @@
   "newsModal.newDomain": "Neue Domain verfügbar",
   "newsModal.pleaseDownloadNewExtension": "Da die ursprüngliche Erweiterung die neue Domain nicht enthält, laden Sie die Erweiterung bitte erneut herunter",
   "extensionModal.title": "Erweiterungs-Installationsanleitung",
-  "extensionModal.description": "Da die Erweiterung noch nicht im Chrome Store ist, muss sie manuell installiert werden:",
+  "extensionModal.description": "Install the extension for:",
   "extensionModal.step1": "Erweiterungsdateien herunterladen und entpacken",
   "extensionModal.step2": "Chrome-Browser öffnen und chrome://extensions/ in die Adressleiste eingeben",
   "extensionModal.step3": "Oben rechts den \"Entwicklermodus\" aktivieren",

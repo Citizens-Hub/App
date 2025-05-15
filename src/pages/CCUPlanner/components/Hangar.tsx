@@ -1,4 +1,4 @@
-import { IconButton, Link, TextField, InputAdornment } from "@mui/material";
+import { IconButton, TextField, InputAdornment, Button } from "@mui/material";
 import { Ccu, Ship } from "../../../types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
@@ -169,7 +169,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               ) : (
                 <>
                   <FormattedMessage id="ccuPlanner.noData" defaultMessage="暂无数据" />
-                  <Link href="/extension.zip" onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Link>
+                  <Button onClick={handleExtensionLinkClick}>{intl.formatMessage({ id: 'ccuPlanner.downloadBrowserExtension', defaultMessage: '下载浏览器扩展程序' })}</Button>
                 </>
               )}
             </div>

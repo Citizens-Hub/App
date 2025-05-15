@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
+import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box, Link } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
 
@@ -30,7 +30,7 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
         pb: 1
       }}>
         <Typography variant="h5" component="h2" fontWeight="bold">
-          <FormattedMessage id="extensionModal.title" defaultMessage="Install Extension Instructions" />
+          <FormattedMessage id="extensionModal.title" defaultMessage="Install Extension" />
         </Typography>
         <IconButton onClick={onClose} size="large">
           <Close />
@@ -39,40 +39,53 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
 
       <DialogContent>
         <Box sx={{ mb: 3 }}>
-          <Typography variant="body1" component="p">
-            <FormattedMessage id="extensionModal.description" defaultMessage="Since the extension is not yet on the Chrome Store, it needs to be installed manually:" />
+          <Typography variant="body1" component="p" sx={{ mb: 3 }}>
+            <FormattedMessage id="extensionModal.description" defaultMessage="Install the extension for:" />
           </Typography>
           
-          <Typography component="div" sx={{ mb: 2, mt: 2 }}>
-            <ol style={{ paddingLeft: '1.5rem' }}>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <FormattedMessage id="extensionModal.step1" defaultMessage="Download and extract the extension files" />
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <FormattedMessage id="extensionModal.step2" defaultMessage="Open Chrome browser and enter chrome://extensions/ in the address bar" />
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <FormattedMessage 
-                  id="extensionModal.step3" 
-                  defaultMessage='Enable "Developer mode" in the top right corner' 
-                />
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <FormattedMessage 
-                  id="extensionModal.step4" 
-                  defaultMessage='Click "Load unpacked extension" button' 
-                />
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <FormattedMessage id="extensionModal.step5" defaultMessage="Select the folder you just extracted" />
-              </li>
-              <li>
-                <FormattedMessage id="extensionModal.step6" defaultMessage="After installation, refresh this page to use the extension" />
-              </li>
-            </ol>
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body1" component="div">
+              <FormattedMessage id="extensionModal.chromeEdge" defaultMessage="Chrome & Edge:" />
+              <Box component="span" sx={{ display: 'flex', gap: 2 }}>
+                <Link 
+                  href="https://chromewebstore.google.com/detail/hngpbfpdnkobjjjbdmfncbbjjhpdmaap?utm_source=item-share-cb" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <FormattedMessage id="extensionModal.chromeLink" defaultMessage="Chrome Web Store" />
+                </Link>
+                <Link 
+                  href="/Citizens-Hub-Chrome.crx" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <FormattedMessage id="extensionModal.manualLink" defaultMessage="Manual" />
+                </Link>
+              </Box>
+            </Typography>
+            
+            <Typography variant="body1" component="div">
+              <FormattedMessage id="extensionModal.firefox" defaultMessage="Firefox:" />
+              <Box component="span" sx={{ display: 'flex', gap: 2 }}>
+                <Link 
+                  href="https://addons.mozilla.org/en-US/firefox/addon/citizens-hub/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <FormattedMessage id="extensionModal.firefoxLink" defaultMessage="Firefox Add-ons" />
+                </Link>
+                <Link 
+                  href="/citizens_hub-1.0.0.xpi" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <FormattedMessage id="extensionModal.manualLink" defaultMessage="Manual" />
+                </Link>
+              </Box>
+            </Typography>
+          </Box>
           
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
             <FormattedMessage id="extensionModal.note" defaultMessage="Note: The extension is only used to read upgrade information from your RSI account and does not collect any personal data." />
           </Typography>
         </Box>

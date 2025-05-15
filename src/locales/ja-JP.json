@@ -79,7 +79,7 @@
   "newsModal.newDomain": "新しいドメインが利用可能です",
   "newsModal.pleaseDownloadNewExtension": "元の拡張機能には新しいドメインが含まれていなかったため、拡張機能を再度ダウンロードしてください",
   "extensionModal.title": "拡張機能のインストール手順",
-  "extensionModal.description": "拡張機能はまだChromeストアにないため、手動でインストールする必要があります:",
+  "extensionModal.description": "Install the extension for:",
   "extensionModal.step1": "拡張機能ファイルをダウンロードして解凍します",
   "extensionModal.step2": "Chromeブラウザを開き、アドレスバーにchrome://extensions/と入力します",
   "extensionModal.step3": "右上隅の「デベロッパーモード」を有効にします",

@@ -79,7 +79,7 @@
   "newsModal.newDomain": "New domain is available",
   "newsModal.pleaseDownloadNewExtension": "Since the original extension did not include the new domain, please download the extension again",
   "extensionModal.title": "Install Extension Instructions",
-  "extensionModal.description": "Since the extension is not yet on the Chrome Store, it needs to be installed manually:",
+  "extensionModal.description": "Install the extension for:",
   "extensionModal.step1": "Download and extract the extension files",
   "extensionModal.step2": "Open Chrome browser and enter chrome://extensions/ in the address bar",
   "extensionModal.step3": "Enable \"Developer mode\" in the top right corner",
