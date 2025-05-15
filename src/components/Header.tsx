@@ -13,6 +13,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/";
 import { logout } from "../store/userStore";
+import HeaderAd from "./HeaderAd";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -101,6 +102,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         }
         <span className="hidden md:block">{intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}</span>
       </div>
+      <HeaderAd />
       <div className="flex items-center gap-2 justify-end">
         {/* {
           locale === "zh-CN" && (<Button
