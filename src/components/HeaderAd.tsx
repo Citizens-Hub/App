@@ -6,7 +6,7 @@ export default function HeaderAd() {
       <Adsense
         client={import.meta.env.VITE_ADSENSE_CLIENT}
         slot="4587258440"
-        style={{ width: 400, height: 50 }}
+        style={{ width: 500, height: 50 }}
         format=""
       />
     </div>
