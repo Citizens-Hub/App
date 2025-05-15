@@ -166,6 +166,9 @@ export default function Settings() {
                   <Skeleton variant="text" width="100%" height={40} />
                   <Skeleton variant="text" width="100%" height={40} />
                 </h1>) : (<>
+                  <Alert severity="info">
+                    <FormattedMessage id="settings.stillDeveloping" defaultMessage="The account system is still under development yet." />
+                  </Alert>
                   <div className='flex flex-row items-center gap-2 justify-between'>
                     <div>
                       <FormattedMessage id="settings.avatar" defaultMessage="Avatar" />
