@@ -19,6 +19,7 @@ export default function HeaderAd() {
         slot="4587258440"
         style={{ width: 500, height: 65 }}
         format=""
+        adTest={import.meta.env.DEV ? "on" : "off"}
       />
     </div>
   );
