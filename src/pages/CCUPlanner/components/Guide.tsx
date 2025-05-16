@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { useLocale } from '../../../contexts/LocaleContext';
+import { FormattedMessage } from 'react-intl';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -36,7 +37,7 @@ function a11yProps(index: number) {
   };
 }
 
-export default function Guide() {
+export default function Guide({ showTitle = false }: { showTitle?: boolean }) {
   const { locale } = useLocale();
   const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
@@ -82,7 +83,14 @@ export default function Guide() {
   }, []);
 
   return (
-    <div className='w-full h-full p-8 overflow-auto'>
+    <div className='w-full h-full overflow-auto'>
+      {
+        showTitle && (
+          <Typography variant="h4" component="h1" gutterBottom>
+            <FormattedMessage id="guide.title" defaultMessage="Guide" />
+          </Typography>
+        )
+      }
       <Box sx={{ mt: 4, maxWidth: '1200px', margin: '0 auto' }}>
         {loading && (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">

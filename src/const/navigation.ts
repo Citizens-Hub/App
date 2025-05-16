@@ -26,6 +26,11 @@ export const navigation = [
     path: "/app-settings",
   },
   {
+    name: "navigation.guide",
+    path: "/guide",
+    hidden: true,
+  },
+  {
     name: "navigation.privacy",
     path: "/privacy",
     hidden: true,
