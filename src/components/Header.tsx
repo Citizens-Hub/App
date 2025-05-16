@@ -104,6 +104,24 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
       </div>
       <HeaderAd />
       <div className="flex items-center gap-2 justify-end">
+        {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
+          <Button
+            variant="outlined"
+            onClick={toggleTranslate}
+            size="small"
+            sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'white' }}
+            className="flex items-center gap-2 text-gray-800 dark:text-white"
+          >
+            <img src="/scbox.png" className="w-4 h-4" />
+            <span>
+              {translateApiAvailable === SCBoxTranslateStatus.Available ? (
+                <FormattedMessage id="app.translate" defaultMessage="翻译" />
+              ) : (
+                <FormattedMessage id="app.showOriginal" defaultMessage="显示原文" />
+              )}
+            </span>
+          </Button>
+        )}
         {/* {
           locale === "zh-CN" && (<Button
             size="small"
@@ -198,24 +216,6 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             </Box>
           )
         }
-        {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
-          <Button
-            variant="outlined"
-            onClick={toggleTranslate}
-            size="small"
-            sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'white' }}
-            className="flex items-center gap-2 text-gray-800 dark:text-white"
-          >
-            <img src="/scbox.png" className="w-4 h-4" />
-            <span>
-              {translateApiAvailable === SCBoxTranslateStatus.Available ? (
-                <FormattedMessage id="app.translate" defaultMessage="翻译" />
-              ) : (
-                <FormattedMessage id="app.showOriginal" defaultMessage="显示原文" />
-              )}
-            </span>
-          </Button>
-        )}
       </div>
       <Drawer
         anchor="left"

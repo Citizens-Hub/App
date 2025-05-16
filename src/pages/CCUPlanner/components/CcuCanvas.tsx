@@ -16,7 +16,7 @@ import ReactFlow, {
   XYPosition,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData, HangarItem } from '../../../types';
 import ShipNode from './ShipNode';
@@ -24,12 +24,14 @@ import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
-import { Alert, Snackbar, useMediaQuery } from '@mui/material';
+import { Alert, Dialog, DialogContent, DialogTitle, IconButton, Snackbar, useMediaQuery } from '@mui/material';
 import { selectHangarItems } from '../../../store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';
 import UserSelector from '../../../components/UserSelector';
+import Guide from './Guide';
+import { Close } from '@mui/icons-material';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -60,6 +62,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     type: "success"
   });
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   // const upgrades = useSelector((state: RootState) => state.upgrades.items);
   const upgrades = useSelector(selectHangarItems);
@@ -1037,6 +1040,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
                 onExport={handleExport}
                 onImport={handleImport}
                 onOpenPathBuilder={handleOpenPathBuilder}
+                onOpenGuide={() => setGuideOpen(true)}
               />
             </div>
             <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
@@ -1095,6 +1099,26 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         hangarItems={hangarItems}
         onCreatePath={handleCreatePath}
       />
+
+      <Dialog
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle className="flex justify-between items-center border-b border-gray-200">
+          <div>
+            <FormattedMessage id="guide.title" defaultMessage="Guide" />
+          </div>
+          <IconButton onClick={() => setGuideOpen(false)} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent>
+          <Guide />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

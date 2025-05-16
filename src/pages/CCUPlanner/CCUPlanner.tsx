@@ -2,11 +2,10 @@ import { LoaderCircle } from 'lucide-react'
 import useResourceData from './hooks/useResourceData'
 import CcuCanvas from './components/CcuCanvas'
 import NewsModal from './components/NewsModal'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { FormattedMessage } from 'react-intl'
 
 export default function CCUPlanner() {
   const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useResourceData()
-  const intl = useIntl()
   
   if (loading) return (
     <div>

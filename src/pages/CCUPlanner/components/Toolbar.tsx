@@ -1,5 +1,5 @@
 import { Button } from '@mui/material';
-import { Trash2, Download, Save, Upload, Route } from 'lucide-react';
+import { Trash2, Download, Save, Upload, Route, HelpCircle } from 'lucide-react';
 import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -9,10 +9,11 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onOpenPathBuilder?: () => void;
+  onOpenGuide?: () => void;
   nodes?: Node[];
 }
 
-export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, nodes = [] }: ToolbarProps) {
+export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, onOpenGuide, nodes = [] }: ToolbarProps) {
   const hasContent = nodes.length > 0;
   const intl = useIntl();
   
@@ -103,6 +104,26 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
           </span>
         </Button>
       )}
+
+      {
+        onOpenGuide && (
+          <Button
+            variant="outlined"
+            onClick={onOpenGuide}
+            title={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <HelpCircle size={16} />
+            <span className="xl:block hidden text-nowrap">
+              <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
+            </span>
+          </Button>
+        )
+      }
     </div>
   );
 } 
