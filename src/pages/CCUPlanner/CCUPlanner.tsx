@@ -1,11 +1,11 @@
 import { LoaderCircle } from 'lucide-react'
 import useResourceData from './hooks/useResourceData'
 import CcuCanvas from './components/CcuCanvas'
-import NewsModal from './components/NewsModal'
+// import NewsModal from './components/NewsModal'
 import { FormattedMessage } from 'react-intl'
 
 export default function CCUPlanner() {
-  const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useResourceData()
+  const { ships, ccus, wbHistory, exchangeRates, loading/*, showNewsModal, closeNewsModal */ } = useResourceData()
   
   if (loading) return (
     <div>
@@ -22,7 +22,7 @@ export default function CCUPlanner() {
         <CcuCanvas ships={ships} ccus={ccus} exchangeRates={exchangeRates} wbHistory={wbHistory} />
       </div>
 
-      <NewsModal open={showNewsModal} onClose={closeNewsModal} />
+      {/* <NewsModal open={showNewsModal} onClose={closeNewsModal} /> */}
     </div>
   )
 }
