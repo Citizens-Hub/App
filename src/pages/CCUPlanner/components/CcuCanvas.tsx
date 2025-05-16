@@ -135,33 +135,16 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
           }
         }
 
-        // Check if there is already a path from the source ship to the target ship
         const hasExistingPath = (
           startNode: Node,
           endNodeId: string,
-          visited = new Set<string>()
         ): boolean => {
-          // If the current node has been visited, return false to avoid loops
-          if (visited.has(startNode.id)) return false;
-
-          // Mark the current node as visited
-          visited.add(startNode.id);
-
-          // If the target node is found, return true
-          if (startNode.id === endNodeId) return true;
-
-          // Find all edges originating from the current node
-          const outgoingEdges = edges.filter(edge => edge.source.split('-')[1] === startNode.id.split('-')[1]);
-
-          // For each outgoing edge, recursively check if there is a path
-          for (const edge of outgoingEdges) {
-            const nextNode = nodes.find(node => node.id === edge.target);
-            if (nextNode && hasExistingPath(nextNode, endNodeId, new Set(visited))) {
-              return true;
-            }
-          }
-
-          return false;
+          const directConnection = edges.some(edge => 
+            edge.source.split('-')[1] === startNode.id.split('-')[1] && 
+            edge.target === endNodeId
+          );
+          
+          return directConnection;
         };
 
         // If a path already exists, do not create a new connection
