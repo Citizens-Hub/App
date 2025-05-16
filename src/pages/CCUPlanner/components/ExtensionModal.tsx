@@ -55,7 +55,7 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
                   <FormattedMessage id="extensionModal.chromeLink" defaultMessage="Chrome Web Store" />
                 </Link>
                 <Link 
-                  href="/Citizens-Hub-Chrome.crx" 
+                  href="/extension.zip" 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
