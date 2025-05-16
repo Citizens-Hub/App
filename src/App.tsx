@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { CssBaseline, ThemeProvider, Typography, createTheme } from '@mui/material'
 import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
@@ -15,6 +15,8 @@ import FleaMarket from './pages/FleaMarket/FleaMarket'
 import { useSelector } from 'react-redux'
 import { RootState } from './store'
 import { UserRole } from './store/userStore'
+import Guide from './pages/CCUPlanner/components/Guide'
+import { FormattedMessage } from 'react-intl'
 
 function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
   const { pathname } = useLocation();
@@ -90,8 +92,19 @@ function App() {
           <Route path="/flea-market" element={<FleaMarket />} />
           <Route path="/store-preview" element={<ResourcesTable />} />
           <Route path="/app-settings" element={<Settings />} />
+
+          <Route 
+            path="/guide" 
+            element={
+              <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
+                <Typography variant="h4" component="h1" gutterBottom><FormattedMessage id="guide.title" defaultMessage="Guide" /></Typography>
+                <Guide />
+              </div>
+            }
+          />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/changelog" element={<ChangeLogs />} />
+
           <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
           <Route path="/login" element={<Auth action="login" />} />
           <Route path="/register" element={<Auth action="register" />} />
