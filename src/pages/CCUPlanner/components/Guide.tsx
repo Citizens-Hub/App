@@ -54,7 +54,7 @@ export default function Guide() {
         setLoading(true);
 
         // 获取中文更新日志
-        const chineseResponse = await fetch('/guide.md');
+        const chineseResponse = await fetch('/docs/guide.md');
         if (!chineseResponse.ok) {
           throw new Error(`无法获取中文指南: ${chineseResponse.status}`);
         }
@@ -62,7 +62,7 @@ export default function Guide() {
         setChineseMarkdown(chineseText);
 
         // 获取英文更新日志
-        const englishResponse = await fetch('/guide.en.md');
+        const englishResponse = await fetch('/docs/guide.en.md');
         if (!englishResponse.ok) {
           throw new Error(`Unable to fetch English guide: ${englishResponse.status}`);
         }

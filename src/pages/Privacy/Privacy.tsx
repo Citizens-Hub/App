@@ -55,7 +55,7 @@ export default function Privacy() {
         setLoading(true);
 
         // 获取中文更新日志
-        const chineseResponse = await fetch('/privacy.md');
+        const chineseResponse = await fetch('/docs/privacy.md');
         if (!chineseResponse.ok) {
           throw new Error(`无法获取中文更新日志: ${chineseResponse.status}`);
         }
@@ -63,7 +63,7 @@ export default function Privacy() {
         setChineseMarkdown(chineseText);
 
         // 获取英文更新日志
-        const englishResponse = await fetch('/privacy.en.md');
+        const englishResponse = await fetch('/docs/privacy.en.md');
         if (!englishResponse.ok) {
           throw new Error(`Unable to fetch English changelog: ${englishResponse.status}`);
         }

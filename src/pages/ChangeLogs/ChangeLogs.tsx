@@ -55,7 +55,7 @@ export default function ChangeLogs() {
         setLoading(true);
 
         // 获取中文更新日志
-        const chineseResponse = await fetch('/changes.md');
+        const chineseResponse = await fetch('/docs/changes.md');
         if (!chineseResponse.ok) {
           throw new Error(`无法获取中文更新日志: ${chineseResponse.status}`);
         }
@@ -63,7 +63,7 @@ export default function ChangeLogs() {
         setChineseMarkdown(chineseText);
 
         // 获取英文更新日志
-        const englishResponse = await fetch('/changes.en.md');
+        const englishResponse = await fetch('/docs/changes.en.md');
         if (!englishResponse.ok) {
           throw new Error(`Unable to fetch English changelog: ${englishResponse.status}`);
         }

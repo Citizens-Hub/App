@@ -30,8 +30,6 @@ If you're using it for the first time, you're probably eager to start creating y
 
 For the upcoming Fleet Week, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
 
-FYI: Although this project currently only has manual path planning, I have already completed the prototype design for semi-automatic and fully automatic planning. These two functions will be available soon.
-
 ![](https://citizenshub.app/imgs/tutorial/02.png)
 
 You can find them in the available ships on the left and drag them onto the canvas. At the same time, you can see that there are several currently available WB (Warbond) packages at the top of the available ship selector. So, to save more money for an extra treat.
