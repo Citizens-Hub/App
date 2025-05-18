@@ -74,7 +74,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
         </div>
       )}
 
-      <div className="max-h-[calc(100vh-500px)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
         {hangarExpanded && (
           filteredUpgrades.length > 0 ?
             filteredUpgrades.map(upgrade => {

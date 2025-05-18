@@ -12,13 +12,12 @@ import ReactFlow, {
   Panel,
   ReactFlowInstance,
   getRectOfNodes,
-  Edge,
   XYPosition,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData, HangarItem } from '../../../types';
+import { Ship, CcuEdgeData, Ccu, WbHistoryData, HangarItem } from '../../../types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -33,6 +32,8 @@ import UserSelector from '../../../components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
 import { CcuEdgeService } from '../services/CcuEdgeService';
+import PathBuilderService from '../services/PathBuilderService';
+import ImportExportService from '../services/ImportExportService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -68,6 +69,11 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   // const upgrades = useSelector((state: RootState) => state.upgrades.items);
   const upgrades = useSelector(selectHangarItems);
 
+  // 初始化服务
+  const edgeService = useMemo(() => new CcuEdgeService(), []);
+  const pathBuilderService = useMemo(() => new PathBuilderService(), []);
+  const importExportService = useMemo(() => new ImportExportService(), []);
+
   // Convert upgrades to HangarItem format
   const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
     id: Date.now() + Math.random(), // Generate unique ID
@@ -90,8 +96,6 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     ...prev,
     open: false
   }))
-
-  const edgeService = useMemo(() => new CcuEdgeService(), []);
 
   // Handle connection creation
   const onConnect = useCallback(
@@ -298,59 +302,19 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   const importFlowData = useCallback((jsonData: string) => {
     try {
-      const { nodes: importedNodes, edges: importedEdges, startShipPrices: importedPrices } = JSON.parse(jsonData);
-
-      if (!importedNodes || !Array.isArray(importedNodes)) {
-        throw new Error('Invalid JSON format: missing node data');
+      // 使用ImportExportService导入数据
+      const importedData = importExportService.importFromJsonData(jsonData, ships);
+      
+      if (!importedData) {
+        throw new Error('Import failed');
       }
-
-      // Ensure the imported nodes reference ships that exist in the current ship list
-      const validNodes = importedNodes.filter(node => {
-        const shipId = node.data?.ship?.id;
-        return shipId && ships.some(s => s.id === shipId);
-      });
-
-      if (validNodes.length === 0) {
-        throw new Error('No valid ship nodes found');
-      }
-
-      // Ensure all edges have a sourceType field
-      const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
-        if (edge.data && !edge.data.sourceType) {
-          return {
-            ...edge,
-            data: {
-              ...edge.data,
-              sourceType: CcuSourceType.OFFICIAL
-            }
-          };
-        }
-        return edge;
-      }) || [];
-
-      // Only import edges related to valid nodes
-      const validNodeIds = new Set(validNodes.map(node => node.id));
-      const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) =>
-        validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
-      );
-
-      setNodes(validNodes);
-      setEdges(validEdges);
-
-      if (importedPrices) {
-        // Only keep the starting prices for valid nodes
-        const validPrices: Record<string, number | string> = {};
-        Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
-          if (validNodeIds.has(nodeId)) {
-            validPrices[nodeId] = price;
-          }
-        });
-        setStartShipPrices(validPrices);
-      }
+      
+      setNodes(importedData.nodes);
+      setEdges(importedData.edges);
+      setStartShipPrices(importedData.startShipPrices);
 
       if (reactFlowInstance) {
-        // Automatically adjust the view to display all nodes
-        setTimeout(() => reactFlowInstance.fitView(), 100);
+        importExportService.adjustViewToShowAllNodes(reactFlowInstance);
       }
 
       return true;
@@ -366,7 +330,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       });
       return false;
     }
-  }, [ships, setNodes, setEdges, reactFlowInstance, intl]);
+  }, [ships, setNodes, setEdges, reactFlowInstance, intl, importExportService]);
 
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
@@ -457,8 +421,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     setEdges([]);
     setStartShipPrices({});
 
-    localStorage.setItem('ccu-planner-data', "");
-  }, [setNodes, setEdges]);
+    // 使用ImportExportService清空数据
+    importExportService.clearFlowData();
+  }, [setNodes, setEdges, importExportService]);
 
   const handleSave = useCallback(() => {
     if (!nodes.length) return;
@@ -469,15 +434,15 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       startShipPrices
     };
 
-    const dataStr = JSON.stringify(flowData);
-    localStorage.setItem('ccu-planner-data', dataStr);
+    // 使用ImportExportService保存数据
+    importExportService.saveToLocalStorage(flowData);
 
     setAlert({
       open: true,
       message: intl.formatMessage({ id: 'ccuPlanner.success.saved', defaultMessage: 'CCU upgrade path saved successfully!' }),
       type: 'success'
     });
-  }, [nodes, edges, startShipPrices, intl]);
+  }, [nodes, edges, startShipPrices, intl, importExportService]);
 
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
@@ -490,51 +455,21 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       startShipPrices
     };
 
-    const dataStr = JSON.stringify(flowData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = `ccu-planner-export-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      document.body.removeChild(downloadLink);
-    }, 100);
-  }, [reactFlowInstance, nodes, edges, startShipPrices]);
+    // 使用ImportExportService导出数据
+    importExportService.exportToJsonFile(flowData);
+  }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
   useEffect(() => {
-    const savedData = localStorage.getItem('ccu-planner-data');
-    if (savedData && reactFlowInstance) {
-      try {
-        const { nodes: savedNodes, edges: savedEdges, startShipPrices: savedPrices } = JSON.parse(savedData);
-
-        const processedEdges = savedEdges?.map((edge: Edge<CcuEdgeData>) => {
-          if (edge.data && !edge.data.sourceType) {
-            return {
-              ...edge,
-              data: {
-                ...edge.data,
-                sourceType: CcuSourceType.OFFICIAL
-              }
-            };
-          }
-          return edge;
-        }) || [];
-
-        setNodes(savedNodes || []);
-        setEdges(processedEdges);
-        if (savedPrices) {
-          setStartShipPrices(savedPrices);
-        }
-      } catch (error) {
-        console.error('Error loading saved CCU paths:', error);
+    // 使用ImportExportService加载数据
+    if (reactFlowInstance) {
+      const savedData = importExportService.loadFromLocalStorage();
+      if (savedData) {
+        setNodes(savedData.nodes);
+        setEdges(savedData.edges);
+        setStartShipPrices(savedData.startShipPrices);
       }
     }
-  }, [reactFlowInstance, setNodes, setEdges]);
+  }, [reactFlowInstance, setNodes, setEdges, importExportService]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
@@ -612,383 +547,24 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   // Create path from path builder
   const handleCreatePath = useCallback((stepShips: Ship[][]) => {
-    if (stepShips.length < 2) return;
-
-    // Check if nodes exist and find suitable position for new nodes
-    const nodePositions = nodes.map(node => ({
-      x: node.position.x,
-      y: node.position.y
-    }));
-
-    // Calculate starting position for new nodes
-    let startX = 100;
-    const startY = 100;
-
-    if (nodePositions.length > 0) {
-      // Find the rightmost position of all current nodes
-      const maxX = Math.max(...nodePositions.map(pos => pos.x));
-      startX = maxX + 300; // Start 300px to the right of the rightmost position
-    }
-
-    // Create all nodes and edges
-    const newNodes: Node[] = [];
-    const newEdges: Edge[] = [];
-
-    // Get all target ships (endpoints)
-    const targetShips = stepShips[1];
-
-    // Get all source ships
-    const sourceShips = stepShips[0];
-
-    // Get actual ship price (considering discounts)
-    const getShipPrice = (ship: Ship): number => {
-      // First check if it's a historical or wb name
-      let checkedShipName = ship.name;
-
-      // Handle cases where ship data doesn't include suffix but stepShips does
-      const matchingTargetShip = stepShips[1].find(s =>
-        s.id === ship.id && (s.name.endsWith('-wb') || s.name.endsWith('-historical'))
-      );
-
-      if (matchingTargetShip) {
-        checkedShipName = matchingTargetShip.name;
-      }
-
-      const actualShipName = checkedShipName.replace('-wb', '').replace('-historical', '');
-
-      if (checkedShipName.endsWith('-wb')) {
-        return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
-      } else if (checkedShipName.endsWith('-historical')) {
-        const historicalPrice = Number(wbHistory.find(wb =>
-          wb.name.toUpperCase() === actualShipName.toUpperCase() ||
-          wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
-
-        return historicalPrice || ship.msrp;
-      }
-      return ship.msrp;
-    };
-
-    // Get all ship prices and sort them
-    const allShips = [...sourceShips, ...targetShips];
-    const uniqueShips = allShips.filter((ship, index, self) =>
-      index === self.findIndex(s => s.id === ship.id)
-    );
-
-    // Create mapping of ships to their actual prices
-    const shipActualPrices = new Map<string, number>();
-    uniqueShips.forEach(ship => {
-      shipActualPrices.set(ship.id.toString(), getShipPrice(ship));
+    // 使用PathBuilderService创建路径
+    const { nodes: newNodes, edges: newEdges } = pathBuilderService.createPath({
+      stepShips,
+      ships,
+      ccus,
+      wbHistory,
+      hangarItems
     });
-
-    // Sort ships by actual price
-    const sortedShips = uniqueShips.sort((a, b) =>
-      (shipActualPrices.get(a.id.toString()) || 0) - (shipActualPrices.get(b.id.toString()) || 0)
-    );
-
-    // Create price level mapping
-    const priceLevels: Map<number, Ship[]> = new Map();
-    sortedShips.forEach(ship => {
-      const price = shipActualPrices.get(ship.id.toString())!;
-      if (!priceLevels.has(price)) {
-        priceLevels.set(price, []);
-      }
-      priceLevels.get(price)?.push(ship);
-    });
-
-    // Sort price levels
-    const sortedPriceLevels = Array.from(priceLevels.keys()).sort((a, b) => a - b);
-
-    // Create nodes for each price level
-    let levelX = startX;
-    const levelSpacing = 500; // Horizontal spacing between price levels
-    const shipNodeMap: Map<string, Node> = new Map(); // Track created nodes
-
-    sortedPriceLevels.forEach((price, levelIndex) => {
-      const shipsAtLevel = priceLevels.get(price) || [];
-
-      // Calculate vertical spacing for current level
-      const nodeHeight = 500;
-      const levelY = startY;
-      const shipsSpacing = Math.max(nodeHeight, 600 / (shipsAtLevel.length || 1));
-
-      shipsAtLevel.forEach((ship, shipIndex) => {
-        // Check if node for this ship already exists
-        const shipKey = `${ship.id}`;
-        if (shipNodeMap.has(shipKey)) {
-          return; // Skip if node already exists
-        }
-
-        const yPos = levelY + shipIndex * shipsSpacing;
-        const timestamp = Date.now();
-        const nodeId = `ship-${ship.id}-${timestamp + shipIndex + levelIndex * 100}`;
-
-        const shipNode: Node = {
-          id: nodeId,
-          type: 'ship',
-          position: { x: levelX, y: yPos },
-          data: {
-            ship: {
-              ...ship,
-              name: ship.name.replace('-historical', '').replace('-wb', '')
-            },
-            onUpdateEdge: updateEdgeData,
-            onDeleteEdge: deleteEdge,
-            onDeleteNode: handleDeleteNode,
-            onDuplicateNode: handleDuplicateNode,
-            ccus,
-            wbHistory,
-            id: nodeId
-          },
-        };
-
-        newNodes.push(shipNode);
-        shipNodeMap.set(shipKey, shipNode);
-      });
-
-      // Move to next price level
-      levelX += levelSpacing;
-    });
-
-    // Create upgrade edges
-    const createdNodes = Array.from(shipNodeMap.values());
-
-    // console.log(sortedPriceLevels, "sortedPriceLevels")
-
-    const levelShips: Node[][] = [];
-
-    // levelShips.push(stepShips[0].map(ship => ({
-    //   id: `ship-${ship.id}-${Date.now()}`,
-    //   type: 'ship',
-    //   position: { x: 0, y: 0 },
-    //   data: { ship }
-    // })))
-
-    // New connection creation logic: Create edges for all ships (including source ships)
-    // Process each price level
-    for (let i = 0; i < sortedPriceLevels.length; i++) {
-      const currentPrice = sortedPriceLevels[i];
-
-      // Get nodes at current price level
-      const currentLevelShips = createdNodes.filter(node => {
-        const ship = node.data.ship as Ship;
-        const actualPrice = shipActualPrices.get(ship.id.toString());
-        // console.log(ship.name, actualPrice, "actualPrice")
-        return actualPrice !== undefined && Math.abs(actualPrice - currentPrice) < 1;
-      });
-
-      // console.log(currentLevelShips, "currentLevelShips")
-
-      // Create connections for each current level node
-      currentLevelShips.forEach(sourceNode => {
-        const sourceShip = sourceNode.data.ship as Ship;
-        // const sourcePriceValue = shipActualPrices.get(sourceShip.id.toString()) || 0;
-        const sourcePriceValue = sourceShip.msrp;
-
-        // Special handling for source ships
-        const isSourceShip = sourceShips.some(ship => ship.id === sourceShip.id);
-        const isTargetShip = targetShips.some(ship => ship.id === sourceShip.id);
-
-        // Skip if source ship price is 0 or not upgradeable
-        if (sourcePriceValue === 0) {
-          return;
-        }
-
-        // Only create connections for target ships or source ships
-        if (!isSourceShip && !isTargetShip) {
-          return;
-        }
-
-        // For each source ship, find valid target ships
-        let foundConnectionInAnyLevel = false;
-
-        for (let j = 0; j < sortedPriceLevels.length; j++) {
-          // Only connect to higher price levels
-          if (sortedPriceLevels[j] <= currentPrice) {
-            continue;
-          }
-
-          // If connection found in lower price level, don't continue to higher levels
-          if (foundConnectionInAnyLevel) {
-            break;
-          }
-
-          const nextLevelPrice = sortedPriceLevels[j];
-
-          // Get nodes at next price level
-          const nextLevelShips = createdNodes.filter(node => {
-            const ship = node.data.ship as Ship;
-            const actualPrice = shipActualPrices.get(ship.id.toString());
-            return actualPrice !== undefined && Math.abs(actualPrice - nextLevelPrice) < 1;
-          });
-
-          // Filter valid target nodes (price higher than current node and part of target path)
-          const validTargets = nextLevelShips.filter(targetNode => {
-            const targetShip = targetNode.data.ship as Ship;
-            const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
-
-            // Ensure target price is strictly higher than source price
-            if (sourcePriceValue >= targetPriceValue || targetPriceValue === 0) {
-              return false;
-            }
-
-            // Check if ship is part of target upgrade path
-            const isTargetPathShip = targetShips.some(ship => ship.id === targetShip.id);
-            return isTargetPathShip;
-          });
-
-          // If valid target nodes found at current level, create connections
-          if (validTargets.length > 0) {
-            validTargets.forEach(targetNode => {
-              const targetShip = targetNode.data.ship as Ship;
-              const targetPriceValue = shipActualPrices.get(targetShip.id.toString()) || 0;
-              const priceDifference = targetPriceValue - sourcePriceValue;
-
-              // Ensure price difference is greater than 0
-              if (priceDifference <= 0) {
-                return;
-              }
-            });
-
-            foundConnectionInAnyLevel = true;
-          }
-        }
-      });
-
-      levelShips.push(currentLevelShips);
-    }
-
-    levelShips.forEach((level, index) => {
-      level.forEach(targetShip => {
-        for (let i = index - 1; i >= 0; i--) {
-          const sourceShips = levelShips[i].filter(ship => {
-            const originShip = stepShips[1].find(s => s.id === ship.data.ship.id);
-            const targetShipCost = getShipPrice(targetShip.data.ship);
-
-            const exactMatchCCU = (upgrades.ccus.some(upgrade => upgrade.parsed.from.toUpperCase() === ship.data.ship.name.trim().toUpperCase()) && upgrades.ccus.some(upgrade => upgrade.parsed.to.toUpperCase() === targetShip.data.ship.name.trim().toUpperCase()))
-
-            if (ship.data.ship.msrp >= targetShipCost && !exactMatchCCU) {
-              return false;
-            }
-
-            if (stepShips[0].find(s => s.id === ship.data.ship.id)) {
-              return true;
-            }
-
-            return originShip?.name.endsWith('-wb') || 
-              originShip?.name.endsWith('-historical') || 
-              // If the sourceShip is upgraded from a hangar CCU, it can have an outgoing edge
-              upgrades.ccus.some(upgrade => upgrade.parsed.to.toUpperCase() === ship.data.ship.name.trim().toUpperCase()) ||
-              // If sourceShip and targetShip are directly matched by a CCU, it can have an outgoing edge
-              exactMatchCCU
-          });
-
-          if (sourceShips.length > 0) {
-            sourceShips.forEach(sourceShip => {
-              const priceDifference = targetShip.data.ship.msrp - sourceShip.data.ship.msrp;
-
-              const hangarCcu = upgrades.ccus.find(upgrade => {
-                const from = upgrade.parsed.from.toUpperCase();
-                const to = upgrade.parsed.to.toUpperCase();
-                return from === sourceShip.data.ship.name.trim().toUpperCase() && to === targetShip.data.ship.name.trim().toUpperCase();
-              });
-
-              const newEdge: Edge = {
-                id: `edge-${sourceShip.id}-${targetShip.id}`,
-                source: sourceShip.id,
-                target: targetShip.id,
-                type: 'ccu',
-                animated: true,
-                data: {
-                  price: priceDifference,
-                  sourceShip: sourceShip.data.ship,
-                  targetShip: targetShip.data.ship,
-                  sourceType: CcuSourceType.OFFICIAL,
-                } as CcuEdgeData,
-              };
-
-              if (hangarCcu) {
-                // If there's a hangar CCU, use it
-                newEdge.data.sourceType = CcuSourceType.HANGER;
-                newEdge.data.customPrice = hangarCcu.value;
-              } else {
-                // Handle special price cases
-                const targetShipNameInPath = stepShips[1].find(ship => ship.id === targetShip.data.ship.id)?.name;
-
-                if (targetShipNameInPath?.endsWith('-historical')) {
-                  const historicalPrice = Number(wbHistory.find(wb =>
-                    wb.name.toUpperCase() === targetShipNameInPath.toUpperCase() ||
-                    wb.name.toUpperCase() === targetShip.data.ship.name.trim().toUpperCase())?.price) * 100 || targetShip.data.ship.msrp;
-
-                  if (historicalPrice && historicalPrice !== targetShip.data.ship.msrp) {
-                    const historicalPriceUSD = historicalPrice / 100;
-                    const sourcePriceUSD = sourceShip.data.ship.msrp / 100;
-                    const actualPrice = historicalPriceUSD - sourcePriceUSD;
-
-                    // Ensure price difference is greater than 0
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-
-                    newEdge.data.sourceType = CcuSourceType.HISTORICAL;
-                    newEdge.data.customPrice = Math.max(0, actualPrice);
-                  }
-                }
-                else if (targetShipNameInPath?.endsWith('-wb')) {
-                  const wbPrice = ccus.find(c => c.id === targetShip.data.ship.id)?.skus.find(sku =>
-                    sku.price !== targetShip.data.ship.msrp && sku.available)?.price || targetShip.data.ship.msrp;
-
-                  if (wbPrice && wbPrice !== targetShip.data.ship.msrp) {
-                    const wbPriceUSD = wbPrice / 100;
-                    const sourcePriceUSD = sourceShip.data.ship.msrp / 100;
-                    const actualPrice = wbPriceUSD - sourcePriceUSD;
-
-                    // Ensure price difference is greater than 0
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-
-                    newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
-                    newEdge.data.customPrice = Math.max(0, actualPrice);
-                  }
-                }
-                else {
-                  const targetShipSkus = ccus.find(c => c.id === targetShip.data.ship.id)?.skus;
-                  const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.data.ship.msrp && sku.available);
-
-                  if (targetWb && sourceShip.data.ship.msrp < targetWb.price) {
-                    const targetWbPrice = targetWb.price / 100;
-                    const sourceShipPrice = sourceShip.data.ship.msrp / 100;
-                    const actualPrice = targetWbPrice - sourceShipPrice;
-
-                    // Ensure price difference is greater than 0
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-
-                    newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
-                    newEdge.data.customPrice = Math.max(0, actualPrice);
-                  }
-                }
-              }
-
-              newEdges.push(newEdge);
-            })
-
-            break;
-          }
-        }
-      })
-    })
-
-    // Update graph
+    
+    // 更新图表
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
 
-    // If instance exists, adjust view to show all nodes
+    // 如果实例存在，调整视图以显示所有节点
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [nodes, upgrades, ccus, setNodes, setEdges, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, wbHistory, reactFlowInstance]);
+  }, [ships, ccus, wbHistory, hangarItems, setNodes, setEdges, reactFlowInstance, pathBuilderService]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);

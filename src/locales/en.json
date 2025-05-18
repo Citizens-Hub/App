@@ -238,5 +238,6 @@
   "settings.ccuPriorityDescription": "Set the priority order of CCUs' sources. Types with higher priority will be considered first for upgrade paths.",
   "newsModal.newFeature": "New feature",
   "newsModal.newFeatureDescription": "You can now set the priority of CCU sources used by default when creating connections in the {settings}",
-  "newsModal.settings": "App Settings"
+  "newsModal.settings": "App Settings",
+  "guide.title": "Guide"
 }

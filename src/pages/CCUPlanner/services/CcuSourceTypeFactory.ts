@@ -10,7 +10,6 @@ import {
 } from "./CcuSourceTypeStrategy";
 import { store } from "../../../store";
 
-// Define the interface type for hangarItems
 export interface HangarItem {
   id: number;
   name: string;

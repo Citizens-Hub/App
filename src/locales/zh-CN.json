@@ -251,5 +251,6 @@
   "settings.ccuPriorityDescription": "设置默认连接的CCU来源类型",
   "newsModal.newFeature": "新功能",
   "newsModal.newFeatureDescription": "你现在可以在 {settings} 中设置在连线时默认创建连线时使用的CCU来源的优先级了",
-  "newsModal.settings": "应用设置"
+  "newsModal.settings": "应用设置",
+  "guide.title": "使用指南"
 }
