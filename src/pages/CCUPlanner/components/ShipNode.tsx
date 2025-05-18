@@ -7,7 +7,7 @@ import { useSelector } from 'react-redux';
 import { selectHangarItems } from '../../../store/upgradesStore';
 import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CcuEdgeService } from '../../../services/CcuEdgeService';
+import { CcuEdgeService } from '../services/CcuEdgeService';
 
 interface ShipNodeProps {
   data: {
@@ -40,6 +40,41 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
   const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
+
+  // Price calculation function, calculate price based on source type
+  const calculatePrice = (sourceType: CcuSourceType, edgeData: CcuEdgeData | undefined) => {
+    const sourceShip = edgeData?.sourceShip;
+    
+    switch(sourceType) {
+      case CcuSourceType.AVAILABLE_WB:
+        if (wb && sourceShip) {
+          const targetWbPrice = wb.price / 100;
+          const sourceShipPrice = sourceShip.msrp / 100;
+          const actualPrice = targetWbPrice - sourceShipPrice;
+          return Math.max(0, actualPrice);
+        } else if (wb) {
+          return wb.price / 100;
+        }
+        return 0;
+        
+      case CcuSourceType.HANGER:
+        return upgrades.ccus.find(upgrade => {
+          const from = upgrade.parsed.from.toUpperCase();
+          const to = upgrade.parsed.to.toUpperCase();
+          return from === edgeData?.sourceShip?.name.trim().toUpperCase() && 
+                 to === edgeData?.targetShip?.name.trim().toUpperCase();
+        })?.value || 0;
+        
+      case CcuSourceType.HISTORICAL:
+        if (historical && sourceShip) {
+          return Number(historical.price) - Number(sourceShip.msrp) / 100;
+        }
+        return 0;
+        
+      default:
+        return edgeData?.customPrice || 0;
+    }
+  };
 
   const [edgeSettings, setEdgeSettings] = useState<{
     [key: string]: {
@@ -99,12 +134,13 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     setEdgeSettings(prevSettings => {
       const currentEdgeSettings = prevSettings[edgeId] || {};
 
-      let defaultPrice: number | undefined;
-
+      // Calculate price based on the new selected source type
+      const newPrice = edge?.data ? calculatePrice(sourceType, edge.data) : undefined;
+      
       const newEdgeSettings = {
         ...currentEdgeSettings,
         sourceType,
-        customPrice: defaultPrice !== undefined ? defaultPrice : currentEdgeSettings.customPrice
+        customPrice: newPrice !== undefined ? newPrice : currentEdgeSettings.customPrice
       };
 
       const newSettings = {
@@ -119,15 +155,15 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           const updatedData = edgeService.updateEdgeData(
             edge.data,
             sourceType,
-            defaultPrice !== undefined ? defaultPrice : Number(newEdgeSettings.customPrice)
+            newPrice !== undefined ? newPrice : Number(newEdgeSettings.customPrice)
           );
           
           onUpdateEdge(sourceId, id, updatedData);
         } else {
           onUpdateEdge(sourceId, id, {
             sourceType,
-            customPrice: defaultPrice !== undefined
-              ? defaultPrice
+            customPrice: newPrice !== undefined
+              ? newPrice
               : Number(newEdgeSettings.customPrice)
           });
         }
@@ -167,7 +203,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
             
             onUpdateEdge(sourceId, id, updatedData);
           } else {
-            // 如果没有edge.data，使用原始方式更新
+            // If there is no edge.data, update the edge data using the original method
             onUpdateEdge(sourceId, id, {
               sourceType: currentSourceType,
               customPrice: Number(price)
@@ -276,30 +312,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   }}
                   onChange={(e) => {
                     const selectedValue = e.target.value as string;
-
-                    if (selectedValue === CcuSourceType.AVAILABLE_WB) {
-                      if (wb) {
-                        const sourceShip = edge.data?.sourceShip;
-                        if (sourceShip) {
-                          const targetWbPrice = wb.price / 100;
-                          const sourceShipPrice = sourceShip.msrp / 100;
-                          const actualPrice = targetWbPrice - sourceShipPrice;
-                          handleCustomPriceChange(edge.id, Math.max(0, actualPrice));
-                        } else {
-                          handleCustomPriceChange(edge.id, wb.price / 100);
-                        }
-                      }
-                    } else if (selectedValue === CcuSourceType.HANGER) {
-                      handleCustomPriceChange(edge.id, upgrades.ccus.find(upgrade => {
-                        const from = upgrade.parsed.from.toUpperCase()
-                        const to = upgrade.parsed.to.toUpperCase()
-
-                        return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
-                      })?.value || 0)
-                    } else if (selectedValue === CcuSourceType.HISTORICAL) {
-                      handleCustomPriceChange(edge.id, Number(historical?.price) - Number(edge?.data?.sourceShip?.msrp) / 100)
-                    }
-
                     handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
                 >

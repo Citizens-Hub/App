@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../types";
+import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../../../types";
 import { 
   CcuSourceTypeStrategy, 
   OfficialStrategy,
@@ -8,7 +8,7 @@ import {
   HangarStrategy,
   HistoricalStrategy
 } from "./CcuSourceTypeStrategy";
-import { store } from "../store";
+import { store } from "../../../store";
 
 // Define the interface type for hangarItems
 export interface HangarItem {

@@ -1,4 +1,4 @@
-import { Ccu, CcuEdgeData, CcuSourceType, Ship, WbHistoryData } from "../types";
+import { Ccu, CcuEdgeData, CcuSourceType, Ship, WbHistoryData } from "../../../types";
 import { CcuSourceTypeStrategyFactory, HangarItem } from "./CcuSourceTypeFactory";
 
 export interface CcuEdgeCreationOptions {
@@ -10,7 +10,7 @@ export interface CcuEdgeCreationOptions {
 }
 
 /**
- * CCU边服务 - 处理CCU边缘的创建和更新
+ * CCU Edge Service - handles the creation and update of CCU edges
  */
 export class CcuEdgeService {
   private factory: CcuSourceTypeStrategyFactory;
@@ -20,15 +20,13 @@ export class CcuEdgeService {
   }
   
   /**
-   * 创建新的CCU边数据
+   * Create new CCU Edge
    */
   public createEdgeData(options: CcuEdgeCreationOptions): CcuEdgeData {
     const { sourceShip, targetShip, ccus, wbHistory, hangarItems } = options;
     
-    // 计算基本价格差异
     const priceDifference = targetShip.msrp - sourceShip.msrp;
     
-    // 自动选择最合适的策略
     const strategy = this.factory.getAutomaticStrategy(
       sourceShip, 
       targetShip, 
@@ -37,14 +35,12 @@ export class CcuEdgeService {
       hangarItems
     );
     
-    // 使用策略计算价格
     const priceInfo = strategy.calculatePrice(sourceShip, targetShip, { 
       ccus, 
       wbHistory, 
       hangarItems 
     });
     
-    // 创建边数据
     const edgeData: CcuEdgeData = {
       price: priceDifference,
       sourceShip,
@@ -62,15 +58,15 @@ export class CcuEdgeService {
   }
   
   /**
-   * 验证两个船舶之间是否可以创建CCU边
+   * Verify if two ships can create a CCU edge
    */
   public canCreateEdge(sourceShip: Ship, targetShip: Ship): boolean {
-    // 不能从价格为0的船升级
+    // Cannot upgrade from a ship with a price of 0
     if (sourceShip.msrp === 0) {
       return false;
     }
     
-    // 只能从低价船升级到高价船
+    // Can only upgrade from a ship with a lower price to a ship with a higher price
     if (sourceShip.msrp >= targetShip.msrp && targetShip.msrp !== 0) {
       return false;
     }
@@ -79,7 +75,7 @@ export class CcuEdgeService {
   }
   
   /**
-   * 更新现有边的数据
+   * Update existing edge data
    */
   public updateEdgeData(
     originalData: CcuEdgeData, 
@@ -93,7 +89,7 @@ export class CcuEdgeService {
       return originalData;
     }
     
-    // 获取与源类型对应的策略
+    // Get the strategy corresponding to the source type
     const strategy = this.factory.getStrategy(sourceType);
     
     const updatedData: CcuEdgeData = {
@@ -101,11 +97,11 @@ export class CcuEdgeService {
       sourceType
     };
     
-    // 如果提供了自定义价格，使用它
+    // If a custom price is provided, use it
     if (customPrice !== undefined) {
       updatedData.customPrice = customPrice;
     } 
-    // 否则尝试使用策略计算价格
+    // Otherwise, try to use the strategy to calculate the price
     else {
       const priceInfo = strategy.calculatePrice(sourceShip, targetShip);
       if (priceInfo.price !== originalData.price / 100) {

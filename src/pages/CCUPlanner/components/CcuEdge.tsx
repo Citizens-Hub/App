@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
 import { useMemo } from 'react';
-import { CcuSourceTypeStrategyFactory } from '../../../services/CcuSourceTypeFactory';
+import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;

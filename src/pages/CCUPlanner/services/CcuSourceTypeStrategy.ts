@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../types";
+import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 
 /**

@@ -32,7 +32,7 @@ import PathBuilder from './PathBuilder';
 import UserSelector from '../../../components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
-import { CcuEdgeService } from '../../../services/CcuEdgeService';
+import { CcuEdgeService } from '../services/CcuEdgeService';
 
 interface CcuCanvasProps {
   ships: Ship[];
