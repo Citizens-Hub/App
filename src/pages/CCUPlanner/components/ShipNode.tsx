@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux';
 import { selectHangarItems } from '../../../store/upgradesStore';
 import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { CcuEdgeService } from '../../../services/CcuEdgeService';
 
 interface ShipNodeProps {
   data: {
@@ -30,6 +31,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus, wbHistory } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
+  const { locale } = intl;
+  const edgeService = useMemo(() => new CcuEdgeService(), []);
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const upgrades = useSelector(selectHangarItems);
@@ -98,12 +101,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
       let defaultPrice: number | undefined;
 
-      if (sourceType !== CcuSourceType.OFFICIAL &&
-        currentEdgeSettings.customPrice === undefined &&
-        edge?.data?.price) {
-        defaultPrice = edge.data.price / 100
-      }
-
       const newEdgeSettings = {
         ...currentEdgeSettings,
         sourceType,
@@ -117,13 +114,23 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
       if (onUpdateEdge && edgeId && edge) {
         const sourceId = edge.source;
-
-        onUpdateEdge(sourceId, id, {
-          sourceType,
-          customPrice: defaultPrice !== undefined
-            ? defaultPrice
-            : Number(newEdgeSettings.customPrice)
-        });
+        
+        if (edge.data) {
+          const updatedData = edgeService.updateEdgeData(
+            edge.data,
+            sourceType,
+            defaultPrice !== undefined ? defaultPrice : Number(newEdgeSettings.customPrice)
+          );
+          
+          onUpdateEdge(sourceId, id, updatedData);
+        } else {
+          onUpdateEdge(sourceId, id, {
+            sourceType,
+            customPrice: defaultPrice !== undefined
+              ? defaultPrice
+              : Number(newEdgeSettings.customPrice)
+          });
+        }
       }
 
       return newSettings;
@@ -150,11 +157,22 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         const edge = incomingEdges.find(e => e.id === edgeId);
         if (edge) {
           const sourceId = edge.source;
-
-          onUpdateEdge(sourceId, id, {
-            sourceType: currentSourceType,
-            customPrice: Number(price)
-          });
+          
+          if (edge.data) {
+            const updatedData = edgeService.updateEdgeData(
+              edge.data,
+              currentSourceType,
+              Number(price)
+            );
+            
+            onUpdateEdge(sourceId, id, updatedData);
+          } else {
+            // 如果没有edge.data，使用原始方式更新
+            onUpdateEdge(sourceId, id, {
+              sourceType: currentSourceType,
+              customPrice: Number(price)
+            });
+          }
         }
       }
 
@@ -281,6 +299,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                     } else if (selectedValue === CcuSourceType.HISTORICAL) {
                       handleCustomPriceChange(edge.id, Number(historical?.price) - Number(edge?.data?.sourceShip?.msrp) / 100)
                     }
+
                     handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
                   }}
                 >
@@ -289,12 +308,12 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   </option>
                   {wb && Number(edge?.data?.sourceShip?.msrp) < wb.price && (
                     <option value={CcuSourceType.AVAILABLE_WB}>
-                      {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                      {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(wb.price / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
                   {historical && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historical.price) && (
                     <option value={CcuSourceType.HISTORICAL}>
-                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {(Number(historical.price) - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {Number(historical.price).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historical.price)- Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
                   {

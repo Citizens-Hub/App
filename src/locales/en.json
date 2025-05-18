@@ -126,7 +126,7 @@
   "changelogs.heading": "Changelog",
   "routeInfoPanel.pruneOpt": "Pruning optimization",
   "routeInfoPanel.pruneOptTooltip": "If checked, the upgrade paths have been pruned to ensure calculations can be completed in a reasonable time. Only the first path is guaranteed to be optimal, not all possible alternatives are guaranteed to be shown",
-  "shipNode.historical": "Historical WB",
+  "shipNode.historical": "Historical",
   "routeInfoPanel.historical": "Historical WB",
   "ccuPlanner.showHistoryWBTooltip": "This is a test function, the data may not be accurate",
   "pathBuilder.step1": "Select your starting ships",
@@ -232,5 +232,8 @@
   "navigate.ccuPlanner": "CCU Planner",
   "navigate.storePreview": "Store Preview",
   "login.submit": "Sign in",
-  "login.google": "Continue with Google"
+  "login.google": "Continue with Google",
+  "settings.ccuPriorityDragHint": "Drag items to change the priority of CCU types. Types with higher priority will be considered first for upgrade paths.",
+  "settings.ccuPriority": "CCU Source Priority",
+  "settings.ccuPriorityDescription": "Set the priority order of CCUs' sources. Types with higher priority will be considered first for upgrade paths."
 }

@@ -1,129 +1,114 @@
-import { Button } from '@mui/material';
-import { Trash2, Download, Save, Upload, Route, HelpCircle } from 'lucide-react';
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { useState } from 'react';
 import { Node } from 'reactflow';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
+import { Download, Upload, Save, Book, Plus, Trash2 } from 'lucide-react';
 
 interface ToolbarProps {
+  nodes: Node[];
   onClear: () => void;
   onSave: () => void;
   onExport: () => void;
   onImport: () => void;
-  onOpenPathBuilder?: () => void;
-  onOpenGuide?: () => void;
-  nodes?: Node[];
+  onOpenPathBuilder: () => void;
+  onOpenGuide: () => void;
 }
 
-export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, onOpenGuide, nodes = [] }: ToolbarProps) {
-  const hasContent = nodes.length > 0;
-  const intl = useIntl();
+export default function Toolbar({ nodes, onClear, onSave, onExport, onImport, onOpenPathBuilder, onOpenGuide }: ToolbarProps) {
+  const nodesEmpty = nodes.length === 0;
+  const [confirmOpen, setConfirmOpen] = useState(false);
   
-  return (
-    <div className="p-4 md:p-2 my-0 lg:m-0 shadow-md flex gap-2">
-      <Button
-        variant="outlined"
-        onClick={onClear}
-        disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-        }}
-      >
-        <Trash2 size={16} />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
-        </span>
-      </Button>
-      
-      <Button
-        variant="outlined"
-        onClick={onSave}
-        disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "Save" })}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-        }}
-      >
-        <Save size={16} />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.save" defaultMessage="Save" />
-        </span>
-      </Button>
-      
-      <Button
-        variant="outlined"
-        onClick={onExport}
-        disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-        }}
-      >
-        <Download size={16} />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.export" defaultMessage="Export" />
-        </span>
-      </Button>
+  const handleConfirmOpen = () => {
+    setConfirmOpen(true);
+  };
 
-      <Button
-        variant="outlined"
-        onClick={onImport}
-        title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-        }}
-      >
-        <Upload size={16} />
-        <span className="xl:block hidden">
+  const handleConfirmClose = () => {
+    setConfirmOpen(false);
+  };
+
+  const handleConfirmClear = () => {
+    onClear();
+    setConfirmOpen(false);
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2 p-2 rounded-md">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outlined"
+          onClick={onSave}
+          disabled={nodesEmpty}
+          startIcon={<Save size={16} />}
+        >
+          <FormattedMessage id="toolbar.save" defaultMessage="Save" />
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={onExport}
+          disabled={nodesEmpty}
+          startIcon={<Download size={16} />}
+        >
+          <FormattedMessage id="toolbar.export" defaultMessage="Export" />
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={onImport}
+          startIcon={<Upload size={16} />}
+        >
           <FormattedMessage id="toolbar.import" defaultMessage="Import" />
-        </span>
-      </Button>
-      
-      {onOpenPathBuilder && (
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={handleConfirmOpen}
+          disabled={nodesEmpty}
+          color="error"
+          startIcon={<Trash2 size={16} />}
+        >
+          <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <Button
           variant="outlined"
           onClick={onOpenPathBuilder}
-          title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
-          color="primary"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-          }}
+          startIcon={<Plus size={16} />}
         >
-          <Route size={16} />
-          <span className="xl:block hidden text-nowrap">
-            <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
-          </span>
+          <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
         </Button>
-      )}
+        <Button
+          variant="outlined"
+          onClick={onOpenGuide}
+          startIcon={<Book size={16} />}
+        >
+          <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
+        </Button>
+      </div>
 
-      {
-        onOpenGuide && (
-          <Button
-            variant="outlined"
-            onClick={onOpenGuide}
-            title={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            <HelpCircle size={16} />
-            <span className="xl:block hidden text-nowrap">
-              <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
-            </span>
+      <Dialog
+        open={confirmOpen}
+        onClose={handleConfirmClose}
+      >
+        <DialogTitle>
+          <FormattedMessage id="toolbar.confirmClear" defaultMessage="Confirm Clear" />
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <FormattedMessage
+              id="toolbar.confirmClearText"
+              defaultMessage="Are you sure you want to clear all nodes? This action cannot be undone."
+            />
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleConfirmClose} color="primary">
+            <FormattedMessage id="toolbar.cancel" defaultMessage="Cancel" />
           </Button>
-        )
-      }
+          <Button onClick={handleConfirmClear} color="error">
+            <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 } 

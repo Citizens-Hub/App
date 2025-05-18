@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { RootState } from '.';
+import { CcuSourceType } from '../types';
 
 const version = '1.0.0';
 
@@ -67,7 +68,8 @@ const getInitialState = (): {
   users: UserInfo[],
   version: string,
   selectedUser: number,
-  currency: string
+  currency: string,
+  ccuSourceTypePriority: CcuSourceType[]
 } => {
   const localState = localStorage.getItem('state');
 
@@ -81,6 +83,14 @@ const getInitialState = (): {
         predicts: state.items.predicts || { },
       },
       imported: state.imported || {},
+      ccuSourceTypePriority: state.ccuSourceTypePriority || [
+        CcuSourceType.HANGER,
+        CcuSourceType.HISTORICAL,
+        CcuSourceType.AVAILABLE_WB,
+        CcuSourceType.THIRD_PARTY,
+        CcuSourceType.OFFICIAL_WB,
+        CcuSourceType.OFFICIAL,
+      ],
     };
   }
 
@@ -95,6 +105,14 @@ const getInitialState = (): {
     users: [],
     selectedUser: -1,
     currency: getDefaultCurrency(),
+    ccuSourceTypePriority: [
+      CcuSourceType.HANGER,
+      CcuSourceType.HISTORICAL,
+      CcuSourceType.AVAILABLE_WB,
+      CcuSourceType.THIRD_PARTY,
+      CcuSourceType.OFFICIAL_WB,
+      CcuSourceType.OFFICIAL,
+    ],
     version,
   };
 };
@@ -140,6 +158,10 @@ export const upgradesSlice = createSlice({
     setCurrency: (state, action: PayloadAction<string>) => {
       state.currency = action.payload;
       localStorage.setItem('state', JSON.stringify(state));
+    },
+    setCcuSourceTypePriority: (state, action: PayloadAction<CcuSourceType[]>) => {
+      state.ccuSourceTypePriority = action.payload;
+      localStorage.setItem('state', JSON.stringify(state));
     }
   }
 });
@@ -172,4 +194,13 @@ export const selectUsersHangarItems = createSelector(
   }
 );
 
-export const { addCCU, addUser, clearUpgrades, setSelectedUser, setCurrency, addPredict, removePredict } = upgradesSlice.actions;
+export const { 
+  addCCU, 
+  addUser, 
+  clearUpgrades, 
+  setSelectedUser, 
+  setCurrency, 
+  addPredict, 
+  removePredict,
+  setCcuSourceTypePriority 
+} = upgradesSlice.actions;

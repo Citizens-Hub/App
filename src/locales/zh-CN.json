@@ -126,7 +126,7 @@
   "changelogs.heading": "更新日志",
   "routeInfoPanel.pruneOpt": "剪枝优化",
   "routeInfoPanel.pruneOptTooltip": "如果勾选，升级路径经过剪枝以确保能在有意义时间内完成计算, 只保证第一条路径为花费最优路径, 不保证存在不存在优于第二条（及以后）路径的路径",
-  "shipNode.historical": "历史WB",
+  "shipNode.historical": "历史",
   "routeInfoPanel.historical": "历史WB",
   "ccuPlanner.showHistoryWBTooltip": "这是一个测试功能，数据可能不准确",
   "pathBuilder.step1": "选择您的起始舰船",
@@ -245,5 +245,8 @@
   "login.google": "使用Google账号继续",
   "extensionModal.chromeEdge": "Chrome和Edge",
   "extensionModal.firefox": "Firefox",
-  "extensionModal.manualLink": "手动安装"
+  "extensionModal.manualLink": "手动安装",
+  "settings.ccuPriorityDragHint": "拖动条目以更改CCU类型的优先级。优先级更高的类型将首先被考虑用于升级路径。",
+  "settings.ccuPriority": "CCU类型优先级",
+  "settings.ccuPriorityDescription": "设置默认连接的CCU来源类型"
 }
