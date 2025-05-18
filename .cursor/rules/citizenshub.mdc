@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+所有的注释请使用英文，如果发现其他语言注释顺手改掉
+使用react-intl进行本地化，locales在src/locales

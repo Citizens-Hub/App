@@ -89,7 +89,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               }
 
               return <div
-                key={fromShip.id + toShip.id + upgrade.belongsTo + (upgrade.canGift ? "giftable" : "") + (upgrade.isBuyBack ? "buyback" : "")}
+                key={fromShip.id + "-" + toShip.id + "-" + upgrade.belongsTo + "-" + upgrade.value + "-" + (upgrade.canGift ? "giftable" : "") + "-" + (upgrade.isBuyBack ? "buyback" : "")}
                 className="flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0"
               >
                 <div className="text-xs text-gray-400">

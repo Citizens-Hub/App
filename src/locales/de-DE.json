@@ -126,7 +126,7 @@
   "changelogs.heading": "Changelog",
   "routeInfoPanel.pruneOpt": "Optimierung durch Beschneidung",
   "routeInfoPanel.pruneOptTooltip": "Wenn aktiviert, wurden die Upgrade-Pfade optimiert, um die Berechnung in angemessener Zeit zu ermöglichen. Nur der erste Pfad ist garantiert optimal, nicht alle Alternativen werden angezeigt",
-  "shipNode.historical": "Historisches WB",
+  "shipNode.historical": "Historisches",
   "routeInfoPanel.historical": "Historisches WB",
   "ccuPlanner.showHistoryWBTooltip": "Dies ist eine Testfunktion, die Daten sind möglicherweise nicht genau",
   "pathBuilder.step1": "Wählen Sie Ihre Startschiffe aus",

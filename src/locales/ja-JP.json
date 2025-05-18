@@ -126,7 +126,7 @@
   "changelogs.heading": "変更履歴",
   "routeInfoPanel.pruneOpt": "プルーニング最適化",
   "routeInfoPanel.pruneOptTooltip": "チェックした場合、アップグレードパスは計算が妥当な時間内に完了するように整理されています。最初のパスのみが最適であることが保証されており、すべての可能な代替案が表示されるとは限りません",
-  "shipNode.historical": "過去のWB",
+  "shipNode.historical": "過去の",
   "routeInfoPanel.historical": "過去のWB",
   "ccuPlanner.showHistoryWBTooltip": "これはテスト機能であり、データが正確でない場合があります",
   "pathBuilder.step1": "開始する船を選択してください",

@@ -90,6 +90,12 @@ Also, you can set the cost of purchasing your starting ship in the panel on the 
 
 Just remember, the final cost of a route we calculate is equivalent to the money you actually spend + the money you need to spend to buy back the store credit lost due to purchasing CCUs from third parties. If you don't want store credit, just set this value to 0.
 
+## How to change the priority order for automatically selecting CCU sources when creating connections
+
+You can go to [App Settings](/app-settings) to set the priority order. When creating connections, the system will automatically select CCU sources based on this priority order and their availability.
+
+![](https://citizenshub.app/imgs/tutorial/09.png)
+
 ## Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?
 
 Working on it, will be supported in the future.

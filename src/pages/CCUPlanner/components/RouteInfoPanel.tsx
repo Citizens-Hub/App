@@ -76,36 +76,36 @@ export default function RouteInfoPanel({
 
   // Get price and currency based on different source types
   const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
-    if (!edge.data) return { usdPrice: 0, cnyPrice: 0 };
+    if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
 
     const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
     let usdPrice = 0;
-    let cnyPrice = 0;
+    let tpPrice = 0;
 
     switch (sourceType) {
       case CcuSourceType.OFFICIAL:
         usdPrice = edge.data.price / 100;
-        cnyPrice = 0;
+        tpPrice = 0;
         break;
       case CcuSourceType.AVAILABLE_WB:
       case CcuSourceType.OFFICIAL_WB:
         usdPrice = edge.data.customPrice || edge.data.price / 100;
-        cnyPrice = 0;
+        tpPrice = 0;
         break;
       case CcuSourceType.THIRD_PARTY:
-        cnyPrice = edge.data.customPrice || 0;
+        tpPrice = edge.data.customPrice || 0;
         usdPrice = 0;
         break;
       case CcuSourceType.HANGER:
       case CcuSourceType.HISTORICAL:
         usdPrice = edge.data.customPrice || edge.data.price / 100;
-        cnyPrice = 0;
+        tpPrice = 0;
         break;
       default:
         break;
     }
 
-    return { usdPrice, cnyPrice };
+    return { usdPrice, tpPrice };
   }, []);
 
   // Calculate the converted value of the cost (USD cost * 7.3 + CNY cost * (1 + concierge value))
@@ -145,7 +145,7 @@ export default function RouteInfoPanel({
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
-          const { usdPrice, cnyPrice } = getPriceInfo(edge);
+          const { usdPrice, tpPrice } = getPriceInfo(edge);
 
           findAllPaths(
             targetNode,
@@ -154,7 +154,7 @@ export default function RouteInfoPanel({
             [...currentPath],
             allPaths,
             currentUsdCost + usdPrice,
-            currentCnyCost + cnyPrice
+            currentCnyCost + tpPrice
           );
         }
       }
@@ -201,9 +201,9 @@ export default function RouteInfoPanel({
             targetNode
           });
 
-          const { usdPrice, cnyPrice } = getPriceInfo(edge);
+          const { usdPrice, tpPrice } = getPriceInfo(edge);
           totalUsdPrice += usdPrice;
-          totalCnyPrice += cnyPrice;
+          totalCnyPrice += tpPrice;
 
           if (edge.data?.sourceType === CcuSourceType.THIRD_PARTY) {
             hasCnyPricing = true;
@@ -470,7 +470,7 @@ export default function RouteInfoPanel({
 
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
-                          const { usdPrice, cnyPrice } = getPriceInfo(pathEdge.edge);
+                          const { usdPrice, tpPrice } = getPriceInfo(pathEdge.edge);
                           const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                           return (
@@ -528,12 +528,12 @@ export default function RouteInfoPanel({
                                 {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
                                   <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                     <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                    <span className="text-black dark:text-white">${usdPrice.toFixed(2)}</span>
+                                    <span className="text-black dark:text-white">{usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                     <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                    <span className="text-black dark:text-white">￥{cnyPrice.toFixed(2)}</span>
+                                    <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
                                   </span>
                                 )}
                               </div>

@@ -32,6 +32,7 @@ import PathBuilder from './PathBuilder';
 import UserSelector from '../../../components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
+import { CcuEdgeService } from '../../../services/CcuEdgeService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -90,6 +91,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     open: false
   }))
 
+  const edgeService = useMemo(() => new CcuEdgeService(), []);
+
   // Handle connection creation
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -100,26 +103,25 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         const sourceShip = (sourceNode.data?.ship as Ship);
         const targetShip = (targetNode.data?.ship as Ship);
 
-        if (sourceShip.msrp === 0) {
-          setAlert({
-            open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.sourceShipPriceZero', defaultMessage: 'Can\'t upgrade from this ship' }),
-            type: 'warning'
-          })
+        // Use edgeService.canCreateEdge method to check if an edge can be created
+        if (!edgeService.canCreateEdge(sourceShip, targetShip)) {
+          if (sourceShip.msrp === 0) {
+            setAlert({
+              open: true,
+              message: intl.formatMessage({ id: 'ccuPlanner.error.sourceShipPriceZero', defaultMessage: 'Cannot upgrade from this ship as its price is zero.' }),
+              type: 'warning'
+            })
+          } else {
+            setAlert({
+              open: true,
+              message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU can only be upgraded from lower-priced ships to higher-priced ships.' }),
+              type: 'warning'
+            })
+          }
           return;
         }
 
-        // Ensure the source ship price is lower than the target ship price
-        if (sourceShip.msrp >= targetShip.msrp && targetShip.msrp !== 0) {
-          // console.warn('CCU can only be upgraded from low-priced ships to high-priced ships');
-          setAlert({
-            open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU can only be upgraded from low-priced ships to high-priced ships' }),
-            type: 'warning'
-          })
-          return;
-        }
-
+        // Check for hangar CCU
         const hangarCcu = upgrades.ccus.find(upgrade => {
           const from = upgrade.parsed.from.toUpperCase()
           const to = upgrade.parsed.to.toUpperCase()
@@ -127,15 +129,14 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
           return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
         })
 
-        if (targetShip.msrp === 0) {
-          if (hangarCcu === undefined) {
-            setAlert({
-              open: true,
-              message: intl.formatMessage({ id: 'ccuPlanner.error.targetShipPriceZero', defaultMessage: 'This ship can only be upgraded using a hangar CCU' }),
-              type: 'warning'
-            })
-            return;
-          }
+        // If target ship price is 0 and no hangar CCU, disallow upgrade
+        if (targetShip.msrp === 0 && !hangarCcu) {
+          setAlert({
+            open: true,
+            message: intl.formatMessage({ id: 'ccuPlanner.error.targetShipPriceZero', defaultMessage: 'This ship can only be upgraded using a hangar CCU as its price is zero.' }),
+            type: 'warning'
+          })
+          return;
         }
 
         const hasExistingPath = (
@@ -154,53 +155,43 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         if (hasExistingPath(sourceNode, targetNode.id)) {
           setAlert({
             open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: 'A path already exists from the source ship to the target ship, do not create a duplicate connection' }),
+            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: 'A path already exists from the source ship to the target ship. Duplicate connections are not allowed.' }),
             type: 'warning'
           })
           return;
         }
 
-        const priceDifference = targetShip.msrp - sourceShip.msrp;
+        // Prepare hangar items list
+        const hangarItems = upgrades.ccus.map(upgrade => ({
+          id: Date.now() + Math.random(), // Generate unique ID
+          name: upgrade.name,
+          type: 'ccu',
+          fromShip: upgrade.parsed.from,
+          toShip: upgrade.parsed.to,
+          price: upgrade.value
+        }));
+
+        // Use edgeService to create edge data
+        const edgeData = edgeService.createEdgeData({
+          sourceShip,
+          targetShip,
+          ccus,
+          wbHistory,
+          hangarItems
+        });
 
         const newEdge = {
           id: `edge-${sourceNode.id}-${targetNode.id}`,
           ...connection,
           type: 'ccu',
           animated: true,
-          data: {
-            price: priceDifference,
-            sourceShip,
-            targetShip,
-            sourceType: CcuSourceType.OFFICIAL,
-          } as CcuEdgeData,
+          data: edgeData,
         };
-
-        if (hangarCcu) {
-          // If there is a hangar CCU, use it by default
-          newEdge.data.sourceType = CcuSourceType.HANGER;
-          newEdge.data.customPrice = hangarCcu.value;
-        }
-        // If there is no hangar CCU, check if there is a WB option
-        else {
-          // Check if the target ship has an available WB SKU
-          const targetShipSkus = ccus.find(c => c.id === targetShip.id)?.skus;
-          const targetWb = targetShipSkus?.find(sku => sku.price !== targetShip.msrp && sku.available);
-
-          // If there is a WB SKU and the WB price is greater than the source ship's msrp, automatically select WB
-          if (targetWb && sourceShip.msrp < targetWb.price) {
-            const targetWbPrice = targetWb.price / 100;
-            const sourceShipPrice = sourceShip.msrp / 100;
-            const actualPrice = targetWbPrice - sourceShipPrice;
-
-            newEdge.data.sourceType = CcuSourceType.AVAILABLE_WB;
-            newEdge.data.customPrice = Math.max(0, actualPrice);
-          }
-        }
 
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, upgrades, setEdges, edges, ccus, intl]
+    [nodes, upgrades, setEdges, edges, ccus, intl, wbHistory, edgeService]
   );
 
   const updateEdgeData = useCallback(
@@ -483,7 +474,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
     setAlert({
       open: true,
-      message: intl.formatMessage({ id: 'ccuPlanner.success.saved', defaultMessage: 'CCU 升级路径已保存！' }),
+      message: intl.formatMessage({ id: 'ccuPlanner.success.saved', defaultMessage: 'CCU upgrade path saved successfully!' }),
       type: 'success'
     });
   }, [nodes, edges, startShipPrices, intl]);
@@ -540,7 +531,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
           setStartShipPrices(savedPrices);
         }
       } catch (error) {
-        console.error('加载保存的CCU路径时出错:', error);
+        console.error('Error loading saved CCU paths:', error);
       }
     }
   }, [reactFlowInstance, setNodes, setEdges]);
@@ -1089,7 +1080,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         </Alert>
       </Snackbar>
 
-      {/* 路径规划器 */}
+      {/* Path Planner */}
       <PathBuilder
         open={pathBuilderOpen}
         onClose={handleClosePathBuilder}

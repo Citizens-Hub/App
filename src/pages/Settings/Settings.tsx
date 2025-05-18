@@ -19,11 +19,13 @@ import {
   Avatar,
   Snackbar,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { UserRole } from '../../store/userStore';
 import useProfileData from './hooks/useProfileData';
 import { ProfileData } from '../../types';
+import CcuPriorityList from './components/CcuPriorityList';
 
 const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
 
@@ -331,6 +333,18 @@ export default function Settings() {
                       </MenuItem>
                     ))}
                   </Select>
+                </div>
+
+                <Divider sx={{ my: 2 }} />
+
+                <div>
+                  <Typography variant="h6">
+                    <FormattedMessage id="settings.ccuPriority" defaultMessage="CCU Source Priority" />
+                  </Typography>
+                  <Typography variant="body2" color='text.secondary' sx={{ mb: 2 }}>
+                    <FormattedMessage id="settings.ccuPriorityDescription" defaultMessage="Set the priority order of CCUs' sources. Types with higher priority will be considered first for upgrade paths." />
+                  </Typography>
+                  <CcuPriorityList />
                 </div>
               </>
             )}
