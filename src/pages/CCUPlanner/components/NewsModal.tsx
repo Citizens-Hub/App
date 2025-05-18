@@ -1,9 +1,8 @@
-import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box, Link } from '@mui/material';
+import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
 import { Close } from '@mui/icons-material';
-import { FormattedMessage } from 'react-intl';
-import { useState, useEffect } from 'react';
-import { useLocale } from '../../../contexts/LocaleContext';
+import { FormattedMessage, useIntl } from 'react-intl';
 import DiscordIcon from '../../../icons/DiscordIcon';
+import { Link } from 'react-router';
 
 interface NewsModalProps {
   open: boolean;
@@ -11,29 +10,10 @@ interface NewsModalProps {
 }
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
-  const [canClose, setCanClose] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3);
-
-  const locale = useLocale();
-
-  useEffect(() => {
-    if (open) {
-      setCanClose(false);
-
-      if (timeLeft > 0) {
-        setTimeout(() => {
-          setTimeLeft(timeLeft - 1);
-        }, 1000);
-      } else {
-        setCanClose(true);
-      }
-    }
-  }, [open, timeLeft]);
+  const { locale } = useIntl()
 
   const handleClose = () => {
-    if (canClose) {
-      onClose();
-    }
+    onClose();
   };
 
   return (
@@ -60,7 +40,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         <Typography variant="h5" component="p" fontWeight="bold">
           <FormattedMessage id="newsModal.title" defaultMessage="Hello" />
         </Typography>
-        <IconButton onClick={handleClose} size="large" disabled={!canClose}>
+        <IconButton onClick={handleClose} size="large">
           <Close />
         </IconButton>
       </DialogTitle>
@@ -81,12 +61,12 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
           </Typography>
         </Box>
 
-        {locale.locale === "en" &&
+        {locale === "en" &&
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Join our Discord server to get the latest news and updates:
             </Typography>
-            <Link href="https://discord.gg/AEuRtb5Vy8" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
+            <Link to="https://discord.gg/AEuRtb5Vy8" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
               <DiscordIcon />
               https://discord.gg/AEuRtb5Vy8
             </Link>
@@ -95,23 +75,18 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.newDomain" defaultMessage="New domain name enabled" />
+            <FormattedMessage id="newsModal.newFeature" defaultMessage="New feature" />
           </Typography>
-          <Link href="https://citizenshub.app" target="_blank" rel="noopener noreferrer">
-            citizenshub.app
-          </Link>
           <Typography component="p">
-            <FormattedMessage id="newsModal.pleaseDownloadNewExtension" defaultMessage="Due to the original extension did not add the new domain name access permission, please download the browser extension again" />
+            <FormattedMessage id="newsModal.newFeatureDescription" defaultMessage="You can now set the priority of CCU sources used by default when creating connections in the {settings}" values={{
+              settings: <Link to="/app-settings"><FormattedMessage id="newsModal.settings" defaultMessage="App Settings" /></Link>
+            }} />
           </Typography>
-        </Box>
-
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.referralLinkTitle" defaultMessage="My referral link" />
-          </Typography>
-          <Link href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" rel="noopener noreferrer">
-            www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH
-          </Link>
+          <img
+            src="/imgs/new-feature.png"
+            alt="New feature"
+            className="w-full h-auto"
+          />
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
@@ -120,10 +95,8 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             color="primary"
             onClick={handleClose}
             size="large"
-            disabled={!canClose}
           >
             <FormattedMessage id="newsModal.understood" defaultMessage="Got it" />
-            {timeLeft > 0 && `(${timeLeft}s)`}
           </Button>
         </Box>
       </DialogContent>

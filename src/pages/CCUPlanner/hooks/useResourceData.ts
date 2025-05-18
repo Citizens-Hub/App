@@ -11,7 +11,7 @@ export default function useResourceData() {
   const [exchangeRates, setExchangeRates] = useState({});
 
   useEffect(() => {
-    const currentVersion = '1.0.1';
+    const currentVersion = '1.0.2';
     const lastVisitVersion = localStorage.getItem('ccuPlannerLastVisit');
     
     if (!lastVisitVersion || lastVisitVersion !== currentVersion) {

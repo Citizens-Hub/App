@@ -248,5 +248,8 @@
   "extensionModal.manualLink": "手动安装",
   "settings.ccuPriorityDragHint": "拖动条目以更改CCU类型的优先级。优先级更高的类型将首先被考虑用于升级路径。",
   "settings.ccuPriority": "CCU类型优先级",
-  "settings.ccuPriorityDescription": "设置默认连接的CCU来源类型"
+  "settings.ccuPriorityDescription": "设置默认连接的CCU来源类型",
+  "newsModal.newFeature": "新功能",
+  "newsModal.newFeatureDescription": "你现在可以在 {settings} 中设置在连线时默认创建连线时使用的CCU来源的优先级了",
+  "newsModal.settings": "应用设置"
 }
