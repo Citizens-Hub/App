@@ -54,12 +54,9 @@ export class CcuEdgeService {
 
     if (strategy.getTypeId() !== CcuSourceType.OFFICIAL) {
       edgeData.customPrice = priceInfo.price;
+    } else {
+      edgeData.customPrice = priceDifference / 100;
     }
-    
-    // // 如果计算出的价格与标准差价不同，设置自定义价格
-    // if (priceInfo.price !== priceDifference / 100) {
-    //   edgeData.customPrice = priceInfo.price;
-    // }
     
     return edgeData;
   }
