@@ -199,7 +199,7 @@ export class ThirdPartyStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(_sourceShip: Ship, _targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
     return {
       price: options?.customPrice || 0,
       currency: options?.currency || 'CNY'
@@ -263,8 +263,8 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
   isApplicable(
     sourceShip: Ship, 
     targetShip: Ship, 
-    ccus: Ccu[], 
-    wbHistory: WbHistoryData[], 
+    _ccus: Ccu[], 
+    _wbHistory: WbHistoryData[], 
     hangarItems: Array<{
       id: number;
       name: string;
@@ -332,7 +332,7 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
     };
   }
   
-  isApplicable(sourceShip: Ship, targetShip: Ship, ccus: Ccu[], wbHistory: WbHistoryData[]): boolean {
+  isApplicable(sourceShip: Ship, targetShip: Ship, _ccus: Ccu[], wbHistory: WbHistoryData[]): boolean {
     const historical = wbHistory.find(wb => 
       wb.name.trim().toUpperCase() === targetShip.name.trim().toUpperCase() && 
       wb.price !== ''
