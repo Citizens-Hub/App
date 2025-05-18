@@ -86,8 +86,6 @@ export default function CcuEdge({
             switch (true) {
               case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
                 return (priceToShow / 100).toLocaleString(locale, { style: 'currency', currency });
-              // case currency === 'USD':
-              //   return priceToShow.toLocaleString(locale, { style: 'currency', currency });
               default:
                 return priceToShow.toLocaleString(locale, { style: 'currency', currency });
             }

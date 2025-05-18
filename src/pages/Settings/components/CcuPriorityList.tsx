@@ -23,36 +23,30 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { CcuSourceTypeStrategyFactory } from '../../../pages/CCUPlanner/services/CcuSourceTypeFactory';
 
 // CCU类型显示样式和颜色
 const ccuTypeStyles = {
   [CcuSourceType.OFFICIAL]: {
-    bgColor: 'bg-blue-700',
-    borderColor: 'border-blue-500',
+    bgColor: 'bg-blue-700'
   },
   [CcuSourceType.AVAILABLE_WB]: {
-    bgColor: 'bg-orange-400',
-    borderColor: 'border-orange-400',
+    bgColor: 'bg-orange-400'
   },
   [CcuSourceType.OFFICIAL_WB]: {
-    bgColor: 'bg-red-600',
-    borderColor: 'border-red-500',
+    bgColor: 'bg-red-600'
   },
   [CcuSourceType.THIRD_PARTY]: {
-    bgColor: 'bg-purple-700',
-    borderColor: 'border-purple-500',
+    bgColor: 'bg-purple-700'
   },
   [CcuSourceType.HANGER]: {
-    bgColor: 'bg-cyan-500',
-    borderColor: 'border-cyan-300',
+    bgColor: 'bg-cyan-500'
   },
   [CcuSourceType.HISTORICAL]: {
-    bgColor: 'bg-gray-500',
-    borderColor: 'border-gray-500',
+    bgColor: 'bg-gray-500'
   },
 };
 
-// 可排序的项目组件
 function SortableItem({ id, type }: { id: string, type: CcuSourceType }) {
   const intl = useIntl();
   const {
@@ -68,24 +62,11 @@ function SortableItem({ id, type }: { id: string, type: CcuSourceType }) {
     transition,
   };
 
-  // 获取CCU类型名称
-  const getCcuTypeName = (type: CcuSourceType) => {
-    switch (type) {
-      case CcuSourceType.OFFICIAL:
-        return intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" });
-      case CcuSourceType.AVAILABLE_WB:
-        return intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" });
-      case CcuSourceType.OFFICIAL_WB:
-        return intl.formatMessage({ id: "shipNode.manualOfficialWB", defaultMessage: "Manual: Official WB CCU" });
-      case CcuSourceType.THIRD_PARTY:
-        return intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" });
-      case CcuSourceType.HANGER:
-        return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
-      case CcuSourceType.HISTORICAL:
-        return intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" });
-      default:
-        return type;
-    }
+  // 使用CcuSourceTypeStrategyFactory获取显示名称
+  const getDisplayName = (type: CcuSourceType) => {
+    const factory = CcuSourceTypeStrategyFactory.getInstance();
+    const strategy = factory.getStrategy(type);
+    return strategy.getDisplayName(intl);
   };
 
   return (
@@ -98,7 +79,7 @@ function SortableItem({ id, type }: { id: string, type: CcuSourceType }) {
     >
       <div className="flex items-center gap-3">
         <div className={`w-4 h-4 rounded-full ${ccuTypeStyles[type].bgColor}`}></div>
-        <span>{getCcuTypeName(type)}</span>
+        <span>{getDisplayName(type)}</span>
       </div>
       <MoreHorizontal size={16} className="text-gray-500" />
     </div>

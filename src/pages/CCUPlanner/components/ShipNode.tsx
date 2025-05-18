@@ -41,48 +41,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const wb = skus?.find(sku => sku.price !== ship.msrp)
   const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
 
-  // Price calculation function, calculate price based on source type
-  const calculatePrice = (sourceType: CcuSourceType, edgeData: CcuEdgeData | undefined) => {
-    const sourceShip = edgeData?.sourceShip;
-    
-    switch(sourceType) {
-      case CcuSourceType.AVAILABLE_WB:
-        if (wb && sourceShip) {
-          const targetWbPrice = wb.price / 100;
-          const sourceShipPrice = sourceShip.msrp / 100;
-          const actualPrice = targetWbPrice - sourceShipPrice;
-          return Math.max(0, actualPrice);
-        } else if (wb) {
-          return wb.price / 100;
-        }
-        return 0;
-        
-      case CcuSourceType.HANGER:
-        return upgrades.ccus.find(upgrade => {
-          const from = upgrade.parsed.from.toUpperCase();
-          const to = upgrade.parsed.to.toUpperCase();
-          return from === edgeData?.sourceShip?.name.trim().toUpperCase() && 
-                 to === edgeData?.targetShip?.name.trim().toUpperCase();
-        })?.value || 0;
-        
-      case CcuSourceType.HISTORICAL:
-        if (historical && sourceShip) {
-          return Number(historical.price) - Number(sourceShip.msrp) / 100;
-        }
-        return 0;
-        
-      default:
-        return edgeData?.customPrice || 0;
-    }
-  };
-
-  const [edgeSettings, setEdgeSettings] = useState<{
-    [key: string]: {
-      sourceType: CcuSourceType;
-      customPrice?: number | string;
-    }
-  }>({});
-
   // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
 
@@ -128,19 +86,22 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     onDuplicateNode?.(ship, { x: xPos, y: yPos });
   };
 
+  const [edgeSettings, setEdgeSettings] = useState<{
+    [key: string]: {
+      sourceType: CcuSourceType;
+      customPrice?: number | string;
+    }
+  }>({});
+
   const handleSourceTypeChange = (edgeId: string, sourceType: CcuSourceType) => {
     const edge = incomingEdges.find(e => e.id === edgeId);
 
     setEdgeSettings(prevSettings => {
       const currentEdgeSettings = prevSettings[edgeId] || {};
-
-      // Calculate price based on the new selected source type
-      const newPrice = edge?.data ? calculatePrice(sourceType, edge.data) : undefined;
       
       const newEdgeSettings = {
         ...currentEdgeSettings,
-        sourceType,
-        customPrice: newPrice !== undefined ? newPrice : currentEdgeSettings.customPrice
+        sourceType
       };
 
       const newSettings = {
@@ -152,20 +113,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         const sourceId = edge.source;
         
         if (edge.data) {
-          const updatedData = edgeService.updateEdgeData(
-            edge.data,
-            sourceType,
-            newPrice !== undefined ? newPrice : Number(newEdgeSettings.customPrice)
-          );
-          
+          const updatedData = edgeService.updateEdgeData(edge.data, sourceType);
           onUpdateEdge(sourceId, id, updatedData);
-        } else {
-          onUpdateEdge(sourceId, id, {
-            sourceType,
-            customPrice: newPrice !== undefined
-              ? newPrice
-              : Number(newEdgeSettings.customPrice)
-          });
+          
+          newEdgeSettings.customPrice = updatedData.customPrice;
         }
       }
 
@@ -191,24 +142,17 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
       if (onUpdateEdge && edgeId) {
         const edge = incomingEdges.find(e => e.id === edgeId);
-        if (edge) {
+        if (edge && edge.data) {
           const sourceId = edge.source;
           
-          if (edge.data) {
-            const updatedData = edgeService.updateEdgeData(
-              edge.data,
-              currentSourceType,
-              Number(price)
-            );
-            
-            onUpdateEdge(sourceId, id, updatedData);
-          } else {
-            // If there is no edge.data, update the edge data using the original method
-            onUpdateEdge(sourceId, id, {
-              sourceType: currentSourceType,
-              customPrice: Number(price)
-            });
-          }
+          // 使用CcuEdgeService更新边数据
+          const updatedData = edgeService.updateEdgeData(
+            edge.data,
+            currentSourceType,
+            Number(price)
+          );
+          
+          onUpdateEdge(sourceId, id, updatedData);
         }
       }
 

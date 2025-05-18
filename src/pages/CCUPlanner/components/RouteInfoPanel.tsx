@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton } from '@mui/material';
@@ -6,6 +6,8 @@ import { InfoOutlined, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
+import pathFinderService from '../services/PathFinderService';
+import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -24,19 +26,10 @@ interface RouteInfoPanelProps {
   };
 }
 
-interface PathNode {
-  nodeId: string;
-  ship: Ship;
-}
-
-interface PathEdge {
-  edge: Edge<CcuEdgeData>;
-  sourceNode: Node;
-  targetNode: Node;
-}
-
-String.prototype.getNodeShipId = function () {
-  return this.split('-')[1];
+if (!String.prototype.getNodeShipId) {
+  String.prototype.getNodeShipId = function () {
+    return this.split('-')[1];
+  }
 }
 
 export default function RouteInfoPanel({
@@ -51,19 +44,15 @@ export default function RouteInfoPanel({
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const [currentPage, setCurrentPage] = useState(0);
-  const nodeBestCostRef = useRef<Record<string, number>>({});
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
-  const { locale } = useIntl();
-  // Find all possible starting nodes (nodes with no incoming edges)
-  const findStartNodes = useCallback(() => {
-    const nodesWithIncomingEdges = new Set(edges.map(edge => edge.target));
-    return nodes.filter(node => !nodesWithIncomingEdges.has(node.id));
-  }, [edges, nodes]);
+  const intl = useIntl();
+  const { locale } = intl;
+  const ccuSourceTypeFactory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
 
   // Initialize the starting ship price to msrp/100 USD
   useEffect(() => {
-    const startNodes = findStartNodes();
+    const startNodes = pathFinderService.findStartNodes(edges, nodes);
 
     startNodes.forEach(node => {
       // Only set the default price for nodes that haven't been set
@@ -72,188 +61,51 @@ export default function RouteInfoPanel({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, findStartNodes]);
-
-  // Get price and currency based on different source types
-  const getPriceInfo = useCallback((edge: Edge<CcuEdgeData>) => {
-    if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
-
-    const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
-    let usdPrice = 0;
-    let tpPrice = 0;
-
-    switch (sourceType) {
-      case CcuSourceType.OFFICIAL:
-        usdPrice = edge.data.price / 100;
-        tpPrice = 0;
-        break;
-      case CcuSourceType.AVAILABLE_WB:
-      case CcuSourceType.OFFICIAL_WB:
-        usdPrice = edge.data.customPrice || edge.data.price / 100;
-        tpPrice = 0;
-        break;
-      case CcuSourceType.THIRD_PARTY:
-        tpPrice = edge.data.customPrice || 0;
-        usdPrice = 0;
-        break;
-      case CcuSourceType.HANGER:
-      case CcuSourceType.HISTORICAL:
-        usdPrice = edge.data.customPrice || edge.data.price / 100;
-        tpPrice = 0;
-        break;
-      default:
-        break;
-    }
-
-    return { usdPrice, tpPrice };
-  }, []);
-
-  // Calculate the converted value of the cost (USD cost * 7.3 + CNY cost * (1 + concierge value))
-  const calculateTotalCost = useCallback((usdPrice: number, cnyPrice: number) => {
-    const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
-    return usdPrice * exchangeRate + cnyPrice * conciergeMultiplier;
-  }, [conciergeValue, exchangeRate]);
-
-  // Find all possible paths from the starting node to the selected node
-  const findAllPaths = useCallback((
-    startNode: Node,
-    endNodeId: string,
-    visited = new Set<string>(),
-    currentPath: string[] = [],
-    allPaths: string[][] = [],
-    currentUsdCost = 0,
-    currentCnyCost = 0
-  ) => {
-    currentPath.push(startNode.id);
-    visited.add(startNode.id);
-
-    const totalCost = calculateTotalCost(currentUsdCost, currentCnyCost);
-
-    // If this node already has a lower cost record, prune
-    if (pruneOpt && nodeBestCostRef.current[startNode.id] !== undefined && totalCost >= nodeBestCostRef.current[startNode.id]) {
-      return allPaths;
-    }
-
-    nodeBestCostRef.current[startNode.id] = totalCost;
-
-    // If the ship ID of the reached node is the same as the ship ID of the target node, add the current path to all paths
-    if (startNode.id.getNodeShipId() === endNodeId.getNodeShipId()) {
-      allPaths.push([...currentPath]);
-    } else {
-      const outgoingEdges = edges.filter(edge => edge.source.getNodeShipId() === startNode.id.getNodeShipId());
-
-      for (const edge of outgoingEdges) {
-        const targetNode = nodes.find(node => node.id === edge.target);
-        if (targetNode && !visited.has(targetNode.id)) {
-          const { usdPrice, tpPrice } = getPriceInfo(edge);
-
-          findAllPaths(
-            targetNode,
-            endNodeId,
-            new Set(visited),
-            [...currentPath],
-            allPaths,
-            currentUsdCost + usdPrice,
-            currentCnyCost + tpPrice
-          );
-        }
-      }
-    }
-
-    return allPaths;
-  }, [calculateTotalCost, pruneOpt, edges, nodes, getPriceInfo]);
-
-  // 将节点ID路径转换为完整的路径对象
-  const buildCompletePaths = useCallback((pathIds: string[][]) => {
-    return pathIds.map(pathId => {
-      const pathNodes: PathNode[] = pathId.map(id => {
-        const node = nodes.find(n => n.id === id);
-        return {
-          nodeId: id,
-          ship: node?.data?.ship as Ship
-        };
-      });
-
-      const pathEdges: PathEdge[] = [];
-      let totalUsdPrice = 0;
-      let totalCnyPrice = 0;
-      let hasUsdPricing = false;
-      let hasCnyPricing = false;
-
-      // Add the starting ship's price (if there is a custom price)
-      const startNodeId = pathId[0];
-      const customStartPrice = Number(startShipPrices[startNodeId] || "0");
-      if (customStartPrice > 0) {
-        totalUsdPrice += customStartPrice;
-        hasUsdPricing = true;
-      }
-
-      for (let i = 0; i < pathId.length - 1; i++) {
-        const edge = edges.find(e => e.source.getNodeShipId() === pathId[i].getNodeShipId() && e.target === pathId[i + 1]);
-
-        if (edge) {
-          const sourceNode = nodes.find(n => n.id === pathId[i])!;
-          const targetNode = nodes.find(n => n.id === pathId[i + 1])!;
-
-          pathEdges.push({
-            edge,
-            sourceNode,
-            targetNode
-          });
-
-          const { usdPrice, tpPrice } = getPriceInfo(edge);
-          totalUsdPrice += usdPrice;
-          totalCnyPrice += tpPrice;
-
-          if (edge.data?.sourceType === CcuSourceType.THIRD_PARTY) {
-            hasCnyPricing = true;
-          } else {
-            hasUsdPricing = true;
-          }
-        }
-      }
-
-      return {
-        path: pathNodes,
-        edges: pathEdges,
-        totalUsdPrice,
-        totalCnyPrice,
-        hasUsdPricing,
-        hasCnyPricing,
-        startNodeId: pathId[0]
-      };
-    });
-  }, [edges, nodes, getPriceInfo, startShipPrices]);
-
-  const completePaths = useMemo(() => {
-    if (!selectedNode) return [];
-
-    // Reset node minimum cost
-    nodeBestCostRef.current = {};
-
-    const startNodes = findStartNodes();
-    const allPathIds: string[][] = [];
-
-    // Find all paths from each starting node to the target node
-    startNodes.forEach(startNode => {
-      const startPrice = startShipPrices[startNode.id] || 0;
-      const paths = findAllPaths(startNode, selectedNode.id, new Set(), [], [], Number(startPrice), 0);
-      allPathIds.push(...paths);
-    });
-
-    return buildCompletePaths(allPathIds);
-  }, [selectedNode, findStartNodes, buildCompletePaths, findAllPaths, startShipPrices]);
+  }, [nodes, edges]);
 
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
     onStartShipPriceChange(nodeId, price);
   };
 
+  const completePaths = useMemo(() => {
+    if (!selectedNode) return [];
+
+    // Reset node minimum cost
+    pathFinderService.resetNodeBestCost();
+
+    const startNodes = pathFinderService.findStartNodes(edges, nodes);
+    const allPathIds: string[][] = [];
+
+    // Find all paths from each starting node to the target node
+    startNodes.forEach(startNode => {
+      const startPrice = startShipPrices[startNode.id] || 0;
+      const paths = pathFinderService.findAllPaths(
+        startNode, 
+        selectedNode.id, 
+        edges, 
+        nodes, 
+        exchangeRate, 
+        conciergeValue, 
+        pruneOpt, 
+        new Set(), 
+        [], 
+        [], 
+        Number(startPrice), 
+        0
+      );
+      allPathIds.push(...paths);
+    });
+
+    return pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices);
+  }, [selectedNode, edges, nodes, startShipPrices, exchangeRate, conciergeValue, pruneOpt]);
+
   const sortedPaths = useMemo(() => {
     if (!completePaths.length) return [];
     return [...completePaths].sort((a, b) => {
-      return (a.totalUsdPrice + a.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue))) - (b.totalUsdPrice + b.totalCnyPrice / 7.3 * (1 + parseFloat(conciergeValue)))
+      return pathFinderService.calculateTotalCost(a.totalUsdPrice, a.totalCnyPrice, exchangeRate, conciergeValue) - 
+             pathFinderService.calculateTotalCost(b.totalUsdPrice, b.totalCnyPrice, exchangeRate, conciergeValue);
     });
-  }, [completePaths, conciergeValue]);
+  }, [completePaths, exchangeRate, conciergeValue]);
 
   const totalPages = sortedPaths.length;
   
@@ -431,17 +283,6 @@ export default function RouteInfoPanel({
                       </div>
                     </div>
                     <div className="mt-3">
-                      {/* <h5 className="font-medium mb-2 pb-1">
-                        <FormattedMessage
-                          id="routeInfoPanel.routeNumber"
-                          defaultMessage="Route {number}: {nodes} nodes"
-                          values={{
-                            number: pathIndex + 1,
-                            nodes: completePath.path.length
-                          }}
-                        />
-                      </h5> */}
-
                       {/* 起点船价格设置 */}
                       {startShip && (
                         <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
@@ -470,7 +311,7 @@ export default function RouteInfoPanel({
 
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
-                          const { usdPrice, tpPrice } = getPriceInfo(pathEdge.edge);
+                          const { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge);
                           const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                           return (
@@ -506,20 +347,7 @@ export default function RouteInfoPanel({
                                 <span className="text-gray-600 dark:text-gray-400">
                                   <span className="text-black dark:text-white">{
                                     (() => {
-                                      switch (sourceType) {
-                                        case CcuSourceType.OFFICIAL:
-                                          return <FormattedMessage id="routeInfoPanel.official" defaultMessage="Official" />
-                                        case CcuSourceType.AVAILABLE_WB:
-                                          return <FormattedMessage id="routeInfoPanel.availableWB" defaultMessage="WB" />
-                                        case CcuSourceType.THIRD_PARTY:
-                                          return <FormattedMessage id="routeInfoPanel.thirdParty" defaultMessage="Third Party" />
-                                        case CcuSourceType.HANGER:
-                                          return <FormattedMessage id="routeInfoPanel.hangar" defaultMessage="Hangar" />
-                                        case CcuSourceType.HISTORICAL:
-                                          return <FormattedMessage id="routeInfoPanel.historical" defaultMessage="Historical" />
-                                        case CcuSourceType.OFFICIAL_WB:
-                                          return <FormattedMessage id="routeInfoPanel.manualOfficialWB" defaultMessage="Manual: Official WB CCU" />
-                                      }
+                                      return ccuSourceTypeFactory.getStrategy(sourceType).getDisplayName(intl);
                                     })()
                                   }</span>{' '}
                                   <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />

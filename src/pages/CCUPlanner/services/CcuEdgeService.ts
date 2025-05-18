@@ -48,11 +48,7 @@ export class CcuEdgeService {
       sourceType: strategy.getTypeId(),
     };
 
-    if (strategy.getTypeId() !== CcuSourceType.OFFICIAL) {
-      edgeData.customPrice = priceInfo.price;
-    } else {
-      edgeData.customPrice = priceDifference / 100;
-    }
+    edgeData.customPrice = priceInfo.price;
     
     return edgeData;
   }

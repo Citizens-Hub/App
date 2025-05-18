@@ -75,7 +75,7 @@ export class OfficialStrategy implements CcuSourceTypeStrategy {
   
   calculatePrice(sourceShip: Ship, targetShip: Ship): { price: number; currency: string; } {
     return {
-      price: targetShip.msrp - sourceShip.msrp,
+      price: (targetShip.msrp - sourceShip.msrp) / 100,
       currency: 'USD'
     };
   }
