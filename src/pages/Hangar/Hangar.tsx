@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Search, Delete, Add } from '@mui/icons-material';
 import { selectUsersHangarItems, addPredict, removePredict } from '../../store/upgradesStore';
 import { RootState } from '../../store';
-import useResourceData from './hooks/useResourceData';
+import useHangarData from './hooks/useHangarData';
 import UserSelector from '../../components/UserSelector';
 
 interface DisplayShipItem {
@@ -64,7 +64,7 @@ export default function Hangar() {
   const { locale } = intl;
   const { users } = useSelector((state: RootState) => state.upgrades);
   const items = useSelector(selectUsersHangarItems);
-  const { ships: shipsData, loading } = useResourceData();
+  const { ships: shipsData, loading } = useHangarData();
   const predictions = useSelector((state: RootState) => state.upgrades.items.predicts);
 
   useEffect(() => {

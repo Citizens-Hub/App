@@ -2,11 +2,11 @@
 
 ![](https://citizenshub.app/imgs/tutorial/01.png)
 
-Github仓库：https://github.com/EduarteXD/citizenshub
+Github仓库：<https://github.com/EduarteXD/citizenshub>
 
 QQ群：1045858475
 
-Discord：https://discord.gg/AEuRtb5Vy8
+Discord：<https://discord.gg/AEuRtb5Vy8>
 
 ## 主播主播，这款软件和CCU Games或是其他软件相比有什么优势吗
 

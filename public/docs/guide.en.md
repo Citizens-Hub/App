@@ -2,9 +2,9 @@
 
 ![](https://citizenshub.app/imgs/tutorial/01.png)
 
-GitHub Repository: https://github.com/EduarteXD/citizenshub
+GitHub Repository: <https://github.com/EduarteXD/citizenshub>
 
-Discord: https://discord.gg/AEuRtb5Vy8
+Discord: <https://discord.gg/AEuRtb5Vy8>
 
 ## What are the advantages of this software compared to CCU Game or others?
 

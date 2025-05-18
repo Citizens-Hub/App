@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ccu, Ship, WbHistoryData } from '../../../types';
 
-export default function useResourceData() {
+export default function useCcuPlannerData() {
   const [ccus, setCcus] = useState<Ccu[]>([]);
   const [ships, setShips] = useState<Ship[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ship, ShipsData } from '../../../types';
 
-export default function useResourceData() {
+export default function useHangarData() {
   const [ships, setShips] = useState<Ship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
