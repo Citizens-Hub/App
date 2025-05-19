@@ -135,6 +135,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
         }
       }}
       size="small"
+      sx={{ mb: 2 }}
     />
 
     {isLoading ? (
