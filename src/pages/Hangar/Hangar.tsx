@@ -7,6 +7,7 @@ import { selectUsersHangarItems, addPredict, removePredict } from '../../store/u
 import { RootState } from '../../store';
 import useHangarData from './hooks/useHangarData';
 import UserSelector from '../../components/UserSelector';
+import Crawler from '../../components/Crawler';
 
 interface DisplayShipItem {
   id: string;
@@ -238,7 +239,10 @@ export default function Hangar() {
       </div>
 
       <div className='mt-32 px-4 w-full h-[calc(100vh-128px-65px)] overflow-y-auto'>
-        <div className='absolute top-0 right-0 m-[15px]'>
+        <div className='absolute top-0 right-0 m-[15px] flex gap-2'>
+          <div className='flex flex-col gap-2 items-center justify-center'>
+            <Crawler />
+          </div>
           <UserSelector />
         </div>
 
