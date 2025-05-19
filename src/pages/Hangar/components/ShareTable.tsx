@@ -504,7 +504,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{item.type}</TableCell>
+                  <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
                   <TableCell>
                     <TextField
                       type="number"
@@ -512,8 +512,10 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                       disabled={!item.selectedForShare}
                       value={item.customPrice}
                       onChange={(e) => handleSetCustomPrice(item.id, parseFloat(e.target.value) || 0)}
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                      slotProps={{
+                        input: {
+                          startAdornment: <InputAdornment position="start">{(0).toLocaleString(locale, { style: 'currency', currency: currency }).replace('0.00', '')}</InputAdornment>
+                        }
                       }}
                       fullWidth
                     />

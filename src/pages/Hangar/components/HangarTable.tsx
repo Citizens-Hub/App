@@ -249,7 +249,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{item.type}</TableCell>
+                  <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
