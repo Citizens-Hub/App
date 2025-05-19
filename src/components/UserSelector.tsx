@@ -24,7 +24,7 @@ export default function UserSelector() {
         {users.map(user => (
           <Tooltip key={user.id} title={user.nickname || user.username || '用户'} arrow>
             <Avatar 
-              src={user.avatar} 
+              src={user.avatar || "https://cdn.robertsspaceindustries.com/static/images/account/avatar_default_big.jpg"} 
               alt={user.username}
               onClick={() => handleUserSelect(user.id)}
               sx={{
