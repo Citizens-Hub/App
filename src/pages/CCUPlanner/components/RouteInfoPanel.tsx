@@ -141,21 +141,53 @@ export default function RouteInfoPanel({
           let newUsdCost = 0;
           let newCnyCost = 0;
           
-          path.edges.forEach(edge => {
+          // 找到最后一个已完成边的索引
+          let lastCompletedEdgeIndex = -1;
+          
+          // 首先找到路径中最后一个已完成的边
+          for (let i = path.edges.length - 1; i >= 0; i--) {
+            const edge = path.edges[i];
             const sourceShipId = edge.sourceNode.data?.ship?.id;
             const targetShipId = edge.targetNode.data?.ship?.id;
-            const isCompleted = sourceShipId && targetShipId && 
-              pathFinderService.isEdgeCompleted(String(sourceShipId), String(targetShipId));
             
-            // 对排序来说：如果边未完成且不是机库CCU，则计入新增成本
-            if (!isCompleted && edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
+            const isCompleted = sourceShipId && targetShipId && 
+              pathFinderService.isEdgeCompleted(
+                String(sourceShipId), 
+                String(targetShipId),
+                edge.edge,
+                path
+              );
+            
+            if (isCompleted) {
+              lastCompletedEdgeIndex = i;
+              break;
+            }
+          }
+          
+          // 如果没有找到已完成的边，也要考虑起点船的价格
+          if (lastCompletedEdgeIndex === -1) {
+            // 添加起点船的价格到新投资中
+            const startPrice = startShipPrices[path.startNodeId] || 0;
+            // 将起点船的价格添加到USD成本中
+            newUsdCost += Number(startPrice);
+          }
+          
+          // 如果找到了已完成的边，则从该边的后一个边开始计算新投资
+          // 否则从第一个边开始计算
+          const startIndex = lastCompletedEdgeIndex >= 0 ? lastCompletedEdgeIndex + 1 : 0;
+          
+          // 从最后一个已完成边的后一条边开始计算新投资
+          for (let i = startIndex; i < path.edges.length; i++) {
+            const edge = path.edges[i];
+            // 机库CCU不计入新投资
+            if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
               if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
                 newUsdCost += pathFinderService.getPriceInfo(edge.edge).usdPrice;
               } else {
                 newCnyCost += pathFinderService.getPriceInfo(edge.edge).tpPrice;
               }
             }
-          });
+          }
           
           return pathFinderService.calculateTotalCost(newUsdCost, newCnyCost, exchangeRate, conciergeValue);
         };
@@ -218,27 +250,54 @@ export default function RouteInfoPanel({
   const getNewInvestmentCost = (path: CompletePath) => {
     let newUsdCost = 0;
     let newCnyCost = 0;
-
-    path.edges.forEach(edge => {
+    
+    // 找到最后一个已完成边的索引
+    let lastCompletedEdgeIndex = -1;
+    
+    // 首先找到路径中最后一个已完成的边
+    for (let i = path.edges.length - 1; i >= 0; i--) {
+      const edge = path.edges[i];
       const sourceShipId = edge.sourceNode.data?.ship?.id;
       const targetShipId = edge.targetNode.data?.ship?.id;
+      
       const isCompleted = sourceShipId && targetShipId &&
         pathFinderService.isEdgeCompleted(
           String(sourceShipId), 
           String(targetShipId),
-          edge.edge,   // 传入边信息
-          path         // 传入完整路径
+          edge.edge,
+          path
         );
-
-      // 排除已完成边和机库CCU的成本，与排序逻辑保持一致
-      if (!isCompleted && edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
+      
+      if (isCompleted) {
+        lastCompletedEdgeIndex = i;
+        break;
+      }
+    }
+    
+    // 如果没有找到已完成的边，也要考虑起点船的价格
+    if (lastCompletedEdgeIndex === -1) {
+      // 添加起点船的价格到新投资中
+      const startPrice = startShipPrices[path.startNodeId] || 0;
+      // 将起点船的价格添加到USD成本中
+      newUsdCost += Number(startPrice);
+    }
+    
+    // 如果找到了已完成的边，则从该边的后一个边开始计算新投资
+    // 否则从第一个边开始计算
+    const startIndex = lastCompletedEdgeIndex >= 0 ? lastCompletedEdgeIndex + 1 : 0;
+    
+    // 从最后一个已完成边的后一条边开始计算新投资
+    for (let i = startIndex; i < path.edges.length; i++) {
+      const edge = path.edges[i];
+      // 机库CCU不计入新投资
+      if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
         if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
           newUsdCost += pathFinderService.getPriceInfo(edge.edge).usdPrice;
         } else {
           newCnyCost += pathFinderService.getPriceInfo(edge.edge).tpPrice;
         }
       }
-    });
+    }
 
     return { newUsdCost, newCnyCost };
   };
@@ -466,7 +525,7 @@ export default function RouteInfoPanel({
                                   <span style={{ fontSize: '14px' }}>
                                     <FormattedMessage 
                                       id="routeInfoPanel.newInvestmentExplanation" 
-                                      defaultMessage="New investment only includes costs of uncompleted edges excluding hangar CCUs. Both completed paths and hangar CCUs are treated as free in this calculation."
+                                      defaultMessage="New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs."
                                     />
                                   </span>
                                 }>
