@@ -693,6 +693,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               onStartShipPriceChange={handleStartShipPriceChange}
               exchangeRates={exchangeRates}
               onPathCompletionChange={handlePathCompletionChange}
+              ccus={ccus}
+              wbHistory={wbHistory}
+              hangarItems={hangarItems}
             />
           )}
         </ReactFlowProvider>

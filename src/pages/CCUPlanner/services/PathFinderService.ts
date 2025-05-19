@@ -1,6 +1,6 @@
 import { Edge, Node } from 'reactflow';
-import { CcuEdgeData, CcuSourceType, Ship } from '../../../types';
-import { CcuSourceTypeStrategyFactory } from './CcuSourceTypeFactory';
+import { Ccu, CcuEdgeData, CcuSourceType, Ship, WbHistoryData } from '../../../types';
+import { CcuSourceTypeStrategyFactory, HangarItem } from './CcuSourceTypeFactory';
 
 interface PathNode {
   nodeId: string;
@@ -67,7 +67,7 @@ export class PathFinderService {
   /**
    * Get price and currency based on different source types
    */
-  getPriceInfo(edge: Edge<CcuEdgeData>): { usdPrice: number; tpPrice: number } {
+  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[] }): { usdPrice: number; tpPrice: number } {
     if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
 
     const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
@@ -83,7 +83,10 @@ export class PathFinderService {
     }
     
     const priceResult = strategy.calculatePrice(sourceShip, targetShip, {
-      customPrice: edge.data.customPrice
+      customPrice: edge.data.customPrice,
+      ccus: data.ccus,
+      wbHistory: data.wbHistory,
+      hangarItems: data.hangarItems
     });
     
     // 根据货币类型分配价格
@@ -122,7 +125,8 @@ export class PathFinderService {
     currentPath: string[] = [],
     allPaths: string[][] = [],
     currentUsdCost = 0,
-    currentThirdPartyCost = 0
+    currentThirdPartyCost = 0,
+    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[] }
   ): string[][] {
     currentPath.push(startNode.id);
     visited.add(startNode.id);
@@ -145,7 +149,11 @@ export class PathFinderService {
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
-          const { usdPrice, tpPrice } = this.getPriceInfo(edge as Edge<CcuEdgeData>);
+          const { usdPrice, tpPrice } = this.getPriceInfo(edge as Edge<CcuEdgeData>, {
+            ccus: data.ccus,
+            wbHistory: data.wbHistory,
+            hangarItems: data.hangarItems
+          });
 
           this.findAllPaths(
             targetNode,
@@ -159,7 +167,8 @@ export class PathFinderService {
             [...currentPath],
             allPaths,
             currentUsdCost + usdPrice,
-            currentThirdPartyCost + tpPrice
+            currentThirdPartyCost + tpPrice,
+            data
           );
         }
       }
@@ -175,7 +184,8 @@ export class PathFinderService {
     pathIds: string[][],
     edges: Edge<CcuEdgeData>[],
     nodes: Node[],
-    startShipPrices: Record<string, number | string>
+    startShipPrices: Record<string, number | string>,
+    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[] }
   ): CompletePath[] {
     return pathIds.map(pathId => {
       const pathNodes: PathNode[] = pathId.map(id => {
@@ -213,7 +223,11 @@ export class PathFinderService {
             targetNode
           });
 
-          const { usdPrice, tpPrice } = this.getPriceInfo(edge);
+          const { usdPrice, tpPrice } = this.getPriceInfo(edge, {
+            ccus: data.ccus,
+            wbHistory: data.wbHistory,
+            hangarItems: data.hangarItems
+          });
           totalUsdPrice += usdPrice;
           totalThirdPartyPrice += tpPrice;
 

@@ -1,8 +1,6 @@
 import { getBezierPath, EdgeLabelRenderer, EdgeProps, Edge } from 'reactflow';
 import { CcuEdgeData, CcuSourceType } from '../../../types';
 import { useIntl } from 'react-intl';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
 import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
@@ -22,11 +20,11 @@ export default function CcuEdge({
   targetPosition,
   data,
   style = {},
-  markerEnd,
+  markerEnd
 }: CcuEdgeProps) {
   const intl = useIntl();
   const { locale } = intl;
-  const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
+  // const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
   
   // 检查边是否属于任何已完成路径
@@ -89,18 +87,24 @@ export default function CcuEdge({
   // 标签背景色，已完成的边使用绿色背景
   const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
 
-  // Calculate price to display
-  let priceToShow = data.price || 0;
-  let currency = 'USD';
+  // // Calculate price to display
+  // let priceToShow = data.price || 0;
+  // let currency = 'USD';
+
+  const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
+    ccus: data.ccus,
+    wbHistory: data.wbHistory,
+    hangarItems: data.hangarItems
+  });
   
-  if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
-    priceToShow = data.customPrice;
+  // if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
+  //   priceToShow = data.customPrice;
     
-    // For THIRD_PARTY type, use user selected currency
-    if (sourceType === CcuSourceType.THIRD_PARTY) {
-      currency = selectedCurrency;
-    }
-  }
+  //   // For THIRD_PARTY type, use user selected currency
+  //   if (sourceType === CcuSourceType.THIRD_PARTY) {
+  //     currency = selectedCurrency;
+  //   }
+  // }
 
   return (
     <>
@@ -124,10 +128,10 @@ export default function CcuEdge({
           {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
           +{(() => {
             switch (true) {
-              case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
-                return (priceToShow / 100).toLocaleString(locale, { style: 'currency', currency });
+              // case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
+              //   return (price / 100).toLocaleString(locale, { style: 'currency', currency });
               default:
-                return priceToShow.toLocaleString(locale, { style: 'currency', currency });
+                return price.toLocaleString(locale, { style: 'currency', currency });
             }
           })()}
         </div>

@@ -6,9 +6,9 @@ import { HangarCCUDataProvider } from "./HangarCCUDataProvider";
  * Strategy calculate price options interface
  */
 export interface CalculatePriceOptions {
-  ccus?: Ccu[];
-  wbHistory?: WbHistoryData[];
-  hangarItems?: Array<{
+  ccus: Ccu[];
+  wbHistory: WbHistoryData[];
+  hangarItems: Array<{
     id: number;
     name: string;
     type: string;
@@ -237,13 +237,13 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
-    // 首先检查是否提供了customPrice
-    if (options?.customPrice !== undefined) {
-      return {
-        price: options.customPrice,
-        currency: 'USD'
-      };
-    }
+    // // 首先检查是否提供了customPrice
+    // if (options?.customPrice !== undefined) {
+    //   return {
+    //     price: options.customPrice,
+    //     currency: 'USD'
+    //   };
+    // }
     
     // 使用HangarCCUDataProvider获取价格
     const dataProvider = HangarCCUDataProvider.getInstance();

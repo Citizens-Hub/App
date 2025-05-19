@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider } from '@mui/material';
 import { InfoOutlined, CheckCircle } from '@mui/icons-material';
@@ -7,7 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
-import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
+import { CcuSourceTypeStrategyFactory, HangarItem } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 
 interface RouteInfoPanelProps {
@@ -26,6 +26,9 @@ interface RouteInfoPanelProps {
     [currency: string]: number;
   };
   onPathCompletionChange?: () => void;
+  ccus: Ccu[];
+  wbHistory: WbHistoryData[];
+  hangarItems: HangarItem[];
 }
 
 if (!String.prototype.getNodeShipId) {
@@ -42,7 +45,10 @@ export default function RouteInfoPanel({
   startShipPrices,
   onStartShipPriceChange,
   exchangeRates,
-  onPathCompletionChange
+  onPathCompletionChange,
+  ccus,
+  wbHistory,
+  hangarItems
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
@@ -94,14 +100,23 @@ export default function RouteInfoPanel({
         [],
         [],
         Number(startPrice),
-        0
+        0,
+        {
+          ccus,
+          wbHistory,
+          hangarItems
+        }
       );
       allPathIds.push(...paths);
     });
 
     // totalCnyPrice actually represents third-party price (tpPrice) in the user's selected currency
-    return pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices);
-  }, [selectedNode, edges, nodes, startShipPrices, exchangeRate, conciergeValue, pruneOpt]);
+    return pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, {
+      ccus,
+      wbHistory,
+      hangarItems
+    });
+  }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { pathsWithCompletedEdges: [], normalPaths: [] };
@@ -182,9 +197,17 @@ export default function RouteInfoPanel({
             // 机库CCU不计入新投资
             if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
               if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
-                newUsdCost += pathFinderService.getPriceInfo(edge.edge).usdPrice;
+                newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
+                  ccus,
+                  wbHistory,
+                  hangarItems
+                }).usdPrice;
               } else {
-                newCnyCost += pathFinderService.getPriceInfo(edge.edge).tpPrice;
+                newCnyCost += pathFinderService.getPriceInfo(edge.edge, {
+                  ccus,
+                  wbHistory,
+                  hangarItems
+                }).tpPrice;
               }
             }
           }
@@ -204,7 +227,7 @@ export default function RouteInfoPanel({
       pathsWithCompletedEdges: pathsWithCompletedEdges.sort(sortPaths),
       normalPaths: normalPaths.sort(sortPaths)
     };
-  }, [completePaths, exchangeRate, conciergeValue, sortByNewInvestment]);
+  }, [completePaths, sortByNewInvestment, exchangeRate, conciergeValue, startShipPrices, ccus, wbHistory, hangarItems]);
 
   const sortedPaths = useMemo(() => {
     return [...sortedPathsGroups.pathsWithCompletedEdges, ...sortedPathsGroups.normalPaths];
@@ -292,9 +315,17 @@ export default function RouteInfoPanel({
       // 机库CCU不计入新投资
       if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
         if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
-          newUsdCost += pathFinderService.getPriceInfo(edge.edge).usdPrice;
+          newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
+            ccus,
+            wbHistory,
+            hangarItems
+          }).usdPrice;
         } else {
-          newCnyCost += pathFinderService.getPriceInfo(edge.edge).tpPrice;
+          newCnyCost += pathFinderService.getPriceInfo(edge.edge, {
+            ccus,
+            wbHistory,
+            hangarItems
+          }).tpPrice;
         }
       }
     }
@@ -568,7 +599,11 @@ export default function RouteInfoPanel({
 
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
-                          const { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge);
+                          const { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, {
+                            ccus,
+                            wbHistory,
+                            hangarItems
+                          });
                           const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                           const isEdgeCompleted = pathEdge.edge.data?.sourceShip && pathEdge.edge.data?.targetShip &&
