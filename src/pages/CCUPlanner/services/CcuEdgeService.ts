@@ -46,7 +46,12 @@ export class CcuEdgeService {
       sourceShip,
       targetShip,
       sourceType: strategy.getTypeId(),
+      ccus,
+      wbHistory,
+      hangarItems
     };
+
+    console.log("priceInfo >>>>>", priceInfo);
 
     edgeData.customPrice = priceInfo.price;
     

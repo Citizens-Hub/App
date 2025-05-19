@@ -152,6 +152,9 @@ export interface CcuEdgeData {
   targetShip?: Ship;
   sourceType?: CcuSourceType;
   customPrice?: number;
+  ccus: Ccu[];
+  wbHistory: WbHistoryData[];
+  hangarItems: HangarItem[];
 }
 
 export interface WbHistoryData {

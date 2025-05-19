@@ -1,10 +1,10 @@
-import { EdgeProps, EdgeLabelRenderer, getBezierPath } from 'reactflow';
-import { CcuSourceType, CcuEdgeData } from '../../../types';
+import { getBezierPath, EdgeLabelRenderer, EdgeProps, Edge } from 'reactflow';
+import { CcuEdgeData, CcuSourceType } from '../../../types';
 import { useIntl } from 'react-intl';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
 import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
+import pathFinderService from '../services/PathFinderService';
+import { Check } from 'lucide-react';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -20,12 +20,46 @@ export default function CcuEdge({
   targetPosition,
   data,
   style = {},
-  markerEnd,
+  markerEnd
 }: CcuEdgeProps) {
   const intl = useIntl();
   const { locale } = intl;
-  const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
+  // const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
+  
+  // 检查边是否属于任何已完成路径
+  const isCompleted = useMemo(() => {
+    if (!data?.sourceShip || !data?.targetShip) return false;
+    
+    // 构建一个完整的Edge<CcuEdgeData>对象
+    const edge: Edge<CcuEdgeData> = {
+      id,
+      source: '',  // 这些字段在检查中不使用
+      target: '',
+      data
+    };
+    
+    return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
+  }, [data, id]);
+  
+  // 创建边的样式
+  const edgeStyle = useMemo(() => {
+    const baseStyle = { ...style };
+    
+    if (isCompleted) {
+      return {
+        ...baseStyle,
+        stroke: '#4caf50', // 绿色 
+        strokeDasharray: '5,5', // 虚线样式
+        strokeWidth: 3 // 加粗
+      };
+    } else {
+      return {
+        ...baseStyle,
+        strokeWidth: 2
+      };
+    }
+  }, [style, isCompleted]);
   
   if (!data) return null;
 
@@ -50,25 +84,34 @@ export default function CcuEdge({
   // Get edge style
   const { edgeColor, bgColor } = strategy.getEdgeStyle();
 
-  // Calculate price to display
-  let priceToShow = data.price || 0;
-  let currency = 'USD';
+  // 标签背景色，已完成的边使用绿色背景
+  const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
+
+  // // Calculate price to display
+  // let priceToShow = data.price || 0;
+  // let currency = 'USD';
+
+  const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
+    ccus: data.ccus,
+    wbHistory: data.wbHistory,
+    hangarItems: data.hangarItems
+  });
   
-  if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
-    priceToShow = data.customPrice;
+  // if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
+  //   priceToShow = data.customPrice;
     
-    // For THIRD_PARTY type, use user selected currency
-    if (sourceType === CcuSourceType.THIRD_PARTY) {
-      currency = selectedCurrency;
-    }
-  }
+  //   // For THIRD_PARTY type, use user selected currency
+  //   if (sourceType === CcuSourceType.THIRD_PARTY) {
+  //     currency = selectedCurrency;
+  //   }
+  // }
 
   return (
     <>
       <path
         id={id}
-        style={{ ...style, strokeWidth: 2 }}
-        className={`react-flow__edge-path ${edgeColor}`}
+        style={edgeStyle}
+        className={`react-flow__edge-path ${!isCompleted ? edgeColor : ''}`}
         d={edgePath}
         markerEnd={markerEnd}
       />
@@ -79,15 +122,16 @@ export default function CcuEdge({
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
           }}
-          className={`${bgColor} text-white px-2 py-1 rounded-md shadow-md text-sm`}
+          className={`${labelBgColor} text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1`}
         >
-          {sourceType && <span className="text-xs mr-1">{sourceTypeDisplay}</span>}
+          {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
+          {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
           +{(() => {
             switch (true) {
-              case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
-                return (priceToShow / 100).toLocaleString(locale, { style: 'currency', currency });
+              // case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
+              //   return (price / 100).toLocaleString(locale, { style: 'currency', currency });
               default:
-                return priceToShow.toLocaleString(locale, { style: 'currency', currency });
+                return price.toLocaleString(locale, { style: 'currency', currency });
             }
           })()}
         </div>

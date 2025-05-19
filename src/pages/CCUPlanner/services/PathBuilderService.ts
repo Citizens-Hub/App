@@ -278,6 +278,9 @@ export class PathBuilderService {
                 sourceShip: sourceShip.data.ship,
                 targetShip: targetShip.data.ship,
                 sourceType: CcuSourceType.OFFICIAL,
+                ccus,
+                wbHistory,
+                hangarItems
               };
 
               if (hangarCcu) {

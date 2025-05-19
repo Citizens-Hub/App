@@ -34,6 +34,7 @@ import { Close } from '@mui/icons-material';
 import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
+import pathFinderService from '../services/PathFinderService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -73,6 +74,41 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   const edgeService = useMemo(() => new CcuEdgeService(), []);
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
   const importExportService = useMemo(() => new ImportExportService(), []);
+
+  // 从本地存储加载已完成的路径
+  useEffect(() => {
+    pathFinderService.loadCompletedPathsFromStorage();
+  }, []);
+
+  // 处理路径完成状态变化，刷新边的样式
+  const handlePathCompletionChange = useCallback((showAlert: boolean = true) => {
+    // 通过创建新的边数据引用来触发边的重新渲染
+    setEdges(currentEdges => {
+      return currentEdges.map(edge => {
+        if (edge.data) {
+          return {
+            ...edge,
+            data: {
+              ...edge.data
+            }
+          };
+        }
+        return edge;
+      });
+    });
+    
+    // 显示成功提示
+    if (showAlert) {
+      setAlert({
+        open: true,
+        message: intl.formatMessage({ 
+          id: 'ccuPlanner.success.pathStatusUpdated', 
+          defaultMessage: 'Path completion status updated successfully!' 
+        }),
+        type: 'success'
+      });
+    }
+  }, [setEdges, intl]);
 
   // Convert upgrades to HangarItem format
   const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
@@ -313,9 +349,25 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       setEdges(importedData.edges);
       setStartShipPrices(importedData.startShipPrices);
 
+      // 清理已完成路径，避免与新导入的路径混淆
+      pathFinderService.clearCompletedPaths();
+      
+      // 刷新边的状态，但不显示提示消息
+      handlePathCompletionChange(false);
+
       if (reactFlowInstance) {
         importExportService.adjustViewToShowAllNodes(reactFlowInstance);
       }
+      
+      // 显示导入成功的提示
+      setAlert({
+        open: true,
+        message: intl.formatMessage({ 
+          id: 'ccuPlanner.success.imported', 
+          defaultMessage: 'CCU upgrade path imported successfully!' 
+        }),
+        type: 'success'
+      });
 
       return true;
     } catch (error) {
@@ -330,7 +382,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       });
       return false;
     }
-  }, [ships, setNodes, setEdges, reactFlowInstance, intl, importExportService]);
+  }, [ships, setNodes, setEdges, reactFlowInstance, intl, importExportService, handlePathCompletionChange]);
 
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
@@ -421,9 +473,25 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     setEdges([]);
     setStartShipPrices({});
 
+    // 清理已完成路径状态
+    pathFinderService.clearCompletedPaths();
+    
+    // 刷新边的状态，但不显示提示消息
+    handlePathCompletionChange(false);
+
     // 使用ImportExportService清空数据
     importExportService.clearFlowData();
-  }, [setNodes, setEdges, importExportService]);
+
+    // 显示成功提示
+    setAlert({
+      open: true,
+      message: intl.formatMessage({ 
+        id: 'ccuPlanner.success.cleared', 
+        defaultMessage: 'Canvas cleared successfully!' 
+      }),
+      type: 'success'
+    });
+  }, [setNodes, setEdges, importExportService, intl, handlePathCompletionChange]);
 
   const handleSave = useCallback(() => {
     if (!nodes.length) return;
@@ -624,6 +692,10 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               startShipPrices={startShipPrices}
               onStartShipPriceChange={handleStartShipPriceChange}
               exchangeRates={exchangeRates}
+              onPathCompletionChange={handlePathCompletionChange}
+              ccus={ccus}
+              wbHistory={wbHistory}
+              hangarItems={hangarItems}
             />
           )}
         </ReactFlowProvider>
