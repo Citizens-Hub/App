@@ -86,12 +86,7 @@ export default function CcuEdge({
   // Get edge style
   const { edgeColor, bgColor } = strategy.getEdgeStyle();
 
-  // 标签背景色，已完成的边使用绿色背景
   const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
-
-  // // Calculate price to display
-  // let priceToShow = data.price || 0;
-  // let currency = 'USD';
 
   const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
     ccus: data.ccus,
@@ -100,15 +95,6 @@ export default function CcuEdge({
     currency: selectedCurrency,
     customPrice: data.customPrice,
   });
-  
-  // if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
-  //   priceToShow = data.customPrice;
-    
-  //   // For THIRD_PARTY type, use user selected currency
-  //   if (sourceType === CcuSourceType.THIRD_PARTY) {
-  //     currency = selectedCurrency;
-  //   }
-  // }
 
   return (
     <>
