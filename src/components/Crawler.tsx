@@ -43,6 +43,7 @@ export default function Crawler() {
     name: string;
     from: string;
     to: string;
+    toSku: string;
     price: number;
   }[]>([]);
   const maxConcurrentRequests = 5;
@@ -136,8 +137,9 @@ export default function Crawler() {
       const name = li.querySelector("h1")?.textContent;
       const from = li.querySelector("a")?.getAttribute("data-fromshipid");
       const to = li.querySelector("a")?.getAttribute("data-toshipid");
+      const toSku = li.querySelector("a")?.getAttribute("data-toskuid");
 
-      if (!from || !to || !name) {
+      if (!from || !to || !name || !toSku) {
         console.warn("error parsing buyback ccu", name, "reporting");
         reportError({
           errorType: "BUYBACK_CCU_PARSING_ERROR",
@@ -145,6 +147,7 @@ export default function Crawler() {
             name,
             from,
             to,
+            toSku,
             li: li.outerHTML,
           }),
         });
@@ -155,6 +158,7 @@ export default function Crawler() {
         name,
         from,
         to,
+        toSku,
         price: -1,
       });
     });
@@ -179,8 +183,6 @@ export default function Crawler() {
     requestQueueRef.current.push(request);
     processNextRequests();
   }, [processNextRequests]);
-
-  // MARK: Buybacks
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -318,7 +320,7 @@ export default function Crawler() {
                       "operationName": "getPrice",
                       "variables": {
                         "from": Number(ccu.from),
-                        "to": shipsRef.current.find(ship => ship.id === Number(ccu.to))?.skus[0].id
+                        "to": Number(ccu.toSku)
                       },
                       "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
                   }))
@@ -329,7 +331,7 @@ export default function Crawler() {
           }
         }
 
-        if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade")) {
+        if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade-")) {
           const ships = event.data.message.value.data[0].data.ships;
 
           shipsRef.current = ships;
@@ -393,11 +395,12 @@ export default function Crawler() {
     onClick={() => {
       setIsRefreshing(true);
 
-      // 清空请求队列和活跃请求集合
       requestQueueRef.current = [];
       activeRequestsRef.current.clear();
+      buybackCCUsRef.current = [];
+      buybackCCUsProcessedRef.current = 0;
+      shipsRef.current = [];
 
-      // 添加认证请求到队列
       addToQueue({
         type: "httpRequest",
         request: {

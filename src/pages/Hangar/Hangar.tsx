@@ -31,6 +31,7 @@ interface DisplayEquipmentItem {
   imageUrl?: string;
   value: number;
   canGift: boolean;
+  isBuyBack: boolean;
   from: {
     name: string;
     imageUrl?: string;
@@ -102,6 +103,7 @@ export default function Hangar() {
             to: to,
             imageUrl: undefined,
             belongsTo: ccu.belongsTo,
+            isBuyBack: ccu.isBuyBack,
           }
         }).filter(ccu => ccu !== undefined);
 
@@ -136,7 +138,7 @@ export default function Hangar() {
     (item.to?.name && item.to.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const paginatedEquipment = filteredEquipment.slice(
+  const paginatedEquipment = filteredEquipment.sort((b, a) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0).slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
@@ -377,7 +379,7 @@ export default function Hangar() {
                       <TableCell>
                         <div className='flex flex-col gap-2'>
                           <span className='text-xl font-bold'>
-                            {item.name}
+                            {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
                           </span>
                           <span className='text-md text-blue-500 font-bold'>
                             {((item.from.msrp || 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
@@ -398,7 +400,7 @@ export default function Hangar() {
                               {users.find(user => user.id === item.belongsTo)?.nickname || '-'}
                             </span>
                             {
-                              item.canGift ? <FormattedMessage id="hangar.giftable" defaultMessage="可赠送" /> : <FormattedMessage id="hangar.notGiftable" defaultMessage="不可赠送" />
+                              !item.isBuyBack && (item.canGift ? <FormattedMessage id="hangar.giftable" defaultMessage="可赠送" /> : <FormattedMessage id="hangar.notGiftable" defaultMessage="不可赠送" />)
                             }
                           </span>
                         </div>
