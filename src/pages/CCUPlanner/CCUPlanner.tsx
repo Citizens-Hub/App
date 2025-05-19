@@ -19,6 +19,7 @@ export default function CCUPlanner() {
   return (
     <div className="h-[calc(100vh-65px)] w-[calc(100vw-4px)] md:w-full flex flex-col absolute top-[65px] left-0">
       <div className="flex-1 relative w-full h-full">
+        {/* TODO: use a store to pass the data */}
         <CcuCanvas ships={ships} ccus={ccus} exchangeRates={exchangeRates} wbHistory={wbHistory} />
       </div>
 
