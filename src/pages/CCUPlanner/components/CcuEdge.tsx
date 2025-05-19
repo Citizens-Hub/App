@@ -1,5 +1,5 @@
-import { EdgeProps, EdgeLabelRenderer, getBezierPath } from 'reactflow';
-import { CcuSourceType, CcuEdgeData } from '../../../types';
+import { getBezierPath, EdgeLabelRenderer, EdgeProps, Edge } from 'reactflow';
+import { CcuEdgeData, CcuSourceType } from '../../../types';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
@@ -29,14 +29,20 @@ export default function CcuEdge({
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
   
-  // 检查边是否属于已完成路径
+  // 检查边是否属于任何已完成路径
   const isCompleted = useMemo(() => {
     if (!data?.sourceShip || !data?.targetShip) return false;
-    return pathFinderService.isEdgeCompleted(
-      String(data.sourceShip.id), 
-      String(data.targetShip.id)
-    );
-  }, [data]);
+    
+    // 构建一个完整的Edge<CcuEdgeData>对象
+    const edge: Edge<CcuEdgeData> = {
+      id,
+      source: '',  // 这些字段在检查中不使用
+      target: '',
+      data
+    };
+    
+    return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
+  }, [data, id]);
   
   // 创建边的样式
   const edgeStyle = useMemo(() => {

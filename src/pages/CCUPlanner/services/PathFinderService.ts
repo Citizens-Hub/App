@@ -43,12 +43,18 @@ export interface EdgeIdentifier {
   targetShipId: string;
 }
 
+// 修改： 创建更具体的边标识类型，包含边的类型和价格信息
+export interface DetailedEdgeIdentifier {
+  sourceShipId: string;
+  targetShipId: string;
+  sourceType: CcuSourceType;
+  price: number;  // 使用边的价格作为区分相同起点终点的标识
+}
+
 export class PathFinderService {
   private nodeBestCost: Record<string, number> = {};
-  // 新增：已完成的路径存储
+  // 已完成的路径存储
   private completedPaths: CompletedPath[] = [];
-  // 新增：已完成的边缓存
-  private completedEdges: Set<string> = new Set();
   
   /**
    * Find all possible starting nodes (nodes with no incoming edges)
@@ -249,9 +255,6 @@ export class PathFinderService {
       path
     });
     
-    // 标记路径中所有的边为已完成
-    this.updateCompletedEdges();
-    
     // 存储到本地存储以便在会话之间保留
     this.saveCompletedPathsToStorage();
   }
@@ -262,38 +265,110 @@ export class PathFinderService {
   unmarkCompletedPath(pathId: string): void {
     this.completedPaths = this.completedPaths.filter(p => p.pathId !== pathId);
     
-    // 更新已完成的边缓存
-    this.updateCompletedEdges();
-    
     this.saveCompletedPathsToStorage();
   }
 
   /**
-   * 新增：更新已完成边的缓存集合
+   * 判断指定的边是否属于已完成路径
+   * @param sourceShipId 源船只ID
+   * @param targetShipId 目标船只ID
+   * @param edge 边信息（可选）
+   * @param currentCompletePath 当前正在检查的完整路径（可选）
+   * @returns 是否已完成
    */
-  private updateCompletedEdges(): void {
-    // 清空缓存
-    this.completedEdges.clear();
+  isEdgeCompleted(sourceShipId: string, targetShipId: string, edge?: Edge<CcuEdgeData>, currentCompletePath?: CompletePath): boolean {
+    // 如果未传入当前路径信息，则该边未完成
+    if (!currentCompletePath) {
+      return false;
+    }
     
-    // 遍历所有已完成路径，记录其中的边
-    this.completedPaths.forEach(completedPath => {
-      completedPath.path.edges.forEach(edge => {
-        const sourceShipId = edge.sourceNode.data?.ship?.id;
-        const targetShipId = edge.targetNode.data?.ship?.id;
-        if (sourceShipId && targetShipId) {
-          const edgeKey = `${sourceShipId}-${targetShipId}`;
-          this.completedEdges.add(edgeKey);
+    // 如果未传入边信息，则该边未完成
+    if (!edge || !edge.data) {
+      return false;
+    }
+    
+    // 检查当前边是否属于某个已完成的路径
+    // 并且当前检查的路径也匹配这个已完成路径
+    for (const completedPath of this.completedPaths) {
+      // 检查当前路径是否与已完成路径匹配（起点和终点）
+      const isPathMatch = completedPath.path.startNodeId === currentCompletePath.startNodeId && 
+                         edge.data?.targetShip && completedPath.ship.id === edge.data.targetShip.id;
+      
+      if (isPathMatch) {
+        // 检查当前边是否是已完成路径中的边
+        const isEdgeInCompletedPath = completedPath.path.edges.some(pathEdge => {
+          if (!pathEdge.edge.data || !pathEdge.edge.data.sourceShip || !pathEdge.edge.data.targetShip) {
+            return false;
+          }
+          
+          const pathEdgeSourceId = String(pathEdge.edge.data.sourceShip.id);
+          const pathEdgeTargetId = String(pathEdge.edge.data.targetShip.id);
+          const pathEdgeSourceType = pathEdge.edge.data.sourceType || CcuSourceType.OFFICIAL;
+          const pathEdgePrice = pathEdge.edge.data.price || 0;
+          
+          const edgeSourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
+          const edgePrice = edge.data?.price || 0;
+          
+          // 边的所有属性都匹配
+          return pathEdgeSourceId === sourceShipId && 
+                 pathEdgeTargetId === targetShipId &&
+                 pathEdgeSourceType === edgeSourceType &&
+                 pathEdgePrice === edgePrice;
+        });
+        
+        if (isEdgeInCompletedPath) {
+          return true;
         }
-      });
-    });
+      }
+    }
+    
+    return false;
   }
 
   /**
-   * 新增：判断指定的边是否属于已完成路径
+   * 检查路径是否已完成
+   * @param path 要检查的路径
+   * @returns 完成信息：{completed: boolean, pathId?: string}
    */
-  isEdgeCompleted(sourceShipId: string, targetShipId: string): boolean {
-    const edgeKey = `${sourceShipId}-${targetShipId}`;
-    return this.completedEdges.has(edgeKey);
+  isPathCompleted(path: CompletePath): { completed: boolean, pathId?: string } {
+    for (const completedPath of this.completedPaths) {
+      // 检查起点和终点是否匹配
+      if (completedPath.path.startNodeId === path.startNodeId && 
+          completedPath.ship.id === path.path[path.path.length - 1].ship.id) {
+        
+        // 检查路径中的所有边是否匹配
+        const allEdgesMatch = path.edges.every(edge => {
+          const matchingEdge = completedPath.path.edges.find(completedEdge => {
+            if (!edge.edge.data || !completedEdge.edge.data) return false;
+            if (!edge.edge.data.sourceShip || !edge.edge.data.targetShip) return false;
+            if (!completedEdge.edge.data.sourceShip || !completedEdge.edge.data.targetShip) return false;
+            
+            const edgeSourceId = String(edge.edge.data.sourceShip.id);
+            const edgeTargetId = String(edge.edge.data.targetShip.id);
+            const edgeSourceType = edge.edge.data.sourceType || CcuSourceType.OFFICIAL;
+            const edgePrice = edge.edge.data.price || 0;
+            
+            const completedEdgeSourceId = String(completedEdge.edge.data.sourceShip.id);
+            const completedEdgeTargetId = String(completedEdge.edge.data.targetShip.id);
+            const completedEdgeSourceType = completedEdge.edge.data.sourceType || CcuSourceType.OFFICIAL;
+            const completedEdgePrice = completedEdge.edge.data.price || 0;
+            
+            return edgeSourceId === completedEdgeSourceId &&
+                   edgeTargetId === completedEdgeTargetId &&
+                   edgeSourceType === completedEdgeSourceType &&
+                   edgePrice === completedEdgePrice;
+          });
+          
+          return !!matchingEdge;
+        });
+        
+        if (allEdgesMatch && path.edges.length === completedPath.path.edges.length) {
+          return { completed: true, pathId: completedPath.pathId };
+        }
+      }
+    }
+    
+    return { completed: false };
   }
 
   /**
@@ -308,7 +383,6 @@ export class PathFinderService {
    */
   clearCompletedPaths(): void {
     this.completedPaths = [];
-    this.completedEdges.clear();
     
     // 清理本地存储中的数据
     try {
@@ -324,27 +398,13 @@ export class PathFinderService {
   isPathExtensionOfCompletedPath(path: CompletePath): boolean {
     if (this.completedPaths.length === 0) return false;
     
-    // 检查当前路径是否使用了任何已完成路径的部分
-    // 方式1：直接检查完成的边是否在当前路径中
-    for (const edge of path.edges) {
-      const sourceShipId = edge.sourceNode.data?.ship?.id;
-      const targetShipId = edge.targetNode.data?.ship?.id;
-      
-      if (sourceShipId && targetShipId) {
-        const edgeKey = `${sourceShipId}-${targetShipId}`;
-        if (this.completedEdges.has(edgeKey)) {
-          return true;
-        }
-      }
-    }
-    
-    // 方式2：检查路径是否从任何已完成路径的船只开始或经过
     for (const completedPath of this.completedPaths) {
-      const completedShipId = completedPath.ship.id;
+      // 如果有任何一个已完成路径是当前路径的前缀，则认为是扩展
+      const completedPathEndShipId = completedPath.ship.id;
       
-      // 检查路径的任何节点是否是已完成路径的最终节点
-      for (const edge of path.edges) {
-        if (edge.sourceNode.data?.ship?.id === completedShipId) {
+      // 检查已完成路径的终点是否在当前路径的中间节点
+      for (let i = 0; i < path.path.length - 1; i++) {
+        if (path.path[i].ship.id === completedPathEndShipId) {
           return true;
         }
       }
@@ -393,14 +453,56 @@ export class PathFinderService {
       const storedPaths = localStorage.getItem('completedPaths');
       if (storedPaths) {
         this.completedPaths = JSON.parse(storedPaths);
-        // 加载后更新已完成边的缓存
-        this.updateCompletedEdges();
+        // 不再需要更新边缓存
       }
     } catch (error) {
       console.error('Failed to load completed paths from storage:', error);
       this.completedPaths = [];
-      this.completedEdges.clear();
     }
+  }
+
+  /**
+   * 检查单条边是否存在于任何已完成路径中
+   * 专门用于CcuEdge组件，无需知道边所属的完整路径
+   * @param edge 边信息
+   * @returns 是否存在于已完成路径中
+   */
+  isSingleEdgeInAnyCompletedPath(edge: Edge<CcuEdgeData>): boolean {
+    if (!edge.data || !edge.data.sourceShip || !edge.data.targetShip) return false;
+    
+    // 获取源船和目标船ID
+    const sourceShipId = String(edge.data.sourceShip.id);
+    const targetShipId = String(edge.data.targetShip.id);
+    
+    // 获取边的类型和价格
+    const edgeSourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
+    const edgePrice = edge.data.price || 0;
+    
+    // 检查是否存在于任何已完成路径中
+    for (const completedPath of this.completedPaths) {
+      const edgeInCompletedPath = completedPath.path.edges.some(pathEdge => {
+        if (!pathEdge.edge.data || !pathEdge.edge.data.sourceShip || !pathEdge.edge.data.targetShip) {
+          return false;
+        }
+        
+        const pathEdgeSourceId = String(pathEdge.edge.data.sourceShip.id);
+        const pathEdgeTargetId = String(pathEdge.edge.data.targetShip.id);
+        const pathEdgeSourceType = pathEdge.edge.data.sourceType || CcuSourceType.OFFICIAL;
+        const pathEdgePrice = pathEdge.edge.data.price || 0;
+        
+        // 比较所有属性
+        return pathEdgeSourceId === sourceShipId && 
+               pathEdgeTargetId === targetShipId &&
+               pathEdgeSourceType === edgeSourceType &&
+               pathEdgePrice === edgePrice;
+      });
+      
+      if (edgeInCompletedPath) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 }
 

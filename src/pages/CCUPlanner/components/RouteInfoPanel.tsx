@@ -6,7 +6,7 @@ import { InfoOutlined, CheckCircle } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
-import pathFinderService, { CompletePath, CompletedPath } from '../services/PathFinderService';
+import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 
@@ -48,7 +48,6 @@ export default function RouteInfoPanel({
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const [sortByNewInvestment, setSortByNewInvestment] = useState(localStorage.getItem('sortByNewInvestment') === 'true');
   const [currentPage, setCurrentPage] = useState(0);
-  const [completedPaths, setCompletedPaths] = useState<CompletedPath[]>([]);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
   const intl = useIntl();
@@ -57,7 +56,6 @@ export default function RouteInfoPanel({
 
   useEffect(() => {
     pathFinderService.loadCompletedPathsFromStorage();
-    setCompletedPaths(pathFinderService.getCompletedPaths());
   }, []);
 
   useEffect(() => {
@@ -119,7 +117,12 @@ export default function RouteInfoPanel({
         const sourceShipId = edge.sourceNode.data?.ship?.id;
         const targetShipId = edge.targetNode.data?.ship?.id;
         return sourceShipId && targetShipId &&
-          pathFinderService.isEdgeCompleted(String(sourceShipId), String(targetShipId));
+          pathFinderService.isEdgeCompleted(
+            String(sourceShipId), 
+            String(targetShipId),
+            edge.edge,  // 传入完整的边信息
+            path       // 传入当前完整路径
+          );
       });
 
       // 如果路径包含已完成边，优先显示
@@ -193,7 +196,6 @@ export default function RouteInfoPanel({
     if (!selectedNode) return;
 
     pathFinderService.markPathAsCompleted(path, selectedNode.data.ship);
-    setCompletedPaths(pathFinderService.getCompletedPaths());
 
     if (onPathCompletionChange) {
       onPathCompletionChange();
@@ -202,7 +204,6 @@ export default function RouteInfoPanel({
 
   const handleUnmarkCompletedPath = (pathId: string) => {
     pathFinderService.unmarkCompletedPath(pathId);
-    setCompletedPaths(pathFinderService.getCompletedPaths());
 
     if (onPathCompletionChange) {
       onPathCompletionChange();
@@ -210,15 +211,8 @@ export default function RouteInfoPanel({
   };
 
   const isPathCompleted = (path: CompletePath): { completed: boolean, pathId?: string } => {
-    for (const completedPath of completedPaths) {
-      if (
-        completedPath.path.startNodeId === path.startNodeId &&
-        completedPath.ship.id === selectedNode?.data.ship.id
-      ) {
-        return { completed: true, pathId: completedPath.pathId };
-      }
-    }
-    return { completed: false };
+    // 使用PathFinderService的新方法
+    return pathFinderService.isPathCompleted(path);
   };
 
   const getNewInvestmentCost = (path: CompletePath) => {
@@ -229,7 +223,12 @@ export default function RouteInfoPanel({
       const sourceShipId = edge.sourceNode.data?.ship?.id;
       const targetShipId = edge.targetNode.data?.ship?.id;
       const isCompleted = sourceShipId && targetShipId &&
-        pathFinderService.isEdgeCompleted(String(sourceShipId), String(targetShipId));
+        pathFinderService.isEdgeCompleted(
+          String(sourceShipId), 
+          String(targetShipId),
+          edge.edge,   // 传入边信息
+          path         // 传入完整路径
+        );
 
       // 排除已完成边和机库CCU的成本，与排序逻辑保持一致
       if (!isCompleted && edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
@@ -516,7 +515,9 @@ export default function RouteInfoPanel({
                           const isEdgeCompleted = pathEdge.edge.data?.sourceShip && pathEdge.edge.data?.targetShip &&
                             pathFinderService.isEdgeCompleted(
                               String(pathEdge.edge.data.sourceShip.id),
-                              String(pathEdge.edge.data.targetShip.id)
+                              String(pathEdge.edge.data.targetShip.id),
+                              pathEdge.edge,  // 传入完整的边信息
+                              completePath    // 传入当前完整路径
                             );
 
                           return (
