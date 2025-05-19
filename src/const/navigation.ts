@@ -10,7 +10,6 @@ export const navigation = [
   {
     name: "navigation.hangar",
     path: "/hangar",
-    hidden: true,
   },
   {
     name: "navigation.fleaMarket",
