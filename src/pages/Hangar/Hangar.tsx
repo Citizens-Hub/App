@@ -49,6 +49,7 @@ interface DisplayEquipmentItem {
     msrp: number;
   };
   belongsTo: number;
+  quantity?: number;
 }
 
 export default function Hangar() {
@@ -104,6 +105,7 @@ export default function Hangar() {
             imageUrl: undefined,
             belongsTo: ccu.belongsTo,
             isBuyBack: ccu.isBuyBack,
+            quantity: ccu.quantity,
           }
         }).filter(ccu => ccu !== undefined);
 
@@ -402,6 +404,9 @@ export default function Hangar() {
                             {
                               !item.isBuyBack && (item.canGift ? <FormattedMessage id="hangar.giftable" defaultMessage="可赠送" /> : <FormattedMessage id="hangar.notGiftable" defaultMessage="不可赠送" />)
                             }
+                          </span>
+                          <span className='text-md font-bold'>
+                            x {item.quantity}
                           </span>
                         </div>
                       </TableCell>

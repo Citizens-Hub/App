@@ -10,6 +10,7 @@ interface HangarItem {
   isBuyBack: boolean,
   canGift: boolean,
   belongsTo: number,
+  quantity?: number,
 }
 
 interface CCUItem extends HangarItem {
@@ -123,13 +124,29 @@ export const upgradesSlice = createSlice({
   reducers: {
     addCCU: (state, action: PayloadAction<CCUItem>) => {
       if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
-        state.items.ccus.push(action.payload);
+        state.items.ccus.push({
+          ...action.payload,
+          quantity: 1,
+        });
+      } else {
+        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
+        if (item) {
+          item.quantity = (item.quantity || 1) + 1;
+        }
       }
       localStorage.setItem('state', JSON.stringify(state));
     },
     addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
       if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
-        state.items.ccus.push(action.payload);
+        state.items.ccus.push({
+          ...action.payload,
+          quantity: 1,
+        });
+      } else {
+        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
+        if (item) {
+          item.quantity = (item.quantity || 1) + 1;
+        }
       }
       localStorage.setItem('state', JSON.stringify(state));
     },
