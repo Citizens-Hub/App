@@ -108,11 +108,11 @@ const getInitialState = (): {
     currency: getDefaultCurrency(),
     ccuSourceTypePriority: [
       CcuSourceType.HANGER,
-      CcuSourceType.HISTORICAL,
       CcuSourceType.AVAILABLE_WB,
-      CcuSourceType.THIRD_PARTY,
-      CcuSourceType.OFFICIAL_WB,
+      CcuSourceType.HISTORICAL,
       CcuSourceType.OFFICIAL,
+      CcuSourceType.OFFICIAL_WB,
+      CcuSourceType.THIRD_PARTY,
     ],
     version,
   };
