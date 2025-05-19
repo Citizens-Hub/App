@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addCCU, addUser, clearUpgrades, UserInfo } from "../store/upgradesStore";
+import { addCCU, addBuybackCCU, addUser, clearUpgrades, UserInfo } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton } from "@mui/material";
@@ -30,6 +30,21 @@ export default function Crawler() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const requestQueueRef = useRef<RequestItem[]>([]);
   const activeRequestsRef = useRef<Set<string | number>>(new Set());
+  const shipsRef = useRef<{
+    id: number;
+    name: string;
+    skus: {
+      id: number;
+    }[]
+  }[]>([])
+  
+  const buybackCCUsProcessedRef = useRef<number>(0);
+  const buybackCCUsRef = useRef<{
+    name: string;
+    from: string;
+    to: string;
+    price: number;
+  }[]>([]);
   const maxConcurrentRequests = 5;
 
   const userRef = useRef<UserInfo>({
@@ -114,16 +129,47 @@ export default function Crawler() {
     });
   }, [dispatch]);
 
+  const parseBuybackCCUs = useCallback((doc: Document) => {
+    const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
+
+    listItems.forEach(li => {
+      const name = li.querySelector("h1")?.textContent;
+      const from = li.querySelector("a")?.getAttribute("data-fromshipid");
+      const to = li.querySelector("a")?.getAttribute("data-toshipid");
+
+      if (!from || !to || !name) {
+        console.warn("error parsing buyback ccu", name, "reporting");
+        reportError({
+          errorType: "BUYBACK_CCU_PARSING_ERROR",
+          errorMessage: JSON.stringify({
+            name,
+            from,
+            to,
+            li: li.outerHTML,
+          }),
+        });
+        return;
+      }
+
+      buybackCCUsRef.current.push({
+        name,
+        from,
+        to,
+        price: -1,
+      });
+    });
+  }, []);
+
   // 处理请求队列
   const processNextRequests = useCallback(() => {
     while (activeRequestsRef.current.size < maxConcurrentRequests && requestQueueRef.current.length > 0) {
       const requestItem = requestQueueRef.current.shift()!;
       const requestId = requestItem.requestId || (requestItem.message?.requestId);
-      
+
       if (requestId) {
         activeRequestsRef.current.add(requestId);
       }
-      
+
       window.postMessage(requestItem, '*');
     }
   }, []);
@@ -139,19 +185,16 @@ export default function Crawler() {
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
-      
-      // 处理响应
+
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
         const requestId = event.data.message.requestId;
-        
-        // 用户信息响应
+
         if (requestId === "user-info") {
           userRef.current = event.data.message.value.data[0].data.account;
 
           dispatch(addUser(userRef.current));
           dispatch(clearUpgrades(userRef.current.id));
 
-          // 获取第一页CCU
           addToQueue({
             type: 'ccuPlannerAppIntegrationRequest',
             message: {
@@ -165,9 +208,40 @@ export default function Crawler() {
               requestId: "ccus-1"
             }
           });
+
+          addToQueue({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                "url": "https://robertsspaceindustries.com/en/account/buy-back-pledges?page=1&product-type=upgrade&pageSize=100",
+                "responseType": "text",
+                "method": "get",
+                "data": null
+              },
+              requestId: "buyback-ccus-1"
+            }
+          });
+
+          addToQueue({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                "responseType": "json",
+                "method": "post",
+                "data": [{
+                  "operationName": "initShipUpgrade",
+                  "variables": {},
+                  "query": "query initShipUpgrade {\n  ships {\n    id\n    name\n    medias {\n      productThumbMediumAndSmall\n      slideShow\n    }\n    manufacturer {\n      id\n      name\n    }\n    focus\n    type\n    flyableStatus\n    owned\n    msrp\n    link\n    skus {\n      id\n      title\n      available\n      price\n      body\n      unlimitedStock\n      availableStock\n    }\n  }\n  manufacturers {\n    id\n    name\n  }\n  app {\n    version\n    env\n    cookieName\n    sentryDSN\n    pricing {\n      currencyCode\n      currencySymbol\n      exchangeRate\n      exponent\n      taxRate\n      isTaxInclusive\n    }\n    mode\n    isAnonymous\n    buyback {\n      credit\n    }\n  }\n}\n"
+                }]
+              },
+              requestId: "init-ship-upgrade"
+            }
+          })
         }
-        
-        // CCU页面响应
+
         if (typeof requestId === 'string' && requestId.startsWith("ccus-")) {
           const pageId = requestId.split("-")[1];
 
@@ -175,11 +249,9 @@ export default function Crawler() {
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlString, 'text/html');
 
-          // 第一页时，处理分页
           if (pageId === "1") {
             const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
 
-            // 将后续页面加入请求队列
             for (let i = 2; i <= totalPages; i++) {
               addToQueue({
                 type: 'ccuPlannerAppIntegrationRequest',
@@ -199,7 +271,108 @@ export default function Crawler() {
 
           parseHangarItems(doc);
         }
-        
+
+        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-")) {
+          const pageId = requestId.split("-")[2];
+
+          const htmlString = event.data.message.value.data;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlString, 'text/html');
+
+          if (pageId === "1") {
+            const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
+
+            buybackCCUsProcessedRef.current = totalPages;
+
+            for (let i = 2; i <= totalPages; i++) {
+              addToQueue({
+                type: 'ccuPlannerAppIntegrationRequest',
+                message: {
+                  type: "httpRequest",
+                  request: {
+                    "url": `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${i}&product-type=upgrade&pageSize=100`,
+                    "responseType": "text",
+                    "method": "get",
+                    "data": null
+                  },
+                  requestId: `buyback-ccus-${i}`
+                }
+              });
+            }
+          }
+
+          parseBuybackCCUs(doc);
+
+          buybackCCUsProcessedRef.current--;
+          if (buybackCCUsProcessedRef.current === 0) {
+            // fetch price list
+            addToQueue({
+              type: 'ccuPlannerAppIntegrationRequest',
+              message: {
+                type: "httpRequest",
+                request: {
+                  "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                  "responseType": "json",
+                  "method": "post",
+                  "data": buybackCCUsRef.current.map(ccu => ({
+                      "operationName": "getPrice",
+                      "variables": {
+                        "from": Number(ccu.from),
+                        "to": shipsRef.current.find(ship => ship.id === Number(ccu.to))?.skus[0].id
+                      },
+                      "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
+                  }))
+                },
+                requestId: "buyback-ccus-price-list"
+              }
+            })
+          }
+        }
+
+        if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade")) {
+          const ships = event.data.message.value.data[0].data.ships;
+
+          shipsRef.current = ships;
+        }
+
+        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list")) {
+          const priceList = event.data.message.value.data;
+
+          buybackCCUsRef.current.forEach((ccu, i) => {
+            const value = priceList[i].data.price.amount / 100
+
+            const parsed = tryResolveCCU({
+              name: ccu.name,
+              match_items: [{ name: ccu.from }],
+              target_items: [{ name: ccu.to }],
+            });
+
+            if (!parsed) return;
+
+            dispatch(addBuybackCCU({
+              name: ccu.name,
+              from: { id: Number(ccu.from), name: parsed.from },
+              to: { id: Number(ccu.to), name: parsed.to },
+              value,
+              parsed,
+              isBuyBack: true,
+              canGift: true,
+              belongsTo: userRef.current?.id,
+            }));
+
+            // {
+            //   from: content.match_items[0],
+            //   to: content.target_items[0],
+            //   name: content.name,
+            //   value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+            //   parsed,
+            //   isBuyBack: false,
+            //   canGift: !!li.querySelector('.gift'),
+            //   belongsTo: userRef.current?.id,
+            // }
+          })
+        }
+
         // 请求完成，从活跃请求中移除
         if (requestId) {
           activeRequestsRef.current.delete(requestId);
@@ -212,14 +385,14 @@ export default function Crawler() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems, processNextRequests, addToQueue]);
+  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs]);
 
   return <IconButton
     color="primary"
     size="small"
     onClick={() => {
       setIsRefreshing(true);
-      
+
       // 清空请求队列和活跃请求集合
       requestQueueRef.current = [];
       activeRequestsRef.current.clear();

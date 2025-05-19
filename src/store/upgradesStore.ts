@@ -122,7 +122,13 @@ export const upgradesSlice = createSlice({
   initialState: getInitialState(),
   reducers: {
     addCCU: (state, action: PayloadAction<CCUItem>) => {
-      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value)) {
+      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
+        state.items.ccus.push(action.payload);
+      }
+      localStorage.setItem('state', JSON.stringify(state));
+    },
+    addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
+      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
         state.items.ccus.push(action.payload);
       }
       localStorage.setItem('state', JSON.stringify(state));
@@ -195,7 +201,8 @@ export const selectUsersHangarItems = createSelector(
 );
 
 export const { 
-  addCCU, 
+  addCCU,
+  addBuybackCCU,
   addUser, 
   clearUpgrades, 
   setSelectedUser, 

@@ -76,7 +76,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
 
       <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
         {hangarExpanded && (
-          filteredUpgrades.length > 0 ?
+          filteredUpgrades.sort((a, b) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0).length > 0 ?
             filteredUpgrades.map(upgrade => {
               const from = upgrade.parsed.from
               const to = upgrade.parsed.to
@@ -90,10 +90,10 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
 
               return <div
                 key={fromShip.id + "-" + toShip.id + "-" + upgrade.belongsTo + "-" + upgrade.value + "-" + (upgrade.canGift ? "giftable" : "") + "-" + (upgrade.isBuyBack ? "buyback" : "")}
-                className="flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0"
+                className={`flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0 ${upgrade.isBuyBack ? "bg-gray-100 dark:bg-gray-900" : ""}`}
               >
                 <div className="text-xs text-gray-400">
-                  {upgrade.name}
+                  {upgrade.isBuyBack && <FormattedMessage id="ccuPlanner.buyback" defaultMessage="Buyback:" />} {upgrade.name}
                 </div>
 
                 <div
