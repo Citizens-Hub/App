@@ -296,14 +296,62 @@ export default function Settings() {
                     {isSubmitting ? (
                       <>
                         <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
-                        <FormattedMessage id="settings.saving" defaultMessage="保存中..." />
+                        <FormattedMessage id="settings.saving" defaultMessage="Saving..." />
                       </>
                     ) : (
-                      <FormattedMessage id="settings.save" defaultMessage="保存" />
+                      <FormattedMessage id="settings.save" defaultMessage="Save" />
                     )}
                   </Button>
                 </>)
               }
+              <Divider sx={{ my: 2 }} />
+            <div>
+              <Typography variant="h6">
+                <FormattedMessage id="settings.deleteAccount" defaultMessage="Delete Account" />
+              </Typography>
+              <Typography variant="body2" color='text.secondary' sx={{ mb: 2 }}>
+                <FormattedMessage id="settings.deleteAccountDescription" defaultMessage="Deleting your account will permanently remove all data associated with your account. This action cannot be undone." />
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="error"
+                fullWidth
+                onClick={() => {
+                  if (window.confirm(intl.formatMessage({
+                    id: 'settings.deleteAccountConfirm',
+                    defaultMessage: 'Are you sure you want to delete your account? This action cannot be undone, and all data associated with your account will be permanently deleted.'
+                  }))) {
+                    setIsSubmitting(true);
+                    fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/account`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${user.token}`
+                      }
+                    })
+                    .then(res => {
+                      if (!res.ok) {
+                        throw new Error('Delete account failed');
+                      }
+                      localStorage.clear();
+                      window.location.href = '/';
+                    })
+                    .catch(err => {
+                      setErrorMessage(intl.formatMessage({
+                        id: 'settings.deleteAccountFailed',
+                        defaultMessage: 'Delete account failed'
+                      }));
+                      setSnackbarOpen(true);
+                      console.error(err);
+                    })
+                    .finally(() => {
+                      setIsSubmitting(false);
+                    });
+                  }
+                }}
+              >
+                <FormattedMessage id="settings.deleteAccount" defaultMessage="Delete Account" />
+              </Button>
+            </div>
             </>)
           }
           {

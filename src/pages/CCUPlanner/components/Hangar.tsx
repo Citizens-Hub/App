@@ -1,4 +1,4 @@
-import { IconButton, TextField, InputAdornment, Button } from "@mui/material";
+import { IconButton, TextField, InputAdornment, Button, Pagination } from "@mui/material";
 import { Ccu, Ship } from "../../../types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
@@ -20,6 +20,8 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [hangarExpanded, setHangarExpanded] = useState(true);
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const intl = useIntl();
   const upgrades = useSelector(selectHangarItems);
@@ -43,6 +45,25 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     return from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
   });
 
+  // 计算总页数
+  const totalPages = Math.ceil(filteredUpgrades.length / itemsPerPage);
+  
+  // 获取当前页的数据
+  const currentItems = filteredUpgrades
+    .sort((a, b) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0)
+    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  // 处理页面变化
+  const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
+    setCurrentPage(page);
+  };
+
+  // 当筛选条件改变时，重置页码到第一页
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
   return (
     <>
       <div className="flex items-center justify-left gap-2 px-1">
@@ -60,7 +81,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             fullWidth
             placeholder={intl.formatMessage({ id: 'ccuPlanner.searchHangar', defaultMessage: 'Search Hangar' })}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             slotProps={{
               input: {
                 startAdornment: (
@@ -74,10 +95,10 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
         </div>
       )}
 
-      <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
         {hangarExpanded && (
-          filteredUpgrades.sort((a, b) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0).length > 0 ?
-            filteredUpgrades.map(upgrade => {
+          currentItems.length > 0 ?
+            currentItems.map(upgrade => {
               const from = upgrade.parsed.from
               const to = upgrade.parsed.to
 
@@ -175,6 +196,21 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             </div>
         )}
       </div>
+      
+      {hangarExpanded && filteredUpgrades.length > 0 && (
+        <div className="flex justify-center mt-4 mb-2">
+          <Pagination 
+            count={totalPages} 
+            page={currentPage} 
+            onChange={handlePageChange} 
+            color="primary" 
+            size="small"
+            showFirstButton 
+            showLastButton
+          />
+        </div>
+      )}
+      
       <ExtensionModal
         open={extensionModalOpen}
         onClose={() => setExtensionModalOpen(false)}
