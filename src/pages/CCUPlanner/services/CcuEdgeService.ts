@@ -38,7 +38,7 @@ export class CcuEdgeService {
     const priceInfo = strategy.calculatePrice(sourceShip, targetShip, { 
       ccus, 
       wbHistory, 
-      hangarItems 
+      hangarItems
     });
     
     const edgeData: CcuEdgeData = {
@@ -50,8 +50,6 @@ export class CcuEdgeService {
       wbHistory,
       hangarItems
     };
-
-    console.log("priceInfo >>>>>", priceInfo);
 
     edgeData.customPrice = priceInfo.price;
     

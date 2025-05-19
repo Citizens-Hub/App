@@ -5,6 +5,8 @@ import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
 import { Check } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -24,7 +26,7 @@ export default function CcuEdge({
 }: CcuEdgeProps) {
   const intl = useIntl();
   const { locale } = intl;
-  // const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
+  const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
   
   // 检查边是否属于任何已完成路径
@@ -94,7 +96,9 @@ export default function CcuEdge({
   const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
     ccus: data.ccus,
     wbHistory: data.wbHistory,
-    hangarItems: data.hangarItems
+    hangarItems: data.hangarItems,
+    currency: selectedCurrency,
+    customPrice: data.customPrice,
   });
   
   // if (data.customPrice !== undefined && data.sourceType !== CcuSourceType.OFFICIAL) {
