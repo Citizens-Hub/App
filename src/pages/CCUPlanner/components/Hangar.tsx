@@ -54,7 +54,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
   // 处理页面变化
-  const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
   };
 
