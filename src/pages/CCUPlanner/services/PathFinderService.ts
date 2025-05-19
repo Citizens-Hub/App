@@ -24,14 +24,31 @@ export interface CompletePath {
   path: PathNode[];
   edges: PathEdge[];
   totalUsdPrice: number;
-  totalCnyPrice: number;
+  totalThirdPartyPrice: number;
   hasUsdPricing: boolean;
   hasCnyPricing: boolean;
   startNodeId: string;
 }
 
+// 新增已完成路径接口
+export interface CompletedPath {
+  pathId: string;  // 唯一标识符
+  ship: Ship;      // 完成到的船只
+  path: CompletePath; // 完整路径信息
+}
+
+// 新增：添加边的识别信息接口
+export interface EdgeIdentifier {
+  sourceShipId: string;
+  targetShipId: string;
+}
+
 export class PathFinderService {
   private nodeBestCost: Record<string, number> = {};
+  // 新增：已完成的路径存储
+  private completedPaths: CompletedPath[] = [];
+  // 新增：已完成的边缓存
+  private completedEdges: Set<string> = new Set();
   
   /**
    * Find all possible starting nodes (nodes with no incoming edges)
@@ -79,9 +96,9 @@ export class PathFinderService {
   /**
    * Calculate the converted value of the cost
    */
-  calculateTotalCost(usdPrice: number, cnyPrice: number, exchangeRate: number, conciergeValue: string): number {
+  calculateTotalCost(usdPrice: number, thirdPartyPrice: number, exchangeRate: number, conciergeValue: string): number {
     const conciergeMultiplier = 1 + parseFloat(conciergeValue || "0");
-    return usdPrice * exchangeRate + cnyPrice * conciergeMultiplier;
+    return usdPrice * exchangeRate + thirdPartyPrice * conciergeMultiplier;
   }
 
   /**
@@ -99,12 +116,12 @@ export class PathFinderService {
     currentPath: string[] = [],
     allPaths: string[][] = [],
     currentUsdCost = 0,
-    currentCnyCost = 0
+    currentThirdPartyCost = 0
   ): string[][] {
     currentPath.push(startNode.id);
     visited.add(startNode.id);
 
-    const totalCost = this.calculateTotalCost(currentUsdCost, currentCnyCost, exchangeRate, conciergeValue);
+    const totalCost = this.calculateTotalCost(currentUsdCost, currentThirdPartyCost, exchangeRate, conciergeValue);
 
     // If this node already has a lower cost record, prune
     if (pruneOpt && this.nodeBestCost[startNode.id] !== undefined && totalCost >= this.nodeBestCost[startNode.id]) {
@@ -136,7 +153,7 @@ export class PathFinderService {
             [...currentPath],
             allPaths,
             currentUsdCost + usdPrice,
-            currentCnyCost + tpPrice
+            currentThirdPartyCost + tpPrice
           );
         }
       }
@@ -165,7 +182,7 @@ export class PathFinderService {
 
       const pathEdges: PathEdge[] = [];
       let totalUsdPrice = 0;
-      let totalCnyPrice = 0;
+      let totalThirdPartyPrice = 0;
       let hasUsdPricing = false;
       let hasCnyPricing = false;
 
@@ -192,7 +209,7 @@ export class PathFinderService {
 
           const { usdPrice, tpPrice } = this.getPriceInfo(edge);
           totalUsdPrice += usdPrice;
-          totalCnyPrice += tpPrice;
+          totalThirdPartyPrice += tpPrice;
 
           if (edge.data?.sourceType === CcuSourceType.THIRD_PARTY) {
             hasCnyPricing = true;
@@ -206,7 +223,7 @@ export class PathFinderService {
         path: pathNodes,
         edges: pathEdges,
         totalUsdPrice,
-        totalCnyPrice,
+        totalThirdPartyPrice,
         hasUsdPricing,
         hasCnyPricing,
         startNodeId: pathId[0]
@@ -219,6 +236,171 @@ export class PathFinderService {
    */
   resetNodeBestCost(): void {
     this.nodeBestCost = {};
+  }
+
+  /**
+   * 新增：标记路径为已完成
+   */
+  markPathAsCompleted(path: CompletePath, completedShip: Ship): void {
+    const pathId = `path-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    this.completedPaths.push({
+      pathId,
+      ship: completedShip,
+      path
+    });
+    
+    // 标记路径中所有的边为已完成
+    this.updateCompletedEdges();
+    
+    // 存储到本地存储以便在会话之间保留
+    this.saveCompletedPathsToStorage();
+  }
+
+  /**
+   * 新增：取消标记路径为已完成
+   */
+  unmarkCompletedPath(pathId: string): void {
+    this.completedPaths = this.completedPaths.filter(p => p.pathId !== pathId);
+    
+    // 更新已完成的边缓存
+    this.updateCompletedEdges();
+    
+    this.saveCompletedPathsToStorage();
+  }
+
+  /**
+   * 新增：更新已完成边的缓存集合
+   */
+  private updateCompletedEdges(): void {
+    // 清空缓存
+    this.completedEdges.clear();
+    
+    // 遍历所有已完成路径，记录其中的边
+    this.completedPaths.forEach(completedPath => {
+      completedPath.path.edges.forEach(edge => {
+        const sourceShipId = edge.sourceNode.data?.ship?.id;
+        const targetShipId = edge.targetNode.data?.ship?.id;
+        if (sourceShipId && targetShipId) {
+          const edgeKey = `${sourceShipId}-${targetShipId}`;
+          this.completedEdges.add(edgeKey);
+        }
+      });
+    });
+  }
+
+  /**
+   * 新增：判断指定的边是否属于已完成路径
+   */
+  isEdgeCompleted(sourceShipId: string, targetShipId: string): boolean {
+    const edgeKey = `${sourceShipId}-${targetShipId}`;
+    return this.completedEdges.has(edgeKey);
+  }
+
+  /**
+   * 新增：获取所有已完成的路径
+   */
+  getCompletedPaths(): CompletedPath[] {
+    return [...this.completedPaths];
+  }
+
+  /**
+   * 新增：清理所有已完成的路径
+   */
+  clearCompletedPaths(): void {
+    this.completedPaths = [];
+    this.completedEdges.clear();
+    
+    // 清理本地存储中的数据
+    try {
+      localStorage.removeItem('completedPaths');
+    } catch (error) {
+      console.error('Failed to clear completed paths from storage:', error);
+    }
+  }
+
+  /**
+   * 新增：检查路径是否是某个已完成路径的延伸
+   */
+  isPathExtensionOfCompletedPath(path: CompletePath): boolean {
+    if (this.completedPaths.length === 0) return false;
+    
+    // 检查当前路径是否使用了任何已完成路径的部分
+    // 方式1：直接检查完成的边是否在当前路径中
+    for (const edge of path.edges) {
+      const sourceShipId = edge.sourceNode.data?.ship?.id;
+      const targetShipId = edge.targetNode.data?.ship?.id;
+      
+      if (sourceShipId && targetShipId) {
+        const edgeKey = `${sourceShipId}-${targetShipId}`;
+        if (this.completedEdges.has(edgeKey)) {
+          return true;
+        }
+      }
+    }
+    
+    // 方式2：检查路径是否从任何已完成路径的船只开始或经过
+    for (const completedPath of this.completedPaths) {
+      const completedShipId = completedPath.ship.id;
+      
+      // 检查路径的任何节点是否是已完成路径的最终节点
+      for (const edge of path.edges) {
+        if (edge.sourceNode.data?.ship?.id === completedShipId) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 新增：检查路径是否是高于已完成路径的船只的延伸
+   * @param path 要检查的路径
+   * @returns 是否是高于已完成路径的船只的延伸
+   */
+  isPathExtensionToHigherValue(path: CompletePath): boolean {
+    if (this.completedPaths.length === 0) return false;
+    
+    // 获取路径的目标船只
+    const targetShip = path.path[path.path.length - 1].ship;
+    
+    // 检查目标船只是否价值高于任何已完成路径的船只
+    for (const completedPath of this.completedPaths) {
+      if (targetShip.msrp > completedPath.ship.msrp) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 新增：保存已完成的路径到本地存储
+   */
+  private saveCompletedPathsToStorage(): void {
+    try {
+      localStorage.setItem('completedPaths', JSON.stringify(this.completedPaths));
+    } catch (error) {
+      console.error('Failed to save completed paths to storage:', error);
+    }
+  }
+
+  /**
+   * 新增：从本地存储加载已完成的路径
+   */
+  loadCompletedPathsFromStorage(): void {
+    try {
+      const storedPaths = localStorage.getItem('completedPaths');
+      if (storedPaths) {
+        this.completedPaths = JSON.parse(storedPaths);
+        // 加载后更新已完成边的缓存
+        this.updateCompletedEdges();
+      }
+    } catch (error) {
+      console.error('Failed to load completed paths from storage:', error);
+      this.completedPaths = [];
+      this.completedEdges.clear();
+    }
   }
 }
 
