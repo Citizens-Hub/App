@@ -119,82 +119,55 @@ export default function RouteInfoPanel({
   }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
-    if (!completePaths.length) return { pathsWithCompletedEdges: [], normalPaths: [] };
+    if (!completePaths.length) return { paths: [] };
 
-    // 简化路径分类系统，只分为两类
-    const pathsWithCompletedEdges: CompletePath[] = []; // 包含已完成边的路径
-    const normalPaths: CompletePath[] = [];           // 普通路径
-
-    // 对所有路径进行分类
-    completePaths.forEach(path => {
-      // 检查路径是否包含了已完成的边
-      const hasCompletedEdge = path.edges.some(edge => {
-        const sourceShipId = edge.sourceNode.data?.ship?.id;
-        const targetShipId = edge.targetNode.data?.ship?.id;
-        return sourceShipId && targetShipId &&
-          pathFinderService.isEdgeCompleted(
-            String(sourceShipId), 
-            String(targetShipId),
-            edge.edge,  // 传入完整的边信息
-            path       // 传入当前完整路径
-          );
-      });
-
-      // 如果路径包含已完成边，优先显示
-      if (hasCompletedEdge) {
-        pathsWithCompletedEdges.push(path);
-      } else {
-        normalPaths.push(path);
-      }
-    });
-
-    // 根据排序选项确定排序函数
+    // Sort based on sorting options
     const sortPaths = (a: CompletePath, b: CompletePath) => {
       if (sortByNewInvestment) {
-        // 计算新增投资（排序时：排除已完成边和机库CCU的成本）
+        // Calculate new investment (for sorting: exclude completed edges and hangar CCU costs)
         const getNewInvestmentCostForSorting = (path: CompletePath) => {
           let newUsdCost = 0;
           let newCnyCost = 0;
-          
-          // 找到最后一个已完成边的索引
+
+          // Find the index of the last completed edge
           let lastCompletedEdgeIndex = -1;
-          
-          // 首先找到路径中最后一个已完成的边
+
+          // First find the last completed edge in the path
           for (let i = path.edges.length - 1; i >= 0; i--) {
             const edge = path.edges[i];
             const sourceShipId = edge.sourceNode.data?.ship?.id;
             const targetShipId = edge.targetNode.data?.ship?.id;
-            
-            const isCompleted = sourceShipId && targetShipId && 
+
+            const isCompleted = sourceShipId && targetShipId &&
               pathFinderService.isEdgeCompleted(
-                String(sourceShipId), 
+                String(sourceShipId),
                 String(targetShipId),
                 edge.edge,
                 path
               );
-            
+
             if (isCompleted) {
               lastCompletedEdgeIndex = i;
               break;
             }
           }
-          
-          // 如果没有找到已完成的边，也要考虑起点船的价格
+
+          // If no completed edge is found, also consider the start ship price
           if (lastCompletedEdgeIndex === -1) {
-            // 添加起点船的价格到新投资中
+            // Add start ship price to new investment
             const startPrice = startShipPrices[path.startNodeId] || 0;
-            // 将起点船的价格添加到USD成本中
+            // Add start ship price to USD cost
             newUsdCost += Number(startPrice);
           }
-          
-          // 如果找到了已完成的边，则从该边的后一个边开始计算新投资
-          // 否则从第一个边开始计算
+
+          // If completed edges are found, calculate new investment from the next edge after the last completed
+          // Otherwise start from the first edge
           const startIndex = lastCompletedEdgeIndex >= 0 ? lastCompletedEdgeIndex + 1 : 0;
-          
-          // 从最后一个已完成边的后一条边开始计算新投资
+
+          // Calculate new investment from the edge after the last completed one
           for (let i = startIndex; i < path.edges.length; i++) {
             const edge = path.edges[i];
-            // 机库CCU不计入新投资
+            // Hangar CCUs are not counted in the new investment
             if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
               if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
                 newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
@@ -211,26 +184,24 @@ export default function RouteInfoPanel({
               }
             }
           }
-          
+
           return pathFinderService.calculateTotalCost(newUsdCost, newCnyCost, exchangeRate, conciergeValue);
         };
-        
+
         return getNewInvestmentCostForSorting(a) - getNewInvestmentCostForSorting(b);
       } else {
-        // 原有的总投资成本排序
         return pathFinderService.calculateTotalCost(a.totalUsdPrice, a.totalThirdPartyPrice, exchangeRate, conciergeValue) -
           pathFinderService.calculateTotalCost(b.totalUsdPrice, b.totalThirdPartyPrice, exchangeRate, conciergeValue);
       }
     };
 
     return {
-      pathsWithCompletedEdges: pathsWithCompletedEdges.sort(sortPaths),
-      normalPaths: normalPaths.sort(sortPaths)
+      paths: completePaths.sort(sortPaths)
     };
   }, [completePaths, sortByNewInvestment, exchangeRate, conciergeValue, startShipPrices, ccus, wbHistory, hangarItems]);
 
   const sortedPaths = useMemo(() => {
-    return [...sortedPathsGroups.pathsWithCompletedEdges, ...sortedPathsGroups.normalPaths];
+    return sortedPathsGroups.paths;
   }, [sortedPathsGroups]);
 
   const totalPages = sortedPaths.length;
@@ -266,53 +237,53 @@ export default function RouteInfoPanel({
   };
 
   const isPathCompleted = (path: CompletePath): { completed: boolean, pathId?: string } => {
-    // 使用PathFinderService的新方法
+    // Use new method from PathFinderService
     return pathFinderService.isPathCompleted(path);
   };
 
   const getNewInvestmentCost = (path: CompletePath) => {
     let newUsdCost = 0;
     let newCnyCost = 0;
-    
-    // 找到最后一个已完成边的索引
+
+    // Find the index of the last completed edge
     let lastCompletedEdgeIndex = -1;
-    
-    // 首先找到路径中最后一个已完成的边
+
+    // First find the last completed edge in the path
     for (let i = path.edges.length - 1; i >= 0; i--) {
       const edge = path.edges[i];
       const sourceShipId = edge.sourceNode.data?.ship?.id;
       const targetShipId = edge.targetNode.data?.ship?.id;
-      
+
       const isCompleted = sourceShipId && targetShipId &&
         pathFinderService.isEdgeCompleted(
-          String(sourceShipId), 
+          String(sourceShipId),
           String(targetShipId),
           edge.edge,
           path
         );
-      
+
       if (isCompleted) {
         lastCompletedEdgeIndex = i;
         break;
       }
     }
-    
-    // 如果没有找到已完成的边，也要考虑起点船的价格
+
+    // If no completed edge is found, also consider the start ship price
     if (lastCompletedEdgeIndex === -1) {
-      // 添加起点船的价格到新投资中
+      // Add start ship price to new investment
       const startPrice = startShipPrices[path.startNodeId] || 0;
-      // 将起点船的价格添加到USD成本中
+      // Add start ship price to USD cost
       newUsdCost += Number(startPrice);
     }
-    
-    // 如果找到了已完成的边，则从该边的后一个边开始计算新投资
-    // 否则从第一个边开始计算
+
+    // If completed edges are found, calculate new investment from the next edge after the last completed
+    // Otherwise start from the first edge
     const startIndex = lastCompletedEdgeIndex >= 0 ? lastCompletedEdgeIndex + 1 : 0;
-    
-    // 从最后一个已完成边的后一条边开始计算新投资
+
+    // Calculate new investment from the edge after the last completed one
     for (let i = startIndex; i < path.edges.length; i++) {
       const edge = path.edges[i];
-      // 机库CCU不计入新投资
+      // Hangar CCUs are not counted in the new investment
       if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
         if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
           newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
@@ -480,7 +451,7 @@ export default function RouteInfoPanel({
                 const startShip = startNode?.data?.ship as Ship;
                 const { completed, pathId } = isPathCompleted(completePath);
 
-                // 计算新增投资
+                // Calculate new investment
                 const { newUsdCost, newCnyCost } = getNewInvestmentCost(completePath);
 
                 return (
@@ -542,33 +513,28 @@ export default function RouteInfoPanel({
                             </span>
                           </div>
                         </div>
-
-                        {sortByNewInvestment && (
-                          <>
-                            <Divider className="w-full" />
-                            <div className='flex justify-between gap-4'>
-                              <div className="text-sm">
-                                <span className="text-black dark:text-white mr-1">
-                                  <FormattedMessage id="routeInfoPanel.newInvestment" defaultMessage="New Investment" />:
-                                </span>
-                                <span className="text-blue-400">{newUsdCost.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
-                                <Tooltip arrow title={
-                                  <span style={{ fontSize: '14px' }}>
-                                    <FormattedMessage 
-                                      id="routeInfoPanel.newInvestmentExplanation" 
-                                      defaultMessage="New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs."
-                                    />
-                                  </span>
-                                }>
-                                  <InfoOutlined sx={{ fontSize: 14, marginLeft: '4px' }} />
-                                </Tooltip>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-blue-400">{newCnyCost.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        <Divider className="w-full" />
+                        <div className='flex justify-between gap-4'>
+                          <div className="text-sm">
+                            <span className="text-black dark:text-white mr-1">
+                              <FormattedMessage id="routeInfoPanel.newInvestment" defaultMessage="New Investment" />:
+                            </span>
+                            <span className="text-blue-400">{newUsdCost.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                            <Tooltip arrow title={
+                              <span style={{ fontSize: '14px' }}>
+                                <FormattedMessage
+                                  id="routeInfoPanel.newInvestmentExplanation"
+                                  defaultMessage="New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs."
+                                />
+                              </span>
+                            }>
+                              <InfoOutlined sx={{ fontSize: 14, marginLeft: '4px' }} />
+                            </Tooltip>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-blue-400">{newCnyCost.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-3">
@@ -610,8 +576,8 @@ export default function RouteInfoPanel({
                             pathFinderService.isEdgeCompleted(
                               String(pathEdge.edge.data.sourceShip.id),
                               String(pathEdge.edge.data.targetShip.id),
-                              pathEdge.edge,  // 传入完整的边信息
-                              completePath    // 传入当前完整路径
+                              pathEdge.edge,  // Pass the complete edge information
+                              completePath    // Pass the current complete path
                             );
 
                           return (
