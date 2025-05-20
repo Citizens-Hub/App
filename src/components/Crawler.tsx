@@ -28,14 +28,14 @@ interface RequestItem {
   requestId?: number | string;
 }
 
-interface PriceData {
-  data: {
-    price: {
-      amount: number;
-      nativeAmount: number;
-    };
-  };
-}
+// interface PriceData {
+//   data: {
+//     price: {
+//       amount: number;
+//       nativeAmount: number;
+//     };
+//   };
+// }
 
 export default function Crawler({ ships }: { ships: Ship[] }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -175,15 +175,37 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         return;
       }
 
-      buybackCCUsRef.current.push({
+      const fromShip = ships.find(ship => ship.id === Number(from))
+      const toShip = ships.find(ship => ship.id === Number(to))
+
+      const ccu = {
         name,
         from,
         to,
         toSku,
-        price: -1,
+        price: (toShip?.msrp && fromShip?.msrp) ? toShip?.msrp - fromShip?.msrp : 0,
+      }
+
+      const parsed = tryResolveCCU({
+        name: ccu.name,
+        match_items: [{ name: ccu.from }],
+        target_items: [{ name: ccu.to }],
       });
+
+      if (parsed) {
+        dispatch(addBuybackCCU({
+          name: ccu.name,
+          from: { id: Number(ccu.from), name: parsed.from },
+          to: { id: Number(ccu.to), name: parsed.to },
+          value: ccu.price / 100,
+          parsed,
+          isBuyBack: true,
+          canGift: true,
+          belongsTo: userRef.current?.id,
+        }));
+      }
     });
-  }, []);
+  }, [dispatch, ships, tryResolveCCU]);
 
   // 处理请求队列
   const processNextRequests = useCallback(() => {
@@ -240,7 +262,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             message: {
               type: "httpRequest",
               request: {
-                "url": "https://robertsspaceindustries.com/en/account/buy-back-pledges?page=1&product-type=upgrade&pagesize=100",
+                "url": "https://robertsspaceindustries.com/en/account/buy-back-pledges?page=1&product-type=upgrade&pagesize=250",
                 "responseType": "text",
                 "method": "get",
                 "data": null
@@ -316,7 +338,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                 message: {
                   type: "httpRequest",
                   request: {
-                    "url": `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${i}&product-type=upgrade&pagesize=100`,
+                    "url": `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${i}&product-type=upgrade&pagesize=250`,
                     "responseType": "text",
                     "method": "get",
                     "data": null
@@ -329,39 +351,39 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
           parseBuybackCCUs(doc);
 
-          buybackCCUsProcessedRef.current--;
-          if (buybackCCUsProcessedRef.current === 0) {
-            // 将CCUs分批处理，每批最多100个
-            const batchSize = 20;
-            const batches = [];
-            for (let i = 0; i < buybackCCUsRef.current.length; i += batchSize) {
-              batches.push(buybackCCUsRef.current.slice(i, i + batchSize));
-            }
+          // buybackCCUsProcessedRef.current--;
+          // if (buybackCCUsProcessedRef.current === 0) {
+          //   // 将CCUs分批处理，每批最多100个
+          //   const batchSize = 20;
+          //   const batches = [];
+          //   for (let i = 0; i < buybackCCUsRef.current.length; i += batchSize) {
+          //     batches.push(buybackCCUsRef.current.slice(i, i + batchSize));
+          //   }
 
-            // 为每批创建请求
-            batches.forEach((batch, index) => {
-              addToQueue({
-                type: 'ccuPlannerAppIntegrationRequest',
-                message: {
-                  type: "httpRequest",
-                  request: {
-                    "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
-                    "responseType": "json",
-                    "method": "post",
-                    "data": batch.map(ccu => ({
-                      "operationName": "getPrice",
-                      "variables": {
-                        "from": Number(ccu.from),
-                        "to": Number(ccu.toSku)
-                      },
-                      "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
-                    }))
-                  },
-                  requestId: `buyback-ccus-price-list-${index}`
-                }
-              });
-            });
-          }
+          //   // 为每批创建请求
+          //   batches.forEach((batch, index) => {
+          //     addToQueue({
+          //       type: 'ccuPlannerAppIntegrationRequest',
+          //       message: {
+          //         type: "httpRequest",
+          //         request: {
+          //           "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+          //           "responseType": "json",
+          //           "method": "post",
+          //           "data": batch.map(ccu => ({
+          //             "operationName": "getPrice",
+          //             "variables": {
+          //               "from": Number(ccu.from),
+          //               "to": Number(ccu.toSku)
+          //             },
+          //             "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
+          //           }))
+          //         },
+          //         requestId: `buyback-ccus-price-list-${index}`
+          //       }
+          //     });
+          //   });
+          // }
         }
 
         if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade-")) {
@@ -370,116 +392,116 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           shipsRef.current = ships;
         }
 
-        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list-")) {
-          const batchIndex = parseInt(requestId.split("-").pop() || "0");
-          const priceList = event.data.message.value.data;
-          const batchSize = 20;
-          const startIndex = batchIndex * batchSize;
+        // if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list-")) {
+        //   const batchIndex = parseInt(requestId.split("-").pop() || "0");
+        //   const priceList = event.data.message.value.data;
+        //   const batchSize = 20;
+        //   const startIndex = batchIndex * batchSize;
 
-          priceList.forEach((priceData: PriceData, i: number) => {
-            const ccuIndex = startIndex + i;
-            const ccu = buybackCCUsRef.current[ccuIndex];
-            if (!ccu) return;
+        //   priceList.forEach((priceData: PriceData, i: number) => {
+        //     const ccuIndex = startIndex + i;
+        //     const ccu = buybackCCUsRef.current[ccuIndex];
+        //     if (!ccu) return;
 
-            try {
-              const value = priceData.data.price.amount / 100;
+        //     try {
+        //       const value = priceData.data.price.amount / 100;
 
-              const parsed = tryResolveCCU({
-                name: ccu.name,
-                match_items: [{ name: ccu.from }],
-                target_items: [{ name: ccu.to }],
-              });
+        //       const parsed = tryResolveCCU({
+        //         name: ccu.name,
+        //         match_items: [{ name: ccu.from }],
+        //         target_items: [{ name: ccu.to }],
+        //       });
 
-              if (parsed) {
-                dispatch(addBuybackCCU({
-                  name: ccu.name,
-                  from: { id: Number(ccu.from), name: parsed.from },
-                  to: { id: Number(ccu.to), name: parsed.to },
-                  value,
-                  parsed,
-                  isBuyBack: true,
-                  canGift: true,
-                  belongsTo: userRef.current?.id,
-                }));
-              }
-            } catch (err) {
-              console.log("error parsing", ccu, err)
+        //       if (parsed) {
+        //         dispatch(addBuybackCCU({
+        //           name: ccu.name,
+        //           from: { id: Number(ccu.from), name: parsed.from },
+        //           to: { id: Number(ccu.to), name: parsed.to },
+        //           value,
+        //           parsed,
+        //           isBuyBack: true,
+        //           canGift: true,
+        //           belongsTo: userRef.current?.id,
+        //         }));
+        //       }
+        //     } catch (err) {
+        //       console.log("error parsing", ccu, err)
 
-              addToQueue({
-                type: 'ccuPlannerAppIntegrationRequest',
-                message: {
-                  type: "httpRequest",
-                  request: {
-                    "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
-                    "responseType": "json",
-                    "method": "post",
-                    "data": [
-                      {
-                        "operationName": "filterShips",
-                        "variables": {
-                          "fromFilters": [],
-                          "toFilters": []
-                        },
-                        "query": "query filterShips($fromId: Int, $toId: Int, $fromFilters: [FilterConstraintValues], $toFilters: [FilterConstraintValues]) {\n  from(to: $toId, filters: $fromFilters) {\n    ships {\n      id\n    }\n  }\n  to(from: $fromId, filters: $toFilters) {\n    featured {\n      reason\n      style\n      tagLabel\n      tagStyle\n      footNotes\n      shipId\n    }\n    ships {\n      id\n      skus {\n        id\n        price\n        upgradePrice\n        unlimitedStock\n        showStock\n        available\n        availableStock\n      }\n    }\n  }\n}\n"
-                      },
-                      {
-                        "operationName": "filterShips",
-                        "variables": {
-                          "fromId": Number(ccu.from),
-                          "toId": Number(ccu.toSku),
-                          "fromFilters": [],
-                          "toFilters": []
-                        },
-                        "query": "query filterShips($fromId: Int, $toId: Int, $fromFilters: [FilterConstraintValues], $toFilters: [FilterConstraintValues]) {\n  from(to: $toId, filters: $fromFilters) {\n    ships {\n      id\n    }\n  }\n  to(from: $fromId, filters: $toFilters) {\n    featured {\n      reason\n      style\n      tagLabel\n      tagStyle\n      footNotes\n      shipId\n    }\n    ships {\n      id\n      skus {\n        id\n        price\n        upgradePrice\n        unlimitedStock\n        showStock\n        available\n        availableStock\n      }\n    }\n  }\n}\n"
-                      },
-                      {
-                        "operationName": "getPrice",
-                        "variables": {
-                          "from": Number(ccu.from),
-                          "to": Number(ccu.toSku)
-                        },
-                        "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
-                      }
-                    ]
-                  },
-                  requestId: `buyback-ccus-price-retry-${ccuIndex}`
-                }
-              });
-            }
-          });
-        }
+        //       addToQueue({
+        //         type: 'ccuPlannerAppIntegrationRequest',
+        //         message: {
+        //           type: "httpRequest",
+        //           request: {
+        //             "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+        //             "responseType": "json",
+        //             "method": "post",
+        //             "data": [
+        //               {
+        //                 "operationName": "filterShips",
+        //                 "variables": {
+        //                   "fromFilters": [],
+        //                   "toFilters": []
+        //                 },
+        //                 "query": "query filterShips($fromId: Int, $toId: Int, $fromFilters: [FilterConstraintValues], $toFilters: [FilterConstraintValues]) {\n  from(to: $toId, filters: $fromFilters) {\n    ships {\n      id\n    }\n  }\n  to(from: $fromId, filters: $toFilters) {\n    featured {\n      reason\n      style\n      tagLabel\n      tagStyle\n      footNotes\n      shipId\n    }\n    ships {\n      id\n      skus {\n        id\n        price\n        upgradePrice\n        unlimitedStock\n        showStock\n        available\n        availableStock\n      }\n    }\n  }\n}\n"
+        //               },
+        //               {
+        //                 "operationName": "filterShips",
+        //                 "variables": {
+        //                   "fromId": Number(ccu.from),
+        //                   "toId": Number(ccu.toSku),
+        //                   "fromFilters": [],
+        //                   "toFilters": []
+        //                 },
+        //                 "query": "query filterShips($fromId: Int, $toId: Int, $fromFilters: [FilterConstraintValues], $toFilters: [FilterConstraintValues]) {\n  from(to: $toId, filters: $fromFilters) {\n    ships {\n      id\n    }\n  }\n  to(from: $fromId, filters: $toFilters) {\n    featured {\n      reason\n      style\n      tagLabel\n      tagStyle\n      footNotes\n      shipId\n    }\n    ships {\n      id\n      skus {\n        id\n        price\n        upgradePrice\n        unlimitedStock\n        showStock\n        available\n        availableStock\n      }\n    }\n  }\n}\n"
+        //               },
+        //               {
+        //                 "operationName": "getPrice",
+        //                 "variables": {
+        //                   "from": Number(ccu.from),
+        //                   "to": Number(ccu.toSku)
+        //                 },
+        //                 "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
+        //               }
+        //             ]
+        //           },
+        //           requestId: `buyback-ccus-price-retry-${ccuIndex}`
+        //         }
+        //       });
+        //     }
+        //   });
+        // }
 
-        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-retry-")) {
-          const ccuIndex = parseInt(requestId.split("-").pop() || "0");
-          const ccu = buybackCCUsRef.current[ccuIndex];
-          const priceData = event.data.message.value.data[2];
-          if (!ccu) return;
+        // if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-retry-")) {
+        //   const ccuIndex = parseInt(requestId.split("-").pop() || "0");
+        //   const ccu = buybackCCUsRef.current[ccuIndex];
+        //   const priceData = event.data.message.value.data[2];
+        //   if (!ccu) return;
 
-          try {
-            const value = priceData.data.price.amount / 100;
+        //   try {
+        //     const value = priceData.data.price.amount / 100;
 
-            const parsed = tryResolveCCU({
-              name: ccu.name,
-              match_items: [{ name: ccu.from }],
-              target_items: [{ name: ccu.to }],
-            });
+        //     const parsed = tryResolveCCU({
+        //       name: ccu.name,
+        //       match_items: [{ name: ccu.from }],
+        //       target_items: [{ name: ccu.to }],
+        //     });
 
-            if (parsed) {
-              dispatch(addBuybackCCU({
-                name: ccu.name,
-                from: { id: Number(ccu.from), name: parsed.from },
-                to: { id: Number(ccu.to), name: parsed.to },
-                value,
-                parsed,
-                isBuyBack: true,
-                canGift: true,
-                belongsTo: userRef.current?.id,
-              }));
-            }
-          } catch (err) {
-            console.warn("retry failed for", ccu, err)
-          }
-        }
+        //     if (parsed) {
+        //       dispatch(addBuybackCCU({
+        //         name: ccu.name,
+        //         from: { id: Number(ccu.from), name: parsed.from },
+        //         to: { id: Number(ccu.to), name: parsed.to },
+        //         value,
+        //         parsed,
+        //         isBuyBack: true,
+        //         canGift: true,
+        //         belongsTo: userRef.current?.id,
+        //       }));
+        //     }
+        //   } catch (err) {
+        //     console.warn("retry failed for", ccu, err)
+        //   }
+        // }
 
         if (requestId) {
           activeRequestsRef.current.delete(requestId);
