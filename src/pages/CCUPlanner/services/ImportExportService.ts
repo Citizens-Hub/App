@@ -14,7 +14,56 @@ export class ImportExportService {
   saveToLocalStorage(flowData: FlowData): void {
     if (!flowData.nodes.length) return;
 
-    const dataStr = JSON.stringify(flowData);
+    const dataStr = JSON.stringify({
+      nodes: flowData.nodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          ccus: [],
+          wbHistory: [],
+          hangarItems: [],
+          ship: {
+            id: node.data.ship.id,
+            name: node.data.ship.name
+          },
+          incomingEdges: {
+            id: node.data.incomingEdges?.id,
+            name: node.data.incomingEdges?.name
+          },
+          outgoingEdges: {
+            id: node.data.outgoingEdges?.id,
+            name: node.data.outgoingEdges?.name
+          }
+        },
+        position: {
+          x: Math.round(node.position.x),
+          y: Math.round(node.position.y)
+        },
+        positionAbsolute: {
+          x: Math.round(node.positionAbsolute?.x || 0),
+          y: Math.round(node.positionAbsolute?.y || 0)
+        }
+      })),
+      edges: flowData.edges.map(edge => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          ccus: [],
+          wbHistory: [],
+          hangarItems: [],
+          sourceShip: {
+            id: edge.data?.sourceShip?.id,
+            name: edge.data?.sourceShip?.name
+          },
+          targetShip: {
+            id: edge.data?.targetShip?.id,
+            name: edge.data?.targetShip?.name
+          }
+        }
+      })),
+      startShipPrices: flowData.startShipPrices
+    });
+
     localStorage.setItem('ccu-planner-data', dataStr);
   }
 
@@ -26,32 +75,6 @@ export class ImportExportService {
     if (!savedData) return null;
 
     return this.importFromJsonData(savedData, ships, { hangarItems, wbHistory, ccus });
-
-    // try {
-    //   const { nodes, edges, startShipPrices } = JSON.parse(savedData);
-
-    //   const processedEdges = edges?.map((edge: Edge<CcuEdgeData>) => {
-    //     if (edge.data && !edge.data.sourceType) {
-    //       return {
-    //         ...edge,
-    //         data: {
-    //           ...edge.data,
-    //           sourceType: CcuSourceType.OFFICIAL
-    //         }
-    //       };
-    //     }
-    //     return edge;
-    //   }) || [];
-
-    //   return {
-    //     nodes: nodes || [],
-    //     edges: processedEdges,
-    //     startShipPrices: startShipPrices || {}
-    //   };
-    // } catch (error) {
-    //   console.error('Error loading saved CCU paths:', error);
-    //   return null;
-    // }
   }
 
   /**
@@ -60,7 +83,55 @@ export class ImportExportService {
   exportToJsonFile(flowData: FlowData): void {
     if (!flowData.nodes.length) return;
 
-    const dataStr = JSON.stringify(flowData, null, 2);
+    const dataStr = JSON.stringify({
+      nodes: flowData.nodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          ccus: [],
+          wbHistory: [],
+          hangarItems: [],
+          ship: {
+            id: node.data.ship.id,
+            name: node.data.ship.name
+          },
+          incomingEdges: {
+            id: node.data.incomingEdges?.id,
+            name: node.data.incomingEdges?.name
+          },
+          outgoingEdges: {
+            id: node.data.outgoingEdges?.id,
+            name: node.data.outgoingEdges?.name
+          }
+        },
+        position: {
+          x: Math.round(node.position.x),
+          y: Math.round(node.position.y)
+        },
+        positionAbsolute: {
+          x: Math.round(node.positionAbsolute?.x || 0),
+          y: Math.round(node.positionAbsolute?.y || 0)
+        }
+      })),
+      edges: flowData.edges.map(edge => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          ccus: [],
+          wbHistory: [],
+          hangarItems: [],
+          sourceShip: {
+            id: edge.data?.sourceShip?.id,
+            name: edge.data?.sourceShip?.name
+          },
+          targetShip: {
+            id: edge.data?.targetShip?.id,
+            name: edge.data?.targetShip?.name
+          }
+        }
+      })),
+      startShipPrices: flowData.startShipPrices
+    }, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
 

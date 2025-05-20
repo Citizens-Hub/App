@@ -4,7 +4,7 @@ import { CcuSourceTypeStrategyFactory, HangarItem } from './CcuSourceTypeFactory
 
 interface PathNode {
   nodeId: string;
-  ship: Ship;
+  ship: Partial<Ship>;
 }
 
 interface PathEdge {
@@ -33,7 +33,7 @@ export interface CompletePath {
 // 新增已完成路径接口
 export interface CompletedPath {
   pathId: string;  // 唯一标识符
-  ship: Ship;      // 完成到的船只
+  ship: Partial<Ship>;      // 完成到的船只
   path: CompletePath; // 完整路径信息
 }
 
@@ -49,6 +49,33 @@ export interface DetailedEdgeIdentifier {
   targetShipId: string;
   sourceType: CcuSourceType;
   price: number;  // 使用边的价格作为区分相同起点终点的标识
+}
+
+// 新增：用于存储的简化路径接口
+interface StoredCompletedPath {
+  pathId: string;
+  shipId: number;
+  shipName: string;
+  shipMsrp: number;
+  path: {
+    startNodeId: string;
+    nodes: {
+      nodeId: string;
+      shipId: number;
+      shipName: string;
+      shipMsrp: number;
+    }[];
+    edges: {
+      sourceShipId: number;
+      targetShipId: number;
+      sourceType: CcuSourceType;
+      price: number;
+    }[];
+    totalUsdPrice: number;
+    totalThirdPartyPrice: number;
+    hasUsdPricing: boolean;
+    hasCnyPricing: boolean;
+  };
 }
 
 export class PathFinderService {
@@ -278,7 +305,6 @@ export class PathFinderService {
    */
   unmarkCompletedPath(pathId: string): void {
     this.completedPaths = this.completedPaths.filter(p => p.pathId !== pathId);
-    
     this.saveCompletedPathsToStorage();
   }
 
@@ -440,7 +466,7 @@ export class PathFinderService {
     
     // 检查目标船只是否价值高于任何已完成路径的船只
     for (const completedPath of this.completedPaths) {
-      if (targetShip.msrp > completedPath.ship.msrp) {
+      if (targetShip?.msrp && targetShip.msrp > (completedPath?.ship.msrp || 0)) {
         return true;
       }
     }
@@ -453,7 +479,34 @@ export class PathFinderService {
    */
   private saveCompletedPathsToStorage(): void {
     try {
-      localStorage.setItem('completedPaths', JSON.stringify(this.completedPaths));
+      // 转换为存储格式
+      const storedPaths: StoredCompletedPath[] = this.completedPaths.map(completedPath => ({
+        pathId: completedPath.pathId,
+        shipId: Number(completedPath.ship.id),
+        shipName: completedPath.ship.name || "",
+        shipMsrp: completedPath.ship.msrp || 0,
+        path: {
+          startNodeId: completedPath.path.startNodeId,
+          nodes: completedPath.path.path.map(node => ({
+            nodeId: node.nodeId,
+            shipId: Number(node.ship.id),
+            shipName: node.ship.name || "",
+            shipMsrp: node.ship.msrp || 0
+          })),
+          edges: completedPath.path.edges.map(edge => ({
+            sourceShipId: Number(edge.edge.data?.sourceShip?.id || 0),
+            targetShipId: Number(edge.edge.data?.targetShip?.id || 0),
+            sourceType: edge.edge.data?.sourceType || CcuSourceType.OFFICIAL,
+            price: edge.edge.data?.price || 0
+          })),
+          totalUsdPrice: completedPath.path.totalUsdPrice,
+          totalThirdPartyPrice: completedPath.path.totalThirdPartyPrice,
+          hasUsdPricing: completedPath.path.hasUsdPricing,
+          hasCnyPricing: completedPath.path.hasCnyPricing
+        }
+      }));
+
+      localStorage.setItem('completedPaths', JSON.stringify(storedPaths));
     } catch (error) {
       console.error('Failed to save completed paths to storage:', error);
     }
@@ -466,8 +519,63 @@ export class PathFinderService {
     try {
       const storedPaths = localStorage.getItem('completedPaths');
       if (storedPaths) {
-        this.completedPaths = JSON.parse(storedPaths);
-        // 不再需要更新边缓存
+        const parsedPaths: StoredCompletedPath[] = JSON.parse(storedPaths);
+        
+        // 转换为运行时格式
+        this.completedPaths = parsedPaths.map(storedPath => {
+          // 创建简化的Ship对象
+          const createShip = (id: number, name: string, msrp: number): Partial<Ship> => ({
+            id: id,
+            name,
+            msrp,
+          });
+
+          // 重建路径节点
+          const pathNodes: PathNode[] = storedPath.path.nodes.map(node => ({
+            nodeId: node.nodeId,
+            ship: createShip(node.shipId, node.shipName, node.shipMsrp)
+          }));
+
+          // 重建路径边
+          const pathEdges: PathEdge[] = storedPath.path.edges.map(edge => {
+            const sourceNode = pathNodes.find(n => Number(n.ship.id) === edge.sourceShipId);
+            const targetNode = pathNodes.find(n => Number(n.ship.id) === edge.targetShipId);
+            
+            if (!sourceNode || !targetNode) {
+              throw new Error('Invalid edge data in stored path');
+            }
+
+            return {
+              edge: {
+                id: `${edge.sourceShipId}-${edge.targetShipId}`,
+                source: sourceNode.nodeId,
+                target: targetNode.nodeId,
+                data: {
+                  sourceShip: sourceNode.ship,
+                  targetShip: targetNode.ship,
+                  sourceType: edge.sourceType,
+                  price: edge.price
+                }
+              } as Edge<CcuEdgeData>,
+              sourceNode: { id: sourceNode.nodeId, data: { ship: sourceNode.ship } } as Node,
+              targetNode: { id: targetNode.nodeId, data: { ship: targetNode.ship } } as Node
+            };
+          });
+
+          return {
+            pathId: storedPath.pathId,
+            ship: createShip(storedPath.shipId, storedPath.shipName, storedPath.shipMsrp),
+            path: {
+              path: pathNodes,
+              edges: pathEdges,
+              totalUsdPrice: storedPath.path.totalUsdPrice,
+              totalThirdPartyPrice: storedPath.path.totalThirdPartyPrice,
+              hasUsdPricing: storedPath.path.hasUsdPricing,
+              hasCnyPricing: storedPath.path.hasCnyPricing,
+              startNodeId: storedPath.path.startNodeId
+            }
+          };
+        });
       }
     } catch (error) {
       console.error('Failed to load completed paths from storage:', error);
