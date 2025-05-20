@@ -276,5 +276,6 @@
   "routeInfoPanel.sortByNewInvestment": "Sort by new investment",
   "routeInfoPanel.tpCost": "Third-party",
   "routeInfoPanel.approx": "Approx.",
-  "routeInfoPanel.fromRsi": "From RSI store"
+  "routeInfoPanel.fromRsi": "From RSI store",
+  "ccuPlanner.buyback": "Buyback:"
 }

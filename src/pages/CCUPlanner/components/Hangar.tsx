@@ -106,6 +106,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               const toShip = ships.find(ship => ship.name.toUpperCase().trim() === to.toUpperCase().trim())
 
               if (!fromShip || !toShip) {
+                console.warn("ship not found", upgrade)
                 return <div key={upgrade.name}></div>
               }
 

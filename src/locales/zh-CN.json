@@ -290,5 +290,6 @@
   "routeInfoPanel.conciergeCost": "加权信用点价值",
   "routeInfoPanel.tpCost": "第三方",
   "routeInfoPanel.approx": "合",
-  "routeInfoPanel.fromRsi": "RSI商店"
+  "routeInfoPanel.fromRsi": "RSI商店",
+  "ccuPlanner.buyback": "回购："
 }
