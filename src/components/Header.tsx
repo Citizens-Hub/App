@@ -75,7 +75,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
 
   return (
     <div
-      className="flex items-center justify-between gap-2 border-b border-gray-200 w-full absolute bg-white top-0 right-0 z-1000 p-3 dark:bg-[#121212] dark:border-gray-800"
+      className="flex items-center justify-between gap-2 border-b border-gray-200 w-full absolute bg-white top-0 right-0 p-3 dark:bg-[#121212] dark:border-gray-800"
     >
       <div className="flex items-center gap-2">
         <IconButton onClick={() => setMenuOpen(!menuOpen)}>

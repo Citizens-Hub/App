@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { addCCU, addBuybackCCU, addUser, clearUpgrades, UserInfo } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
-import { IconButton } from "@mui/material";
+import { IconButton, LinearProgress } from "@mui/material";
+import { reportError } from "../report";
 
 // 定义请求类型接口
 interface RequestItem {
@@ -28,6 +29,9 @@ interface RequestItem {
 
 export default function Crawler() {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const totalRequestsRef = useRef(0);
+  const completedRequestsRef = useRef(0);
+  const [progress, setProgress] = useState(0);
   const requestQueueRef = useRef<RequestItem[]>([]);
   const activeRequestsRef = useRef<Set<string | number>>(new Set());
   const shipsRef = useRef<{
@@ -37,7 +41,7 @@ export default function Crawler() {
       id: number;
     }[]
   }[]>([])
-  
+
   const buybackCCUsProcessedRef = useRef<number>(0);
   const buybackCCUsRef = useRef<{
     name: string;
@@ -83,13 +87,12 @@ export default function Crawler() {
         from = content.match_items[0].name
         to = content.target_items[0].name
       } else {
-        from = match[1].trim() || name.split("to")[0].split("-")[1].trim()
-        to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+        from = match[1].trim() || name.split("to")[0].split("-")[1].trim() || name.split("to")[0].split("-")[1].trim()
+        to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ") || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
       }
 
       if (!from || !to) {
-        from = name.split("to")[0].split("-")[1].trim()
-        to = (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+        throw new Error("invalid ccu");
       }
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
@@ -181,7 +184,10 @@ export default function Crawler() {
   // 添加请求到队列
   const addToQueue = useCallback((request: RequestItem) => {
     requestQueueRef.current.push(request);
+    totalRequestsRef.current++;
     processNextRequests();
+
+    console.log("added to queue", request.message?.requestId);
   }, [processNextRequests]);
 
   useEffect(() => {
@@ -317,12 +323,12 @@ export default function Crawler() {
                   "responseType": "json",
                   "method": "post",
                   "data": buybackCCUsRef.current.map(ccu => ({
-                      "operationName": "getPrice",
-                      "variables": {
-                        "from": Number(ccu.from),
-                        "to": Number(ccu.toSku)
-                      },
-                      "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
+                    "operationName": "getPrice",
+                    "variables": {
+                      "from": Number(ccu.from),
+                      "to": Number(ccu.toSku)
+                    },
+                    "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
                   }))
                 },
                 requestId: "buyback-ccus-price-list"
@@ -361,91 +367,110 @@ export default function Crawler() {
               canGift: true,
               belongsTo: userRef.current?.id,
             }));
-
-            // {
-            //   from: content.match_items[0],
-            //   to: content.target_items[0],
-            //   name: content.name,
-            //   value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-            //   parsed,
-            //   isBuyBack: false,
-            //   canGift: !!li.querySelector('.gift'),
-            //   belongsTo: userRef.current?.id,
-            // }
           })
         }
 
-        // 请求完成，从活跃请求中移除
         if (requestId) {
           activeRequestsRef.current.delete(requestId);
-          // 处理下一批请求
-          processNextRequests();
         }
+
+        console.log("completed", requestId);
+
+        completedRequestsRef.current++;
+        setProgress(completedRequestsRef.current / totalRequestsRef.current * 100);
+        if (completedRequestsRef.current >= totalRequestsRef.current) {
+          setTimeout(() => {
+            setProgress(0);
+          }, 500);
+        }
+
+        processNextRequests();
       }
     }
 
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs]);
+  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef]);
 
-  return <IconButton
-    color="primary"
-    size="small"
-    onClick={() => {
-      setIsRefreshing(true);
+  return <>
+    <div className="w-full flex flex-col items-center justify-center fixed top-0 left-0 right-0">
+      {progress > 0 && (
+        <LinearProgress
+          variant="determinate"
+          sx={{ width: '100%' }}
+          value={progress}
+          
+        />
+      )}
+    </div>
+    <IconButton
+      color="primary"
+      size="small"
+      onClick={() => {
+        setIsRefreshing(true);
+        setProgress(0);
+        totalRequestsRef.current = 0;
+        completedRequestsRef.current = 0;
 
-      requestQueueRef.current = [];
-      activeRequestsRef.current.clear();
-      buybackCCUsRef.current = [];
-      buybackCCUsProcessedRef.current = 0;
-      shipsRef.current = [];
+        requestQueueRef.current = [];
+        activeRequestsRef.current.clear();
+        buybackCCUsRef.current = [];
+        buybackCCUsProcessedRef.current = 0;
+        shipsRef.current = [];
 
-      addToQueue({
-        type: "httpRequest",
-        request: {
-          url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-          data: null,
-          responseType: "json",
-          method: "post"
-        },
-        requestId: 9999
-      });
+        addToQueue({
+          type: "ccuPlannerAppIntegrationRequest",
+          message: {
+            type: "httpRequest",
+            request: {
+              url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+              data: null,
+              responseType: "json",
+              method: "post"
+            },
+            requestId: "set-auth-token"
+          }
+        });
 
-      // 添加上下文请求到队列
-      addToQueue({
-        type: "httpRequest",
-        request: {
-          url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
-          data: {},
-          responseType: "json",
-          method: "post"
-        },
-        requestId: 10000
-      });
+        // 添加上下文请求到队列
+        addToQueue({
+          type: "ccuPlannerAppIntegrationRequest",
+          message: {
+            type: "httpRequest",
+            request: {
+              url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+              data: {},
+              responseType: "json",
+              method: "post"
+            },
+            requestId: "set-context-token"
+          }
+        });
 
-      // 添加用户信息请求到队列
-      addToQueue({
-        type: 'ccuPlannerAppIntegrationRequest',
-        message: {
-          type: "httpRequest",
-          request: {
-            url: "https://robertsspaceindustries.com/graphql",
-            responseType: "json",
-            method: "post",
-            data: [
-              {
-                "operationName": "account",
-                "variables": {},
-                "query": "query account {\n  account {\n    isAnonymous\n    ... on RsiAuthenticatedAccount {\n      avatar\n      badges {\n        id\n        title\n        __typename\n      }\n      badgeIcons {\n        favorite {\n          name\n          icon\n          __typename\n        }\n        organization {\n          name\n          icon\n          url\n          __typename\n        }\n        __typename\n      }\n      displayname\n      id\n      nickname\n      profileUrl\n      roles {\n        name\n        __typename\n      }\n      updatedAt\n      username\n      email\n      status\n      referral_code\n      __typename\n    }\n    __typename\n  }\n}"
-              }
-            ]
-          },
-          requestId: "user-info"
-        }
-      });
-    }}
-  >
-    <Refresh className={isRefreshing ? 'animate-spin' : ''} />
-  </IconButton>;
+        // 添加用户信息请求到队列
+        addToQueue({
+          type: 'ccuPlannerAppIntegrationRequest',
+          message: {
+            type: "httpRequest",
+            request: {
+              url: "https://robertsspaceindustries.com/graphql",
+              responseType: "json",
+              method: "post",
+              data: [
+                {
+                  "operationName": "account",
+                  "variables": {},
+                  "query": "query account {\n  account {\n    isAnonymous\n    ... on RsiAuthenticatedAccount {\n      avatar\n      badges {\n        id\n        title\n        __typename\n      }\n      badgeIcons {\n        favorite {\n          name\n          icon\n          __typename\n        }\n        organization {\n          name\n          icon\n          url\n          __typename\n        }\n        __typename\n      }\n      displayname\n      id\n      nickname\n      profileUrl\n      roles {\n        name\n        __typename\n      }\n      updatedAt\n      username\n      email\n      status\n      referral_code\n      __typename\n    }\n    __typename\n  }\n}"
+                }
+              ]
+            },
+            requestId: "user-info"
+          }
+        });
+      }}
+    >
+      <Refresh className={isRefreshing ? 'animate-spin' : ''} />
+    </IconButton>
+  </>
 }
