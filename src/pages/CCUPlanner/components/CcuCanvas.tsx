@@ -114,14 +114,14 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   }, [setEdges, intl]);
 
   // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = upgrades.ccus.map(upgrade => ({
+  const hangarItems: HangarItem[] = useMemo(() => upgrades.ccus.map(upgrade => ({
     id: Date.now() + Math.random(), // Generate unique ID
     name: upgrade.name,
     type: 'ccu',
     fromShip: upgrade.parsed.from,
     toShip: upgrade.parsed.to,
     price: upgrade.value
-  }));
+  })), [upgrades.ccus]);
 
   // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
@@ -341,8 +341,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   const importFlowData = useCallback((jsonData: string) => {
     try {
-      // 使用ImportExportService导入数据
-      const importedData = importExportService.importFromJsonData(jsonData, ships);
+      const importedData = importExportService.importFromJsonData(jsonData, ships, { hangarItems, wbHistory, ccus });
       
       if (!importedData) {
         throw new Error('Import failed');
@@ -385,7 +384,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       });
       return false;
     }
-  }, [ships, setNodes, setEdges, reactFlowInstance, intl, importExportService, handlePathCompletionChange]);
+  }, [importExportService, ships, hangarItems, wbHistory, ccus, setNodes, setEdges, handlePathCompletionChange, reactFlowInstance, intl]);
 
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
@@ -533,14 +532,14 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   useEffect(() => {
     // 使用ImportExportService加载数据
     if (reactFlowInstance) {
-      const savedData = importExportService.loadFromLocalStorage();
+      const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
       if (savedData) {
         setNodes(savedData.nodes);
         setEdges(savedData.edges);
         setStartShipPrices(savedData.startShipPrices);
       }
     }
-  }, [reactFlowInstance, setNodes, setEdges, importExportService]);
+  }, [reactFlowInstance, setNodes, setEdges, importExportService, ships, wbHistory, ccus, hangarItems]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);

@@ -1,5 +1,5 @@
 import { Node, Edge, ReactFlowInstance } from 'reactflow';
-import { CcuEdgeData, CcuSourceType, Ship } from '../../../types';
+import { Ccu, CcuEdgeData, CcuSourceType, HangarItem, Ship, WbHistoryData } from '../../../types';
 
 interface FlowData {
   nodes: Node[];
@@ -21,35 +21,37 @@ export class ImportExportService {
   /**
    * Load flow data from local storage
    */
-  loadFromLocalStorage(): FlowData | null {
+  loadFromLocalStorage(ships: Ship[], hangarItems: HangarItem[], wbHistory: WbHistoryData[], ccus: Ccu[]): FlowData | null {
     const savedData = localStorage.getItem('ccu-planner-data');
     if (!savedData) return null;
 
-    try {
-      const { nodes, edges, startShipPrices } = JSON.parse(savedData);
+    return this.importFromJsonData(savedData, ships, { hangarItems, wbHistory, ccus });
 
-      const processedEdges = edges?.map((edge: Edge<CcuEdgeData>) => {
-        if (edge.data && !edge.data.sourceType) {
-          return {
-            ...edge,
-            data: {
-              ...edge.data,
-              sourceType: CcuSourceType.OFFICIAL
-            }
-          };
-        }
-        return edge;
-      }) || [];
+    // try {
+    //   const { nodes, edges, startShipPrices } = JSON.parse(savedData);
 
-      return {
-        nodes: nodes || [],
-        edges: processedEdges,
-        startShipPrices: startShipPrices || {}
-      };
-    } catch (error) {
-      console.error('Error loading saved CCU paths:', error);
-      return null;
-    }
+    //   const processedEdges = edges?.map((edge: Edge<CcuEdgeData>) => {
+    //     if (edge.data && !edge.data.sourceType) {
+    //       return {
+    //         ...edge,
+    //         data: {
+    //           ...edge.data,
+    //           sourceType: CcuSourceType.OFFICIAL
+    //         }
+    //       };
+    //     }
+    //     return edge;
+    //   }) || [];
+
+    //   return {
+    //     nodes: nodes || [],
+    //     edges: processedEdges,
+    //     startShipPrices: startShipPrices || {}
+    //   };
+    // } catch (error) {
+    //   console.error('Error loading saved CCU paths:', error);
+    //   return null;
+    // }
   }
 
   /**
@@ -77,7 +79,7 @@ export class ImportExportService {
   /**
    * Import flow data from JSON data
    */
-  importFromJsonData(jsonData: string, ships: Ship[]): FlowData | null {
+  importFromJsonData(jsonData: string, ships: Ship[], data: { hangarItems: HangarItem[], wbHistory: WbHistoryData[], ccus: Ccu[] }): FlowData | null {
     try {
       const { nodes: importedNodes, edges: importedEdges, startShipPrices: importedPrices } = JSON.parse(jsonData);
 
@@ -85,7 +87,7 @@ export class ImportExportService {
         throw new Error('Invalid JSON format: missing node data');
       }
 
-      // Ensure the imported nodes reference ships that exist in the current ship list
+      // 确保导入的节点引用的舰船在当前舰船列表中存在
       const validNodes = importedNodes.filter(node => {
         const shipId = node.data?.ship?.id;
         return shipId && ships.some(s => s.id === shipId);
@@ -95,7 +97,25 @@ export class ImportExportService {
         throw new Error('No valid ship nodes found');
       }
 
-      // Ensure all edges have a sourceType field
+      // 更新节点数据，确保包含最新的舰船信息
+      const updatedNodes = validNodes.map(node => {
+        const currentShip = ships.find(s => s.id === node.data.ship.id);
+        if (currentShip) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              ship: currentShip,
+              ccus: data.ccus,
+              wbHistory: data.wbHistory,
+              hangarItems: data.hangarItems
+            }
+          };
+        }
+        return node;
+      });
+
+      // 确保所有边都有sourceType字段
       const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
         if (edge.data && !edge.data.sourceType) {
           return {
@@ -109,14 +129,34 @@ export class ImportExportService {
         return edge;
       }) || [];
 
-      // Only import edges related to valid nodes
-      const validNodeIds = new Set(validNodes.map(node => node.id));
+      // 只导入与有效节点相关的边
+      const validNodeIds = new Set(updatedNodes.map(node => node.id));
       const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) =>
         validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
       );
 
+      // 更新边的数据，确保包含最新的价格信息
+      const updatedEdges = validEdges.map((edge: Edge<CcuEdgeData>) => {
+        const sourceNode = updatedNodes.find(n => n.id === edge.source);
+        const targetNode = updatedNodes.find(n => n.id === edge.target);
+        
+        if (sourceNode && targetNode && edge.data) {
+          return {
+            ...edge,
+            data: {
+              ...edge.data,
+              sourceShip: sourceNode.data.ship,
+              targetShip: targetNode.data.ship,
+              ccus: data.ccus,
+              wbHistory: data.wbHistory,
+              hangarItems: data.hangarItems
+            }
+          };
+        }
+        return edge;
+      });
+
       if (importedPrices) {
-        // Only keep the starting price for valid nodes
         const validPrices: Record<string, number | string> = {};
         Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
           if (validNodeIds.has(nodeId)) {
@@ -125,15 +165,15 @@ export class ImportExportService {
         });
         
         return {
-          nodes: validNodes,
-          edges: validEdges,
+          nodes: updatedNodes,
+          edges: updatedEdges,
           startShipPrices: validPrices
         };
       }
 
       return {
-        nodes: validNodes,
-        edges: validEdges,
+        nodes: updatedNodes,
+        edges: updatedEdges,
         startShipPrices: {}
       };
     } catch (error) {

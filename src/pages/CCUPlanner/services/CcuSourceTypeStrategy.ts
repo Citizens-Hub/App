@@ -1,6 +1,5 @@
 import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
-import { HangarCCUDataProvider } from "./HangarCCUDataProvider";
 
 /**
  * Strategy calculate price options interface
@@ -245,19 +244,20 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     //   };
     // }
     
-    // 使用HangarCCUDataProvider获取价格
-    const dataProvider = HangarCCUDataProvider.getInstance();
-    const price = dataProvider.getHangarCCUPrice(sourceShip.name, targetShip.name);
+    // // 使用HangarCCUDataProvider获取价格
+    // const dataProvider = HangarCCUDataProvider.getInstance();
+    // const price = dataProvider.getHangarCCUPrice(sourceShip.name, targetShip.name);
+
+    // console.log('price', price, sourceShip.name, targetShip.name);
     
-    // 如果在数据提供者中找到价格，则使用它
-    if (price !== undefined) {
-      return {
-        price,
-        currency: 'USD'
-      };
-    }
-    
-    // 否则，回退到原有逻辑
+    // // 如果在数据提供者中找到价格，则使用它
+    // if (price !== undefined) {
+    //   return {
+    //     price,
+    //     currency: 'USD'
+    //   };
+    // }
+
     const hangarItems = options?.hangarItems || [];
     
     const hangarCcu = hangarItems.find(item => {

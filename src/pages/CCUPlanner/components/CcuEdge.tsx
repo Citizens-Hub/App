@@ -137,14 +137,7 @@ export default function CcuEdge({
         >
           {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
           {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
-          +{(() => {
-            switch (true) {
-              // case currency === 'USD' && sourceType === CcuSourceType.OFFICIAL:
-              //   return (price / 100).toLocaleString(locale, { style: 'currency', currency });
-              default:
-                return price.toLocaleString(locale, { style: 'currency', currency });
-            }
-          })()}
+          +{price.toLocaleString(locale, { style: 'currency', currency })}
         </div>
       </EdgeLabelRenderer>
     </>
