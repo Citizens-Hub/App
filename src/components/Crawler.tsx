@@ -381,7 +381,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             const ccu = buybackCCUsRef.current[ccuIndex];
             if (!ccu) return;
 
-            const value = priceData.data.price.amount / 20;
+            const value = priceData.data.price.amount / 100;
 
             const parsed = tryResolveCCU({
               name: ccu.name,
