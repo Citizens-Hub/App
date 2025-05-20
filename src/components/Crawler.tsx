@@ -332,7 +332,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           buybackCCUsProcessedRef.current--;
           if (buybackCCUsProcessedRef.current === 0) {
             // 将CCUs分批处理，每批最多100个
-            const batchSize = 100;
+            const batchSize = 20;
             const batches = [];
             for (let i = 0; i < buybackCCUsRef.current.length; i += batchSize) {
               batches.push(buybackCCUsRef.current.slice(i, i + batchSize));
@@ -373,7 +373,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list-")) {
           const batchIndex = parseInt(requestId.split("-").pop() || "0");
           const priceList = event.data.message.value.data;
-          const batchSize = 100;
+          const batchSize = 20;
           const startIndex = batchIndex * batchSize;
 
           priceList.forEach((priceData: PriceData, i: number) => {
@@ -381,7 +381,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             const ccu = buybackCCUsRef.current[ccuIndex];
             if (!ccu) return;
 
-            const value = priceData.data.price.amount / 100;
+            const value = priceData.data.price.amount / 20;
 
             const parsed = tryResolveCCU({
               name: ccu.name,
