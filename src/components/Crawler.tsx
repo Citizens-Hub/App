@@ -28,6 +28,15 @@ interface RequestItem {
   requestId?: number | string;
 }
 
+interface PriceData {
+  data: {
+    price: {
+      amount: number;
+      nativeAmount: number;
+    };
+  };
+}
+
 export default function Crawler({ ships }: { ships: Ship[] }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const totalRequestsRef = useRef(0);
@@ -322,27 +331,36 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
           buybackCCUsProcessedRef.current--;
           if (buybackCCUsProcessedRef.current === 0) {
-            // fetch price list
-            addToQueue({
-              type: 'ccuPlannerAppIntegrationRequest',
-              message: {
-                type: "httpRequest",
-                request: {
-                  "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
-                  "responseType": "json",
-                  "method": "post",
-                  "data": buybackCCUsRef.current.map(ccu => ({
-                    "operationName": "getPrice",
-                    "variables": {
-                      "from": Number(ccu.from),
-                      "to": Number(ccu.toSku)
-                    },
-                    "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
-                  }))
-                },
-                requestId: "buyback-ccus-price-list"
-              }
-            })
+            // 将CCUs分批处理，每批最多100个
+            const batchSize = 100;
+            const batches = [];
+            for (let i = 0; i < buybackCCUsRef.current.length; i += batchSize) {
+              batches.push(buybackCCUsRef.current.slice(i, i + batchSize));
+            }
+
+            // 为每批创建请求
+            batches.forEach((batch, index) => {
+              addToQueue({
+                type: 'ccuPlannerAppIntegrationRequest',
+                message: {
+                  type: "httpRequest",
+                  request: {
+                    "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                    "responseType": "json",
+                    "method": "post",
+                    "data": batch.map(ccu => ({
+                      "operationName": "getPrice",
+                      "variables": {
+                        "from": Number(ccu.from),
+                        "to": Number(ccu.toSku)
+                      },
+                      "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
+                    }))
+                  },
+                  requestId: `buyback-ccus-price-list-${index}`
+                }
+              });
+            });
           }
         }
 
@@ -352,11 +370,18 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           shipsRef.current = ships;
         }
 
-        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list")) {
+        if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-price-list-")) {
+          const batchIndex = parseInt(requestId.split("-").pop() || "0");
           const priceList = event.data.message.value.data;
+          const batchSize = 100;
+          const startIndex = batchIndex * batchSize;
 
-          buybackCCUsRef.current.forEach((ccu, i) => {
-            const value = priceList[i].data.price.amount / 100
+          priceList.forEach((priceData: PriceData, i: number) => {
+            const ccuIndex = startIndex + i;
+            const ccu = buybackCCUsRef.current[ccuIndex];
+            if (!ccu) return;
+
+            const value = priceData.data.price.amount / 100;
 
             const parsed = tryResolveCCU({
               name: ccu.name,
@@ -376,7 +401,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
               canGift: true,
               belongsTo: userRef.current?.id,
             }));
-          })
+          });
         }
 
         if (requestId) {
