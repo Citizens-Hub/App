@@ -10,6 +10,11 @@ import { RootState } from '../../../store';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
+  selectedPath?: {
+    edges: Array<{
+      edge: Edge<CcuEdgeData>;
+    }>;
+  };
 }
 
 export default function CcuEdge({
@@ -22,7 +27,8 @@ export default function CcuEdge({
   targetPosition,
   data,
   style = {},
-  markerEnd
+  markerEnd,
+  selectedPath
 }: CcuEdgeProps) {
   const intl = useIntl();
   const { locale } = intl;
@@ -43,6 +49,15 @@ export default function CcuEdge({
     
     return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
   }, [data, id]);
+
+  // 检查边是否在当前选中的路径中
+  const isInSelectedPath = useMemo(() => {
+    if (!selectedPath || !data?.sourceShip || !data?.targetShip) return false;
+    
+    return selectedPath.edges.some(pathEdge => 
+      pathEdge.edge.id === id
+    );
+  }, [selectedPath, id, data]);
   
   // 创建边的样式
   const edgeStyle = useMemo(() => {
@@ -51,9 +66,15 @@ export default function CcuEdge({
     if (isCompleted) {
       return {
         ...baseStyle,
-        stroke: '#4caf50', // 绿色 
-        strokeDasharray: '5,5', // 虚线样式
-        strokeWidth: 3 // 加粗
+        stroke: '#4caf50',
+        strokeDasharray: '5,5',
+        strokeWidth: 3
+      };
+    } else if (isInSelectedPath) {
+      return {
+        ...baseStyle,
+        stroke: '#2196f3',
+        strokeWidth: 3
       };
     } else {
       return {
@@ -61,7 +82,7 @@ export default function CcuEdge({
         strokeWidth: 2
       };
     }
-  }, [style, isCompleted]);
+  }, [style, isCompleted, isInSelectedPath]);
   
   if (!data) return null;
 

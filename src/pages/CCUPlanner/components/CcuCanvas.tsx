@@ -13,6 +13,8 @@ import ReactFlow, {
   ReactFlowInstance,
   getRectOfNodes,
   XYPosition,
+  EdgeProps,
+  Edge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -34,7 +36,7 @@ import { Close } from '@mui/icons-material';
 import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
-import pathFinderService from '../services/PathFinderService';
+import pathFinderService, { CompletePath } from '../services/PathFinderService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -66,6 +68,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   });
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
 
   // const upgrades = useSelector((state: RootState) => state.upgrades.items);
   const upgrades = useSelector(selectHangarItems);
@@ -635,7 +638,18 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   }, [ships, ccus, wbHistory, hangarItems, setNodes, setEdges, reactFlowInstance, pathBuilderService]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
-  const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);
+  const edgeTypes = useMemo(() => ({
+    ccu: (props: EdgeProps<CcuEdgeData>) => (
+      <CcuEdge
+        {...props}
+        selectedPath={selectedPath}
+      />
+    ),
+  }), [selectedPath]);
+
+  const handleSelectedPathChange = useCallback((path: CompletePath | null) => {
+    setSelectedPath(path ? { edges: path.edges } : undefined);
+  }, []);
 
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">
@@ -696,6 +710,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               ccus={ccus}
               wbHistory={wbHistory}
               hangarItems={hangarItems}
+              onSelectedPathChange={handleSelectedPathChange}
             />
           )}
         </ReactFlowProvider>

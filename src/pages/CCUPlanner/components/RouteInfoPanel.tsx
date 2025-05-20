@@ -29,6 +29,7 @@ interface RouteInfoPanelProps {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
+  onSelectedPathChange?: (path: CompletePath | null) => void;
 }
 
 if (!String.prototype.getNodeShipId) {
@@ -48,7 +49,8 @@ export default function RouteInfoPanel({
   onPathCompletionChange,
   ccus,
   wbHistory,
-  hangarItems
+  hangarItems,
+  onSelectedPathChange
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
@@ -303,6 +305,14 @@ export default function RouteInfoPanel({
 
     return { newUsdCost, newCnyCost };
   };
+
+  useEffect(() => {
+    if (onSelectedPathChange && sortedPaths.length > 0) {
+      onSelectedPathChange(sortedPaths[currentPage]);
+    } else if (onSelectedPathChange) {
+      onSelectedPathChange(null);
+    }
+  }, [currentPage, sortedPaths, onSelectedPathChange]);
 
   if (!selectedNode) return null;
 
