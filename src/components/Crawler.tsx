@@ -80,8 +80,8 @@ export default function Crawler() {
     let to = "";
 
     try {
-      const regExp = /Upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+Edition)/
-      const match = name.match(regExp);
+      const regExp = /upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)/
+      const match = name.toLowerCase().match(regExp);
 
       if (!match) {
         from = content.match_items[0].name
