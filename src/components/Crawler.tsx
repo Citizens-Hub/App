@@ -403,7 +403,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                 }));
               }
             } catch (err) {
-              console.warn("error parsing", ccu, err)
+              console.log("error parsing", ccu, err)
 
               addToQueue({
                 type: 'ccuPlannerAppIntegrationRequest',
@@ -425,8 +425,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                       {
                         "operationName": "filterShips",
                         "variables": {
-                          "fromId": ccu.from,
-                          "toId": ccu.toSku,
+                          "fromId": Number(ccu.from),
+                          "toId": Number(ccu.toSku),
                           "fromFilters": [],
                           "toFilters": []
                         },
@@ -435,8 +435,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                       {
                         "operationName": "getPrice",
                         "variables": {
-                          "from": ccu.from,
-                          "to": ccu.toSku
+                          "from": Number(ccu.from),
+                          "to": Number(ccu.toSku)
                         },
                         "query": "query getPrice($from: Int!, $to: Int!) {\n  price(from: $from, to: $to) {\n    amount\n    nativeAmount\n  }\n}\n"
                       }
