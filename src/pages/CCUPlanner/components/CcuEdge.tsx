@@ -72,7 +72,7 @@ export default function CcuEdge({
       if (isCompleted) {
         return {
           ...commonStyle,
-          stroke: isInSelectedPath ? '#41ccff' : '#4caf50',
+          stroke: isInSelectedPath ? '#50FA7E' : '#4caf50',
           strokeDasharray: '5,5'
         };
       }
