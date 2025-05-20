@@ -71,7 +71,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>
-        <Crawler />
+        <Crawler ships={ships} />
       </div>
 
       {hangarExpanded && (

@@ -331,7 +331,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
   return (<>
     <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
       <div className='flex flex-col gap-2 items-center justify-center'>
-        <Crawler />
+        <Crawler ships={ships} />
       </div>
       <UserSelector />
     </div>

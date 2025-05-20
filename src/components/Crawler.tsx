@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton, LinearProgress } from "@mui/material";
 import { reportError } from "../report";
+import { Ship } from "../types";
 
 // 定义请求类型接口
 interface RequestItem {
@@ -27,7 +28,7 @@ interface RequestItem {
   requestId?: number | string;
 }
 
-export default function Crawler() {
+export default function Crawler({ ships }: { ships: Ship[] }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const totalRequestsRef = useRef(0);
   const completedRequestsRef = useRef(0);
@@ -73,7 +74,7 @@ export default function Crawler() {
 
   // MARK: Hangar
 
-  const tryResolveCCU = (content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
+  const tryResolveCCU = useCallback((content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
     const name = content.name;
 
     let from = "";
@@ -83,12 +84,20 @@ export default function Crawler() {
       const regExp = /upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)/
       const match = name.toLowerCase().match(regExp);
 
-      if (!match) {
+      if (match) {
+        from = match[1].trim()
+        to = match[2].trim()
+      } else {
         from = content.match_items[0].name
         to = content.target_items[0].name
-      } else {
-        from = match[1].trim() || name.split("to")[0].split("-")[1].trim() || name.split("to")[0].split("-")[1].trim()
-        to = match[2].trim() || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ") || (name.split("to")[1]).trim().split(" ").slice(0, -2).join(" ")
+      }
+
+      if (!ships.find(ship => ship.name.toLowerCase().trim() === from.toLowerCase().trim())) {
+        from = content.match_items[0].name
+      }
+
+      if (!ships.find(ship => ship.name.toLowerCase().trim() === to.toLowerCase().trim())) {
+        to = content.target_items[0].name
       }
 
       if (!from || !to) {
@@ -107,7 +116,7 @@ export default function Crawler() {
     }
 
     return { from, to };
-  }
+  }, [ships]);
 
   const parseHangarItems = useCallback((doc: Document) => {
     const listItems = doc.body.querySelector('.list-items');
@@ -131,7 +140,7 @@ export default function Crawler() {
         belongsTo: userRef.current?.id,
       }));
     });
-  }, [dispatch]);
+  }, [dispatch, tryResolveCCU]);
 
   const parseBuybackCCUs = useCallback((doc: Document) => {
     const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
@@ -391,7 +400,7 @@ export default function Crawler() {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef]);
+  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef, tryResolveCCU]);
 
   return <>
     <div className="w-full flex flex-col items-center justify-center fixed top-0 left-0 right-0">
@@ -400,7 +409,6 @@ export default function Crawler() {
           variant="determinate"
           sx={{ width: '100%' }}
           value={progress}
-          
         />
       )}
     </div>
@@ -469,6 +477,7 @@ export default function Crawler() {
           }
         });
       }}
+      disabled={ships.length === 0}
     >
       <Refresh className={isRefreshing ? 'animate-spin' : ''} />
     </IconButton>
