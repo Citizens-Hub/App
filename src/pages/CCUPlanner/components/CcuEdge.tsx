@@ -62,26 +62,35 @@ export default function CcuEdge({
   // 创建边的样式
   const edgeStyle = useMemo(() => {
     const baseStyle = { ...style };
-    
-    if (isCompleted) {
-      return {
+
+    const getEdgeStyle = () => {
+      const commonStyle = {
         ...baseStyle,
-        stroke: '#4caf50',
-        strokeDasharray: '5,5',
         strokeWidth: 3
       };
-    } else if (isInSelectedPath) {
-      return {
-        ...baseStyle,
-        stroke: '#2196f3',
-        strokeWidth: 3
-      };
-    } else {
+
+      if (isCompleted) {
+        return {
+          ...commonStyle,
+          stroke: isInSelectedPath ? '#41ccff' : '#4caf50',
+          strokeDasharray: '5,5'
+        };
+      }
+
+      if (isInSelectedPath) {
+        return {
+          ...commonStyle,
+          stroke: '#2196f3'
+        };
+      }
+
       return {
         ...baseStyle,
         strokeWidth: 2
       };
-    }
+    };
+
+    return getEdgeStyle();
   }, [style, isCompleted, isInSelectedPath]);
   
   if (!data) return null;
