@@ -255,7 +255,7 @@
   "guide.title": "使用指南",
   "hangar.noItemsSelected": "请至少选择一个物品进行分享",
   "hangar.uploadFailed": "上传失败",
-  "hangar.uploadSuccess": "分享成功",  
+  "hangar.uploadSuccess": "分享成功",
   "hangar.uploadError": "上传时发生错误",
   "hangar.uploading": "上传中...",
   "hangar.shareItems": "分享物品",
@@ -279,5 +279,16 @@
   "ships.manufacturer": "制造商",
   "ships.msrp": "官方售价",
   "ships.prediction": "预测价格",
-  "ships.actions": "操作"
+  "ships.actions": "操作",
+  "routeInfoPanel.sortByNewInvestment": "根据新投资排序",
+  "routeInfoPanel.completed": "已完成",
+  "routeInfoPanel.markCompleted": "标记为已完成",
+  "routeInfoPanel.newInvestment": "新现金投入",
+  "routeInfoPanel.newInvestmentExplanation": "新投资包含从最后完成的边到目标舰船的成本，不包括机库CCU。如果没有完成的边，则将包含起始舰船价格加上所有非机库CCU",
+  "toolbar.guide": "说明",
+  "routeInfoPanel.sortByNewInvestmentTooltip": "如果勾选，线路将按新投资成本排序。已完成的线路和机库CCU的成本不会被计入新投资",
+  "routeInfoPanel.conciergeCost": "加权信用点价值",
+  "routeInfoPanel.tpCost": "第三方",
+  "routeInfoPanel.approx": "合",
+  "routeInfoPanel.fromRsi": "RSI商店"
 }

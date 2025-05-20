@@ -242,7 +242,7 @@
   "guide.title": "Guide",
   "hangar.noItemsSelected": "Please select at least one item to share",
   "hangar.uploadFailed": "Upload failed",
-  "hangar.uploadSuccess": "Shared successfully",  
+  "hangar.uploadSuccess": "Shared successfully",
   "hangar.uploadError": "Error occurred during upload",
   "hangar.uploading": "Uploading...",
   "hangar.shareItems": "Share Items",
@@ -266,5 +266,15 @@
   "ships.manufacturer": "Manufacturer",
   "ships.msrp": "MSRP",
   "ships.prediction": "Predicted Price",
-  "ships.actions": "Actions"
+  "ships.actions": "Actions",
+  "routeInfoPanel.completed": "Completed",
+  "routeInfoPanel.markCompleted": "Mark as Completed",
+  "routeInfoPanel.newInvestment": "New Investment",
+  "routeInfoPanel.newInvestmentExplanation": "New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs.",
+  "toolbar.guide": "Guide",
+  "routeInfoPanel.sortByNewInvestmentTooltip": "If checked, routes will be sorted by new investment cost. The cost of completed routes and hangar CCUs will not be included in the new investment.",
+  "routeInfoPanel.sortByNewInvestment": "Sort by new investment",
+  "routeInfoPanel.tpCost": "Third-party",
+  "routeInfoPanel.approx": "Approx.",
+  "routeInfoPanel.fromRsi": "From RSI store"
 }

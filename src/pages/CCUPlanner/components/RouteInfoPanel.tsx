@@ -76,6 +76,28 @@ export default function RouteInfoPanel({
     });
   }, [nodes, edges, startShipPrices, onStartShipPriceChange]);
 
+  useEffect(() => {
+    if (selectedNode) {
+      if (!selectedNode.data?.ship) {
+        console.error('Selected node data is incomplete:', selectedNode);
+        return;
+      }
+
+      const validEdges = edges.filter(edge => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        return sourceNode && targetNode;
+      });
+
+      if (validEdges.length !== edges.length) {
+        console.warn('Found invalid edges:', {
+          totalEdges: edges.length,
+          validEdges: validEdges.length
+        });
+      }
+    }
+  }, [selectedNode, edges, nodes]);
+
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
     onStartShipPriceChange(nodeId, price);
   };
@@ -83,41 +105,61 @@ export default function RouteInfoPanel({
   const completePaths = useMemo(() => {
     if (!selectedNode) return [];
 
-    pathFinderService.resetNodeBestCost();
+    try {
+      console.log('Starting path calculation:', {
+        selectedNodeId: selectedNode.id,
+        edgesCount: edges.length,
+        nodesCount: nodes.length
+      });
 
-    const startNodes = pathFinderService.findStartNodes(edges, nodes);
-    const allPathIds: string[][] = [];
+      pathFinderService.resetNodeBestCost();
 
-    startNodes.forEach(startNode => {
-      const startPrice = startShipPrices[startNode.id] || 0;
-      const paths = pathFinderService.findAllPaths(
-        startNode,
-        selectedNode.id,
-        edges,
-        nodes,
-        exchangeRate,
-        conciergeValue,
-        pruneOpt,
-        new Set(),
-        [],
-        [],
-        Number(startPrice),
-        0,
-        {
-          ccus,
-          wbHistory,
-          hangarItems
+      const startNodes = pathFinderService.findStartNodes(edges, nodes);
+      console.log('Found start nodes:', startNodes.map(n => n.id));
+
+      const allPathIds: string[][] = [];
+
+      startNodes.forEach(startNode => {
+        try {
+          const startPrice = startShipPrices[startNode.id] || 0;
+          const paths = pathFinderService.findAllPaths(
+            startNode,
+            selectedNode.id,
+            edges,
+            nodes,
+            exchangeRate,
+            conciergeValue,
+            pruneOpt,
+            new Set(),
+            [],
+            [],
+            Number(startPrice),
+            0,
+            {
+              ccus,
+              wbHistory,
+              hangarItems
+            }
+          );
+          console.log(`Found ${paths.length} paths from node ${startNode.id}`);
+          allPathIds.push(...paths);
+        } catch (error) {
+          console.error(`Error processing start node ${startNode.id}:`, error);
         }
-      );
-      allPathIds.push(...paths);
-    });
+      });
 
-    // totalCnyPrice actually represents third-party price (tpPrice) in the user's selected currency
-    return pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, {
-      ccus,
-      wbHistory,
-      hangarItems
-    });
+      const completePaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, {
+        ccus,
+        wbHistory,
+        hangarItems
+      });
+
+      console.log('Final number of complete paths:', completePaths.length);
+      return completePaths;
+    } catch (error) {
+      console.error('Error during path calculation:', error);
+      return [];
+    }
   }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
@@ -353,10 +395,7 @@ export default function RouteInfoPanel({
               <FormattedMessage id="routeInfoPanel.sortByNewInvestment" defaultMessage="Sort by new investment" />
               <Tooltip arrow title={
                 <span style={{ fontSize: '14px' }}>
-                  <FormattedMessage
-                    id="routeInfoPanel.sortByNewInvestmentTooltip"
-                    defaultMessage="If checked, routes will be sorted by new investment cost only. Completed paths and hangar CCUs will be treated as free for sorting purposes."
-                  />
+                  <FormattedMessage id="routeInfoPanel.sortByNewInvestmentTooltip" defaultMessage="If checked, routes will be sorted by new investment cost. The cost of completed routes and hangar CCUs will not be included in the new investment." />
                 </span>
               }>
                 <InfoOutlined sx={{ fontSize: 14 }} />
@@ -493,56 +532,92 @@ export default function RouteInfoPanel({
                       <div className="flex flex-col gap-2 px-2">
                         <div className='flex justify-between gap-4'>
                           <div className="text-sm">
-                            <span className="text-black dark:text-white mr-1">
-                              <FormattedMessage id="routeInfoPanel.expense" defaultMessage="Expense" />:
+                            <span className='mr-1'>
+                              <FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" />:
                             </span>
                             <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                           </div>
                           <div className="text-sm">
-                            {/* Third-party price in user's selected currency */}
+                            <span className="text-black dark:text-white mr-1">
+                              <FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" />:
+                            </span>
                             <span className="text-blue-400">{completePath.totalThirdPartyPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
                           </div>
                         </div>
 
-                        <div className='flex justify-between gap-4'>
+                        <div className='flex gap-4 items-center justify-between'>
                           <div className="text-sm">
                             <span className="text-black dark:text-white mr-1">
                               <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
                             </span>
                             <span className="text-blue-400">
                               <span>{(completePath.totalUsdPrice + completePath.totalThirdPartyPrice / exchangeRate).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
-                              {conciergeValue !== "0" && <span> + </span>}
-                              {conciergeValue !== "0" && <span>{(completePath.totalThirdPartyPrice / exchangeRate * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>}
                             </span>
                           </div>
+                          {
+                            currency !== 'USD' && <div className="text-sm text-gray-400">
+                              (~
+                              <span className="text-blue-400">
+                                {(completePath.totalUsdPrice * exchangeRate + completePath.totalThirdPartyPrice).toLocaleString(locale, { style: 'currency', currency })}
+                              </span>
+                              )
+                            </div>
+                          }
+                        </div>
+                        <div className='flex justify-between gap-4'>
                           <div className="text-sm">
-                            <span className="text-blue-400">
-                              {(completePath.totalUsdPrice * exchangeRate + completePath.totalThirdPartyPrice).toLocaleString(locale, { style: 'currency', currency })}
-                              {conciergeValue !== "0" && <span> + </span>}
-                              {conciergeValue !== "0" && <span>{(completePath.totalThirdPartyPrice * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency })}</span>}
+                            <span className="text-black dark:text-white mr-1">
+                              <FormattedMessage id="routeInfoPanel.conciergeCost" defaultMessage="Concierge cost" />:
+                            </span>
+                            <span className="text-sm">
+                              <span className="text-blue-400">
+                                {conciergeValue !== "0" && <span>{(completePath.totalThirdPartyPrice * parseFloat(conciergeValue)).toLocaleString(locale, { style: 'currency', currency })}</span>}
+                              </span>
                             </span>
                           </div>
                         </div>
                         <Divider className="w-full" />
-                        <div className='flex justify-between gap-4'>
-                          <div className="text-sm">
+                        <div className='flex flex-col justify-between gap-2'>
+                          <div className="text-sm text-left">
                             <span className="text-black dark:text-white mr-1">
                               <FormattedMessage id="routeInfoPanel.newInvestment" defaultMessage="New Investment" />:
                             </span>
-                            <span className="text-blue-400">{newUsdCost.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             <Tooltip arrow title={
                               <span style={{ fontSize: '14px' }}>
-                                <FormattedMessage
-                                  id="routeInfoPanel.newInvestmentExplanation"
-                                  defaultMessage="New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs."
-                                />
+                                <FormattedMessage id="routeInfoPanel.newInvestmentExplanation" defaultMessage="New investment includes costs from the last completed edge to the target ship, excluding hangar CCUs. If there are no completed edges, it will include the start ship price plus all non-hangar CCUs." />
                               </span>
                             }>
                               <InfoOutlined sx={{ fontSize: 14, marginLeft: '4px' }} />
                             </Tooltip>
                           </div>
-                          <div className="text-sm">
-                            <span className="text-blue-400">{newCnyCost.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
+                          <div className="text-sm flex justify-between">
+                            <span>
+                              <span className='mr-1'><FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" />:</span>
+                              <span className="text-blue-400">{newUsdCost.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                            </span>
+                            <span>
+                              <span className='mr-1'><FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" />:</span>
+                              <span className="text-blue-400">{newCnyCost.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
+                            </span>
+                          </div>
+                          <div className='flex gap-4 items-center justify-between'>
+                            <div className="text-sm">
+                              <span className="text-black dark:text-white mr-1">
+                                <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
+                              </span>
+                              <span className="text-blue-400">
+                                <span>{(newUsdCost + newCnyCost / exchangeRate).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                              </span>
+                            </div>
+                            {
+                              currency !== 'USD' && <div className="text-sm text-gray-400">
+                                (~
+                                <span className="text-blue-400">
+                                  {(newUsdCost * exchangeRate + newCnyCost).toLocaleString(locale, { style: 'currency', currency })}
+                                </span>
+                                )
+                              </div>
+                            }
                           </div>
                         </div>
                       </div>
@@ -586,8 +661,8 @@ export default function RouteInfoPanel({
                             pathFinderService.isEdgeCompleted(
                               String(pathEdge.edge.data.sourceShip.id),
                               String(pathEdge.edge.data.targetShip.id),
-                              pathEdge.edge,  // Pass the complete edge information
-                              completePath    // Pass the current complete path
+                              pathEdge.edge,
+                              completePath
                             );
 
                           return (
