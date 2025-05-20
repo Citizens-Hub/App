@@ -389,18 +389,18 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
               target_items: [{ name: ccu.to }],
             });
 
-            if (!parsed) return;
-
-            dispatch(addBuybackCCU({
-              name: ccu.name,
-              from: { id: Number(ccu.from), name: parsed.from },
-              to: { id: Number(ccu.to), name: parsed.to },
-              value,
-              parsed,
-              isBuyBack: true,
-              canGift: true,
-              belongsTo: userRef.current?.id,
-            }));
+            if (parsed) {
+              dispatch(addBuybackCCU({
+                name: ccu.name,
+                from: { id: Number(ccu.from), name: parsed.from },
+                to: { id: Number(ccu.to), name: parsed.to },
+                value,
+                parsed,
+                isBuyBack: true,
+                canGift: true,
+                belongsTo: userRef.current?.id,
+              }));
+            }
           });
         }
 
