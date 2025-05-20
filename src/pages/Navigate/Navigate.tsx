@@ -19,11 +19,20 @@ export default function Navigate() {
         <div className='text-center text-gray-100 text-lg sm:text-xl'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
-        <div className='text-lg sm:text-3xl text-center text-gray-100 flex gap-2 m-auto text-nowrap'>
+        
+        {/* 添加应用描述部分 */}
+        <div className='text-center text-gray-100 text-sm sm:text-base max-w-2xl mx-auto mt-4'>
+          <FormattedMessage 
+            id="navigate.description" 
+            defaultMessage="Your comprehensive Star Citizen companion app. Plan your CCU upgrades, preview store items, and manage your fleet with ease. Built by citizens, for citizens." 
+          />
+        </div>
+
+        <div className='text-lg sm:text-3xl text-center text-gray-100 flex gap-2 m-auto text-nowrap mt-6'>
           <Link to="/ccu-planner" style={{ color: 'inherit' }}><FormattedMessage id="navigate.ccuPlanner" defaultMessage="CCU Planner" /></Link> |
           <Link to="/store-preview" style={{ color: 'inherit' }}><FormattedMessage id="navigate.storePreview" defaultMessage="Store Preview" /></Link>
         </div>
-        <div className='text-xs sm:text-lg text-center text-gray-200 m-auto text-nowrap'>
+        <div className='text-xs sm:text-lg text-center text-gray-200 m-auto text-nowrap mt-4'>
           © {new Date().getFullYear()} <FormattedMessage id="navigate.title" defaultMessage="Star Citizen Tools" />
           &nbsp;|&nbsp;<Link to="/privacy" style={{ color: 'inherit' }}><FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" /></Link>
         </div>
