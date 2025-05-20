@@ -4,7 +4,7 @@ Planning your ship upgrades has never been easier!
 
 [![](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
 
-![TinySnap-2025-05-11-22 53 18](https://github.com/user-attachments/assets/01c2322d-c0eb-4bec-94ef-7aa302c99e42)
+![image](https://github.com/user-attachments/assets/5842031b-28ff-484b-9a46-100c0d57732d)
 
 - Browse all available ships
 - Plan your upgrade path using pledges from your hangar
