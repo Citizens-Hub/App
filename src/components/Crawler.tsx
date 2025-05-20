@@ -381,25 +381,29 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             const ccu = buybackCCUsRef.current[ccuIndex];
             if (!ccu) return;
 
-            const value = priceData.data.price.amount / 100;
+            try {
+              const value = priceData.data.price.amount / 100;
 
-            const parsed = tryResolveCCU({
-              name: ccu.name,
-              match_items: [{ name: ccu.from }],
-              target_items: [{ name: ccu.to }],
-            });
-
-            if (parsed) {
-              dispatch(addBuybackCCU({
+              const parsed = tryResolveCCU({
                 name: ccu.name,
-                from: { id: Number(ccu.from), name: parsed.from },
-                to: { id: Number(ccu.to), name: parsed.to },
-                value,
-                parsed,
-                isBuyBack: true,
-                canGift: true,
-                belongsTo: userRef.current?.id,
-              }));
+                match_items: [{ name: ccu.from }],
+                target_items: [{ name: ccu.to }],
+              });
+
+              if (parsed) {
+                dispatch(addBuybackCCU({
+                  name: ccu.name,
+                  from: { id: Number(ccu.from), name: parsed.from },
+                  to: { id: Number(ccu.to), name: parsed.to },
+                  value,
+                  parsed,
+                  isBuyBack: true,
+                  canGift: true,
+                  belongsTo: userRef.current?.id,
+                }));
+              }
+            } catch (err) {
+              console.warn("error parsing", ccu, err)
             }
           });
         }
