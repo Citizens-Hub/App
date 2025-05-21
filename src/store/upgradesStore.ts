@@ -78,7 +78,9 @@ const getInitialState = (): {
   if (localState && JSON.parse(localState).version === version) {
     const state =  JSON.parse(localState);
 
-    if (state.ccuSourceTypePriority.length < 7) {
+    console.log(!state.ccuSourceTypePriority?.length);
+
+    if (!state.ccuSourceTypePriority?.length || state.ccuSourceTypePriority?.length < 7) {
       state.ccuSourceTypePriority = [
         CcuSourceType.HANGER,
         CcuSourceType.HISTORICAL,
