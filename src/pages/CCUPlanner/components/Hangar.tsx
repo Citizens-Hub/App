@@ -1,4 +1,4 @@
-import { IconButton, TextField, InputAdornment, Button, Pagination } from "@mui/material";
+import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip } from "@mui/material";
 import { Ccu, Ship } from "../../../types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
@@ -9,6 +9,7 @@ import ExtensionModal from "./ExtensionModal";
 import { FormattedMessage, useIntl } from "react-intl";
 import Crawler from "../../../components/Crawler";
 import { Gift } from "lucide-react";
+import { selectImportItems } from "../../../store/importStore";
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -23,36 +24,90 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // 添加过滤选项状态
+  const [showNormalCCU, setShowNormalCCU] = useState(true);
+  const [showBuybackCCU, setShowBuybackCCU] = useState(true);
+  const [showSubscriptionCCU, setShowSubscriptionCCU] = useState(true);
+
   const intl = useIntl();
   const upgrades = useSelector(selectHangarItems);
+  const importItems = useSelector(selectImportItems);
   const users = useSelector((state: RootState) => state.upgrades.users);
 
   const handleExtensionLinkClick = () => {
     setExtensionModalOpen(true);
   };
 
-  const filteredUpgrades = upgrades.ccus.filter(upgrade => {
+
+  // 合并本地升级和导入的升级数据
+  const allUpgrades = [
+    ...upgrades.ccus,
+    ...importItems
+      // .filter(item => item.selected)
+      .map(item => {
+        const from = ships.find(ship => ship.id === item.from)
+        const to = ships.find(ship => ship.id === item.to)
+
+        return {
+          name: item.name,
+          parsed: {
+            from: from?.name || "",
+            to: to?.name || ""
+          },
+          value: item.price,
+          belongsTo: item.owners[0]?.toString() || "import",
+          canGift: false,
+          isBuyBack: false,
+          isSubscription: true
+        }
+      })
+  ];
+
+  const filteredUpgrades = allUpgrades.filter(upgrade => {
     const from = upgrade.parsed.from.toLowerCase();
     const to = upgrade.parsed.to.toLowerCase();
     const query = searchQuery.toLowerCase();
 
-    // if (selectedUser !== -1) {
-    //   if (upgrade.belongsTo !== selectedUser && !upgrade.canGift) {
-    //     return false;
-    //   }
-    // }
+    // 应用文本搜索过滤
+    const matchesSearch = from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
 
-    return from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
+    // 应用类型过滤
+    const isNormal = !upgrade.isBuyBack && !upgrade.isSubscription;
+    const isBuyback = upgrade.isBuyBack;
+    const isSubscription = upgrade.isSubscription;
+
+    // 只显示选中的类型
+    const matchesType =
+      (isNormal && showNormalCCU) ||
+      (isBuyback && showBuybackCCU) ||
+      (isSubscription && showSubscriptionCCU);
+
+    return matchesSearch && matchesType;
   });
 
   // 计算总页数
   const totalPages = Math.ceil(filteredUpgrades.length / itemsPerPage);
-  
-  // 获取当前页的数据
+
+  // 获取当前页的数据并按照升级到的舰船价值从低到高排序
   const currentItems = filteredUpgrades
-    .sort((a, b) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0)
+    .sort((a, b) => {
+      // 首先按是否为buyback排序
+      if (a.isBuyBack !== b.isBuyBack) {
+        return a.isBuyBack ? 1 : -1;
+      }
+
+      // 然后按升级到的舰船价值从低到高排序
+      const toShipA = ships.find(ship => ship.name.toUpperCase().trim() === a.parsed.to.toUpperCase().trim());
+      const toShipB = ships.find(ship => ship.name.toUpperCase().trim() === b.parsed.to.toUpperCase().trim());
+
+      if (toShipA && toShipB) {
+        return toShipA.msrp - toShipB.msrp;
+      }
+
+      return 0;
+    })
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  
+
   // 处理页面变化
   const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
@@ -61,6 +116,15 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   // 当筛选条件改变时，重置页码到第一页
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // 处理过滤选项变化
+  const handleFilterChange = (
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    checked: boolean
+  ) => {
+    setter(checked);
     setCurrentPage(1);
   };
 
@@ -75,27 +139,68 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
       </div>
 
       {hangarExpanded && (
-        <div className="my-2 px-1">
-          <TextField
-            size="small"
-            fullWidth
-            placeholder={intl.formatMessage({ id: 'ccuPlanner.searchHangar', defaultMessage: 'Search Hangar' })}
-            value={searchQuery}
-            onChange={handleSearchChange}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search fontSize="small" />
-                  </InputAdornment>
-                ),
-              }
-            }}
-          />
-        </div>
+        <>
+          <div className="my-2 px-1">
+            <TextField
+              size="small"
+              fullWidth
+              placeholder={intl.formatMessage({ id: 'ccuPlanner.searchHangar', defaultMessage: 'Search Hangar' })}
+              value={searchQuery}
+              onChange={handleSearchChange}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex items-start justify-start gap-1 px-3 mb-2">
+            <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.normalCCU', defaultMessage: 'Hangar' })}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showNormalCCU}
+                    onChange={(e) => handleFilterChange(setShowNormalCCU, e.target.checked)}
+                  />
+                }
+                label={<span className="text-xs"><FormattedMessage id="ccuPlanner.normalCCU" defaultMessage="Hangar" /></span>}
+              />
+            </Tooltip>
+            <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.buybackCCU', defaultMessage: 'Buyback' })}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showBuybackCCU}
+                    onChange={(e) => handleFilterChange(setShowBuybackCCU, e.target.checked)}
+                  />
+                }
+                label={<span className="text-xs"><FormattedMessage id="ccuPlanner.buybackCCU" defaultMessage="Buyback" /></span>}
+              />
+            </Tooltip>
+            <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.subscriptionCCU', defaultMessage: 'Subscription' })}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showSubscriptionCCU}
+                    onChange={(e) => handleFilterChange(setShowSubscriptionCCU, e.target.checked)}
+                  />
+                }
+                label={<span className="text-xs"><FormattedMessage id="ccuPlanner.subscriptionCCU" defaultMessage="Subscription" /></span>}
+              />
+            </Tooltip>
+          </div>
+        </>
       )}
 
-      <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-285px)] overflow-y-auto">
         {hangarExpanded && (
           currentItems.length > 0 ?
             currentItems.map(upgrade => {
@@ -111,11 +216,24 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               }
 
               return <div
-                key={fromShip.id + "-" + toShip.id + "-" + upgrade.belongsTo + "-" + upgrade.value + "-" + (upgrade.canGift ? "giftable" : "") + "-" + (upgrade.isBuyBack ? "buyback" : "")}
-                className={`flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0 ${upgrade.isBuyBack ? "bg-gray-100 dark:bg-gray-900" : ""}`}
+                key={fromShip.id + "-" + toShip.id + "-" + upgrade.belongsTo + "-" + upgrade.value + "-" + (upgrade.canGift ? "giftable" : "") + "-" + (upgrade.isBuyBack ? "buyback" : "") + "-" + (upgrade.isSubscription ? "subscription" : "")}
+                className={`flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0 ${upgrade.isBuyBack ? "bg-gray-100 dark:bg-gray-900" : upgrade.isSubscription ? "bg-gray-100 dark:bg-gray-800" : ""}`}
               >
-                <div className="text-xs text-gray-400">
-                  {upgrade.isBuyBack && <FormattedMessage id="ccuPlanner.buyback" defaultMessage="Buyback:" />} {upgrade.name}
+                <div className="text-xs text-gray-400 text-left px-2 w-full">
+                  {upgrade.isBuyBack && <FormattedMessage id="ccuPlanner.buyback" defaultMessage="Buyback" />}
+                  {upgrade.isSubscription &&
+                    <span className="text-xs text-gray-400">
+                      <FormattedMessage id="ccuPlanner.subscription" defaultMessage="Subscription" />
+                    </span>
+                  }
+                  {!upgrade.isSubscription && !upgrade.isBuyBack &&
+                    <span className="text-xs text-gray-400">
+                      <FormattedMessage id="ccuPlanner.hangar" defaultMessage="Hangar" />
+                    </span>
+                  }:&nbsp;
+                  <span className="text-xs text-gray-400">
+                    {upgrade.name}
+                  </span>
                 </div>
 
                 <div
@@ -148,12 +266,19 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                         <Gift className="w-4 h-4" />
                       </span>
                     }
-                    {users.find(user => user.id === upgrade.belongsTo)?.nickname}
+                    {upgrade.isSubscription ?
+                      <span className="text-xs text-gray-400">
+                        <FormattedMessage id="ccuPlanner.subscription" defaultMessage="Subscription" />
+                      </span> :
+                      <span className="text-xs text-gray-400">
+                        {users.find(user => user.id === upgrade.belongsTo)?.nickname}
+                      </span>
+                    }
                   </span>
                   <span>↓ <FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="upgrade to" /></span>
                   <span className="flex items-center gap-1">
                     <FormattedMessage id="ccuPlanner.cost" defaultMessage="花费" />
-                    <span className="text-blue-400 font-bold">{upgrade.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                    <span className="text-blue-400 font-bold">{upgrade.value.toLocaleString('en-US', { style: 'currency', currency: upgrade.isSubscription ? importItems[0].currency : "USD" })}</span>
                     {((toShip.msrp - fromShip.msrp) / 100) !== upgrade.value &&
                       <span className="text-xs text-gray-400 line-through">{((toShip.msrp - fromShip.msrp) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                     }
@@ -197,21 +322,21 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
             </div>
         )}
       </div>
-      
+
       {hangarExpanded && filteredUpgrades.length > 0 && (
         <div className="flex justify-center mt-4 mb-2">
-          <Pagination 
-            count={totalPages} 
-            page={currentPage} 
-            onChange={handlePageChange} 
-            color="primary" 
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
             size="small"
-            showFirstButton 
+            showFirstButton
             showLastButton
           />
         </div>
       )}
-      
+
       <ExtensionModal
         open={extensionModalOpen}
         onClose={() => setExtensionModalOpen(false)}

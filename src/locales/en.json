@@ -277,7 +277,7 @@
   "routeInfoPanel.tpCost": "Third-party",
   "routeInfoPanel.approx": "Approx.",
   "routeInfoPanel.fromRsi": "RSI Store",
-  "ccuPlanner.buyback": "Buyback: ",
+  "ccuPlanner.buyback": "Buyback",
   "share.title": "Share",
   "share.loading": "Loading data...",
   "share.error": "Failed to load data",

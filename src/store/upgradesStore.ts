@@ -19,7 +19,8 @@ interface CCUItem extends HangarItem {
   parsed: {
     from: string,
     to: string
-  },  
+  },
+  isSubscription?: boolean,
 }
 
 interface ShipItem extends HangarItem {

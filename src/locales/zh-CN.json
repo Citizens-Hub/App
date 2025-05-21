@@ -292,7 +292,7 @@
   "routeInfoPanel.tpCost": "第三方",
   "routeInfoPanel.approx": "合",
   "routeInfoPanel.fromRsi": "RSI商店",
-  "ccuPlanner.buyback": "回购：",
+  "ccuPlanner.buyback": "回购",
   "share.title": "分享",
   "share.loading": "正在加载数据...",
   "share.error": "加载数据失败",
@@ -355,5 +355,10 @@
   "share.unsubscribe": "取消订阅",
   "share.successUnsubscribe": "退订成功",
   "share.userHangar": "用户的共享机库",
-  "shipNode.subscription": "订阅"
+  "shipNode.subscription": "订阅",
+  "ccuPlanner.subscription": "订阅",
+  "ccuPlanner.normalCCU": "机库",
+  "ccuPlanner.buybackCCU": "回购",
+  "ccuPlanner.subscriptionCCU": "订阅",
+  "ccuPlanner.hangar": "机库"
 }
