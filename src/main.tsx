@@ -6,9 +6,14 @@ import { store } from './store'
 import { LocaleProvider } from './contexts/LocaleContext'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from "react-error-boundary";
+import { reportError } from './report.ts'
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => {
+    reportError({
+      errorType: 'Render Error',
+      errorMessage: String(error)
+    })
     return <>
       <div className="flex flex-col gap-4 p-4">
         <h1>Something went wrong</h1>
