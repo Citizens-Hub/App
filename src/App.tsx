@@ -1,24 +1,34 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
-import ResourcesTable from './pages/ResourcesTable/ResourcesTable'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
-import CCUPlanner from './pages/CCUPlanner/CCUPlanner'
-import Privacy from './pages/Privacy/Privacy'
-import ChangeLogs from './pages/ChangeLogs/ChangeLogs'
-import Auth from './pages/Auth/Auth'
-import Admin from './pages/Admin/Admin'
 import Header from './components/Header'
-import Navigate from './pages/Navigate/Navigate'
-import Hangar from './pages/Hangar/Hangar'
-import Settings from './pages/Settings/Settings'
-import FleaMarket from './pages/FleaMarket/FleaMarket'
 import { useSelector } from 'react-redux'
 import { RootState } from './store'
 import { UserRole } from './store/userStore'
-import Guide from './pages/CCUPlanner/components/Guide'
-import Share from './pages/Share/Share'
 import { setImportItems } from './store/importStore'
 import { store } from './store'
+import { Loader2 } from 'lucide-react'
+
+// 懒加载路由组件
+const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
+const CCUPlanner = lazy(() => import('./pages/CCUPlanner/CCUPlanner'));
+const Privacy = lazy(() => import('./pages/Privacy/Privacy'));
+const ChangeLogs = lazy(() => import('./pages/ChangeLogs/ChangeLogs'));
+const Auth = lazy(() => import('./pages/Auth/Auth'));
+const Admin = lazy(() => import('./pages/Admin/Admin'));
+const Navigate = lazy(() => import('./pages/Navigate/Navigate'));
+const Hangar = lazy(() => import('./pages/Hangar/Hangar'));
+const Settings = lazy(() => import('./pages/Settings/Settings'));
+const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
+const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
+const Share = lazy(() => import('./pages/Share/Share'));
+
+// Loading 组件
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-[calc(100vh-65px)]">
+    <Loader2 className="animate-spin" />
+  </div>
+);
 
 // 检查共享机库是否有更新
 async function checkSharedHangarUpdates() {
@@ -136,31 +146,34 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
-        <Routes>
-          <Route path="/" element={<Navigate />} />
-          <Route path="/ccu-planner" element={<CCUPlanner />} />
-          <Route path="/hangar" element={<Hangar />} />
-          <Route path="/flea-market" element={<FleaMarket />} />
-          <Route path="/store-preview" element={<ResourcesTable />} />
-          <Route path="/app-settings" element={<Settings />} />
-
-          <Route path="/share/hangar/:userId" element={<Share />} />
-
-          <Route 
-            path="/guide" 
-            element={
-              <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
-                <Guide showTitle />
-              </div>
-            }
-          />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/changelog" element={<ChangeLogs />} />
-
-          <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
-          <Route path="/login" element={<Auth action="login" />} />
-          <Route path="/register" element={<Auth action="register" />} />
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/fall-back" element={<LoadingFallback />} />
+            <Route path="/" element={<Navigate />} />
+            <Route path="/ccu-planner" element={<CCUPlanner />} />
+            <Route path="/hangar" element={<Hangar />} />
+            <Route path="/flea-market" element={<FleaMarket />} />
+            <Route path="/store-preview" element={<ResourcesTable />} />
+            <Route path="/app-settings" element={<Settings />} />
+  
+            <Route path="/share/hangar/:userId" element={<Share />} />
+  
+            <Route 
+              path="/guide" 
+              element={
+                <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
+                  <Guide showTitle />
+                </div>
+              }
+            />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/changelog" element={<ChangeLogs />} />
+  
+            <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
+            <Route path="/login" element={<Auth action="login" />} />
+            <Route path="/register" element={<Auth action="register" />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </ThemeProvider>
   )

@@ -1,7 +1,7 @@
 {
-  "name": "citizen-s-hub",
+  "name": "citizens-hub",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -48,6 +48,7 @@
     "fs-extra": "^11.3.0",
     "globals": "^16.0.0",
     "jszip": "^3.10.1",
+    "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.26.1",
     "vite": "^6.3.1",
