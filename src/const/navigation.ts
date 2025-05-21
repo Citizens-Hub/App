@@ -53,5 +53,10 @@ export const navigation = [
     name: "navigation.admin",
     path: "/admin",
     hidden: true,
+  },
+  {
+    name: "navigation.hangarShare",
+    path: "/share/hangar/:userId",
+    hidden: true,
   }
 ];

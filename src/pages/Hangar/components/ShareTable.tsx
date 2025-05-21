@@ -4,8 +4,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../../store";
 import { selectUsersHangarItems } from "../../../store/upgradesStore";
 import { setItemSelected, updateItemPrice, generateItemKey } from "../../../store/shareStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Button, Checkbox, Chip, Stack } from "@mui/material";
-import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, Upload } from "lucide-react";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Button, Checkbox, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Alert } from "@mui/material";
+import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, Upload, Copy, X, Link } from "lucide-react";
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
@@ -55,9 +55,13 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [uploading, setUploading] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const dispatch = useDispatch();
   const { token } = useSelector((state: RootState) => state.user.user);
+  const userId = useSelector((state: RootState) => state.user.user.id);
   const { locale } = intl;
   const { users, currency } = useSelector((state: RootState) => state.upgrades);
   const items = useSelector(selectUsersHangarItems);
@@ -303,13 +307,23 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         throw new Error(intl.formatMessage({ id: 'hangar.uploadFailed', defaultMessage: '上传失败' }));
       }
 
-      alert(intl.formatMessage({ id: 'hangar.uploadSuccess', defaultMessage: '分享成功' }));
+      // 设置分享链接
+      setShareLink(`${window.location.origin}/share/hangar/${userId}`);
+      setSuccessDialogOpen(true);
     } catch (error) {
       console.error('Upload error:', error);
       alert(error instanceof Error ? error.message : intl.formatMessage({ id: 'hangar.uploadError', defaultMessage: '上传时发生错误' }));
     } finally {
       setUploading(false);
     }
+  };
+
+  // 复制链接到剪贴板
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   };
 
   // 过滤和分页数据
@@ -539,5 +553,78 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         />
       </Box>
     )}
+
+    {/* 成功分享弹窗 */}
+    <Dialog 
+      open={successDialogOpen} 
+      onClose={() => setSuccessDialogOpen(false)}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle>
+        <div className="flex justify-between items-center">
+          <Typography variant="h6">
+            <FormattedMessage id="hangar.shareSuccess" defaultMessage="分享成功" />
+          </Typography>
+          <IconButton onClick={() => setSuccessDialogOpen(false)}>
+            <X />
+          </IconButton>
+        </div>
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            <FormattedMessage 
+              id="hangar.shareSuccessMessage" 
+              defaultMessage="您已成功分享物品。使用以下链接可以访问您的分享页面："
+            />
+          </Typography>
+        </Box>
+        
+        <Box sx={{ 
+          display: 'flex',
+          alignItems: 'center',
+          p: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'action.hover',
+          mb: 2
+        }}>
+          <Link className="mr-2" size={20} />
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              flexGrow: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {shareLink}
+          </Typography>
+          <IconButton onClick={handleCopyLink} size="small">
+            <Copy size={18} />
+          </IconButton>
+        </Box>
+        
+        {linkCopied && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            <FormattedMessage id="hangar.linkCopied" defaultMessage="链接已复制到剪贴板" />
+          </Alert>
+        )}
+        
+        <Typography variant="body2" color="textSecondary">
+          <FormattedMessage 
+            id="hangar.shareInfoMessage" 
+            defaultMessage="通过此链接，其他用户可以查看您分享的物品和价格。"
+          />
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setSuccessDialogOpen(false)} color="primary">
+          <FormattedMessage id="common.close" defaultMessage="关闭" />
+        </Button>
+      </DialogActions>
+    </Dialog>
   </>)
 }

@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../../../types";
+import { Ccu, CcuSourceType, HangarItem, ImportItem, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 
 /**
@@ -7,14 +7,8 @@ import { IntlShape } from "react-intl";
 export interface CalculatePriceOptions {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
-  hangarItems: Array<{
-    id: number;
-    name: string;
-    type: string;
-    fromShip?: string;
-    toShip?: string;
-    price?: number;
-  }>;
+  hangarItems: HangarItem[];
+  importItems: ImportItem[];
   customPrice?: number;
   currency?: string;
 }
@@ -47,14 +41,8 @@ export interface CcuSourceTypeStrategy {
     targetShip: Ship, 
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
-    hangarItems: Array<{
-      id: number;
-      name: string;
-      type: string;
-      fromShip?: string;
-      toShip?: string;
-      price?: number;
-    }>
+    hangarItems: HangarItem[],
+    importItems: ImportItem[]
   ): boolean;
   
   // Get auto-selection priority
@@ -366,4 +354,57 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   getPriority(): number {
     return 40; // Higher priority
   }
-} 
+}
+
+/**
+ * Subscription CCU strategy
+ */
+export class SubscriptionStrategy implements CcuSourceTypeStrategy {
+  getTypeId(): CcuSourceType {
+    return CcuSourceType.SUBSCRIPTION;
+  }
+  
+  getDisplayName(intl: IntlShape): string {
+    return intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "订阅" });
+  }
+  
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+    const importItems = options?.importItems || [];
+    // console.log('importItems', importItems)
+    const subscriptionCcu = importItems.find(item => {
+      return item.from === sourceShip.id && item.to === targetShip.id;
+    });
+    console.log('subscriptionCcu', subscriptionCcu)
+    return {
+      price: subscriptionCcu?.price || 0,
+      currency: subscriptionCcu?.currency || 'USD'
+    };
+  }
+  
+  getEdgeStyle(): { edgeColor: string; bgColor: string; } {
+    return {
+      edgeColor: 'stroke-green-400',
+      bgColor: 'bg-green-600'
+    };
+  }
+  
+  isApplicable(
+    sourceShip: Ship, 
+    targetShip: Ship, 
+    _ccus: Ccu[], 
+    _wbHistory: WbHistoryData[],
+    _hangarItems: HangarItem[],
+    importItems: ImportItem[]
+  ): boolean {
+    // console.log('importItems', importItems)
+    const match = importItems.some(item => {
+      return item.from === sourceShip.id && item.to === targetShip.id;
+    });
+
+    return match;
+  }
+  
+  getPriority(): number {
+    return 60; // 比Hangar策略更高的优先级
+  }
+}

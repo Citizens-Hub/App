@@ -122,6 +122,7 @@ export default function CcuEdge({
     ccus: data.ccus,
     wbHistory: data.wbHistory,
     hangarItems: data.hangarItems,
+    importItems: data.importItems,
     currency: selectedCurrency,
     customPrice: data.customPrice,
   });

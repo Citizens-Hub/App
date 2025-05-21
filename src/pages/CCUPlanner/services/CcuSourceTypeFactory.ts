@@ -6,7 +6,8 @@ import {
   OfficialWbStrategy,
   ThirdPartyStrategy,
   HangarStrategy,
-  HistoricalStrategy
+  HistoricalStrategy,
+  SubscriptionStrategy
 } from "./CcuSourceTypeStrategy";
 import { store } from "../../../store";
 
@@ -17,6 +18,14 @@ export interface HangarItem {
   fromShip?: string;
   toShip?: string;
   price?: number;
+}
+
+export interface ImportItem {
+  name: string;
+  from: number;
+  to: number;
+  price: number;
+  currency: string;
 }
 
 /**
@@ -36,6 +45,7 @@ export class CcuSourceTypeStrategyFactory {
     this.registerStrategy(new ThirdPartyStrategy());
     this.registerStrategy(new HangarStrategy());
     this.registerStrategy(new HistoricalStrategy());
+    this.registerStrategy(new SubscriptionStrategy());
   }
   
   /**
@@ -82,11 +92,12 @@ export class CcuSourceTypeStrategyFactory {
     targetShip: Ship, 
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
-    hangarItems: HangarItem[]
+    hangarItems: HangarItem[],
+    importItems: ImportItem[]
   ): CcuSourceTypeStrategy[] {
     return Array.from(this.strategies.values())
       .filter(strategy => 
-        strategy.isApplicable(sourceShip, targetShip, ccus, wbHistory, hangarItems)
+        strategy.isApplicable(sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems)
       );
   }
   
@@ -98,7 +109,8 @@ export class CcuSourceTypeStrategyFactory {
     targetShip: Ship, 
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
-    hangarItems: HangarItem[]
+    hangarItems: HangarItem[],
+    importItems: ImportItem[]
   ): CcuSourceTypeStrategy {
     // Get all applicable strategies
     const applicableStrategies = this.getApplicableStrategies(
@@ -106,7 +118,8 @@ export class CcuSourceTypeStrategyFactory {
       targetShip, 
       ccus, 
       wbHistory, 
-      hangarItems
+      hangarItems,
+      importItems
     );
     
     if (applicableStrategies.length === 0) {

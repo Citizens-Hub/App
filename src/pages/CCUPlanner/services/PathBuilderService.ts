@@ -1,4 +1,4 @@
-import { Ship, Ccu, WbHistoryData, HangarItem } from '../../../types';
+import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem } from '../../../types';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 import { Node, Edge } from 'reactflow';
 
@@ -20,8 +20,9 @@ export class PathBuilderService {
     ccus: Ccu[];
     wbHistory: WbHistoryData[];
     hangarItems: HangarItem[];
+    importItems: ImportItem[];
   }): { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] } {
-    const { stepShips, ccus, wbHistory, hangarItems } = params;
+    const { stepShips, ccus, wbHistory, hangarItems, importItems } = params;
     if (stepShips.length < 2) return { nodes: [], edges: [] };
 
     const startPosition = { x: 100, y: 100 };
@@ -73,6 +74,7 @@ export class PathBuilderService {
       ccus, 
       wbHistory, 
       hangarItems, 
+      importItems,
       shipActualPrices,
       newEdges
     );
@@ -232,6 +234,7 @@ export class PathBuilderService {
     ccus: Ccu[],
     wbHistory: WbHistoryData[],
     hangarItems: HangarItem[],
+    importItems: ImportItem[],
     _shipActualPrices: Map<string, number>,
     newEdges: Edge<CcuEdgeData>[]
   ): void {
@@ -280,7 +283,8 @@ export class PathBuilderService {
                 sourceType: CcuSourceType.OFFICIAL,
                 ccus,
                 wbHistory,
-                hangarItems
+                hangarItems,
+                importItems
               };
 
               if (hangarCcu) {

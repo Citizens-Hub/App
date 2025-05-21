@@ -8,6 +8,7 @@ import { selectHangarItems } from '../../../store/upgradesStore';
 import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CcuEdgeService } from '../services/CcuEdgeService';
+import { selectImportItems } from '../../../store/importStore';
 
 interface ShipNodeProps {
   data: {
@@ -36,7 +37,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const upgrades = useSelector(selectHangarItems);
-
+  const importItems = useSelector(selectImportItems);
+  
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
   const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
@@ -262,6 +264,11 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   <option value={CcuSourceType.OFFICIAL}>
                     {intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" })}
                   </option>
+                  {importItems.find(item => item.from === edge?.data?.sourceShip?.id && item.to === edge?.data?.targetShip?.id) && (
+                    <option value={CcuSourceType.SUBSCRIPTION}>
+                      {intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "Subscription" })}
+                    </option>
+                  )}
                   {wb && Number(edge?.data?.sourceShip?.msrp) < wb.price && (
                     <option value={CcuSourceType.AVAILABLE_WB}>
                       {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(wb.price / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})

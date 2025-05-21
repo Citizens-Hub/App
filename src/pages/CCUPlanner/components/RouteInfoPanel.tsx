@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData, ImportItem } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider } from '@mui/material';
 import { InfoOutlined, CheckCircle } from '@mui/icons-material';
@@ -29,6 +29,7 @@ interface RouteInfoPanelProps {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
+  importItems: ImportItem[];
   onSelectedPathChange?: (path: CompletePath | null) => void;
 }
 
@@ -50,6 +51,7 @@ export default function RouteInfoPanel({
   ccus,
   wbHistory,
   hangarItems,
+  importItems,
   onSelectedPathChange
 }: RouteInfoPanelProps) {
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
@@ -138,7 +140,8 @@ export default function RouteInfoPanel({
             {
               ccus,
               wbHistory,
-              hangarItems
+              hangarItems,
+              importItems
             }
           );
           console.log(`Found ${paths.length} paths from node ${startNode.id}`);
@@ -151,7 +154,8 @@ export default function RouteInfoPanel({
       const completePaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, {
         ccus,
         wbHistory,
-        hangarItems
+        hangarItems,
+        importItems
       });
 
       console.log('Final number of complete paths:', completePaths.length);
@@ -160,7 +164,7 @@ export default function RouteInfoPanel({
       console.error('Error during path calculation:', error);
       return [];
     }
-  }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, exchangeRate, conciergeValue, pruneOpt]);
+  }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, importItems, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };
@@ -217,13 +221,15 @@ export default function RouteInfoPanel({
                 newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
                   ccus,
                   wbHistory,
-                  hangarItems
+                  hangarItems,
+                  importItems
                 }).usdPrice;
               } else {
                 newCnyCost += pathFinderService.getPriceInfo(edge.edge, {
                   ccus,
                   wbHistory,
-                  hangarItems
+                  hangarItems,
+                  importItems
                 }).tpPrice;
               }
             }
@@ -242,7 +248,7 @@ export default function RouteInfoPanel({
     return {
       paths: completePaths.sort(sortPaths)
     };
-  }, [completePaths, sortByNewInvestment, exchangeRate, conciergeValue, startShipPrices, ccus, wbHistory, hangarItems]);
+  }, [completePaths, sortByNewInvestment, exchangeRate, conciergeValue, startShipPrices, ccus, wbHistory, hangarItems, importItems]);
 
   const sortedPaths = useMemo(() => {
     return sortedPathsGroups.paths;
@@ -329,18 +335,22 @@ export default function RouteInfoPanel({
       const edge = path.edges[i];
       // Hangar CCUs are not counted in the new investment
       if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
-        if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
-          newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
-            ccus,
-            wbHistory,
-            hangarItems
-          }).usdPrice;
+        const priceInfo = pathFinderService.getPriceInfo(edge.edge, {
+          ccus,
+          wbHistory,
+          hangarItems,
+          importItems
+        });
+        
+        if (edge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
+          // 处理订阅CCU，将其添加到第三方成本中，并进行货币转换
+          let subPrice = priceInfo.tpPrice;
+          subPrice = subPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];
+          newCnyCost += subPrice;
+        } else if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
+          newUsdCost += priceInfo.usdPrice;
         } else {
-          newCnyCost += pathFinderService.getPriceInfo(edge.edge, {
-            ccus,
-            wbHistory,
-            hangarItems
-          }).tpPrice;
+          newCnyCost += priceInfo.tpPrice;
         }
       }
     }
@@ -650,11 +660,18 @@ export default function RouteInfoPanel({
 
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
-                          const { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, {
+                          // eslint-disable-next-line prefer-const
+                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, {
                             ccus,
                             wbHistory,
-                            hangarItems
+                            hangarItems,
+                            importItems
                           });
+
+                          if (pathEdge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
+                            tpPrice = tpPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];
+                          }
+
                           const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
 
                           const isEdgeCompleted = pathEdge.edge.data?.sourceShip && pathEdge.edge.data?.targetShip &&
@@ -708,18 +725,25 @@ export default function RouteInfoPanel({
                                   <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />
                                 </span>
 
-                                {(sourceType !== CcuSourceType.THIRD_PARTY) ? (
+                                {sourceType === CcuSourceType.SUBSCRIPTION ? (
                                   <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                     <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                    <span className="text-black dark:text-white">
-                                      {usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                                    </span>
+                                    <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
                                   </span>
                                 ) : (
-                                  <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                    <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
-                                    <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
-                                  </span>
+                                  <>{(sourceType !== CcuSourceType.THIRD_PARTY) ? (
+                                    <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+                                      <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                      <span className="text-black dark:text-white">
+                                        {usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+                                      <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                      <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
+                                    </span>
+                                  )}</>
                                 )}
                               </div>
                             </div>

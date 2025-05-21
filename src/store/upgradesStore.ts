@@ -76,6 +76,19 @@ const getInitialState = (): {
 
   if (localState && JSON.parse(localState).version === version) {
     const state =  JSON.parse(localState);
+
+    if (state.ccuSourceTypePriority.length < 7) {
+      state.ccuSourceTypePriority = [
+        CcuSourceType.HANGER,
+        CcuSourceType.HISTORICAL,
+        CcuSourceType.SUBSCRIPTION,
+        CcuSourceType.AVAILABLE_WB,
+        CcuSourceType.THIRD_PARTY,
+        CcuSourceType.OFFICIAL_WB,
+        CcuSourceType.OFFICIAL,
+      ];
+    }
+
     return {
       ...state,
       currency: state.currency || getDefaultCurrency(),
@@ -87,6 +100,7 @@ const getInitialState = (): {
       ccuSourceTypePriority: state.ccuSourceTypePriority || [
         CcuSourceType.HANGER,
         CcuSourceType.HISTORICAL,
+        CcuSourceType.SUBSCRIPTION,
         CcuSourceType.AVAILABLE_WB,
         CcuSourceType.THIRD_PARTY,
         CcuSourceType.OFFICIAL_WB,
@@ -110,6 +124,7 @@ const getInitialState = (): {
       CcuSourceType.HANGER,
       CcuSourceType.AVAILABLE_WB,
       CcuSourceType.HISTORICAL,
+      CcuSourceType.SUBSCRIPTION,
       CcuSourceType.OFFICIAL,
       CcuSourceType.OFFICIAL_WB,
       CcuSourceType.THIRD_PARTY,

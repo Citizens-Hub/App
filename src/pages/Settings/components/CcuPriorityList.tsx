@@ -45,6 +45,9 @@ const ccuTypeStyles = {
   [CcuSourceType.HISTORICAL]: {
     bgColor: 'bg-gray-500'
   },
+  [CcuSourceType.SUBSCRIPTION]: {
+    bgColor: 'bg-green-500'
+  },
 };
 
 function SortableItem({ id, type }: { id: string, type: CcuSourceType }) {

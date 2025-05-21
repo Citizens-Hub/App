@@ -37,6 +37,7 @@ import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
+import { selectImportItems } from '../../../store/importStore';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -72,7 +73,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   // const upgrades = useSelector((state: RootState) => state.upgrades.items);
   const upgrades = useSelector(selectHangarItems);
-
+  const importItems = useSelector(selectImportItems);
   // 初始化服务
   const edgeService = useMemo(() => new CcuEdgeService(), []);
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
@@ -220,7 +221,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
           targetShip,
           ccus,
           wbHistory,
-          hangarItems
+          hangarItems,
+          importItems
         });
 
         const newEdge = {
@@ -234,7 +236,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, upgrades, setEdges, edges, ccus, intl, wbHistory, edgeService]
+    [nodes, edgeService, upgrades.ccus, ccus, wbHistory, importItems, setEdges, intl, edges]
   );
 
   const updateEdgeData = useCallback(
@@ -623,7 +625,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       ships,
       ccus,
       wbHistory,
-      hangarItems
+      hangarItems,
+      importItems
     });
     
     // 更新图表
@@ -634,7 +637,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [ships, ccus, wbHistory, hangarItems, setNodes, setEdges, reactFlowInstance, pathBuilderService]);
+  }, [pathBuilderService, ships, ccus, wbHistory, hangarItems, importItems, setNodes, setEdges, reactFlowInstance]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({
@@ -709,6 +712,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               ccus={ccus}
               wbHistory={wbHistory}
               hangarItems={hangarItems}
+              importItems={importItems}
               onSelectedPathChange={handleSelectedPathChange}
             />
           )}

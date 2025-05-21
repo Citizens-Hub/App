@@ -143,7 +143,8 @@ export enum CcuSourceType {
   HANGER = "机库CCU",
   OFFICIAL_WB = "官方WB",
   THIRD_PARTY = "第三方",
-  HISTORICAL = "历史"
+  HISTORICAL = "历史",
+  SUBSCRIPTION = "订阅"
 }
 
 export interface CcuEdgeData {
@@ -155,6 +156,7 @@ export interface CcuEdgeData {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
+  importItems: ImportItem[];
 }
 
 export interface WbHistoryData {
@@ -165,10 +167,18 @@ export interface WbHistoryData {
 export interface HangarItem {
   id: number;
   name: string;
-  type: string; // 'ccu', 'ship' 等
+  type: string;
   fromShip?: string;
   toShip?: string;
   price?: number;
+}
+
+export interface ImportItem {
+  name: string;
+  from: number;
+  to: number;
+  price: number;
+  currency: string;
 }
 
 export enum ListingType {
