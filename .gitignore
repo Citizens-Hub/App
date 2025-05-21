@@ -25,3 +25,5 @@ dist-ssr
 
 .env
 background.restored.js
+
+stats.html
