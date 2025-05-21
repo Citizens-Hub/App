@@ -112,11 +112,12 @@ const Statistics = ({ statistics, currency }: { statistics: StatisticsType; curr
 };
 
 // Ships list component
-const ShipsList = ({ items, getShipImageById, currency, getShipById }: {
+const ShipsList = ({ items, getShipImageById, currency, getShipById, totalItems }: {
   items: ShipItemType[];
   getShipImageById: (id: number) => string | undefined;
   currency: string;
   getShipById: (id: number) => Ship | undefined;
+  totalItems: number;
 }) => {
   const intl = useIntl();
   const locale = intl.locale;
@@ -134,7 +135,7 @@ const ShipsList = ({ items, getShipImageById, currency, getShipById }: {
           return (
             <div
               key={index}
-              className="relative border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm bg-white dark:bg-gray-800 overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+              className="relative border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm bg-white dark:bg-gray-800 overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer"
             >
               {item.price > 0 && (
                 <div className="absolute top-0 right-0 bg-purple-600 text-white text-sm font-bold py-1 px-3 rounded-bl z-10">
@@ -188,6 +189,16 @@ const ShipsList = ({ items, getShipImageById, currency, getShipById }: {
                   {fromShip?.name} → {toShip?.name}
                 </div>
               </div>
+
+              {
+                totalItems > ITEMS_PER_PAGE && index === ITEMS_PER_PAGE - 1 && (
+                  <div className="absolute z-10 bottom-0 left-0 right-0 p-2 w-full h-full bg-gray-600/30 backdrop-blur-sm grayscale-30 rounded-md flex items-center justify-center">
+                    <span className="text-white text-sm truncate max-w-full">
+                      + {totalItems - ITEMS_PER_PAGE} more
+                    </span>
+                  </div>
+                )
+              }
             </div>
           );
         })}
@@ -259,7 +270,7 @@ export default function Share() {
   const handleUnsubscribe = () => {
     // 清空Redux中的所有导入数据
     dispatch(clearAllImportData());
-    
+
     // 显示成功消息
     setSuccessMessage(
       intl.formatMessage({ id: "share.successUnsubscribe", defaultMessage: "Successfully unsubscribed" })
@@ -355,6 +366,7 @@ export default function Share() {
               getShipImageById={getShipImageById}
               currency={hangarData?.currency || 'USD'}
               getShipById={getShipById}
+              totalItems={hangarData?.items.length || 0}
             />
           )}
 
