@@ -61,6 +61,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [passwordError, setPasswordError] = useState(false);
   const [passwordStrengthError, setPasswordStrengthError] = useState(false);
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
+  const [showAlert, setShowAlert] = useState(true);
 
   const googleLogin = useGoogleLogin({
     onSuccess: tokenResponse => {
@@ -313,14 +314,20 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
       </Helmet>
       <BackgroundVideo />
-      <Alert severity="info" sx={{ zIndex: 1000, position: 'fixed', top: '65px', left: 0, right: 0, width: '100%', borderRadius: 0 }}>
+      {showAlert && (
+        <Alert 
+          severity="info" 
+          sx={{ zIndex: 1000, position: 'fixed', top: '65px', left: 0, right: 0, width: '100%', borderRadius: 0 }}
+          onClose={() => setShowAlert(false)}
+        >
           <div className="text-sm text-left">
             <FormattedMessage 
               id="login.siteAccountNotice" 
               defaultMessage="Please note: You are logging into an account for this site, not your RSI account. Although we encrypt and securely store your information, to avoid any unnecessary issues, please do not use the same password as your RSI account when registering. To retrieve inventory data, please use our browser extension." 
             />
           </div>
-      </Alert>
+        </Alert>
+      )}
       <Box
         sx={{
           marginTop: 8,
