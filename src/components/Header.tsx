@@ -37,8 +37,20 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const { locale } = intl;
   const pathname = useLocation().pathname;
 
+  // 抽取的导航项查找函数
+  const findNavItemByPath = (path: string) => {
+    return navigation.find(item => {
+      if (item.path.includes(':')) {
+        const regexPath = new RegExp('^' + item.path.replace(/:[^/]+/g, '([^/]+)') + '$');
+        return regexPath.test(path);
+      }
+      return item.path === path;
+    });
+  };
+
   useEffect(() => {
-    document.title = "Citizens' Hub - " + intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })
+    const currentNavItem = findNavItemByPath(pathname);
+    document.title = "Citizens' Hub - " + intl.formatMessage({ id: currentNavItem?.name || "navigation.home" })
   }, [intl, pathname])
 
   useEffect(() => {
@@ -99,7 +111,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             {" > "}
           </span>
         }
-        <span className="hidden md:block">{intl.formatMessage({ id: navigation.find(item => item.path === pathname)?.name || "navigation.home", defaultMessage: "Home" })}</span>
+        <span className="hidden md:block">{intl.formatMessage({
+          id: findNavItemByPath(pathname)?.name || "navigation.home", defaultMessage: "Home"
+        })}</span>
       </div>
       <div className="flex items-center gap-2 justify-end">
         {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (

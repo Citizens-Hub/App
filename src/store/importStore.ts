@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { SharedHangarItem } from '../pages/Share/hooks/useSharedData';
 import { RootState } from '.';
 
@@ -206,11 +206,15 @@ export const {
   clearAllImportData
 } = importSlice.actions;
 
-export const selectImportItems = (state: RootState) => {
-  return state.import.items.map(item => ({
-    ...item,
-    currency: state.import.currency
-  }));
-};
+export const selectImportItems = createSelector(
+  (state: RootState) => state.import.items,
+  (state: RootState) => state.import.currency,
+  (items, currency) => {
+    return items.map(item => ({
+      ...item,
+      currency
+    }));
+  }
+);
 
 export default importSlice.reducer; 
