@@ -525,7 +525,7 @@ export class PathFinderService {
         const parsedPaths: StoredCompletedPath[] = JSON.parse(storedPaths);
         
         // 转换为运行时格式
-        this.completedPaths = parsedPaths.map(storedPath => {
+        this.completedPaths = parsedPaths.filter(storedPath => storedPath.path?.startNodeId).map(storedPath => {
           // 创建简化的Ship对象
           const createShip = (id: number, name: string, msrp: number): Partial<Ship> => ({
             id: id,
