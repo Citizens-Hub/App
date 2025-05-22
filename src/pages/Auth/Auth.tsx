@@ -336,7 +336,6 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
             width: '100%',
             maxWidth: '460px',
             borderRadius: 2,
-            backgroundColor: 'white',
             zIndex: 1
           }}
         >
