@@ -61,7 +61,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [passwordError, setPasswordError] = useState(false);
   const [passwordStrengthError, setPasswordStrengthError] = useState(false);
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
-  
+
   const googleLogin = useGoogleLogin({
     onSuccess: tokenResponse => {
       fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/google`, {
@@ -241,7 +241,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
     setPasswordError(false);
     setPasswordStrengthError(false);
     setError('');
-    
+
     let hasError = false;
 
     // 验证邮箱格式
@@ -313,6 +313,14 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
       </Helmet>
       <BackgroundVideo />
+      <Alert severity="info" sx={{ zIndex: 1000, position: 'fixed', top: '65px', left: 0, right: 0, width: '100%', borderRadius: 0 }}>
+          <div className="text-sm text-left">
+            <FormattedMessage 
+              id="login.siteAccountNotice" 
+              defaultMessage="Please note: You are logging into an account for this site, not your RSI account. Although we encrypt and securely store your information, to avoid any unnecessary issues, please do not use the same password as your RSI account when registering. To retrieve inventory data, please use our browser extension." 
+            />
+          </div>
+      </Alert>
       <Box
         sx={{
           marginTop: 8,
@@ -431,11 +439,11 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
             >
               {loading ? (
                 <CircularProgress size={24} />
-              ) :  action === 'login' ? (
-                  <FormattedMessage id="login.submit" defaultMessage="Login" />
-                ) : (
-                  <FormattedMessage id="register.submit" defaultMessage="Register" />
-                )
+              ) : action === 'login' ? (
+                <FormattedMessage id="login.submit" defaultMessage="Login" />
+              ) : (
+                <FormattedMessage id="register.submit" defaultMessage="Register" />
+              )
               }
             </Button>
 

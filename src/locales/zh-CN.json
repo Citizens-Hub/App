@@ -361,5 +361,6 @@
   "ccuPlanner.normalCCU": "机库",
   "ccuPlanner.buybackCCU": "回购",
   "ccuPlanner.subscriptionCCU": "订阅",
-  "ccuPlanner.hangar": "机库"
+  "ccuPlanner.hangar": "机库",
+  "login.siteAccountNotice": "请注意：此处登录的是本站账号，而非你的RSI账号，虽然我们会对你的信息进行加密存储，但是为了避免不必要的麻烦，请在注册时不要选择使用和你RSI账号相同的密码。如需抓取库存数据，请使用我们的浏览器扩展程序"
 }
