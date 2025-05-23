@@ -47,6 +47,7 @@ interface Imported {
 }
 
 export interface UserInfo {
+  isAnonymous: boolean,
   id: number,
   username: string,
   nickname: string,
