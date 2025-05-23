@@ -57,7 +57,7 @@ export default function RouteInfoPanel({
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const [sortByNewInvestment, setSortByNewInvestment] = useState(localStorage.getItem('sortByNewInvestment') === 'true');
-  const [currentPage, setCurrentPage] = useState(0);
+  const [_currentPage, setCurrentPage] = useState(0);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
   const intl = useIntl();
@@ -255,6 +255,8 @@ export default function RouteInfoPanel({
   }, [sortedPathsGroups]);
 
   const totalPages = sortedPaths.length;
+
+  const currentPage = Math.min(_currentPage, totalPages - 1)
 
   const goToNextPage = () => {
     setCurrentPage((prev) => (prev + 1) % totalPages);
