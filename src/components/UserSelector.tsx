@@ -21,7 +21,7 @@ export default function UserSelector() {
   return (
     <div className='flex flex-col border border-gray-200 dark:border-gray-800 p-2'>
       <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', justifyContent: 'center', m: 1 }}>
-        {users.map(user => (
+        {users.filter(user => !user.isAnonymous).map(user => (
           <Tooltip key={user.id} title={user.nickname || user.username || '用户'} arrow>
             <Avatar 
               src={user.avatar || "https://cdn.robertsspaceindustries.com/static/images/account/avatar_default_big.jpg"} 
