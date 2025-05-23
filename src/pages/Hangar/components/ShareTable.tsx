@@ -564,7 +564,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
       <DialogTitle>
         <div className="flex justify-between items-center">
           <Typography variant="h6">
-            <FormattedMessage id="hangar.shareSuccess" defaultMessage="分享成功" />
+            <FormattedMessage id="hangar.shareSuccess" defaultMessage="Items Shared" />
           </Typography>
           <IconButton onClick={() => setSuccessDialogOpen(false)}>
             <X />
@@ -576,7 +576,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
           <Typography variant="body1" gutterBottom>
             <FormattedMessage 
               id="hangar.shareSuccessMessage" 
-              defaultMessage="您已成功分享物品。使用以下链接可以访问您的分享页面："
+              defaultMessage="You have successfully shared items. Use the following link to access your share page:"
             />
           </Typography>
         </Box>
@@ -609,20 +609,20 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         
         {linkCopied && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            <FormattedMessage id="hangar.linkCopied" defaultMessage="链接已复制到剪贴板" />
+            <FormattedMessage id="hangar.linkCopied" defaultMessage="Link copied to clipboard" />
           </Alert>
         )}
         
         <Typography variant="body2" color="textSecondary">
           <FormattedMessage 
             id="hangar.shareInfoMessage" 
-            defaultMessage="通过此链接，其他用户可以查看您分享的物品和价格。"
+            defaultMessage="Through this link, other users can view the items and prices you have shared."
           />
         </Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={() => setSuccessDialogOpen(false)} color="primary">
-          <FormattedMessage id="common.close" defaultMessage="关闭" />
+          <FormattedMessage id="common.close" defaultMessage="Close" />
         </Button>
       </DialogActions>
     </Dialog>

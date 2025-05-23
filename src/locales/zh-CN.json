@@ -362,5 +362,10 @@
   "ccuPlanner.buybackCCU": "回购",
   "ccuPlanner.subscriptionCCU": "订阅",
   "ccuPlanner.hangar": "机库",
-  "login.siteAccountNotice": "请注意：此处登录的是本站账号，而非你的RSI账号，虽然我们会对你的信息进行加密存储，但是为了避免不必要的麻烦，请在注册时不要选择使用和你RSI账号相同的密码。如需抓取库存数据，请使用我们的浏览器扩展程序"
+  "login.siteAccountNotice": "请注意：此处登录的是本站账号，而非你的RSI账号，虽然我们会对你的信息进行加密存储，但是为了避免不必要的麻烦，请在注册时不要选择使用和你RSI账号相同的密码。如需抓取库存数据，请使用我们的浏览器扩展程序",
+  "hangar.shareSuccess": "分享成功",
+  "hangar.shareSuccessMessage": "您已成功分享物品。使用以下链接可以访问您的分享页面：",
+  "hangar.linkCopied": "链接已复制到剪贴板",
+  "hangar.shareInfoMessage": "通过此链接，其他用户可以查看您分享的物品和价格。",
+  "common.close": "关闭"
 }
