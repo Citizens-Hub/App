@@ -1,6 +1,7 @@
 import { useEffect, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearUpgrades, setCurrency } from '../../store/upgradesStore';
+import { clearAllImportData } from '../../store/importStore';
 import { RootState } from '../../store';
 import {
   Typography,
@@ -73,6 +74,7 @@ export default function Settings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [clearImportDialog, setClearImportDialog] = useState(false);
 
   // 处理货币变更
   const handleCurrencyChange = (event: SelectChangeEvent) => {
@@ -106,12 +108,24 @@ export default function Settings() {
 
       setSuccessMessage(intl.formatMessage({
         id: 'settings.userDataCleared',
-        defaultMessage: '用户数据已清除'
+        defaultMessage: 'User data has been cleared.'
       }));
 
       setTimeout(() => setSuccessMessage(null), 3000);
     }
     setClearUserDataDialog(false);
+  };
+
+  const handleClearImportData = () => {
+    dispatch(clearAllImportData());
+    
+    setSuccessMessage(intl.formatMessage({
+      id: 'settings.importDataCleared',
+      defaultMessage: 'Clear all imported hangar data.'
+    }));
+    setSnackbarOpen(true);
+    
+    setClearImportDialog(false);
   };
 
   return (
@@ -414,6 +428,17 @@ export default function Settings() {
                   <FormattedMessage id="settings.clearAllData" defaultMessage="Clear All Data" />
                 </Button>
 
+                <Typography variant="body1" gutterBottom>
+                  <FormattedMessage id="settings.clearImportDataDescription" defaultMessage="Clear all imported hangar data. This action cannot be undone." />
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={() => setClearImportDialog(true)}
+                >
+                  <FormattedMessage id="settings.clearImportData" defaultMessage="Clear Imported Data" />
+                </Button>
+
                 {users.length > 0 && (
                   <>
                     <Typography variant="body1" gutterBottom>
@@ -482,6 +507,29 @@ export default function Settings() {
             <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
           </Button>
           <Button onClick={handleClearUserData} color="error" autoFocus>
+            <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 清除导入数据确认对话框 */}
+      <Dialog
+        open={clearImportDialog}
+        onClose={() => setClearImportDialog(false)}
+      >
+        <DialogTitle>
+          <FormattedMessage id="settings.confirmClearImport" defaultMessage="Confirm Clear Imported Data?" />
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <FormattedMessage id="settings.confirmClearImportDescription" defaultMessage="This action will clear all imported hangar data. This action cannot be undone." />
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearImportDialog(false)}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={handleClearImportData} color="error" autoFocus>
             <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
           </Button>
         </DialogActions>
