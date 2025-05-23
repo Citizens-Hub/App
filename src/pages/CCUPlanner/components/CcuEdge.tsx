@@ -34,11 +34,11 @@ export default function CcuEdge({
   const { locale } = intl;
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
-  
+
   // 检查边是否属于任何已完成路径
   const isCompleted = useMemo(() => {
     if (!data?.sourceShip || !data?.targetShip) return false;
-    
+
     // 构建一个完整的Edge<CcuEdgeData>对象
     const edge: Edge<CcuEdgeData> = {
       id,
@@ -46,19 +46,19 @@ export default function CcuEdge({
       target: '',
       data
     };
-    
+
     return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
   }, [data, id]);
 
   // 检查边是否在当前选中的路径中
   const isInSelectedPath = useMemo(() => {
     if (!selectedPath || !data?.sourceShip || !data?.targetShip) return false;
-    
-    return selectedPath.edges.some(pathEdge => 
+
+    return selectedPath.edges.some(pathEdge =>
       pathEdge.edge.id === id
     );
   }, [selectedPath, id, data]);
-  
+
   // 创建边的样式
   const edgeStyle = useMemo(() => {
     const baseStyle = { ...style };
@@ -92,7 +92,7 @@ export default function CcuEdge({
 
     return getEdgeStyle();
   }, [style, isCompleted, isInSelectedPath]);
-  
+
   if (!data) return null;
 
   const [edgePath, labelX, labelY] = getBezierPath({
@@ -103,16 +103,16 @@ export default function CcuEdge({
     targetY,
     targetPosition,
   });
-  
+
   // Get source type, default to OFFICIAL
   const sourceType = data.sourceType || CcuSourceType.OFFICIAL;
-  
+
   // Get corresponding strategy
   const strategy = factory.getStrategy(sourceType);
-  
+
   // Get display name
   const sourceTypeDisplay = strategy.getDisplayName(intl);
-  
+
   // Get edge style
   const { edgeColor, bgColor } = strategy.getEdgeStyle();
 
@@ -137,18 +137,31 @@ export default function CcuEdge({
         markerEnd={markerEnd}
       />
       <EdgeLabelRenderer>
-        <div
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            pointerEvents: 'all',
-          }}
-          className={`${labelBgColor} text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1`}
-        >
-          {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
-          {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
-          +{price.toLocaleString(locale, { style: 'currency', currency })}
-        </div>
+        {
+          price === 0 ? <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+            }}
+            className="bg-red-500 text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1"
+          >
+            !{isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
+            {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
+            +{price.toLocaleString(locale, { style: 'currency', currency })}
+          </div> : <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+            }}
+            className={`${labelBgColor} text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1`}
+          >
+            {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
+            {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
+            +{price.toLocaleString(locale, { style: 'currency', currency })}
+          </div>
+        }
       </EdgeLabelRenderer>
     </>
   );

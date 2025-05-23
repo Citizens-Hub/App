@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData, ImportItem } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider } from '@mui/material';
 import { InfoOutlined, CheckCircle } from '@mui/icons-material';
@@ -7,8 +7,9 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
-import { CcuSourceTypeStrategyFactory, HangarItem } from '../services/CcuSourceTypeFactory';
+import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -22,14 +23,7 @@ interface RouteInfoPanelProps {
   onClose: () => void;
   startShipPrices: Record<string, number | string>;
   onStartShipPriceChange: (nodeId: string, price: number | string) => void;
-  exchangeRates: {
-    [currency: string]: number;
-  };
   onPathCompletionChange?: () => void;
-  ccus: Ccu[];
-  wbHistory: WbHistoryData[];
-  hangarItems: HangarItem[];
-  importItems: ImportItem[];
   onSelectedPathChange?: (path: CompletePath | null) => void;
 }
 
@@ -46,14 +40,12 @@ export default function RouteInfoPanel({
   onClose,
   startShipPrices,
   onStartShipPriceChange,
-  exchangeRates,
   onPathCompletionChange,
-  ccus,
-  wbHistory,
-  hangarItems,
-  importItems,
   onSelectedPathChange
 }: RouteInfoPanelProps) {
+  // 从上下文获取数据
+  const { ccus, wbHistory, hangarItems, importItems, exchangeRates } = useCcuPlanner();
+  
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const [sortByNewInvestment, setSortByNewInvestment] = useState(localStorage.getItem('sortByNewInvestment') === 'true');

@@ -2,21 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Button } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Ccu, Ship, WbHistoryData, HangarItem } from '../../../types';
+import { Ship, HangarItem } from '../../../types';
+import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface PathBuilderProps {
   open: boolean;
   onClose: () => void;
-  ships: Ship[];
-  ccus: Ccu[];
-  wbHistory: WbHistoryData[];
-  hangarItems: HangarItem[];
   onCreatePath: (stepShips: Ship[][]) => void;
 }
 
-export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, hangarItems, onCreatePath }: PathBuilderProps) {
+export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
-  // const [selectedShips, setSelectedShips] = useState<Ship[]>([]);
+  const { ships, ccus, wbHistory, hangarItems } = useCcuPlanner();
   const [stepShips, setLayerShips] = useState<Ship[][]>([]);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [filteredShips, setFilteredShips] = useState<Ship[]>([]);
@@ -30,7 +27,6 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
 
   useEffect(() => {
     if (open) {
-      // setSelectedShips([]);
       setLayerShips([]);
       setCurrentStep(0);
       setSearchTerm('');
@@ -116,7 +112,6 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
         newSelectedShips.push(layer[0]);
       }
     });
-    // setSelectedShips(newSelectedShips);
   };
 
   const nextStep = () => {
@@ -128,8 +123,6 @@ export default function PathBuilder({ open, onClose, ships, ccus, wbHistory, han
         // Find the source and target ships for the CCU
         const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
         const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
-
-        // console.log(fromShip, toShip);
 
         // If the corresponding ships are found, add them to the selected ships
         if (fromShip) {
