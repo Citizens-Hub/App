@@ -67,6 +67,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     username: "",
     nickname: "",
     avatar: "",
+    isAnonymous: false,
   });
 
   useEffect(() => {
