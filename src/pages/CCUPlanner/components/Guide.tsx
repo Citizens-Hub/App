@@ -54,15 +54,15 @@ export default function Guide({ showTitle = false }: { showTitle?: boolean }) {
       try {
         setLoading(true);
 
-        // 获取中文更新日志
+        // Get Chinese changelog
         const chineseResponse = await fetch('/docs/guide.md');
         if (!chineseResponse.ok) {
-          throw new Error(`无法获取中文指南: ${chineseResponse.status}`);
+          throw new Error(`Unable to fetch Chinese guide: ${chineseResponse.status}`);
         }
         const chineseText = await chineseResponse.text();
         setChineseMarkdown(chineseText);
 
-        // 获取英文更新日志
+        // Get English changelog
         const englishResponse = await fetch('/docs/guide.en.md');
         if (!englishResponse.ok) {
           throw new Error(`Unable to fetch English guide: ${englishResponse.status}`);
@@ -72,8 +72,8 @@ export default function Guide({ showTitle = false }: { showTitle?: boolean }) {
 
         setError(null);
       } catch (err) {
-        console.error('获取指南时出错:', err);
-        setError((err as Error).message || '获取指南时出错');
+        console.error('Error fetching guide:', err);
+        setError((err as Error).message || 'Error fetching guide');
       } finally {
         setLoading(false);
       }

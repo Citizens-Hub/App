@@ -57,7 +57,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     type: "success"
   });
   
-  // 将所有内容包装在CcuPlannerProvider中
+  // Wrap all content in CcuPlannerProvider
   return (
     <CcuPlannerProvider 
       ships={ships} 
@@ -89,7 +89,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
   );
 }
 
-// 将主要功能移到这个子组件
+// Move main functionality to this child component
 function CcuCanvasContent() {
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -104,26 +104,26 @@ function CcuCanvasContent() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
 
-  // 使用上下文中的数据
+  // Use data from context
   const { 
     ships, 
     ccus, 
     wbHistory, 
     hangarItems, 
-    importItems, 
     edgeService,
     pathBuilderService,
     importExportService,
     handlePathCompletionChange,
-    showAlert
+    showAlert,
+    getServiceData
   } = useCcuPlanner();
   
-  // 从Redux获取升级项
+  // Get upgrade items from Redux
   const upgrades = useSelector(selectHangarItems);
 
-  // 处理路径完成状态变化，刷新边的样式
+  // Handle path completion status change, refresh edge styles
   const refreshEdgesOnPathCompletion = useCallback((showAlert: boolean = true) => {
-    // 通过创建新的边数据引用来触发边的重新渲染
+    // Trigger edge re-rendering by creating new edge data references
     setEdges(currentEdges => {
       return currentEdges.map(edge => {
         if (edge.data) {
@@ -138,7 +138,7 @@ function CcuCanvasContent() {
       });
     });
     
-    // 调用上下文中的方法来处理提示
+    // Call the method in context to handle alerts
     handlePathCompletionChange(showAlert);
   }, [setEdges, handlePathCompletionChange]);
 
@@ -230,10 +230,7 @@ function CcuCanvasContent() {
         const edgeData = edgeService.createEdgeData({
           sourceShip,
           targetShip,
-          ccus,
-          wbHistory,
-          hangarItems,
-          importItems
+          ...getServiceData()
         });
 
         const newEdge = {
@@ -247,7 +244,7 @@ function CcuCanvasContent() {
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, edgeService, setEdges, intl, edges, ccus, wbHistory, hangarItems, importItems, showAlert, upgrades.ccus]
+    [nodes, edgeService, setEdges, intl, edges, getServiceData, showAlert, upgrades.ccus]
   );
 
   const updateEdgeData = useCallback(
@@ -364,17 +361,17 @@ function CcuCanvasContent() {
       setEdges(importedData.edges);
       setStartShipPrices(importedData.startShipPrices);
 
-      // 清理已完成路径，避免与新导入的路径混淆
+      // Clean up completed paths to avoid confusion with newly imported paths
       pathFinderService.clearCompletedPaths();
       
-      // 刷新边的状态，但不显示提示消息
+      // Refresh edge status without showing notification messages
       refreshEdgesOnPathCompletion(false);
 
       if (reactFlowInstance) {
         importExportService.adjustViewToShowAllNodes(reactFlowInstance);
       }
       
-      // 显示导入成功的提示
+      // Display import success notification
       showAlert(
         intl.formatMessage({ 
           id: 'ccuPlanner.success.imported', 
@@ -485,16 +482,16 @@ function CcuCanvasContent() {
     setEdges([]);
     setStartShipPrices({});
 
-    // 清理已完成路径状态
+    // Clean up completed path states
     pathFinderService.clearCompletedPaths();
     
-    // 刷新边的状态，但不显示提示消息
+    // Refresh edge status without showing notification messages
     refreshEdgesOnPathCompletion(false);
 
-    // 使用ImportExportService清空数据
+    // Use ImportExportService to clear data
     importExportService.clearFlowData();
 
-    // 显示成功提示
+    // Display success notification
     showAlert(
       intl.formatMessage({ 
         id: 'ccuPlanner.success.cleared', 
@@ -512,7 +509,7 @@ function CcuCanvasContent() {
       startShipPrices
     };
 
-    // 使用ImportExportService保存数据
+    // Use ImportExportService to save data
     importExportService.saveToLocalStorage(flowData);
 
     showAlert(
@@ -534,12 +531,12 @@ function CcuCanvasContent() {
       startShipPrices
     };
 
-    // 使用ImportExportService导出数据
+    // Use ImportExportService to export data
     importExportService.exportToJsonFile(flowData);
   }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
   useEffect(() => {
-    // 使用ImportExportService加载数据
+    // Use ImportExportService to load data
     if (reactFlowInstance) {
       const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
       if (savedData) {
@@ -626,25 +623,22 @@ function CcuCanvasContent() {
 
   // Create path from path builder
   const handleCreatePath = useCallback((stepShips: Ship[][]) => {
-    // 使用PathBuilderService创建路径
+    // Use PathBuilderService to create path
     const { nodes: newNodes, edges: newEdges } = pathBuilderService.createPath({
       stepShips,
       ships,
-      ccus,
-      wbHistory,
-      hangarItems,
-      importItems
+      ...getServiceData()
     });
     
-    // 更新图表
+    // Update chart
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
 
-    // 如果实例存在，调整视图以显示所有节点
+    // If instance exists, adjust view to show all nodes
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [pathBuilderService, ships, ccus, wbHistory, hangarItems, importItems, setNodes, setEdges, reactFlowInstance]);
+  }, [pathBuilderService, ships, getServiceData, setNodes, setEdges, reactFlowInstance]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({

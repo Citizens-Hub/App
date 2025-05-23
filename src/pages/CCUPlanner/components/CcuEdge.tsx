@@ -35,14 +35,14 @@ export default function CcuEdge({
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
 
-  // 检查边是否属于任何已完成路径
+  // Check if the edge belongs to any completed path
   const isCompleted = useMemo(() => {
     if (!data?.sourceShip || !data?.targetShip) return false;
 
-    // 构建一个完整的Edge<CcuEdgeData>对象
+    // Build a complete Edge<CcuEdgeData> object
     const edge: Edge<CcuEdgeData> = {
       id,
-      source: '',  // 这些字段在检查中不使用
+      source: '',  // These fields are not used in the check
       target: '',
       data
     };
@@ -50,7 +50,7 @@ export default function CcuEdge({
     return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
   }, [data, id]);
 
-  // 检查边是否在当前选中的路径中
+  // Check if the edge is in the currently selected path
   const isInSelectedPath = useMemo(() => {
     if (!selectedPath || !data?.sourceShip || !data?.targetShip) return false;
 
@@ -59,7 +59,7 @@ export default function CcuEdge({
     );
   }, [selectedPath, id, data]);
 
-  // 创建边的样式
+  // Create edge style
   const edgeStyle = useMemo(() => {
     const baseStyle = { ...style };
 

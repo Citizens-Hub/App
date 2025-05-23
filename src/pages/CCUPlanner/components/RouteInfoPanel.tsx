@@ -6,7 +6,7 @@ import { InfoOutlined, CheckCircle } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store';
-import pathFinderService, { CompletePath } from '../services/PathFinderService';
+import { CompletePath } from '../services/PathFinderService';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
@@ -44,7 +44,12 @@ export default function RouteInfoPanel({
   onSelectedPathChange
 }: RouteInfoPanelProps) {
   // 从上下文获取数据
-  const { ccus, wbHistory, hangarItems, importItems, exchangeRates } = useCcuPlanner();
+  const {
+    importItems, 
+    exchangeRates,
+    pathFinderService,
+    getServiceData
+  } = useCcuPlanner();
   
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
@@ -58,7 +63,7 @@ export default function RouteInfoPanel({
 
   useEffect(() => {
     pathFinderService.loadCompletedPathsFromStorage();
-  }, []);
+  }, [pathFinderService]);
 
   useEffect(() => {
     const startNodes = pathFinderService.findStartNodes(edges, nodes);
@@ -68,7 +73,7 @@ export default function RouteInfoPanel({
         onStartShipPriceChange(node.id, node.data.ship.msrp / 100);
       }
     });
-  }, [nodes, edges, startShipPrices, onStartShipPriceChange]);
+  }, [nodes, edges, startShipPrices, onStartShipPriceChange, pathFinderService]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -129,12 +134,7 @@ export default function RouteInfoPanel({
             [],
             Number(startPrice),
             0,
-            {
-              ccus,
-              wbHistory,
-              hangarItems,
-              importItems
-            }
+            getServiceData()
           );
           console.log(`Found ${paths.length} paths from node ${startNode.id}`);
           allPathIds.push(...paths);
@@ -143,12 +143,7 @@ export default function RouteInfoPanel({
         }
       });
 
-      const completePaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, {
-        ccus,
-        wbHistory,
-        hangarItems,
-        importItems
-      });
+      const completePaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, getServiceData());
 
       console.log('Final number of complete paths:', completePaths.length);
       return completePaths;
@@ -156,7 +151,7 @@ export default function RouteInfoPanel({
       console.error('Error during path calculation:', error);
       return [];
     }
-  }, [selectedNode, edges, nodes, startShipPrices, ccus, wbHistory, hangarItems, importItems, exchangeRate, conciergeValue, pruneOpt]);
+  }, [selectedNode, edges, nodes, pathFinderService, startShipPrices, getServiceData, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };
@@ -210,19 +205,9 @@ export default function RouteInfoPanel({
             // Hangar CCUs are not counted in the new investment
             if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
               if (edge.edge.data?.sourceType !== CcuSourceType.THIRD_PARTY) {
-                newUsdCost += pathFinderService.getPriceInfo(edge.edge, {
-                  ccus,
-                  wbHistory,
-                  hangarItems,
-                  importItems
-                }).usdPrice;
+                newUsdCost += pathFinderService.getPriceInfo(edge.edge, getServiceData()).usdPrice;
               } else {
-                newCnyCost += pathFinderService.getPriceInfo(edge.edge, {
-                  ccus,
-                  wbHistory,
-                  hangarItems,
-                  importItems
-                }).tpPrice;
+                newCnyCost += pathFinderService.getPriceInfo(edge.edge, getServiceData()).tpPrice;
               }
             }
           }
@@ -240,7 +225,7 @@ export default function RouteInfoPanel({
     return {
       paths: completePaths.sort(sortPaths)
     };
-  }, [completePaths, sortByNewInvestment, exchangeRate, conciergeValue, startShipPrices, ccus, wbHistory, hangarItems, importItems]);
+  }, [completePaths, sortByNewInvestment, pathFinderService, exchangeRate, conciergeValue, startShipPrices, getServiceData]);
 
   const sortedPaths = useMemo(() => {
     return sortedPathsGroups.paths;
@@ -329,15 +314,10 @@ export default function RouteInfoPanel({
       const edge = path.edges[i];
       // Hangar CCUs are not counted in the new investment
       if (edge.edge.data?.sourceType !== CcuSourceType.HANGER) {
-        const priceInfo = pathFinderService.getPriceInfo(edge.edge, {
-          ccus,
-          wbHistory,
-          hangarItems,
-          importItems
-        });
+        const priceInfo = pathFinderService.getPriceInfo(edge.edge, getServiceData());
         
         if (edge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
-          // 处理订阅CCU，将其添加到第三方成本中，并进行货币转换
+          // Handle subscription CCU, add it to third-party cost, and perform currency conversion
           let subPrice = priceInfo.tpPrice;
           subPrice = subPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];
           newCnyCost += subPrice;
@@ -655,12 +635,7 @@ export default function RouteInfoPanel({
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
                           // eslint-disable-next-line prefer-const
-                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, {
-                            ccus,
-                            wbHistory,
-                            hangarItems,
-                            importItems
-                          });
+                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, getServiceData());
 
                           if (pathEdge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
                             tpPrice = tpPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];

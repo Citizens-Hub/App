@@ -7,9 +7,9 @@ import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
 import pathFinderService from '../services/PathFinderService';
-import { CcuPlannerContext, CcuPlannerContextType } from './useCcuPlanner';
+import { CcuPlannerContext, CcuPlannerContextType, ServiceData } from './useCcuPlanner';
 
-// 提供上下文的Provider组件
+// Provider component for the context
 interface CcuPlannerProviderProps {
   children: ReactNode;
   ships: Ship[];
@@ -29,18 +29,18 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   exchangeRates,
   setAlert
 }) => {
-  // 从Redux获取升级和导入项
+  // Get upgrades and import items from Redux
   const upgrades = useSelector(selectHangarItems);
   const importItems = useSelector(selectImportItems);
   
-  // 初始化服务
+  // Initialize services
   const edgeService = useMemo(() => new CcuEdgeService(), []);
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
   const importExportService = useMemo(() => new ImportExportService(), []);
   
-  // 从upgrades转换为HangarItem格式
+  // Convert upgrades to HangarItem format
   const hangarItems: HangarItem[] = useMemo(() => upgrades.ccus.map(upgrade => ({
-    id: Date.now() + Math.random(), // 生成唯一ID
+    id: Date.now() + Math.random(), // Generate unique ID
     name: upgrade.name,
     type: 'ccu',
     fromShip: upgrade.parsed.from,
@@ -48,19 +48,19 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
     price: upgrade.value
   })), [upgrades.ccus]);
   
-  // 处理路径完成状态变化
+  // Handle path completion status change
   const handlePathCompletionChange = useCallback((showAlert: boolean = true) => {
-    // 如果需要显示提示
+    // If alert needs to be shown
     if (showAlert) {
       setAlert({
         open: true,
-        message: '路径完成状态已成功更新！',
+        message: 'Path completion status updated successfully!',
         type: 'success'
       });
     }
   }, [setAlert]);
   
-  // 显示提示的通用方法
+  // General method to show alerts
   const showAlert = useCallback((message: string, type: "success" | "error" | "warning" = "success") => {
     setAlert({
       open: true,
@@ -69,12 +69,22 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
     });
   }, [setAlert]);
   
-  // 初始化时加载已完成的路径
+  // Add convenient method to get service data
+  const getServiceData = useCallback((): ServiceData => {
+    return {
+      ccus,
+      wbHistory,
+      hangarItems,
+      importItems
+    };
+  }, [ccus, wbHistory, hangarItems, importItems]);
+  
+  // Load completed paths on initialization
   useEffect(() => {
     pathFinderService.loadCompletedPathsFromStorage();
   }, []);
   
-  // 组织上下文值
+  // Organize context values
   const contextValue: CcuPlannerContextType = {
     ships,
     ccus,
@@ -85,6 +95,8 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
     edgeService,
     pathBuilderService,
     importExportService,
+    pathFinderService,
+    getServiceData,
     handlePathCompletionChange,
     showAlert
   };

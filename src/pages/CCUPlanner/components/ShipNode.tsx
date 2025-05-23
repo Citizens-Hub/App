@@ -30,7 +30,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const intl = useIntl();
   const { locale } = intl;
   
-  // 从上下文获取数据和服务
+  // Get data and services from context
   const { ccus, wbHistory, hangarItems, importItems, edgeService } = useCcuPlanner();
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
@@ -143,7 +143,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         if (edge && edge.data) {
           const sourceId = edge.source;
           
-          // 使用CcuEdgeService更新边数据
+          // Use CcuEdgeService to update edge data
           const updatedData = edgeService.updateEdgeData(
             edge.data,
             currentSourceType,
