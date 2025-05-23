@@ -365,7 +365,7 @@ export class SubscriptionStrategy implements CcuSourceTypeStrategy {
   }
   
   getDisplayName(intl: IntlShape): string {
-    return intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "订阅" });
+    return intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "Subscription" });
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
