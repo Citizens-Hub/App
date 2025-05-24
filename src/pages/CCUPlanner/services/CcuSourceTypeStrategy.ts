@@ -160,8 +160,8 @@ export class OfficialWbStrategy implements CcuSourceTypeStrategy {
   
   getEdgeStyle(): { edgeColor: string; bgColor: string; } {
     return {
-      edgeColor: 'stroke-red-500',
-      bgColor: 'bg-red-600'
+      edgeColor: 'stroke-lime-500',
+      bgColor: 'bg-lime-500'
     };
   }
   
@@ -224,28 +224,6 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
-    // // 首先检查是否提供了customPrice
-    // if (options?.customPrice !== undefined) {
-    //   return {
-    //     price: options.customPrice,
-    //     currency: 'USD'
-    //   };
-    // }
-    
-    // // 使用HangarCCUDataProvider获取价格
-    // const dataProvider = HangarCCUDataProvider.getInstance();
-    // const price = dataProvider.getHangarCCUPrice(sourceShip.name, targetShip.name);
-
-    // console.log('price', price, sourceShip.name, targetShip.name);
-    
-    // // 如果在数据提供者中找到价格，则使用它
-    // if (price !== undefined) {
-    //   return {
-    //     price,
-    //     currency: 'USD'
-    //   };
-    // }
-
     const hangarItems = options?.hangarItems || [];
     
     const hangarCcu = hangarItems.find(item => {
