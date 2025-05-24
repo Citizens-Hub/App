@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
-import { Ship, CcuSourceType, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { selectHangarItems } from '../../../store/upgradesStore';
 import { RootState } from '../../../store';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CcuEdgeService } from '../services/CcuEdgeService';
-import { selectImportItems } from '../../../store/importStore';
+import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface ShipNodeProps {
   data: {
@@ -19,8 +17,6 @@ interface ShipNodeProps {
     onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
-    ccus: Ccu[];
-    wbHistory: WbHistoryData[];
   };
   xPos: number;
   yPos: number;
@@ -29,15 +25,15 @@ interface ShipNodeProps {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [], ccus, wbHistory } = data;
+  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const { locale } = intl;
-  const edgeService = useMemo(() => new CcuEdgeService(), []);
+  
+  // Get data and services from context
+  const { ccus, wbHistory, hangarItems, importItems, edgeService } = useCcuPlanner();
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
-  const upgrades = useSelector(selectHangarItems);
-  const importItems = useSelector(selectImportItems);
   
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
@@ -147,7 +143,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         if (edge && edge.data) {
           const sourceId = edge.source;
           
-          // 使用CcuEdgeService更新边数据
+          // Use CcuEdgeService to update edge data
           const updatedData = edgeService.updateEdgeData(
             edge.data,
             currentSourceType,
@@ -280,19 +276,17 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                     </option>
                   )}
                   {
-                    upgrades.ccus.find(upgrade => {
-                      const from = upgrade.parsed.from.toUpperCase()
-                      const to = upgrade.parsed.to.toUpperCase()
-
-                      return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
-                    }) && <option value={CcuSourceType.HANGER}>
+                    hangarItems.find(item => 
+                      item.fromShip && item.toShip &&
+                      item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() && 
+                      item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
+                    ) && <option value={CcuSourceType.HANGER}>
                       {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
-                      {upgrades.ccus.find(upgrade => {
-                        const from = upgrade.parsed.from.toUpperCase()
-                        const to = upgrade.parsed.to.toUpperCase()
-
-                        return from === edge.data?.sourceShip?.name.trim().toUpperCase() && to === edge.data?.targetShip?.name.trim().toUpperCase()
-                      })?.value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                      {hangarItems.find(item => 
+                        item.fromShip && item.toShip &&
+                        item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() && 
+                        item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
+                      )?.price?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                     </option>
                   }
                   <option value={CcuSourceType.OFFICIAL_WB}>

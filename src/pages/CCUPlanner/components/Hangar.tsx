@@ -24,7 +24,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // 添加过滤选项状态
+  // Add filter option states
   const [showNormalCCU, setShowNormalCCU] = useState(true);
   const [showBuybackCCU, setShowBuybackCCU] = useState(true);
   const [showSubscriptionCCU, setShowSubscriptionCCU] = useState(true);
@@ -39,7 +39,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   };
 
 
-  // 合并本地升级和导入的升级数据
+  // Merge local upgrades and imported upgrade data
   const allUpgrades = [
     ...upgrades.ccus,
     ...importItems
@@ -68,15 +68,15 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     const to = upgrade.parsed.to.toLowerCase();
     const query = searchQuery.toLowerCase();
 
-    // 应用文本搜索过滤
+    // Apply text search filtering
     const matchesSearch = from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
 
-    // 应用类型过滤
+    // Apply type filtering
     const isNormal = !upgrade.isBuyBack && !upgrade.isSubscription;
     const isBuyback = upgrade.isBuyBack;
     const isSubscription = upgrade.isSubscription;
 
-    // 只显示选中的类型
+    // Only show selected types
     const matchesType =
       (isNormal && showNormalCCU) ||
       (isBuyback && showBuybackCCU) ||
@@ -85,18 +85,18 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     return matchesSearch && matchesType;
   });
 
-  // 计算总页数
+  // Calculate total pages
   const totalPages = Math.ceil(filteredUpgrades.length / itemsPerPage);
 
-  // 获取当前页的数据并按照升级到的舰船价值从低到高排序
+  // Get current page data and sort by upgrade to ship value from low to high
   const currentItems = filteredUpgrades
     .sort((a, b) => {
-      // 首先按是否为buyback排序
+      // First sort by whether it's a buyback
       if (a.isBuyBack !== b.isBuyBack) {
         return a.isBuyBack ? 1 : -1;
       }
 
-      // 然后按升级到的舰船价值从低到高排序
+      // Then sort by upgrade to ship value from low to high
       const toShipA = ships.find(ship => ship.name.toUpperCase().trim() === a.parsed.to.toUpperCase().trim());
       const toShipB = ships.find(ship => ship.name.toUpperCase().trim() === b.parsed.to.toUpperCase().trim());
 
@@ -108,18 +108,18 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     })
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // 处理页面变化
+  // Handle page change
   const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
   };
 
-  // 当筛选条件改变时，重置页码到第一页
+  // Reset page number to first page when filter conditions change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
 
-  // 处理过滤选项变化
+  // Handle filter option changes
   const handleFilterChange = (
     setter: React.Dispatch<React.SetStateAction<boolean>>,
     checked: boolean

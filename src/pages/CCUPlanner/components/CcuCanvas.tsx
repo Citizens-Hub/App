@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuEdgeData, Ccu, WbHistoryData, HangarItem } from '../../../types';
+import { Ship, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -33,11 +33,9 @@ import PathBuilder from './PathBuilder';
 import UserSelector from '../../../components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
-import { CcuEdgeService } from '../services/CcuEdgeService';
-import PathBuilderService from '../services/PathBuilderService';
-import ImportExportService from '../services/ImportExportService';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
-import { selectImportItems } from '../../../store/importStore';
+import { CcuPlannerProvider } from '../context/CcuPlannerContext';
+import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -49,15 +47,6 @@ interface CcuCanvasProps {
 }
 
 export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: CcuCanvasProps) {
-  const intl = useIntl();
-  const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
-  const isMobile = useMediaQuery('(max-width: 644px)');
   const [alert, setAlert] = useState<{
     open: boolean,
     message: string,
@@ -67,26 +56,74 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     message: "",
     type: "success"
   });
+  
+  // Wrap all content in CcuPlannerProvider
+  return (
+    <CcuPlannerProvider 
+      ships={ships} 
+      ccus={ccus} 
+      wbHistory={wbHistory}
+      exchangeRates={exchangeRates}
+      setAlert={setAlert}
+    >
+      <CcuCanvasContent />
+      <Snackbar
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'center'
+        }}
+        open={alert.open}
+        autoHideDuration={6000}
+        onClose={() => setAlert(prev => ({...prev, open: false}))}
+      >
+        <Alert
+          onClose={() => setAlert(prev => ({...prev, open: false}))}
+          severity={alert.type}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {alert.message}
+        </Alert>
+      </Snackbar>
+    </CcuPlannerProvider>
+  );
+}
+
+// Move main functionality to this child component
+function CcuCanvasContent() {
+  const intl = useIntl();
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
+  const isMobile = useMediaQuery('(max-width: 644px)');
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
 
-  // const upgrades = useSelector((state: RootState) => state.upgrades.items);
+  // Use data from context
+  const { 
+    ships, 
+    ccus, 
+    wbHistory, 
+    hangarItems, 
+    edgeService,
+    pathBuilderService,
+    importExportService,
+    handlePathCompletionChange,
+    showAlert,
+    getServiceData
+  } = useCcuPlanner();
+  
+  // Get upgrade items from Redux
   const upgrades = useSelector(selectHangarItems);
-  const importItems = useSelector(selectImportItems);
-  // 初始化服务
-  const edgeService = useMemo(() => new CcuEdgeService(), []);
-  const pathBuilderService = useMemo(() => new PathBuilderService(), []);
-  const importExportService = useMemo(() => new ImportExportService(), []);
 
-  // 从本地存储加载已完成的路径
-  useEffect(() => {
-    pathFinderService.loadCompletedPathsFromStorage();
-  }, []);
-
-  // 处理路径完成状态变化，刷新边的样式
-  const handlePathCompletionChange = useCallback((showAlert: boolean = true) => {
-    // 通过创建新的边数据引用来触发边的重新渲染
+  // Handle path completion status change, refresh edge styles
+  const refreshEdgesOnPathCompletion = useCallback((showAlert: boolean = true) => {
+    // Trigger edge re-rendering by creating new edge data references
     setEdges(currentEdges => {
       return currentEdges.map(edge => {
         if (edge.data) {
@@ -101,28 +138,9 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       });
     });
     
-    // 显示成功提示
-    if (showAlert) {
-      setAlert({
-        open: true,
-        message: intl.formatMessage({ 
-          id: 'ccuPlanner.success.pathStatusUpdated', 
-          defaultMessage: 'Path completion status updated successfully!' 
-        }),
-        type: 'success'
-      });
-    }
-  }, [setEdges, intl]);
-
-  // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = useMemo(() => upgrades.ccus.map(upgrade => ({
-    id: Date.now() + Math.random(), // Generate unique ID
-    name: upgrade.name,
-    type: 'ccu',
-    fromShip: upgrade.parsed.from,
-    toShip: upgrade.parsed.to,
-    price: upgrade.value
-  })), [upgrades.ccus]);
+    // Call the method in context to handle alerts
+    handlePathCompletionChange(showAlert);
+  }, [setEdges, handlePathCompletionChange]);
 
   // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
@@ -131,11 +149,6 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       [nodeId]: price
     }));
   }, []);
-
-  const handleClose = () => setAlert((prev) => ({
-    ...prev,
-    open: false
-  }))
 
   // Handle connection creation
   const onConnect = useCallback(
@@ -150,17 +163,21 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         // Use edgeService.canCreateEdge method to check if an edge can be created
         if (!edgeService.canCreateEdge(sourceShip, targetShip)) {
           if (sourceShip.msrp === 0) {
-            setAlert({
-              open: true,
-              message: intl.formatMessage({ id: 'ccuPlanner.error.sourceShipPriceZero', defaultMessage: 'Cannot upgrade from this ship as its price is zero.' }),
-              type: 'warning'
-            })
+            showAlert(
+              intl.formatMessage({ 
+                id: 'ccuPlanner.error.sourceShipPriceZero', 
+                defaultMessage: 'Cannot upgrade from this ship as its price is zero.' 
+              }),
+              'warning'
+            );
           } else {
-            setAlert({
-              open: true,
-              message: intl.formatMessage({ id: 'ccuPlanner.error.lowerToHigher', defaultMessage: 'CCU can only be upgraded from lower-priced ships to higher-priced ships.' }),
-              type: 'warning'
-            })
+            showAlert(
+              intl.formatMessage({ 
+                id: 'ccuPlanner.error.lowerToHigher', 
+                defaultMessage: 'CCU can only be upgraded from lower-priced ships to higher-priced ships.' 
+              }),
+              'warning'
+            );
           }
           return;
         }
@@ -175,11 +192,13 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
         // If target ship price is 0 and no hangar CCU, disallow upgrade
         if (targetShip.msrp === 0 && !hangarCcu) {
-          setAlert({
-            open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.targetShipPriceZero', defaultMessage: 'This ship can only be upgraded using a hangar CCU as its price is zero.' }),
-            type: 'warning'
-          })
+          showAlert(
+            intl.formatMessage({ 
+              id: 'ccuPlanner.error.targetShipPriceZero', 
+              defaultMessage: 'This ship can only be upgraded using a hangar CCU as its price is zero.' 
+            }),
+            'warning'
+          );
           return;
         }
 
@@ -197,32 +216,21 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
         // If a path already exists, do not create a new connection
         if (hasExistingPath(sourceNode, targetNode.id)) {
-          setAlert({
-            open: true,
-            message: intl.formatMessage({ id: 'ccuPlanner.error.pathExists', defaultMessage: 'A path already exists from the source ship to the target ship. Duplicate connections are not allowed.' }),
-            type: 'warning'
-          })
+          showAlert(
+            intl.formatMessage({ 
+              id: 'ccuPlanner.error.pathExists', 
+              defaultMessage: 'A path already exists from the source ship to the target ship. Duplicate connections are not allowed.' 
+            }),
+            'warning'
+          );
           return;
         }
-
-        // Prepare hangar items list
-        const hangarItems = upgrades.ccus.map(upgrade => ({
-          id: Date.now() + Math.random(), // Generate unique ID
-          name: upgrade.name,
-          type: 'ccu',
-          fromShip: upgrade.parsed.from,
-          toShip: upgrade.parsed.to,
-          price: upgrade.value
-        }));
 
         // Use edgeService to create edge data
         const edgeData = edgeService.createEdgeData({
           sourceShip,
           targetShip,
-          ccus,
-          wbHistory,
-          hangarItems,
-          importItems
+          ...getServiceData()
         });
 
         const newEdge = {
@@ -236,7 +244,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, edgeService, upgrades.ccus, ccus, wbHistory, importItems, setEdges, intl, edges]
+    [nodes, edgeService, setEdges, intl, edges, getServiceData, showAlert, upgrades.ccus]
   );
 
   const updateEdgeData = useCallback(
@@ -353,40 +361,37 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       setEdges(importedData.edges);
       setStartShipPrices(importedData.startShipPrices);
 
-      // 清理已完成路径，避免与新导入的路径混淆
+      // Clean up completed paths to avoid confusion with newly imported paths
       pathFinderService.clearCompletedPaths();
       
-      // 刷新边的状态，但不显示提示消息
-      handlePathCompletionChange(false);
+      // Refresh edge status without showing notification messages
+      refreshEdgesOnPathCompletion(false);
 
       if (reactFlowInstance) {
         importExportService.adjustViewToShowAllNodes(reactFlowInstance);
       }
       
-      // 显示导入成功的提示
-      setAlert({
-        open: true,
-        message: intl.formatMessage({ 
+      // Display import success notification
+      showAlert(
+        intl.formatMessage({ 
           id: 'ccuPlanner.success.imported', 
           defaultMessage: 'CCU upgrade path imported successfully!' 
-        }),
-        type: 'success'
-      });
+        })
+      );
 
       return true;
     } catch (error) {
       console.error('Error importing JSON file:', error);
-      setAlert({
-        open: true,
-        message: intl.formatMessage(
+      showAlert(
+        intl.formatMessage(
           { id: 'ccuPlanner.error.importFailed', defaultMessage: 'Import failed: {errorMessage}' },
           { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: 'Invalid JSON format' }) }
         ),
-        type: 'error'
-      });
+        'error'
+      );
       return false;
     }
-  }, [importExportService, ships, hangarItems, wbHistory, ccus, setNodes, setEdges, handlePathCompletionChange, reactFlowInstance, intl]);
+  }, [importExportService, ships, hangarItems, wbHistory, ccus, setNodes, setEdges, refreshEdgesOnPathCompletion, reactFlowInstance, intl, showAlert]);
 
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
@@ -477,25 +482,23 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     setEdges([]);
     setStartShipPrices({});
 
-    // 清理已完成路径状态
+    // Clean up completed path states
     pathFinderService.clearCompletedPaths();
     
-    // 刷新边的状态，但不显示提示消息
-    handlePathCompletionChange(false);
+    // Refresh edge status without showing notification messages
+    refreshEdgesOnPathCompletion(false);
 
-    // 使用ImportExportService清空数据
+    // Use ImportExportService to clear data
     importExportService.clearFlowData();
 
-    // 显示成功提示
-    setAlert({
-      open: true,
-      message: intl.formatMessage({ 
+    // Display success notification
+    showAlert(
+      intl.formatMessage({ 
         id: 'ccuPlanner.success.cleared', 
         defaultMessage: 'Canvas cleared successfully!' 
-      }),
-      type: 'success'
-    });
-  }, [setNodes, setEdges, importExportService, intl, handlePathCompletionChange]);
+      })
+    );
+  }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert]);
 
   const handleSave = useCallback(() => {
     if (!nodes.length) return;
@@ -506,15 +509,16 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       startShipPrices
     };
 
-    // 使用ImportExportService保存数据
+    // Use ImportExportService to save data
     importExportService.saveToLocalStorage(flowData);
 
-    setAlert({
-      open: true,
-      message: intl.formatMessage({ id: 'ccuPlanner.success.saved', defaultMessage: 'CCU upgrade path saved successfully!' }),
-      type: 'success'
-    });
-  }, [nodes, edges, startShipPrices, intl, importExportService]);
+    showAlert(
+      intl.formatMessage({ 
+        id: 'ccuPlanner.success.saved', 
+        defaultMessage: 'CCU upgrade path saved successfully!' 
+      })
+    );
+  }, [nodes, edges, startShipPrices, intl, importExportService, showAlert]);
 
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
@@ -527,12 +531,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       startShipPrices
     };
 
-    // 使用ImportExportService导出数据
+    // Use ImportExportService to export data
     importExportService.exportToJsonFile(flowData);
   }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
   useEffect(() => {
-    // 使用ImportExportService加载数据
+    // Use ImportExportService to load data
     if (reactFlowInstance) {
       const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
       if (savedData) {
@@ -619,25 +623,22 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
   // Create path from path builder
   const handleCreatePath = useCallback((stepShips: Ship[][]) => {
-    // 使用PathBuilderService创建路径
+    // Use PathBuilderService to create path
     const { nodes: newNodes, edges: newEdges } = pathBuilderService.createPath({
       stepShips,
       ships,
-      ccus,
-      wbHistory,
-      hangarItems,
-      importItems
+      ...getServiceData()
     });
     
-    // 更新图表
+    // Update chart
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
 
-    // 如果实例存在，调整视图以显示所有节点
+    // If instance exists, adjust view to show all nodes
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [pathBuilderService, ships, ccus, wbHistory, hangarItems, importItems, setNodes, setEdges, reactFlowInstance]);
+  }, [pathBuilderService, ships, getServiceData, setNodes, setEdges, reactFlowInstance]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({
@@ -707,12 +708,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
               onClose={closeRouteInfoPanel}
               startShipPrices={startShipPrices}
               onStartShipPriceChange={handleStartShipPriceChange}
-              exchangeRates={exchangeRates}
-              onPathCompletionChange={handlePathCompletionChange}
-              ccus={ccus}
-              wbHistory={wbHistory}
-              hangarItems={hangarItems}
-              importItems={importItems}
+              onPathCompletionChange={refreshEdgesOnPathCompletion}
               onSelectedPathChange={handleSelectedPathChange}
             />
           )}
@@ -727,33 +723,10 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         onChange={handleFileSelect}
       />
 
-      <Snackbar
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'center'
-        }}
-        open={alert.open}
-        autoHideDuration={6000}
-        onClose={handleClose}
-      >
-        <Alert
-          onClose={handleClose}
-          severity={alert.type}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {alert.message}
-        </Alert>
-      </Snackbar>
-
       {/* Path Planner */}
       <PathBuilder
         open={pathBuilderOpen}
         onClose={handleClosePathBuilder}
-        ships={ships}
-        ccus={ccus}
-        wbHistory={wbHistory}
-        hangarItems={hangarItems}
         onCreatePath={handleCreatePath}
       />
 
