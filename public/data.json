@@ -5,6 +5,174 @@
                 "listing": {
                     "resources": [
                         {
+                            "id": "18288",
+                            "slug": "pbh0tzm9rqcz9",
+                            "name": "ASD Bomber Jacket",
+                            "title": "ASD Bomber Jacket",
+                            "subtitle": "Subscribers Store",
+                            "url": "\/pledge\/Subscribers-Store\/ASD-Bomber-Jacket",
+                            "body": "* This is not a GAME PACKAGE. Please note a <a href=\"https:\/\/robertsspaceindustries.com\/pledge\/game-packages\">GAME PACKAGE<\/a> is required to play the game and fly or access your ships.",
+                            "excerpt": "Originally exclusive to ASD workers in the Biological Research Division, this synthetic leather jacket has the look, feel, and smell of the real thing. The company's logo is featured on the front and back.\n\n_This flair item is temporarily delayed and will be available in an upcoming patch._",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https:\/\/media.robertsspaceindustries.com\/3c26eqt5jf4ee\/slideshow.jpg",
+                                    "storeSmall": "https:\/\/media.robertsspaceindustries.com\/3c26eqt5jf4ee\/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https:\/\/media.robertsspaceindustries.com\/3c26eqt5jf4ee\/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 400,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 400,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "label": "ASD Bomber Jacket",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "18289",
+                            "slug": "aplwyowtvwa9t",
+                            "name": "Irradiated Valakkar Diorama",
+                            "title": "Irradiated Valakkar Diorama",
+                            "subtitle": "Subscribers Store",
+                            "url": "\/pledge\/Subscribers-Store\/Irradiated-Valakkar-Diorama",
+                            "body": "* This is not a GAME PACKAGE. Please note a <a href=\"https:\/\/robertsspaceindustries.com\/pledge\/game-packages\">GAME PACKAGE<\/a> is required to play the game and fly or access your ships.",
+                            "excerpt": "Irradiated by toxic storms on Pyro I, the valakkar bursts from the ground in this decorative hangar diorama.\n\n_This flair item is temporarily delayed and will be available in an upcoming patch._",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https:\/\/media.robertsspaceindustries.com\/4ylyg7viasrni\/slideshow.jpg",
+                                    "storeSmall": "https:\/\/media.robertsspaceindustries.com\/4ylyg7viasrni\/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https:\/\/media.robertsspaceindustries.com\/4ylyg7viasrni\/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 700,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 700,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "label": "Irradiated Valakkar Diorama",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "18290",
+                            "slug": "cbf3bj96hg7go",
+                            "name": "ASD Jacket & Irradiated Valakkar Diorama",
+                            "title": "ASD Jacket & Irradiated Valakkar Diorama",
+                            "subtitle": "Subscribers Store",
+                            "url": "\/pledge\/Subscribers-Store\/ASD-Jacket-Irradiated-Valakkar-Diorama",
+                            "body": "* This is not a GAME PACKAGE. Please note a <a href=\"https:\/\/robertsspaceindustries.com\/pledge\/game-packages\">GAME PACKAGE<\/a> is required to play the game and fly or access your ships.",
+                            "excerpt": "Includes the in-game ASD Bomber Jacket and Irradiated Valakkar Diorama.\n\n_This flair item is temporarily delayed and will be available in an upcoming patch._",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https:\/\/media.robertsspaceindustries.com\/evayetpiri12a\/slideshow.jpg",
+                                    "storeSmall": "https:\/\/media.robertsspaceindustries.com\/evayetpiri12a\/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https:\/\/media.robertsspaceindustries.com\/evayetpiri12a\/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 1100,
+                                "discounted": 935,
+                                "discountDescription": "15%",
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 1100,
+                                "discounted": 935,
+                                "taxDescription": [],
+                                "discountDescription": "15%",
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "label": "ASD Jacket & Irradiated Valakkar Diorama",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": true,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
                             "id": "18104",
                             "slug": "7vvpu3ukxrcss",
                             "name": "Idris-P T-Shirt",
