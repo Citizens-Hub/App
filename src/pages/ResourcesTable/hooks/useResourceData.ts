@@ -21,7 +21,7 @@ export default function useResourceData() {
         const data: ResourcesData[] = await response.json();
         setResources(data[0].data.store.listing.resources);
 
-        const exchangeRateResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
+        const exchangeRateResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/currency`, {
           signal: abortController.signal
         });
         if (!exchangeRateResponse.ok) {
