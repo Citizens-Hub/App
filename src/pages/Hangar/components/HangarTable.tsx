@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
 import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
-import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight } from "lucide-react";
+import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight, Archive } from "lucide-react";
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
@@ -478,6 +478,28 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       </Box>
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 2 }}>
+          <Typography variant="h6" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormattedMessage id="hangar.totalValue" defaultMessage="Hangar value:" />
+            {filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+          </Typography>
+          <Typography variant="h6" color="secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormattedMessage id="hangar.totalMsrp" defaultMessage="MSRP:" />
+            {(filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => {
+              // Calculate upgrade value if exists
+              const upgradeValue = item.to?.msrp && item.from?.msrp ? item.to.msrp - item.from.msrp : 0;
+              
+              // Calculate ships value if exists
+              const shipsValue = item.ships?.reduce((shipSum, ship) => {
+                if (!ship?.name) return shipSum;
+                const matchingShip = ships.find(s => s.name.toUpperCase().trim() === ship.name?.toUpperCase().trim());
+                return shipSum + (matchingShip?.msrp || 0);
+              }, 0) || 0;
+
+              return sum + upgradeValue * (item.quantity || 1) + shipsValue;
+            }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+          </Typography>
+        </Box>
         <TableContainer sx={{ mb: 2 }}>
           <Table aria-label="Equipment table">
             <TableHead>
@@ -609,7 +631,14 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             }
                             {users.find(user => user.id === item.belongsTo)?.nickname || '-'}
                           </span>
-                        </span>{item.type === 'Bundle' && (
+                        </span>
+                        {item.quantity && <span className='text-md font-bold flex flex-col'>
+                          <span className='text-gray-500 dark:text-gray-400 flex items-center gap-2'>
+                            <Archive className='w-4 h-4' />
+                            {item.quantity}
+                          </span>
+                        </span>}
+                        {item.type === 'Bundle' && (
                           <div className="flex items-center">
                             <Button
                               size="small"
