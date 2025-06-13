@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
 import { selectUsersHangarItems } from "../../../store/upgradesStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, } from "@mui/material";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, Inbox } from "lucide-react";
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
@@ -256,15 +256,17 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   </TableCell>
                   <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
                   <TableCell sx={{ textWrap: 'nowrap' }}>
-                    <Link
-                      to={
-                        item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
-                          `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&product-type=upgrade&pagesize=1`
-                      }
-                      target="_blank"
-                    >
-                      <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
-                    </Link>
+                    {!!item.pageId &&
+                      <Link
+                        to={
+                          item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
+                            `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&product-type=upgrade&pagesize=1`
+                        }
+                        target="_blank"
+                      >
+                        <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
+                      </Link>
+                    }
                   </TableCell>
                 </TableRow>
               ))}
