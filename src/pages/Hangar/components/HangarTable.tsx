@@ -618,7 +618,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   </TableRow>
                   {item.type === 'Bundle' && item.ships && item.ships.length > 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} sx={{ py: 0 }}>
+                      <TableCell colSpan={4} sx={{ py: 0, border: expandedBundles[item.id] ? '' : 'none' }}>
                         <Collapse in={expandedBundles[item.id]} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
