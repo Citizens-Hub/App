@@ -23,7 +23,7 @@ export default function useCcuPlannerData() {
 
     const fetchData = async () => {
       try {
-        const [ccusResponse, shipsResponse, wbHistoryResponse, exchangeRateResponse] = await Promise.all([
+        const [ccusResponse, shipsResponse, wbHistoryResponse] = await Promise.all([
           fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/ccus`, {
             signal: abortController.signal
           }),
@@ -32,27 +32,35 @@ export default function useCcuPlannerData() {
           }),
           fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wbs/history`, {
             signal: abortController.signal
-          }),
-          fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
-            signal: abortController.signal
           })
         ]);
 
-        if (!ccusResponse.ok || !shipsResponse.ok || !wbHistoryResponse.ok || !exchangeRateResponse.ok) {
+        if (!ccusResponse.ok || !shipsResponse.ok || !wbHistoryResponse.ok) {
           throw new Error('Network response error');
         }
 
-        const [ccusData, shipsData, wbHistoryData, exchangeRateData] = await Promise.all([
+        const [ccusData, shipsData, wbHistoryData] = await Promise.all([
           ccusResponse.json(),
           shipsResponse.json(),
-          wbHistoryResponse.json(),
-          exchangeRateResponse.json()
+          wbHistoryResponse.json()
         ]);
 
         setCcus(ccusData.data.to.ships);
         setShips(shipsData.data.ships.sort((a: Ship, b: Ship) => a.msrp - b.msrp));
         setWbHistory(wbHistoryData.data);
-        setExchangeRates(exchangeRateData.usd);
+        
+        try {
+          const exchangeRateResponse = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', {
+            signal: abortController.signal
+          });
+          
+          if (exchangeRateResponse.ok) {
+            const exchangeRateData = await exchangeRateResponse.json();
+            setExchangeRates(exchangeRateData.usd);
+          }
+        } catch (rateErr) {
+          console.error('Error fetching exchange rates:', rateErr);
+        }
         
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
