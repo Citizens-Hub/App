@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle } from "../store/upgradesStore";
+import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle, OtherItem } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton, LinearProgress } from "@mui/material";
@@ -28,7 +28,7 @@ interface RequestItem {
   requestId?: number | string;
 }
 
-type ItemType = "Insurance" | "Ship" | undefined;
+type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "Hangar pass" | undefined;
 type InsuranceType = "LTI" | "Other"
 
 export default function Crawler({ ships }: { ships: Ship[] }) {
@@ -158,10 +158,12 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
       let currentInsurance: InsuranceType = "Other"
       const currentShips: Ship[] = []
+      const currentOthers: OtherItem[] = []
 
       items.forEach(item => {
         const itemType: ItemType = item.querySelector('.kind')?.textContent as ItemType;
         const itemName = item.querySelector('.title')?.textContent;
+        const itemImage = item.querySelector('.image')?.getAttribute('style')?.slice(22, -3).replace(/"/g, "");
 
         switch (itemType) {
           case "Insurance":
@@ -173,8 +175,42 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
               if (ship) currentShips.push(ship)
               break;
             }
+          default:
+            currentOthers.push({
+              id: id,
+              name: itemName || "Unknown Item",
+              withImage: !!item.querySelectorAll(".image").length,
+              image: itemImage?.startsWith("https://") ? itemImage : `https://robertsspaceindustries.com/${itemImage}`,
+              type: itemType || "",
+              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+              isBuyBack: false,
+              canGift: !!li.querySelector('.gift'),
+              belongsTo: userRef.current?.id,
+              pageId: id,
+            })
+            break;
         }
       })
+
+      // bundle
+      if (currentShips.length > 1 || currentOthers.length > 0) {
+        dispatch(addBundle({
+          ships: currentShips.map(ship => ({
+            id: ship.id,
+            name: ship.name
+          })),
+          others: currentOthers,
+          name: bundleName || "Unknown Bundle",
+          insurance: currentInsurance,
+          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          isBuyBack: false,
+          canGift: !!li.querySelector('.gift'),
+          belongsTo: userRef.current?.id,
+          pageId: id,
+        }))
+
+        return;
+      }
 
       // standalone ship
       if (currentShips.length === 1) {
@@ -188,35 +224,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           belongsTo: userRef.current?.id,
           pageId: id,
         }))
-      }
 
-      // bundle
-      if (currentShips.length > 1) {
-        dispatch(addBundle({
-          ships: currentShips.map(ship => ({
-            id: ship.id,
-            name: ship.name
-          })),
-          name: bundleName || "Unknown Bundle",
-          insurance: currentInsurance,
-          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-          isBuyBack: false,
-          canGift: !!li.querySelector('.gift'),
-          belongsTo: userRef.current?.id,
-          pageId: id,
-        }))
-        // currentShips.forEach(ship => {
-        //   dispatch(addShip({
-        //     id: ship.id,
-        //     name: ship.name,
-        //     insurance: currentInsurance,
-        //     value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-        //     isBuyBack: false,
-        //     canGift: !!li.querySelector('.gift'),
-        //     belongsTo: userRef.current?.id,
-        //     pageId: id,
-        //   }))
-        // })
+        return;
       }
 
     });

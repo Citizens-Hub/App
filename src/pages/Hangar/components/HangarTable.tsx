@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
-import { BundleItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
+import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight } from "lucide-react";
 import Crawler from "../../../components/Crawler";
@@ -40,11 +40,13 @@ interface DisplayEquipmentItem {
   quantity?: number;
   insurance?: string;
   ships?: Partial<ShipItem>[];
+  others?: Partial<OtherItem>[];
 }
 
 // Bundle中船只图片的轮播组件
-function BundleImageSlider({ bundleShips, ships, bundleName, isBuyBack, isLti }: {
+function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuyBack, isLti }: {
   bundleShips: Partial<ShipItem>[],
+  bundleOthers: Partial<OtherItem>[],
   ships: Ship[],
   bundleName: string,
   isBuyBack: boolean,
@@ -53,17 +55,21 @@ function BundleImageSlider({ bundleShips, ships, bundleName, isBuyBack, isLti }:
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 获取Bundle中船只的图片
-  const shipImages = bundleShips
-    .map(bundleShip => {
-      const shipInfo = ships.find(s =>
-        bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
-      );
-      return shipInfo?.medias?.productThumbMediumAndSmall;
-    })
-    .filter(img => img) as string[];
+  const images = [
+    ...bundleShips
+      .map(bundleShip => {
+        const shipInfo = ships.find(s =>
+          bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
+        );
+        return shipInfo?.medias?.productThumbMediumAndSmall;
+      })
+      .filter(img => img) as string[],
+    ...bundleOthers.map(other => other.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large'))
+      .filter(img => img) as string[]
+  ]
 
   // 如果没有图片，显示一个默认的空白图片区域
-  if (shipImages.length === 0) {
+  if (images.length === 0) {
     return (
       <div className="relative w-[320px] h-[180px] bg-gray-200 flex items-center justify-center">
         <Typography variant="subtitle1">
@@ -79,11 +85,11 @@ function BundleImageSlider({ bundleShips, ships, bundleName, isBuyBack, isLti }:
   }
 
   const nextSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % shipImages.length);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + shipImages.length) % shipImages.length);
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
   };
 
   return (
@@ -91,10 +97,10 @@ function BundleImageSlider({ bundleShips, ships, bundleName, isBuyBack, isLti }:
       <Box
         component="img"
         sx={{ width: 320, height: 180, objectFit: 'cover' }}
-        src={shipImages[currentIndex].replace('medium_and_small', 'large')}
+        src={images[currentIndex].replace('medium_and_small', 'large')}
         alt={`Ship in ${bundleName}`}
       />
-      {shipImages.length > 1 && (
+      {images.length > 1 && (
         <>
           <IconButton
             size="small"
@@ -296,11 +302,21 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       quantity: ship.quantity,
       pageId: ship.pageId,
       insurance: ship.insurance,
-      ships: []
+      ships: [],
+      others: []
     };
   }) : []),
   ...(showShips ? hangarBundles.filter(bundle =>
-    bundle.name.toLowerCase().includes(searchTerm.toLowerCase())
+    // 匹配Bundle名称
+    bundle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // 匹配Bundle内部ships的名称
+    (bundle.ships || []).some(ship => 
+      ship.name && ship.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ) ||
+    // 匹配Bundle内部others的名称
+    (bundle.others || []).some(other => 
+      other.name && other.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   ).map(bundle => {
     // 计算Bundle中所有船只的MSRP总和
     const totalMsrp = (bundle.ships || []).reduce((sum, bundleShip) => {
@@ -338,18 +354,27 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       quantity: bundle.quantity,
       pageId: bundle.pageId,
       insurance: bundle.insurance,
-      ships: bundle.ships
+      ships: bundle.ships,
+      others: bundle.others
     };
   }) : [])].filter(item => showBuybacks || !item.isBuyBack);
 
   // 添加排序功能
   const sortedEquipment = filteredEquipment.sort((a, b) => {
-    // 首先按类型排序：Ship和Bundle在前，CCU在后
+    // 判断是否为不包含飞船的Bundle
+    const isEmptyBundle = (item: typeof a) => 
+      item.type === 'Bundle' && (!item.ships || item.ships.length === 0);
+    
+    // 如果其中一个是不包含飞船的Bundle，将它排在后面
+    if (isEmptyBundle(a) && !isEmptyBundle(b)) return 1;
+    if (!isEmptyBundle(a) && isEmptyBundle(b)) return -1;
+    
+    // 如果都不是空Bundle，优先按类型排序：Ship在前，然后是带飞船的Bundle，然后是CCU
     if (a.type !== b.type) {
-      if (a.type === 'Ship' && b.type === 'Bundle') return -1;
-      if (a.type === 'Bundle' && b.type === 'Ship') return 1;
-      if (a.type === 'Ship' || a.type === 'Bundle') return -1;
-      return 1;
+      if (a.type === 'Ship') return -1;
+      if (b.type === 'Ship') return 1;
+      if (a.type === 'Bundle') return -1;
+      if (b.type === 'Bundle') return 1;
     }
 
     // 然后buyback在后面显示
@@ -516,7 +541,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         </Box>
                       ) : item.type === 'Bundle' ? (
                         <div className="relative">
-                          <BundleImageSlider bundleShips={item.ships || []} ships={ships} bundleName={item.name} isBuyBack={item.isBuyBack} isLti={item.insurance === "LTI"} />
+                          <BundleImageSlider bundleShips={item.ships || []} bundleOthers={item.others?.filter(other => other.withImage) || []} ships={ships} bundleName={item.name} isBuyBack={item.isBuyBack} isLti={item.insurance === "LTI"} />
                         </div>
                       ) : (
                         <div className="relative w-[320px] h-[180px]">
@@ -616,13 +641,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       }
                     </TableCell>
                   </TableRow>
-                  {item.type === 'Bundle' && item.ships && item.ships.length > 0 && (
+                  {item.type === 'Bundle' && (item.ships && item.ships.length > 0 || item.others && item.others.length > 0) && (
                     <TableRow>
                       <TableCell colSpan={4} sx={{ py: 0, border: expandedBundles[item.id] ? '' : 'none' }}>
                         <Collapse in={expandedBundles[item.id]} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                              {item.ships.map((bundleShip, index) => {
+                              {item.ships?.map((bundleShip, index) => {
                                 const shipInfo = ships.find(s =>
                                   bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
                                 );
@@ -642,8 +667,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                         alt={bundleShip.name || ''}
                                       />
                                     )}
-                                    <Box sx={{ p: 1 }}>
-                                      <Typography variant="body2" fontWeight="bold">{bundleShip.name}</Typography>
+                                    <div className="p-2 flex flex-col">
+                                      <span className="text-gray-500 dark:text-gray-400">Ship</span>
+                                      <span className="text-md font-bold">{bundleShip.name}</span>
                                       {shipInfo?.msrp && (
                                         <Typography variant="caption" color="text.secondary">
                                           <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />{' '}
@@ -656,7 +682,31 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                           {bundleShip.insurance}
                                         </Typography>
                                       )}
-                                    </Box>
+                                    </div>
+                                  </Box>
+                                );
+                              })}
+                              {item.others?.filter(other => other.withImage).map((bundleOther, index) => {
+                                return (
+                                  <Box key={index} sx={{
+                                    width: 220,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
+                                    overflow: 'hidden'
+                                  }}>
+                                    {bundleOther.image && (
+                                      <Box
+                                        component="img"
+                                        sx={{ width: '100%', height: 120, objectFit: 'cover' }}
+                                        src={bundleOther.image.replace('subscribers_vault_thumbnail', 'product_thumb_large')}
+                                        alt={bundleOther.name || ''}
+                                      />
+                                    )}
+                                    <div className="p-2 flex flex-col">
+                                      <span className="text-gray-500 dark:text-gray-400">{bundleOther.type}</span>
+                                      <span className="text-md font-bold">{bundleOther.name}</span>
+                                    </div>
                                   </Box>
                                 );
                               })}

@@ -29,9 +29,17 @@ export interface ShipItem extends HangarItem {
   insurance: string,
 }
 
+export interface OtherItem extends HangarItem {
+  id: number,
+  withImage: boolean,
+  image: string,
+  type: string,
+}
+
 export interface BundleItem extends HangarItem {
-  ships: Partial<ShipItem>[],
-  insurance: string,
+  ships?: Partial<ShipItem>[],
+  others?: OtherItem[],
+  insurance?: string,
 }
 
 export interface HangarItems {
