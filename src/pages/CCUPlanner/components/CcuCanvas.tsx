@@ -36,6 +36,7 @@ import { Close } from '@mui/icons-material';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import Crawler from '../../../components/Crawler';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -56,12 +57,12 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
     message: "",
     type: "success"
   });
-  
+
   // Wrap all content in CcuPlannerProvider
   return (
-    <CcuPlannerProvider 
-      ships={ships} 
-      ccus={ccus} 
+    <CcuPlannerProvider
+      ships={ships}
+      ccus={ccus}
       wbHistory={wbHistory}
       exchangeRates={exchangeRates}
       setAlert={setAlert}
@@ -74,10 +75,10 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
         }}
         open={alert.open}
         autoHideDuration={6000}
-        onClose={() => setAlert(prev => ({...prev, open: false}))}
+        onClose={() => setAlert(prev => ({ ...prev, open: false }))}
       >
         <Alert
-          onClose={() => setAlert(prev => ({...prev, open: false}))}
+          onClose={() => setAlert(prev => ({ ...prev, open: false }))}
           severity={alert.type}
           variant="filled"
           sx={{ width: '100%' }}
@@ -105,11 +106,11 @@ function CcuCanvasContent() {
   const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
 
   // Use data from context
-  const { 
-    ships, 
-    ccus, 
-    wbHistory, 
-    hangarItems, 
+  const {
+    ships,
+    ccus,
+    wbHistory,
+    hangarItems,
     edgeService,
     pathBuilderService,
     importExportService,
@@ -117,7 +118,7 @@ function CcuCanvasContent() {
     showAlert,
     getServiceData
   } = useCcuPlanner();
-  
+
   // Get upgrade items from Redux
   const upgrades = useSelector(selectHangarItems);
 
@@ -137,7 +138,7 @@ function CcuCanvasContent() {
         return edge;
       });
     });
-    
+
     // Call the method in context to handle alerts
     handlePathCompletionChange(showAlert);
   }, [setEdges, handlePathCompletionChange]);
@@ -164,17 +165,17 @@ function CcuCanvasContent() {
         if (!edgeService.canCreateEdge(sourceShip, targetShip)) {
           if (sourceShip.msrp === 0) {
             showAlert(
-              intl.formatMessage({ 
-                id: 'ccuPlanner.error.sourceShipPriceZero', 
-                defaultMessage: 'Cannot upgrade from this ship as its price is zero.' 
+              intl.formatMessage({
+                id: 'ccuPlanner.error.sourceShipPriceZero',
+                defaultMessage: 'Cannot upgrade from this ship as its price is zero.'
               }),
               'warning'
             );
           } else {
             showAlert(
-              intl.formatMessage({ 
-                id: 'ccuPlanner.error.lowerToHigher', 
-                defaultMessage: 'CCU can only be upgraded from lower-priced ships to higher-priced ships.' 
+              intl.formatMessage({
+                id: 'ccuPlanner.error.lowerToHigher',
+                defaultMessage: 'CCU can only be upgraded from lower-priced ships to higher-priced ships.'
               }),
               'warning'
             );
@@ -193,9 +194,9 @@ function CcuCanvasContent() {
         // If target ship price is 0 and no hangar CCU, disallow upgrade
         if (targetShip.msrp === 0 && !hangarCcu) {
           showAlert(
-            intl.formatMessage({ 
-              id: 'ccuPlanner.error.targetShipPriceZero', 
-              defaultMessage: 'This ship can only be upgraded using a hangar CCU as its price is zero.' 
+            intl.formatMessage({
+              id: 'ccuPlanner.error.targetShipPriceZero',
+              defaultMessage: 'This ship can only be upgraded using a hangar CCU as its price is zero.'
             }),
             'warning'
           );
@@ -206,20 +207,20 @@ function CcuCanvasContent() {
           startNode: Node,
           endNodeId: string,
         ): boolean => {
-          const directConnection = edges.some(edge => 
-            edge.source.split('-')[1] === startNode.id.split('-')[1] && 
+          const directConnection = edges.some(edge =>
+            edge.source.split('-')[1] === startNode.id.split('-')[1] &&
             edge.target === endNodeId
           );
-          
+
           return directConnection;
         };
 
         // If a path already exists, do not create a new connection
         if (hasExistingPath(sourceNode, targetNode.id)) {
           showAlert(
-            intl.formatMessage({ 
-              id: 'ccuPlanner.error.pathExists', 
-              defaultMessage: 'A path already exists from the source ship to the target ship. Duplicate connections are not allowed.' 
+            intl.formatMessage({
+              id: 'ccuPlanner.error.pathExists',
+              defaultMessage: 'A path already exists from the source ship to the target ship. Duplicate connections are not allowed.'
             }),
             'warning'
           );
@@ -352,30 +353,30 @@ function CcuCanvasContent() {
   const importFlowData = useCallback((jsonData: string) => {
     try {
       const importedData = importExportService.importFromJsonData(jsonData, ships, { hangarItems, wbHistory, ccus });
-      
+
       if (!importedData) {
         throw new Error('Import failed');
       }
-      
+
       setNodes(importedData.nodes);
       setEdges(importedData.edges);
       setStartShipPrices(importedData.startShipPrices);
 
       // Clean up completed paths to avoid confusion with newly imported paths
       pathFinderService.clearCompletedPaths();
-      
+
       // Refresh edge status without showing notification messages
       refreshEdgesOnPathCompletion(false);
 
       if (reactFlowInstance) {
         importExportService.adjustViewToShowAllNodes(reactFlowInstance);
       }
-      
+
       // Display import success notification
       showAlert(
-        intl.formatMessage({ 
-          id: 'ccuPlanner.success.imported', 
-          defaultMessage: 'CCU upgrade path imported successfully!' 
+        intl.formatMessage({
+          id: 'ccuPlanner.success.imported',
+          defaultMessage: 'CCU upgrade path imported successfully!'
         })
       );
 
@@ -484,7 +485,7 @@ function CcuCanvasContent() {
 
     // Clean up completed path states
     pathFinderService.clearCompletedPaths();
-    
+
     // Refresh edge status without showing notification messages
     refreshEdgesOnPathCompletion(false);
 
@@ -493,9 +494,9 @@ function CcuCanvasContent() {
 
     // Display success notification
     showAlert(
-      intl.formatMessage({ 
-        id: 'ccuPlanner.success.cleared', 
-        defaultMessage: 'Canvas cleared successfully!' 
+      intl.formatMessage({
+        id: 'ccuPlanner.success.cleared',
+        defaultMessage: 'Canvas cleared successfully!'
       })
     );
   }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert]);
@@ -513,9 +514,9 @@ function CcuCanvasContent() {
     importExportService.saveToLocalStorage(flowData);
 
     showAlert(
-      intl.formatMessage({ 
-        id: 'ccuPlanner.success.saved', 
-        defaultMessage: 'CCU upgrade path saved successfully!' 
+      intl.formatMessage({
+        id: 'ccuPlanner.success.saved',
+        defaultMessage: 'CCU upgrade path saved successfully!'
       })
     );
   }, [nodes, edges, startShipPrices, intl, importExportService, showAlert]);
@@ -629,7 +630,7 @@ function CcuCanvasContent() {
       ships,
       ...getServiceData()
     });
-    
+
     // Update chart
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
@@ -681,8 +682,15 @@ function CcuCanvasContent() {
             <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
             <MiniMap className='dark:invert-90 xl:block hidden' />
             <Background color="#333" gap={32} />
-            <Panel position="top-right" className="bg-white dark:bg-[#121212]">
-              <UserSelector />
+            <Panel position="top-right">
+              <div className='gap-2 hidden sm:flex'>
+                <div className='flex flex-col gap-2 items-center justify-center'>
+                  <Crawler ships={ships} />
+                </div>
+                <div className='bg-white dark:bg-[#121212]'>
+                  <UserSelector />
+                </div>
+              </div>
             </Panel>
             <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
               <Toolbar
@@ -744,7 +752,7 @@ function CcuCanvasContent() {
             <Close />
           </IconButton>
         </DialogTitle>
-        
+
         <DialogContent>
           <Guide />
         </DialogContent>
