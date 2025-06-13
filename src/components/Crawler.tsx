@@ -193,7 +193,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       })
 
       // bundle
-      if (currentShips.length > 1 || currentOthers.length > 0) {
+      if (currentShips.length > 1 || currentOthers.filter(other => other.withImage).length > 0) {
         dispatch(addBundle({
           ships: currentShips.map(ship => ({
             id: ship.id,

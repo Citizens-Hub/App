@@ -715,6 +715,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                   </Box>
                                 );
                               })}
+                              {!!item.others?.filter(other => other.withImage).length && <Divider orientation="vertical" flexItem />}
                               {item.others?.filter(other => other.withImage).map((bundleOther, index) => {
                                 return (
                                   <Box key={index} sx={{
