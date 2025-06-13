@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
 import { BundleItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
-import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight } from "lucide-react";
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
@@ -608,8 +608,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&pagesize=1`
                           }
                           target="_blank"
+                          className="flex items-center gap-2"
                         >
-                          <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
+                          <SquareArrowOutUpRight className="w-4 h-4" />
+                          <FormattedMessage id="hangar.viewInHangar" defaultMessage="RSI Hangar" />
                         </Link>
                       }
                     </TableCell>
