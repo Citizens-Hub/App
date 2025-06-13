@@ -8,8 +8,10 @@ import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, Inbox } from "lu
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
+import { Link } from "react-router";
 
 interface DisplayEquipmentItem {
+  pageId?: number;
   id: string;
   name: string;
   type: string;
@@ -73,6 +75,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             belongsTo: ccu.belongsTo,
             isBuyBack: ccu.isBuyBack,
             quantity: ccu.quantity,
+            pageId: ccu.pageId,
           }
         }).filter(ccu => ccu !== undefined);
 
@@ -160,6 +163,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                 </TableCell>
                 <TableCell width="120px">
                   <FormattedMessage id="hangar.type" defaultMessage="Type" />
+                </TableCell>
+                <TableCell width="120px">
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -250,6 +255,17 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                     </div>
                   </TableCell>
                   <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
+                  <TableCell sx={{ textWrap: 'nowrap' }}>
+                    <Link
+                      to={
+                        item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
+                          `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&product-type=upgrade&pagesize=1`
+                      }
+                      target="_blank"
+                    >
+                      <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

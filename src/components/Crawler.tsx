@@ -119,12 +119,14 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     return { from, to };
   }, [ships]);
 
-  const parseHangarItems = useCallback((doc: Document) => {
+  const parseHangarItems = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelector('.list-items');
 
-    listItems?.querySelectorAll('li').forEach(li => {
+    listItems?.querySelectorAll('li').forEach((li, index) => {
       const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
       const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
+
+      const id = (pageId - 1) * 10 + index + 1;
 
       const parsed = tryResolveCCU(content);
 
@@ -139,18 +141,21 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         isBuyBack: false,
         canGift: !!li.querySelector('.gift'),
         belongsTo: userRef.current?.id,
+        pageId: id,
       }));
     });
   }, [dispatch, tryResolveCCU]);
 
-  const parseBuybackCCUs = useCallback((doc: Document) => {
+  const parseBuybackCCUs = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
 
-    listItems.forEach(li => {
+    listItems.forEach((li, index) => {
       const name = li.querySelector("h1")?.textContent;
       const from = li.querySelector("a")?.getAttribute("data-fromshipid");
       const to = li.querySelector("a")?.getAttribute("data-toshipid");
       const toSku = li.querySelector("a")?.getAttribute("data-toskuid");
+
+      const id = (pageId - 1) * 250 + index + 1;
 
       if (!from || !to || !name || !toSku) {
         console.warn("error parsing buyback ccu", name, "reporting");
@@ -194,6 +199,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           isBuyBack: true,
           canGift: true,
           belongsTo: userRef.current?.id,
+          pageId: id,
         }));
       }
     });
@@ -240,7 +246,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             message: {
               type: "httpRequest",
               request: {
-                "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&product-type=upgrade",
+                "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&product-type=upgrade&pagesize=10",
                 "responseType": "text",
                 "method": "get",
                 "data": null
@@ -298,7 +304,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                 message: {
                   type: "httpRequest",
                   request: {
-                    "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&product-type=upgrade`,
+                    "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&product-type=upgrade&pagesize=10`,
                     "responseType": "text",
                     "method": "get",
                     "data": null
@@ -309,7 +315,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             }
           }
 
-          parseHangarItems(doc);
+          parseHangarItems(doc, Number(pageId));
         }
 
         if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-")) {
@@ -341,7 +347,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             }
           }
 
-          parseBuybackCCUs(doc);
+          parseBuybackCCUs(doc, Number(pageId));
         }
 
         if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade-")) {

@@ -11,6 +11,7 @@ interface HangarItem {
   canGift: boolean,
   belongsTo: number,
   quantity?: number,
+  pageId?: number,
 }
 
 interface CCUItem extends HangarItem {
