@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
-import { selectUsersHangarItems } from "../../../store/upgradesStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table } from "@mui/material";
-import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, Inbox } from "lucide-react";
+import { BundleItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
+import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
@@ -38,15 +38,141 @@ interface DisplayEquipmentItem {
   };
   belongsTo: number;
   quantity?: number;
+  insurance?: string;
+  ships?: Partial<ShipItem>[];
+}
+
+// Bundle中船只图片的轮播组件
+function BundleImageSlider({ bundleShips, ships, bundleName, isBuyBack, isLti }: {
+  bundleShips: Partial<ShipItem>[],
+  ships: Ship[],
+  bundleName: string,
+  isBuyBack: boolean,
+  isLti: boolean
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // 获取Bundle中船只的图片
+  const shipImages = bundleShips
+    .map(bundleShip => {
+      const shipInfo = ships.find(s =>
+        bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
+      );
+      return shipInfo?.medias?.productThumbMediumAndSmall;
+    })
+    .filter(img => img) as string[];
+
+  // 如果没有图片，显示一个默认的空白图片区域
+  if (shipImages.length === 0) {
+    return (
+      <div className="relative w-[320px] h-[180px] bg-gray-200 flex items-center justify-center">
+        <Typography variant="subtitle1">
+          <FormattedMessage id="hangar.noImages" defaultMessage="No ship images available" />
+        </Typography>
+        <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
+          <span className='text-white text-sm'>
+            {isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {bundleName}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const nextSlide = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % shipImages.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + shipImages.length) % shipImages.length);
+  };
+
+  return (
+    <div className="relative w-[320px] h-[180px]">
+      <Box
+        component="img"
+        sx={{ width: 320, height: 180, objectFit: 'cover' }}
+        src={shipImages[currentIndex].replace('medium_and_small', 'large')}
+        alt={`Ship in ${bundleName}`}
+      />
+      {shipImages.length > 1 && (
+        <>
+          <IconButton
+            size="small"
+            onClick={prevSlide}
+            sx={{
+              position: 'absolute',
+              left: 10,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            }}
+          >
+            <ChevronLeft size={20} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={nextSlide}
+            sx={{
+              position: 'absolute',
+              right: 10,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            }}
+          >
+            <ChevronRight size={20} />
+          </IconButton>
+          {/* <Box 
+            sx={{ 
+              position: 'absolute', 
+              bottom: 30, 
+              left: 0, 
+              right: 0, 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: 0.5 
+            }}
+          >
+            {shipImages.map((_, i) => (
+              <Box 
+                key={i} 
+                sx={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  bgcolor: i === currentIndex ? 'white' : 'rgba(255,255,255,0.5)' 
+                }} 
+              />
+            ))}
+          </Box> */}
+        </>
+      )}
+      <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
+        <span className='text-white text-sm flex items-center justify-center gap-2'>
+          {isLti && <span className="text-red-500">LTI</span>} {isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {bundleName}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default function HangarTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
-  const [ccus, steCcus] = useState<DisplayEquipmentItem[]>([]);
+  const [ccus, setCcus] = useState<DisplayEquipmentItem[]>([]);
+  const [hangarShips, setHangarShips] = useState<ShipItem[]>([]);
+  const [hangarBundles, setHangarBundles] = useState<BundleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [showCcus, setShowCcus] = useState(true);
+  const [showShips, setShowShips] = useState(true);
+  const [showBuybacks, setShowBuybacks] = useState(true);
+  const [expandedBundles, setExpandedBundles] = useState<{ [key: string]: boolean }>({});
 
   const { locale } = intl;
   const { users } = useSelector((state: RootState) => state.upgrades);
@@ -79,7 +205,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           }
         }).filter(ccu => ccu !== undefined);
 
-      steCcus(userCCUs);
+      setCcus(userCCUs);
+      setHangarShips(items.ships);
+      setHangarBundles(items.bundles);
+
       setIsLoading(false);
     };
 
@@ -102,14 +231,137 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     setPage(0);
   };
 
+  // 处理筛选器变化
+  const handleCcuFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setShowCcus(event.target.checked);
+    setPage(0); // 重置页码
+  };
+
+  // 处理ships和bundles的筛选
+  const handleShipFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setShowShips(event.target.checked);
+    setPage(0); // 重置页码
+  };
+
+  const handleBuybackFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setShowBuybacks(event.target.checked);
+    setPage(0); // 重置页码
+  };
+
+  // 展开/折叠Bundle
+  const toggleBundleExpand = (bundleId: string) => {
+    setExpandedBundles(prev => ({
+      ...prev,
+      [bundleId]: !prev[bundleId]
+    }));
+  };
+
   // 过滤和分页数据
-  const filteredEquipment = ccus.filter(item =>
+  const filteredEquipment = [...(showCcus ? ccus.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.from?.name && item.from.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (item.to?.name && item.to.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ) : []),
+  ...(showShips ? hangarShips.filter(ship =>
+    ship.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ).map(ship => {
+    // 查找对应的船只信息
+    const shipInfo = ships.find(s => s.name.toUpperCase().trim() === ship.name.toUpperCase().trim());
 
-  const paginatedEquipment = filteredEquipment.sort((b, a) => a.isBuyBack ? 1 : b.isBuyBack ? -1 : 0).slice(
+    return {
+      id: ship.id.toString(),
+      name: ship.name,
+      type: 'Ship',
+      value: ship.value,
+      canGift: ship.canGift,
+      isBuyBack: ship.isBuyBack,
+      from: {
+        name: ship.name,
+        imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+        medias: {
+          productThumbMediumAndSmall: shipInfo?.medias?.productThumbMediumAndSmall || ''
+        },
+        msrp: shipInfo?.msrp || 0
+      },
+      to: {
+        name: ship.name,
+        imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+        medias: {
+          productThumbMediumAndSmall: shipInfo?.medias?.productThumbMediumAndSmall || ''
+        },
+        msrp: shipInfo?.msrp || 0
+      },
+      imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+      belongsTo: ship.belongsTo,
+      quantity: ship.quantity,
+      pageId: ship.pageId,
+      insurance: ship.insurance,
+      ships: []
+    };
+  }) : []),
+  ...(showShips ? hangarBundles.filter(bundle =>
+    bundle.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ).map(bundle => {
+    // 计算Bundle中所有船只的MSRP总和
+    const totalMsrp = (bundle.ships || []).reduce((sum, bundleShip) => {
+      const shipInfo = ships.find(s =>
+        bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
+      );
+      return sum + (shipInfo?.msrp || 0);
+    }, 0);
+
+    return {
+      id: `${bundle.belongsTo}-${bundle.pageId}`,
+      name: bundle.name,
+      type: 'Bundle',
+      value: bundle.value, // 保留原始value，用于显示购买价格
+      canGift: bundle.canGift,
+      isBuyBack: bundle.isBuyBack,
+      from: {
+        name: bundle.name,
+        imageUrl: undefined,
+        medias: {
+          productThumbMediumAndSmall: ''
+        },
+        msrp: totalMsrp // 使用计算出的MSRP总和
+      },
+      to: {
+        name: bundle.name,
+        imageUrl: undefined,
+        medias: {
+          productThumbMediumAndSmall: ''
+        },
+        msrp: totalMsrp // 使用计算出的MSRP总和
+      },
+      imageUrl: undefined,
+      belongsTo: bundle.belongsTo,
+      quantity: bundle.quantity,
+      pageId: bundle.pageId,
+      insurance: bundle.insurance,
+      ships: bundle.ships
+    };
+  }) : [])].filter(item => showBuybacks || !item.isBuyBack);
+
+  // 添加排序功能
+  const sortedEquipment = filteredEquipment.sort((a, b) => {
+    // 首先按类型排序：Ship和Bundle在前，CCU在后
+    if (a.type !== b.type) {
+      if (a.type === 'Ship' && b.type === 'Bundle') return -1;
+      if (a.type === 'Bundle' && b.type === 'Ship') return 1;
+      if (a.type === 'Ship' || a.type === 'Bundle') return -1;
+      return 1;
+    }
+
+    // 然后buyback在后面显示
+    if (a.isBuyBack !== b.isBuyBack) {
+      return a.isBuyBack ? 1 : -1;
+    }
+
+    // 然后按价值排序：价值高的在前
+    return b.value - a.value;
+  });
+
+  const paginatedEquipment = sortedEquipment.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
@@ -122,31 +374,81 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       <UserSelector />
     </div>
 
-    <TextField
-      fullWidth
-      variant="outlined"
-      placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search equipment...' })}
-      value={searchTerm}
-      onChange={handleSearchChange}
-      slotProps={{
-        input: {
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search />
-            </InputAdornment>
-          )
-        }
-      }}
-      size="small"
-      sx={{ mb: 2 }}
-    />
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+      <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '60%' } }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search ships and upgrades...' })}
+          value={searchTerm}
+          onChange={handleSearchChange}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              )
+            }
+          }}
+          size="small"
+        />
+      </Box>
+      <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '40%' } }}>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1, display: 'flex', alignItems: 'center' }}>
+          <FormGroup row sx={{ width: '100%', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showBuybacks}
+                    onChange={handleBuybackFilterChange}
+                    size="small"
+                    color="primary"
+                  />
+                }
+                label={intl.formatMessage({ id: 'hangar.filter.showBuybacks', defaultMessage: 'Include Buybacks' })}
+                sx={{ minWidth: 'auto', mr: 0 }}
+              />
+            </Box>
+            <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showShips}
+                    onChange={handleShipFilterChange}
+                    size="small"
+                    color="primary"
+                  />
+                }
+                label={intl.formatMessage({ id: 'hangar.filter.showShips', defaultMessage: 'Ships & Bundles' })}
+                sx={{ minWidth: 'auto', mr: 2 }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showCcus}
+                    onChange={handleCcuFilterChange}
+                    size="small"
+                    color="primary"
+                  />
+                }
+                label={intl.formatMessage({ id: 'hangar.filter.showCcus', defaultMessage: 'CCUs' })}
+                sx={{ minWidth: 'auto' }}
+              />
+            </Box>
+          </FormGroup>
+        </Box>
+      </Box>
+    </Box>
 
     {isLoading ? (
       <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography>
     ) : filteredEquipment.length === 0 ? (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="h6">
-          <FormattedMessage id="hangar.noEquipment" defaultMessage="No content in your hangar" />
+          <FormattedMessage id="hangar.noEquipment" defaultMessage="No ships or upgrades in your hangar" />
         </Typography>
       </Box>
     ) : (
@@ -165,110 +467,204 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   <FormattedMessage id="hangar.type" defaultMessage="Type" />
                 </TableCell>
                 <TableCell width="120px">
+                  <FormattedMessage id="hangar.action" defaultMessage="Action" />
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {paginatedEquipment.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>
-                    {item.type === 'CCU' && item.from && item.to ? (
-                      <Box sx={{ position: 'relative', width: 320, height: 180, overflow: 'hidden', }}>
-                        <Box
-                          component="img"
-                          sx={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            width: '35%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                          src={item.from.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-                          alt={item.from.name}
-                        />
-                        <Box
-                          component="img"
-                          sx={{
-                            position: 'absolute',
-                            right: 0,
-                            top: 0,
-                            width: '65%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
-                          }}
-                          src={item.to.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-                          alt={item.to.name}
-                        />
-                        <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
-                          <span className='text-white text-sm'>
-                            {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
+                <React.Fragment key={item.id}>
+                  <TableRow hover>
+                    <TableCell>
+                      {item.type === 'CCU' && item.from && item.to ? (
+                        <Box sx={{ position: 'relative', width: 320, height: 180, overflow: 'hidden', }}>
+                          <Box
+                            component="img"
+                            sx={{
+                              position: 'absolute',
+                              left: 0,
+                              top: 0,
+                              width: '35%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                            src={item.from.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            alt={item.from.name}
+                          />
+                          <Box
+                            component="img"
+                            sx={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 0,
+                              width: '65%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
+                            }}
+                            src={item.to.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            alt={item.to.name}
+                          />
+                          <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
+                            <span className='text-white text-sm'>
+                              {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
+                            </span>
+                          </div>
+                          <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
+                            <ChevronsRight className='w-8 h-8' />
+                          </div>
+                        </Box>
+                      ) : item.type === 'Bundle' ? (
+                        <div className="relative">
+                          <BundleImageSlider bundleShips={item.ships || []} ships={ships} bundleName={item.name} isBuyBack={item.isBuyBack} isLti={item.insurance === "LTI"} />
+                        </div>
+                      ) : (
+                        <div className="relative w-[320px] h-[180px]">
+                          <Box
+                            component="img"
+                            sx={{ width: 320, height: 180, objectFit: 'cover' }}
+                            src={item.imageUrl?.replace('medium_and_small', 'large') || item.from?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            alt={item.name}
+                          />
+                          <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
+                            <span className='text-white text-sm flex items-center justify-center gap-2'>
+                              {item.insurance === "LTI" && <span className="text-red-500">LTI</span>} {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex flex-col gap-2'>
+                        {item.type === 'CCU' ? (
+                          <>
+                            <span className='text-md text-blue-500 font-bold'>
+                              <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
+                              {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span className='text-gray-500 mx-2 dark:text-gray-400'>-</span>
+                              {(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                            </span>
+                            <span className='text-md text-blue-500 font-bold'>
+                              <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
+                              {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
+                                {`${((item.to.msrp - item.from.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}`}
+                              </span>}
+                            </span>
+                            {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-md text-blue-500 font-bold flex items-center gap-2'>
+                              <BadgePercent className='w-4 h-4' />
+                              <span>
+                                {((1 - (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100 - item.value) / (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100)) * 100).toFixed(2)}%
+                              </span>
+                            </span>}
+                          </>
+                        ) : (
+                          <>
+                            <span className='text-md text-blue-500 font-bold'>
+                              <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
+                              {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                            </span>
+                            <span className='text-md text-blue-500 font-bold'>
+                              <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
+                              {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                            </span>
+                            {/* {'insurance' in item && item.insurance && (
+                              <span className='text-md text-blue-500 font-bold'>
+                                <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" /></span>
+                                {item.insurance}
+                              </span>
+                            )} */}
+                          </>
+                        )}
+                        <span className='text-md font-bold flex flex-col'>
+                          <span className='text-gray-500 dark:text-gray-400 flex items-center gap-2'>
+                            <CircleUser className='w-4 h-4' />
+                            {
+                              !item.isBuyBack && <Gift className={`${item.canGift ? 'text-green-300' : 'text-red-400'} w-4 h-4`} />
+                            }
+                            {users.find(user => user.id === item.belongsTo)?.nickname || '-'}
                           </span>
-                        </div>
-                        <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
-                          <ChevronsRight className='w-8 h-8' />
-                        </div>
-                      </Box>
-                    ) : (
-                      <Box
-                        component="img"
-                        sx={{ width: 100, height: 50, objectFit: 'cover' }}
-                        src={item.imageUrl}
-                        alt={item.name}
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex flex-col gap-2'>
-                      <span className='text-md text-blue-500 font-bold'>
-                        <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
-                        {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                        <span className='text-gray-500 mx-2 dark:text-gray-400'>-</span>
-                        {(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                      </span>
-                      <span className='text-md text-blue-500 font-bold'>
-                        <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                        {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                        {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
-                          {`${((item.to.msrp - item.from.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}`}
-                        </span>}
-                      </span>
-                      {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-md text-blue-500 font-bold flex items-center gap-2'>
-                        <BadgePercent className='w-4 h-4' />
-                        <span>
-                          {((1 - (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100 - item.value) / (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100)) * 100).toFixed(2)}%
-                        </span>
-                      </span>}
-                      <span className='text-md font-bold flex flex-col'>
-                        <span className='text-gray-500 dark:text-gray-400 flex items-center gap-2'>
-                          <CircleUser className='w-4 h-4' />
-                          {
-                            !item.isBuyBack && <Gift className={`${item.canGift ? 'text-green-300' : 'text-red-400'} w-4 h-4`} />
+                        </span>{item.type === 'Bundle' && (
+                          <div className="flex items-center">
+                            <Button
+                              size="small"
+                              onClick={() => toggleBundleExpand(item.id)}
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                              variant="text"
+                            >
+                              <FormattedMessage id="hangar.expand" defaultMessage="Items" />
+                              {expandedBundles[item.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
+                    <TableCell sx={{ textWrap: 'nowrap' }}>
+                      {!!item.pageId &&
+                        <Link
+                          to={
+                            item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
+                              `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&pagesize=1`
                           }
-                          {users.find(user => user.id === item.belongsTo)?.nickname || '-'}
-                        </span>
-                      </span>
-                      <span className='text-md font-bold flex items-center gap-2 text-gray-500 dark:text-gray-400'>
-                        <Inbox className='w-4 h-4' />{item.quantity}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
-                  <TableCell sx={{ textWrap: 'nowrap' }}>
-                    {!!item.pageId &&
-                      <Link
-                        to={
-                          item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
-                            `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&product-type=upgrade&pagesize=1`
-                        }
-                        target="_blank"
-                      >
-                        <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
-                      </Link>
-                    }
-                  </TableCell>
-                </TableRow>
+                          target="_blank"
+                        >
+                          <FormattedMessage id="hangar.viewInHangar" defaultMessage="View in Hangar" />
+                        </Link>
+                      }
+                    </TableCell>
+                  </TableRow>
+                  {item.type === 'Bundle' && item.ships && item.ships.length > 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ py: 0 }}>
+                        <Collapse in={expandedBundles[item.id]} timeout="auto" unmountOnExit>
+                          <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                              {item.ships.map((bundleShip, index) => {
+                                const shipInfo = ships.find(s =>
+                                  bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
+                                );
+                                return (
+                                  <Box key={index} sx={{
+                                    width: 220,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
+                                    overflow: 'hidden'
+                                  }}>
+                                    {shipInfo?.medias?.productThumbMediumAndSmall && (
+                                      <Box
+                                        component="img"
+                                        sx={{ width: '100%', height: 120, objectFit: 'cover' }}
+                                        src={shipInfo.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                                        alt={bundleShip.name || ''}
+                                      />
+                                    )}
+                                    <Box sx={{ p: 1 }}>
+                                      <Typography variant="body2" fontWeight="bold">{bundleShip.name}</Typography>
+                                      {shipInfo?.msrp && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />{' '}
+                                          {(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                                        </Typography>
+                                      )}
+                                      {bundleShip.insurance && (
+                                        <Typography variant="caption" display="block" color="primary">
+                                          <FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" />{' '}
+                                          {bundleShip.insurance}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>

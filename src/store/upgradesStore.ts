@@ -14,7 +14,7 @@ interface HangarItem {
   pageId?: number,
 }
 
-interface CCUItem extends HangarItem {
+export interface CCUItem extends HangarItem {
   from: { id: number, name: string },
   to: { id: number, name: string },
   parsed: {
@@ -24,15 +24,17 @@ interface CCUItem extends HangarItem {
   isSubscription?: boolean,
 }
 
-interface ShipItem extends HangarItem {
+export interface ShipItem extends HangarItem {
   id: number,
+  insurance: string,
 }
 
-interface BundleItem extends HangarItem {
-  ships: ShipItem[],
+export interface BundleItem extends HangarItem {
+  ships: Partial<ShipItem>[],
+  insurance: string,
 }
 
-interface HangarItems {
+export interface HangarItems {
   ccus: CCUItem[],
   ships: ShipItem[],
   bundles: BundleItem[],
@@ -41,7 +43,7 @@ interface HangarItems {
   },
 }
 
-interface Imported {
+export interface Imported {
   [userID: number]: {
     ccus: CCUItem[]
   },
@@ -154,6 +156,14 @@ export const upgradesSlice = createSlice({
       }
       localStorage.setItem('state', JSON.stringify(state));
     },
+    addShip: (state, action: PayloadAction<ShipItem>) => {
+      state.items.ships.push(action.payload);
+      localStorage.setItem('state', JSON.stringify(state));
+    },
+    addBundle: (state, action: PayloadAction<BundleItem>) => {
+      state.items.bundles.push(action.payload);
+      localStorage.setItem('state', JSON.stringify(state));
+    },
     addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
       if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
         state.items.ccus.push({
@@ -237,6 +247,8 @@ export const selectUsersHangarItems = createSelector(
 
 export const { 
   addCCU,
+  addShip,
+  addBundle,
   addBuybackCCU,
   addUser, 
   clearUpgrades, 

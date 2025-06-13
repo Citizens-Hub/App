@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addCCU, addBuybackCCU, addUser, clearUpgrades, UserInfo } from "../store/upgradesStore";
+import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 import { Refresh } from "@mui/icons-material";
 import { IconButton, LinearProgress } from "@mui/material";
@@ -27,6 +27,9 @@ interface RequestItem {
   };
   requestId?: number | string;
 }
+
+type ItemType = "Insurance" | "Ship" | undefined;
+type InsuranceType = "LTI" | "Other"
 
 export default function Crawler({ ships }: { ships: Ship[] }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -123,28 +126,101 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     const listItems = doc.body.querySelector('.list-items');
 
     listItems?.querySelectorAll('li').forEach((li, index) => {
-      const content = JSON.parse(li.querySelector('.js-upgrade-data')?.getAttribute('value') || "{}")
       const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
+      const ccuData = li.querySelector('.js-upgrade-data')?.getAttribute('value');
 
       const id = (pageId - 1) * 10 + index + 1;
 
-      const parsed = tryResolveCCU(content);
+      if (ccuData) {
+        const content = JSON.parse(ccuData)
 
-      if (!parsed) return;
+        const parsed = tryResolveCCU(content);
 
-      dispatch(addCCU({
-        from: content.match_items[0],
-        to: content.target_items[0],
-        name: content.name,
-        value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-        parsed,
-        isBuyBack: false,
-        canGift: !!li.querySelector('.gift'),
-        belongsTo: userRef.current?.id,
-        pageId: id,
-      }));
+        if (!parsed) return;
+
+        dispatch(addCCU({
+          from: content.match_items[0],
+          to: content.target_items[0],
+          name: content.name,
+          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          parsed,
+          isBuyBack: false,
+          canGift: !!li.querySelector('.gift'),
+          belongsTo: userRef.current?.id,
+          pageId: id,
+        }));
+
+        return;
+      }
+
+      const items = li.querySelectorAll('.item');
+      const bundleName = li.querySelector('.js-pledge-name')?.getAttribute('value');
+
+      let currentInsurance: InsuranceType = "Other"
+      const currentShips: Ship[] = []
+
+      items.forEach(item => {
+        const itemType: ItemType = item.querySelector('.kind')?.textContent as ItemType;
+        const itemName = item.querySelector('.title')?.textContent;
+
+        switch (itemType) {
+          case "Insurance":
+            if (itemName === "Lifetime Insurance") currentInsurance = "LTI"
+            break;
+          case "Ship":
+            {
+              const ship = ships.find(ship => ship.name.toLowerCase().trim() === itemName?.toLowerCase().trim())
+              if (ship) currentShips.push(ship)
+              break;
+            }
+        }
+      })
+
+      // standalone ship
+      if (currentShips.length === 1) {
+        dispatch(addShip({
+          id: currentShips[0].id,
+          name: currentShips[0].name,
+          insurance: currentInsurance,
+          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          isBuyBack: false,
+          canGift: !!li.querySelector('.gift'),
+          belongsTo: userRef.current?.id,
+          pageId: id,
+        }))
+      }
+
+      // bundle
+      if (currentShips.length > 1) {
+        dispatch(addBundle({
+          ships: currentShips.map(ship => ({
+            id: ship.id,
+            name: ship.name
+          })),
+          name: bundleName || "Unknown Bundle",
+          insurance: currentInsurance,
+          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          isBuyBack: false,
+          canGift: !!li.querySelector('.gift'),
+          belongsTo: userRef.current?.id,
+          pageId: id,
+        }))
+        // currentShips.forEach(ship => {
+        //   dispatch(addShip({
+        //     id: ship.id,
+        //     name: ship.name,
+        //     insurance: currentInsurance,
+        //     value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+        //     isBuyBack: false,
+        //     canGift: !!li.querySelector('.gift'),
+        //     belongsTo: userRef.current?.id,
+        //     pageId: id,
+        //   }))
+        // })
+      }
+
     });
-  }, [dispatch, tryResolveCCU]);
+  }, [dispatch, ships, tryResolveCCU]);
 
   const parseBuybackCCUs = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
@@ -246,7 +322,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             message: {
               type: "httpRequest",
               request: {
-                "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&product-type=upgrade&pagesize=10",
+                "url": "https://robertsspaceindustries.com/en/account/pledges?page=1&pagesize=10",
                 "responseType": "text",
                 "method": "get",
                 "data": null
@@ -304,7 +380,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
                 message: {
                   type: "httpRequest",
                   request: {
-                    "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&product-type=upgrade&pagesize=10`,
+                    "url": `https://robertsspaceindustries.com/en/account/pledges?page=${i}&pagesize=10`,
                     "responseType": "text",
                     "method": "get",
                     "data": null
