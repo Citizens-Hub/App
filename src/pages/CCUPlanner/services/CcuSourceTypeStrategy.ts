@@ -27,6 +27,7 @@ export interface CcuSourceTypeStrategy {
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): {
     price: number;
     currency: string;
+    isUsedUp?: boolean;
   };
   
   // Get edge style
@@ -61,10 +62,11 @@ export class OfficialStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship): { price: number; currency: string; isUsedUp?: boolean } {
     return {
       price: (targetShip.msrp - sourceShip.msrp) / 100,
-      currency: 'USD'
+      currency: 'USD',
+      isUsedUp: false
     };
   }
   
@@ -97,7 +99,7 @@ export class AvailableWbStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     const ccus = options?.ccus || [];
     const targetCcu = ccus.find(c => c.id === targetShip.id);
     const wbSku = targetCcu?.skus.find(sku => sku.price !== targetShip.msrp && sku.available);
@@ -109,14 +111,16 @@ export class AvailableWbStrategy implements CcuSourceTypeStrategy {
       
       return {
         price: actualPrice,
-        currency: 'USD'
+        currency: 'USD',
+        isUsedUp: false
       };
     }
     
     // If WB price is not found, return official price
     return {
       price: (targetShip.msrp - sourceShip.msrp) / 100,
-      currency: 'USD'
+      currency: 'USD',
+      isUsedUp: false
     };
   }
   
@@ -151,10 +155,11 @@ export class OfficialWbStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.manualOfficialWB", defaultMessage: "Manual: Official WB CCU" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     return {
       price: options?.customPrice || (targetShip.msrp - sourceShip.msrp) / 100,
-      currency: 'USD'
+      currency: 'USD',
+      isUsedUp: false
     };
   }
   
@@ -187,10 +192,11 @@ export class ThirdPartyStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" });
   }
   
-  calculatePrice(_sourceShip: Ship, _targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(_sourceShip: Ship, _targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     return {
       price: options?.customPrice || 0,
-      currency: options?.currency || 'CNY'
+      currency: options?.currency || 'CNY',
+      isUsedUp: false
     };
   }
   
@@ -223,11 +229,11 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     const hangarItems = options?.hangarItems || [];
     
     const hangarCcu = hangarItems.find(item => {
-      if (item.type !== 'ccu') return false;
+      if (item.type.toLowerCase() !== 'ccu') return false;
       
       const from = item.fromShip?.toUpperCase() || '';
       const to = item.toShip?.toUpperCase() || '';
@@ -235,9 +241,58 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
       return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
     });
     
+    // 如果找到了机库中的CCU，检查它是否已经用完
+    if (hangarCcu) {
+      try {
+        // 计算此CCU已经使用的数量
+        const completedPaths: Array<{
+          path: {
+            edges: Array<{
+              sourceShipId: number;
+              targetShipId: number;
+              sourceType: CcuSourceType;
+            }>;
+          };
+        }> = JSON.parse(localStorage.getItem('completedPaths') || '[]');
+        
+        let usedCount = 0;
+        completedPaths.forEach(path => {
+          path.path.edges?.forEach(edge => {
+            if (edge.sourceType === CcuSourceType.HANGER &&
+                edge.sourceShipId === sourceShip.id &&
+                edge.targetShipId === targetShip.id) {
+              usedCount++;
+            }
+          });
+        });
+        
+        // 从localStorage中获取CCU总数量
+        const state = JSON.parse(localStorage.getItem('state') || '{}');
+        const ccus = state.items?.ccus || [];
+        const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string } }) => {
+          const parsed = ccu.parsed || {};
+          return parsed.from?.toUpperCase().trim() === sourceShip.name.toUpperCase().trim() &&
+                 parsed.to?.toUpperCase().trim() === targetShip.name.toUpperCase().trim();
+        });
+        
+        // 如果已使用数量大于等于总数量，则标记CCU已用完，但仍返回正常价格
+        const totalQuantity = matchingCcu?.quantity || 1;
+        if (usedCount >= totalQuantity) {
+          return {
+            price: hangarCcu?.price || 0,
+            currency: 'USD',
+            isUsedUp: true
+          };
+        }
+      } catch (error) {
+        console.error('Error checking CCU usage in HangarStrategy:', error);
+      }
+    }
+    
     return {
       price: hangarCcu?.price || 0,
-      currency: 'USD'
+      currency: 'USD',
+      isUsedUp: false
     };
   }
   
@@ -262,14 +317,60 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
       price?: number;
     }>
   ): boolean {
-    return hangarItems.some(item => {
-      if (item.type !== 'ccu') return false;
+    // 先检查是否有匹配的CCU
+    const hasMatchingCcu = hangarItems.some(item => {
+      if (item.type.toLowerCase() !== 'ccu') return false;
       
       const from = item.fromShip?.toUpperCase() || '';
       const to = item.toShip?.toUpperCase() || '';
       
       return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
     });
+
+    // 如果没有匹配的CCU，直接返回false
+    if (!hasMatchingCcu) return false;
+
+    // 如果有匹配的CCU，检查是否已经用完
+    try {
+      // 计算此CCU已经使用的数量
+      const completedPaths: Array<{
+        path: {
+          edges: Array<{
+            sourceShipId: number;
+            targetShipId: number;
+            sourceType: CcuSourceType;
+          }>;
+        };
+      }> = JSON.parse(localStorage.getItem('completedPaths') || '[]');
+      
+      let usedCount = 0;
+      completedPaths.forEach(path => {
+        path.path.edges?.forEach(edge => {
+          if (edge.sourceType === CcuSourceType.HANGER &&
+              edge.sourceShipId === sourceShip.id &&
+              edge.targetShipId === targetShip.id) {
+            usedCount++;
+          }
+        });
+      });
+      
+      // 从localStorage中获取CCU总数量
+      const state = JSON.parse(localStorage.getItem('state') || '{}');
+      const ccus = state.items?.ccus || [];
+      const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string }; quantity?: number }) => {
+        const parsed = ccu.parsed || {};
+        return parsed.from?.toUpperCase().trim() === sourceShip.name.toUpperCase().trim() &&
+                parsed.to?.toUpperCase().trim() === targetShip.name.toUpperCase().trim();
+      });
+      
+      // 如果已使用数量大于等于总数量，则表示此CCU已用完，返回false
+      const totalQuantity = matchingCcu?.quantity || 1;
+      return usedCount < totalQuantity;
+    } catch (error) {
+      console.error('Error checking CCU usage in HangarStrategy.isApplicable:', error);
+      // 如果出错，保守地假设CCU可用
+      return true;
+    }
   }
   
   getPriority(): number {
@@ -289,7 +390,7 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     const wbHistory = options?.wbHistory || [];
     
     const historical = wbHistory.find(wb => 
@@ -303,13 +404,15 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
       
       return {
         price: Math.max(0, historicalPrice - sourceShipPrice),
-        currency: 'USD'
+        currency: 'USD',
+        isUsedUp: false
       };
     }
     
     return {
       price: (targetShip.msrp - sourceShip.msrp) / 100,
-      currency: 'USD'
+      currency: 'USD',
+      isUsedUp: false
     };
   }
   
@@ -346,7 +449,7 @@ export class SubscriptionStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "Subscription" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; } {
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
     const importItems = options?.importItems || [];
     // console.log('importItems', importItems)
     const subscriptionCcu = importItems.find(item => {
@@ -355,7 +458,8 @@ export class SubscriptionStrategy implements CcuSourceTypeStrategy {
     console.log('subscriptionCcu', subscriptionCcu)
     return {
       price: subscriptionCcu?.price || 0,
-      currency: subscriptionCcu?.currency || 'USD'
+      currency: subscriptionCcu?.currency || 'USD',
+      isUsedUp: false
     };
   }
   

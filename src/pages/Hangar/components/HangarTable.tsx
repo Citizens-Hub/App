@@ -9,6 +9,7 @@ import Crawler from "../../../components/Crawler";
 import UserSelector from "../../../components/UserSelector";
 import { Ship } from "../../../types";
 import { Link } from "react-router";
+import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
 
 interface DisplayEquipmentItem {
   pageId?: number;
@@ -179,10 +180,32 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const [showShips, setShowShips] = useState(true);
   const [showBuybacks, setShowBuybacks] = useState(true);
   const [expandedBundles, setExpandedBundles] = useState<{ [key: string]: boolean }>({});
+  const [completedPaths] = useState<StoredCompletedPath[]>(JSON.parse(localStorage.getItem('completedPaths') || '[]'));
 
   const { locale } = intl;
   const { users } = useSelector((state: RootState) => state.upgrades);
   const items = useSelector(selectUsersHangarItems);
+
+  // 计算每个CCU在完成的路径中使用的数量
+  const getCcuUsage = (from: string, to: string) => {
+    let usedCount = 0;
+    
+    completedPaths.forEach(path => {
+      path.path.edges?.forEach(edge => {
+        if (edge.sourceShipId && edge.targetShipId) {
+          const fromShipName = ships.find(ship => ship.id === edge.sourceShipId)?.name;
+          const toShipName = ships.find(ship => ship.id === edge.targetShipId)?.name;
+          
+          if (fromShipName?.toUpperCase().trim() === from.toUpperCase().trim() &&
+              toShipName?.toUpperCase().trim() === to.toUpperCase().trim()) {
+            usedCount++;
+          }
+        }
+      });
+    });
+    
+    return usedCount;
+  };
 
   useEffect(() => {
     const processStoreData = () => {
@@ -604,6 +627,29 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 {((1 - (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100 - item.value) / (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100)) * 100).toFixed(2)}%
                               </span>
                             </span>}
+                            
+                            {/* 显示CCU在路径中的使用情况 */}
+                            {item.type === 'CCU' && (() => {
+                              const usedCount = getCcuUsage(item.from.name, item.to.name);
+                              const totalCount = item.quantity || 1;
+                              const remainingCount = totalCount - usedCount;
+                              
+                              return usedCount > 0 && (
+                                <span className='text-md text-amber-500 font-bold'>
+                                  <span className='text-gray-500 mr-2 dark:text-gray-400'>
+                                    <FormattedMessage id="hangar.usage" defaultMessage="Usage:" />
+                                  </span>
+                                  <FormattedMessage 
+                                    id="hangar.ccuUsage" 
+                                    defaultMessage="Used: {used}, Remaining: {remaining}"
+                                    values={{
+                                      used: usedCount,
+                                      remaining: remainingCount
+                                    }}
+                                  />
+                                </span>
+                              );
+                            })()}
                           </>
                         ) : (
                           <>
