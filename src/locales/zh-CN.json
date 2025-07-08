@@ -289,7 +289,7 @@
   "routeInfoPanel.newInvestmentExplanation": "新投资包含从最后完成的边到目标舰船的成本，不包括机库CCU。如果没有完成的边，则将包含起始舰船价格加上所有非机库CCU",
   "toolbar.guide": "说明",
   "routeInfoPanel.sortByNewInvestmentTooltip": "如果勾选，线路将按新投资成本排序。已完成的线路和机库CCU的成本不会被计入新投资",
-  "routeInfoPanel.conciergeCost": "加权信用点价值",
+  "routeInfoPanel.conciergeCost": "加权消费额价值",
   "routeInfoPanel.tpCost": "第三方",
   "routeInfoPanel.approx": "合",
   "routeInfoPanel.fromRsi": "RSI商店",
@@ -377,5 +377,7 @@
   "hangar.action": "操作",
   "hangar.insurance": "保险:",
   "hangar.buyBack": "回购",
-  "hangar.expand": "包含内容"
+  "hangar.expand": "包含内容",
+  "hangar.totalValue": "机库总价值:",
+  "hangar.totalMsrp": "MSRP:"
 }

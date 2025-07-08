@@ -22,6 +22,7 @@ const Settings = lazy(() => import('./pages/Settings/Settings'));
 const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
 const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
 const Share = lazy(() => import('./pages/Share/Share'));
+const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -157,6 +158,8 @@ function App() {
             <Route path="/app-settings" element={<Settings />} />
   
             <Route path="/share/hangar/:userId" element={<Share />} />
+            
+            <Route path="/checkout/:orderId" element={<Checkout />} />
   
             <Route 
               path="/guide" 
