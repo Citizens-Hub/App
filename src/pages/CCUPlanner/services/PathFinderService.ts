@@ -52,7 +52,7 @@ export interface DetailedEdgeIdentifier {
 }
 
 // 新增：用于存储的简化路径接口
-interface StoredCompletedPath {
+export interface StoredCompletedPath {
   pathId: string;
   shipId: number;
   shipName: string;
@@ -94,7 +94,7 @@ export class PathFinderService {
   /**
    * Get price and currency based on different source types
    */
-  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[] }): { usdPrice: number; tpPrice: number } {
+  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[] }): { usdPrice: number; tpPrice: number; isUsedUp?: boolean } {
     if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
 
     const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
@@ -115,7 +115,7 @@ export class PathFinderService {
       wbHistory: data.wbHistory,
       hangarItems: data.hangarItems,
       importItems: data.importItems
-    });
+    }) as { price: number; currency: string; isUsedUp?: boolean };
     
     // 根据货币类型分配价格
     let usdPrice = 0;
@@ -127,7 +127,12 @@ export class PathFinderService {
       tpPrice = priceResult.price;
     }
     
-    return { usdPrice, tpPrice };
+    // 传递isUsedUp标志
+    return { 
+      usdPrice, 
+      tpPrice, 
+      isUsedUp: priceResult.isUsedUp
+    };
   }
 
   /**
@@ -177,12 +182,33 @@ export class PathFinderService {
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
         if (targetNode && !visited.has(targetNode.id)) {
-          const { usdPrice, tpPrice } = this.getPriceInfo(edge as Edge<CcuEdgeData>, {
+          const priceInfo = this.getPriceInfo(edge as Edge<CcuEdgeData>, {
             ccus: data.ccus,
             wbHistory: data.wbHistory,
             hangarItems: data.hangarItems,
             importItems: data.importItems
           });
+
+          // 跳过使用已用完CCU的边，除非该边属于已完成的路径
+          if (priceInfo.isUsedUp) {
+            // 检查该边是否属于某个已完成的路径
+            const sourceShipId = edge.data?.sourceShip?.id;
+            const targetShipId = edge.data?.targetShip?.id;
+            
+            if (sourceShipId && targetShipId) {
+              // 对于已用完的CCU，我们需要检查它是否在已完成的路径中
+              const isInCompletedPath = this.isSingleEdgeInAnyCompletedPath(edge as Edge<CcuEdgeData>);
+              
+              // 如果该边不属于任何已完成的路径，则跳过它
+              if (!isInCompletedPath) {
+                continue;
+              }
+              // 否则继续处理这条边
+            } else {
+              // 如果边没有完整信息，跳过它
+              continue;
+            }
+          }
 
           this.findAllPaths(
             targetNode,
@@ -195,8 +221,8 @@ export class PathFinderService {
             new Set(visited),
             [...currentPath],
             allPaths,
-            currentUsdCost + usdPrice,
-            currentThirdPartyCost + tpPrice,
+            currentUsdCost + priceInfo.usdPrice,
+            currentThirdPartyCost + priceInfo.tpPrice,
             data
           );
         }

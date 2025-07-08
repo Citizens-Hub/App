@@ -301,5 +301,10 @@
   "share.successImport": "Successfully imported {count} items",
   "share.importComplete": "Import Complete",
   "share.currency": "Currency: {currency}",
-  "share.successImportAll": "Successfully subscribed"
+  "share.successImportAll": "Successfully subscribed",
+  "hangar.filter.showBuybacks": "Include Buybacks",
+  "hangar.filter.showShips": "Ships & Bundles",
+  "hangar.filter.showCcus": "CCUs",
+  "hangar.usage": "Usage",
+  "hangar.ccuUsage": "Used: {used}, Remaining: {remaining}"
 }
