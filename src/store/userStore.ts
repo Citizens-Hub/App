@@ -4,6 +4,7 @@ export enum UserRole {
   Guest = 0,
   User = 1,
   Admin = 2,
+  Reseller = 3,
 }
 
 export interface User {

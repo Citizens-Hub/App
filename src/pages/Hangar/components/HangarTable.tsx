@@ -43,7 +43,7 @@ interface DisplayEquipmentItem {
   others?: Partial<OtherItem>[];
 }
 
-// Bundle中船只图片的轮播组件
+// MARK: Bundle中船只图片的轮播组件
 function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuyBack, isLti }: {
   bundleShips: Partial<ShipItem>[],
   bundleOthers: Partial<OtherItem>[],
@@ -55,7 +55,7 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 获取Bundle中船只的图片
-  const images = [
+  const images = Array.from(new Set([
     ...bundleShips
       .map(bundleShip => {
         const shipInfo = ships.find(s =>
@@ -66,7 +66,7 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
       .filter(img => img) as string[],
     ...bundleOthers.map(other => other.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large'))
       .filter(img => img) as string[]
-  ]
+  ]))
 
   // 如果没有图片，显示一个默认的空白图片区域
   if (images.length === 0) {
@@ -262,7 +262,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     }));
   };
 
-  // 过滤和分页数据
+  // MARK: 过滤和分页数据
   const filteredEquipment = [...(showCcus ? ccus.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.from?.name && item.from.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -715,7 +715,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                   </Box>
                                 );
                               })}
-                              {!!item.others?.filter(other => other.withImage).length && <Divider orientation="vertical" flexItem />}
+                              {!!item.others?.filter(other => other.withImage).length && !!item.ships?.length && <Divider orientation="vertical" flexItem />}
                               {item.others?.filter(other => other.withImage).map((bundleOther, index) => {
                                 return (
                                   <Box key={index} sx={{

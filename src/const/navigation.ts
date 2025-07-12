@@ -12,9 +12,12 @@ export const navigation = [
     path: "/hangar",
   },
   {
-    name: "navigation.fleaMarket",
-    path: "/flea-market",
-    hidden: true,
+    name: "navigation.market",
+    path: "/market"
+  },
+  {
+    name: "navigation.orders",
+    path: "/orders",
   },
   {
     name: "navigation.storePreview",
@@ -23,6 +26,11 @@ export const navigation = [
   {
     name: "navigation.appSettings",
     path: "/app-settings",
+  },
+  {
+    name: "navigation.fleaMarket",
+    path: "/flea-market",
+    hidden: true,
   },
   {
     name: "navigation.guide",
@@ -57,6 +65,11 @@ export const navigation = [
   {
     name: "navigation.hangarShare",
     path: "/share/hangar/:userId",
+    hidden: true,
+  },
+  {
+    name: "navigation.checkout",
+    path: "/checkout",
     hidden: true,
   }
 ];

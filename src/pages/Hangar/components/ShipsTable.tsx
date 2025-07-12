@@ -6,6 +6,8 @@ import { Ship } from "../../../types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../store";
 import { addPredict, removePredict } from "../../../store/upgradesStore";
+import Crawler from "../../../components/Crawler";
+import UserSelector from "../../../components/UserSelector";
 
 export default function ShipsTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
@@ -17,7 +19,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
   const [predictDialogOpen, setPredictDialogOpen] = useState(false);
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
   const [predictPrice, setPredictPrice] = useState('');
-  
+
   // Get predictions from store
   const predictions = useSelector((state: RootState) => state.upgrades.items.predicts);
 
@@ -82,6 +84,13 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
 
   return (
     <>
+      <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
+        <div className='flex flex-col gap-2 items-center justify-center'>
+          <Crawler ships={ships} />
+        </div>
+        <UserSelector />
+      </div>
+
       <TextField
         fullWidth
         variant="outlined"
@@ -169,16 +178,16 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                     <TableCell>
                       {predictions[ship.id] ? (
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             onClick={() => handleOpenPredictDialog(ship)}
                             aria-label={intl.formatMessage({ id: 'ships.editPrediction', defaultMessage: '编辑预测' })}
                           >
                             <Edit size={18} />
                           </IconButton>
-                          <IconButton 
-                            size="small" 
-                            color="error" 
+                          <IconButton
+                            size="small"
+                            color="error"
                             onClick={() => handleRemovePrediction(ship.id)}
                             aria-label={intl.formatMessage({ id: 'ships.removePrediction', defaultMessage: '删除预测' })}
                           >
@@ -186,9 +195,9 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                           </IconButton>
                         </Box>
                       ) : (
-                        <IconButton 
-                          size="small" 
-                          color="primary" 
+                        <IconButton
+                          size="small"
+                          color="primary"
                           onClick={() => handleOpenPredictDialog(ship)}
                           aria-label={intl.formatMessage({ id: 'ships.addPrediction', defaultMessage: '添加预测' })}
                         >
@@ -211,7 +220,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
             labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-            labelDisplayedRows={({ from, to, count }) => 
+            labelDisplayedRows={({ from, to, count }) =>
               `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`
             }
           />
@@ -221,10 +230,10 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
       {/* Prediction Dialog */}
       <Dialog open={predictDialogOpen} onClose={handleClosePredictDialog}>
         <DialogTitle>
-          <FormattedMessage 
-            id="ships.predictDialog.title" 
-            defaultMessage="预测 {shipName} 价格" 
-            values={{ shipName: selectedShip?.name || '' }} 
+          <FormattedMessage
+            id="ships.predictDialog.title"
+            defaultMessage="预测 {shipName} 价格"
+            values={{ shipName: selectedShip?.name || '' }}
           />
         </DialogTitle>
         <DialogContent>

@@ -22,6 +22,9 @@ const Settings = lazy(() => import('./pages/Settings/Settings'));
 const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
 const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
 const Share = lazy(() => import('./pages/Share/Share'));
+const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
+const Market = lazy(() => import('./pages/Market/Market'));
+const Orders = lazy(() => import('./pages/Orders/Orders'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -74,11 +77,11 @@ async function checkSharedHangarUpdates() {
   }
 }
 
-function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
+function RequireAuth({children, allowedRoles}: {children: React.ReactNode, allowedRoles: UserRole[]}) {
   const { pathname } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
 
-  if (user.role < minRole) {
+  if (!allowedRoles.includes(user.role)) {
     return <RouterNavigate to="/login" replace state={pathname} />
   }
 
@@ -149,6 +152,7 @@ function App() {
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/fall-back" element={<LoadingFallback />} />
+
             <Route path="/" element={<Navigate />} />
             <Route path="/ccu-planner" element={<CCUPlanner />} />
             <Route path="/hangar" element={<Hangar />} />
@@ -157,6 +161,10 @@ function App() {
             <Route path="/app-settings" element={<Settings />} />
   
             <Route path="/share/hangar/:userId" element={<Share />} />
+            
+            <Route path="/market" element={<Market />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/orders" element={<Orders />} />
   
             <Route 
               path="/guide" 
@@ -169,7 +177,7 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/changelog" element={<ChangeLogs />} />
   
-            <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
+            <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
             <Route path="/login" element={<Auth action="login" />} />
             <Route path="/register" element={<Auth action="register" />} />
           </Routes>
