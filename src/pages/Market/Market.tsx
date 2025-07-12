@@ -222,24 +222,24 @@ const Market: React.FC = () => {
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ width: '100%', overflow: 'auto' }} className="resource-card">
-          <TableContainer sx={{ mb: 2 }}>
-            <Table aria-label="products list table">
+        <Box sx={{ width: '100%', height: 'calc(100vh - 289px)', overflow: 'auto' }} className="resource-card">
+          <TableContainer sx={{ mb: 2, maxHeight: 'calc(100% - 68px)' }}>
+            <Table stickyHeader aria-label="products list table">
               <TableHead>
                 <TableRow>
-                  <TableCell width="320px">
+                  <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="market.image" defaultMessage="Image" />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="market.details" defaultMessage="Details" />
                   </TableCell>
-                  <TableCell width="180px">
+                  <TableCell width="180px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="market.price" defaultMessage="Price" />
                   </TableCell>
                   {/* <TableCell width="120px">
                     <FormattedMessage id="market.stock" defaultMessage="Stock" />
                   </TableCell> */}
-                  <TableCell width="170px">
+                  <TableCell width="170px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="market.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>

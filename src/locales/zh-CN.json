@@ -171,6 +171,8 @@
   "navigation.guide": "指南",
   "navigation.importManager": "导入管理器",
   "navigation.hangarShare": "共享机库",
+  "navigation.orders": "订单",
+  "navigation.checkout": "结账",
   "app.menu": "菜单",
   "admin.heading": "管理后台",
   "admin.ships.title": "舰船数据",
@@ -385,5 +387,17 @@
   "checkout.agreementTitle": "条款",
   "checkout.agreementCheckbox": "我已阅读并同意以上所有条款，并已理解所有礼物一经发出均无法进行退款",
   "checkout.cancel": "取消",
-  "checkout.proceed": "继续付款"
+  "checkout.proceed": "继续付款",
+  "orders.title": "我的订单",
+  "orders.id": "订单号",
+  "orders.items": "物品",
+  "orders.price": "价格",
+  "orders.status": "状态",
+  "orders.date": "日期",
+  "orders.actions": "操作",
+  "orders.noOrders": "暂无订单",
+  "orders.restartPayment": "立即支付",
+  "orders.status.pending": "待付款",
+  "orders.status.paid": "已付款",
+  "orders.status.canceled": "已取消"
 }

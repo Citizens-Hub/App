@@ -159,6 +159,8 @@
   "navigation.appSettings": "App-Einstellungen",
   "navigation.guide": "Anleitung",
   "navigation.hangarShare": "Hangar teilen",
+  "navigation.orders": "Bestellungen",
+  "navigation.checkout": "Kasse",
   "app.menu": "Menü",
   "admin.heading": "Admin",
   "admin.ships.title": "Schiffsdaten",

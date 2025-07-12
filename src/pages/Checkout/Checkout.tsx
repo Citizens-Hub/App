@@ -1,25 +1,24 @@
 import { useLocation, useNavigate } from "react-router";
-import { useState } from "react";
-import { CartItem } from "../../types";
+import { useState, useEffect } from "react";
+import { CartItem, ListingItem, OrderStatus, Ship } from "../../types";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store";
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
+import {
+  Box,
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   CircularProgress,
   Alert,
   Paper,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
   Checkbox,
   FormControlLabel
@@ -27,19 +26,107 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ChevronsRight } from 'lucide-react';
 
+// 订单接口定义
+interface Order {
+  id: number;
+  userId: number;
+  price: number;
+  status: OrderStatus;
+  items: string;
+  createdAt: string;
+  updatedAt: string;
+  sessionId: string;
+}
+
+interface OrderItem {
+  skuId: string;
+  quantity: number;
+}
+
 export default function Checkout() {
-  const { cart } = useLocation().state as { cart: CartItem[] };
+  const location = useLocation();
+  const locationState = location.state as { cart?: CartItem[], pendingOrder?: Order, ships?: Ship[] };
+  const { cart: cartFromState, pendingOrder, ships } = locationState || {};
+  const [cart, setCart] = useState<CartItem[]>(cartFromState || []);
+  // const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
+  const [listingItems, setListingItems] = useState<ListingItem[]>([]);
   const { user } = useSelector((state: RootState) => state.user);
   const navigate = useNavigate();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
+  // const [loadingOrder, setLoadingOrder] = useState(!!pendingOrderId);
   const [error, setError] = useState<string | null>(null);
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
-  
+
+  useEffect(() => {
+    if (pendingOrder) {
+      fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/list`)
+        .then(response => response.json())
+        .then(data => setListingItems(data));
+    }
+  }, [pendingOrder]);
+
+  useEffect(() => {
+    if (pendingOrder && ships && listingItems) {
+      const orderItems = JSON.parse(pendingOrder.items) as OrderItem[];
+      console.log(orderItems);
+      const orderItemsWithShips = orderItems.map((item: OrderItem) => {
+        const listingItem = listingItems.find((listingItem: ListingItem) => listingItem.skuId === item.skuId)
+        if (!listingItem) return null;
+
+        const itemData = JSON.parse(listingItem.item) as { type: string, from?: number, to?: number };
+        if (!itemData.from || !itemData.to) return null;
+
+        const fromShip = ships.find((ship: Ship) => ship.id === itemData.from);
+        const toShip = ships.find((ship: Ship) => ship.id === itemData.to);
+
+        return { ...item, listingItem, fromShip, toShip };
+      });
+
+      setCart(orderItemsWithShips.map(item => {
+        if (!item) return null;
+
+        return {
+          resource: {
+            id: item.listingItem.skuId,
+            name: item.listingItem.name,
+            title: item.listingItem.name,
+            subtitle: JSON.stringify({
+              type: "CCU",
+              from: item.fromShip?.name,
+              to: item.toShip?.name
+            }),
+            excerpt: item.listingItem.name,
+            type: "CCU",
+            media: {
+              thumbnail: {
+                storeSmall: item.fromShip?.medias.productThumbMediumAndSmall || ''
+              },
+              list: [
+                { slideshow: item.fromShip?.medias.productThumbMediumAndSmall || '' },
+                { slideshow: item.toShip?.medias.productThumbMediumAndSmall || '' }
+              ]
+            },
+            nativePrice: {
+              amount: item.listingItem.price * 100,
+              discounted: 0,
+              taxDescription: []
+            },
+            stock: {
+              available: true,
+              level: 'In Stock'
+            },
+            isPackage: false
+          }
+        }
+      }).filter(item => item !== null));
+    }
+  }, [pendingOrder, ships, listingItems]);
+
   // 计算总价
   const totalPrice = cart?.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100), 0) || 0;
-  
+
   // 打开协议确认弹窗
   const handleOpenConfirmDialog = () => {
     setOpenConfirmDialog(true);
@@ -54,7 +141,7 @@ export default function Checkout() {
   const handleAgreementChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setAgreementChecked(event.target.checked);
   };
-  
+
   // 处理订单确认
   const handleConfirmOrder = () => {
     handleOpenConfirmDialog();
@@ -62,17 +149,56 @@ export default function Checkout() {
 
   // 处理订单提交
   const handleSubmitOrder = () => {
-    if (!cart || !user) return;
-    
+    if ((!cart || cart.length === 0) && !pendingOrder) return;
+
     setLoading(true);
     setError(null);
     handleCloseConfirmDialog();
-    
+
+    // 如果是处理待支付订单
+    if (pendingOrder) {
+      fetch(
+        `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/resume`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.token}`
+          },
+          body: JSON.stringify({
+            sessionId: pendingOrder.sessionId
+          })
+        })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((json) => window.location.href = json.url)
+        .catch((err) => {
+          console.error("订单处理错误:", err);
+          setError(intl.formatMessage({
+            id: 'checkout.error',
+            defaultMessage: 'An error occurred while processing your order. Please try again.'
+          }));
+          setLoading(false);
+        });
+      return;
+    }
+
+    // 创建新订单
     fetch(
       `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders`,
       {
         method: 'POST',
-        body: JSON.stringify({ items: cart.map((item: CartItem) => ({ skuId: item.resource.id, quantity: 1 })), userId: user?.id }),
+        body: JSON.stringify({
+          items: cart.map((item: CartItem) => ({
+            skuId: item.resource.id,
+            quantity: 1
+          })),
+          userId: user?.id
+        }),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${user?.token}`
@@ -87,7 +213,10 @@ export default function Checkout() {
       .then((json) => window.location.href = json.url)
       .catch((err) => {
         console.error("订单处理错误:", err);
-        setError(intl.formatMessage({ id: 'checkout.error', defaultMessage: 'An error occurred while processing your order. Please try again.' }));
+        setError(intl.formatMessage({
+          id: 'checkout.error',
+          defaultMessage: 'An error occurred while processing your order. Please try again.'
+        }));
         setLoading(false);
       });
   };
@@ -97,7 +226,12 @@ export default function Checkout() {
     navigate('/market');
   };
 
-  if (!cart || cart.length === 0) {
+  // 返回订单页面
+  const handleBackToOrders = () => {
+    navigate('/orders');
+  };
+
+  if ((!cart || cart.length === 0) && !pendingOrder) {
     return (
       <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="80vh" gap={2}>
         <Typography variant="h5">
@@ -112,16 +246,20 @@ export default function Checkout() {
 
   return (
     <Box className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
-      <Typography 
-        variant="h5" 
-        component="h1" 
-        align="left" 
-        gutterBottom 
+      <Typography
+        variant="h5"
+        component="h1"
+        align="left"
+        gutterBottom
         sx={{ mb: 4, fontWeight: 500 }}
       >
-        <FormattedMessage id="checkout.title" defaultMessage="Checkout" />
+        {pendingOrder ? (
+          <FormattedMessage id="checkout.resumePayment" defaultMessage="Resume Payment" />
+        ) : (
+          <FormattedMessage id="checkout.title" defaultMessage="Checkout" />
+        )}
       </Typography>
-      
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -150,19 +288,19 @@ export default function Checkout() {
                 <TableBody>
                   {cart.map((item) => {
                     const jsonData = JSON.parse(item.resource.subtitle) as { type: string, from?: string, to?: string };
-                    
+
                     // 检查是否为CCU类型
                     const isCCU = jsonData.type === 'CCU';
-                    
+
                     // 获取from和to的图片URL
-                    const fromImageUrl = isCCU && item.resource.media?.list && item.resource.media.list[0]?.slideshow 
-                      ? item.resource.media.list[0].slideshow 
+                    const fromImageUrl = isCCU && item.resource.media?.list && item.resource.media.list[0]?.slideshow
+                      ? item.resource.media.list[0].slideshow
                       : '';
-                    
-                    const toImageUrl = isCCU && item.resource.media?.list && item.resource.media.list[1]?.slideshow 
-                      ? item.resource.media.list[1].slideshow 
+
+                    const toImageUrl = isCCU && item.resource.media?.list && item.resource.media.list[1]?.slideshow
+                      ? item.resource.media.list[1].slideshow
                       : '';
-                    
+
                     return (
                       <TableRow key={item.resource.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                         <TableCell>
@@ -239,7 +377,7 @@ export default function Checkout() {
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
             </Typography>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">
                 <FormattedMessage id="checkout.subtotal" defaultMessage="Subtotal" />
@@ -248,7 +386,7 @@ export default function Checkout() {
                 US${totalPrice.toFixed(2)}
               </Typography>
             </Box>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">
                 <FormattedMessage id="checkout.taxes" defaultMessage="Taxes" />
@@ -257,7 +395,7 @@ export default function Checkout() {
                 US$0.00
               </Typography>
             </Box>
-            
+
             <Box sx={{ borderTop: '1px solid #e0e0e0', pt: 2, mt: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="body1" fontWeight="700">
@@ -268,11 +406,11 @@ export default function Checkout() {
                 </Typography>
               </Box>
             </Box>
-            
-            <Button 
-              variant="contained" 
-              color="primary" 
-              fullWidth 
+
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
               sx={{ mt: 2, textTransform: 'uppercase' }}
               onClick={handleConfirmOrder}
               disabled={loading}
@@ -281,18 +419,24 @@ export default function Checkout() {
               {loading ? (
                 <FormattedMessage id="checkout.processing" defaultMessage="Processing..." />
               ) : (
-                <FormattedMessage id="checkout.confirmOrder" defaultMessage="Confirm and Pay" />
+                <FormattedMessage
+                  id={pendingOrder ? "checkout.resumePayment" : "checkout.confirmOrder"}
+                  defaultMessage={pendingOrder ? "Resume Payment" : "Confirm and Pay"}
+                />
               )}
             </Button>
-            
-            <Button 
-              variant="outlined" 
+
+            <Button
+              variant="outlined"
               fullWidth
-              onClick={handleBackToMarket}
+              onClick={pendingOrder ? handleBackToOrders : handleBackToMarket}
               disabled={loading}
               sx={{ mt: 2, textTransform: 'uppercase' }}
             >
-              <FormattedMessage id="checkout.backToMarket" defaultMessage="Back to Market" />
+              <FormattedMessage
+                id={pendingOrder ? "checkout.backToOrders" : "checkout.backToMarket"}
+                defaultMessage={pendingOrder ? "Back to Orders" : "Back to Market"}
+              />
             </Button>
           </Paper>
         </Box>
@@ -308,13 +452,11 @@ export default function Checkout() {
           <FormattedMessage id="checkout.agreementTitle" defaultMessage="Terms and Conditions" />
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 text-[#555]">
             {
               intl.formatMessage({ id: 'checkout.agreementText', defaultMessage: 'By proceeding with this purchase, you agree to our Terms of Service and Privacy Policy. All sales are final and non-refundable unless otherwise stated in our Refund Policy;In case of special reasons such as insufficient stock, we may contact you and you can choose to partially or fully refund the order;The gift will be sent to the account email you reserved' }).split(';').map((line, index) => (<div key={index}>{line}.</div>))
             }
-            </div>
-          </DialogContentText>
+          </div>
           <FormControlLabel
             control={
               <Checkbox
@@ -327,9 +469,9 @@ export default function Checkout() {
               mt: 2
             }}
             label={
-              <FormattedMessage 
-                id="checkout.agreementCheckbox" 
-                defaultMessage="I have read and agree to all the Terms and Conditions listed above, and understand that all gifts cannot be refunded once sent" 
+              <FormattedMessage
+                id="checkout.agreementCheckbox"
+                defaultMessage="I have read and agree to all the Terms and Conditions listed above, and understand that all gifts cannot be refunded once sent"
               />
             }
           />
@@ -338,9 +480,9 @@ export default function Checkout() {
           <Button onClick={handleCloseConfirmDialog} color="inherit">
             <FormattedMessage id="checkout.cancel" defaultMessage="Cancel" />
           </Button>
-          <Button 
-            onClick={handleSubmitOrder} 
-            color="primary" 
+          <Button
+            onClick={handleSubmitOrder}
+            color="primary"
             disabled={!agreementChecked}
             variant="contained"
           >

@@ -8,7 +8,6 @@ import { UserRole } from './store/userStore'
 import { setImportItems } from './store/importStore'
 import { store } from './store'
 import { Loader2 } from 'lucide-react'
-import Market from './pages/Market/Market'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -24,6 +23,8 @@ const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
 const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
 const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
+const Market = lazy(() => import('./pages/Market/Market'));
+const Orders = lazy(() => import('./pages/Orders/Orders'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -163,6 +164,7 @@ function App() {
             
             <Route path="/market" element={<Market />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/orders" element={<Orders />} />
   
             <Route 
               path="/guide" 

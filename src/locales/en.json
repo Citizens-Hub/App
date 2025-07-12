@@ -160,6 +160,8 @@
   "navigation.appSettings": "App Settings",
   "navigation.hangarShare": "Hangar Share",
   "navigation.guide": "Guide",
+  "navigation.orders": "Orders",
+  "navigation.checkout": "Checkout",
   "app.menu": "Menu",
   "admin.heading": "Admin",
   "admin.ships.title": "Ships' Data",

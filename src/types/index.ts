@@ -197,3 +197,21 @@ export interface ListingItem {
   createdAt: string;
   updatedAt: string;
 }
+
+export enum OrderStatus {
+  Pending = 'pending',
+  Paid = 'paid',
+  Canceled = 'canceled',
+}
+
+export interface Order {
+  id: number;
+  items: string;
+  belongsTo: string;
+  price: number;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+  sessionId: string | null;
+  invoiceId: string | null;
+}
