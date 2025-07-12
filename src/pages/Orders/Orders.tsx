@@ -109,7 +109,7 @@ export default function Orders() {
     const order = orders.find(order => order.id === orderId);
     if (!order) return;
 
-    fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/invoice/?invoiceId=${order.invoiceId}`, {
+    fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/invoice?invoiceId=${order.invoiceId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
