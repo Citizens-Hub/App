@@ -116,7 +116,7 @@ export default function Orders() {
         'Authorization': `Bearer ${user?.token}`
       }
     }).then(res => res.json()).then(data => {
-      window.open(data.data.url, '_blank');
+      window.open(data.url, '_blank');
     });
   };
 
