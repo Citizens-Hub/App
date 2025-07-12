@@ -187,15 +187,13 @@ export enum ListingType {
 }
 
 export interface ListingItem {
-  id: string;
-  type: ListingType;
+  skuId: string;
   name: string;
-  description: string;
-  imageUrl: string;
-  languages: string[];
-  communicationTools: string[];
-  price?: string;
-  seller: string;
-  createdAt: Date;
+  price: number;
+  item: string;
+  stock: number;
+  lockedStock: number;
+  belongsTo: string;
+  createdAt: string;
+  updatedAt: string;
 }
-

@@ -148,6 +148,7 @@
   "ccuPlanner.noSearchResults": "无结果",
   "navigation.home": "首页",
   "navigation.ccuPlanner": "CCU规划器",
+  "navigation.market": "市场",
   "navigation.storePreview": "商店预览",
   "navigation.privacy": "隐私政策",
   "navigation.changelog": "更新日志",
@@ -379,5 +380,10 @@
   "hangar.buyBack": "回购",
   "hangar.expand": "包含内容",
   "hangar.totalValue": "机库总价值:",
-  "hangar.totalMsrp": "MSRP:"
+  "hangar.totalMsrp": "MSRP:",
+  "checkout.agreementText": "继续购买即表示您同意我们的服务条款和隐私政策。所有销售均为最终决定，且不可退款，除非我们的退款政策另有规定;如遇库存不足等特殊原因，我们可能会联系您，您可以选择对订单进行部分或完全退款;礼品会被发送到您预留的账户邮箱中;此协议为英语版本翻译而来，所有协议内容以英语版本为准",
+  "checkout.agreementTitle": "条款",
+  "checkout.agreementCheckbox": "我已阅读并同意以上所有条款，并已理解所有礼物一经发出均无法进行退款",
+  "checkout.cancel": "取消",
+  "checkout.proceed": "继续付款"
 }

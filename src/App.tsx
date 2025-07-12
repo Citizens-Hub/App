@@ -8,6 +8,7 @@ import { UserRole } from './store/userStore'
 import { setImportItems } from './store/importStore'
 import { store } from './store'
 import { Loader2 } from 'lucide-react'
+import Market from './pages/Market/Market'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -75,11 +76,11 @@ async function checkSharedHangarUpdates() {
   }
 }
 
-function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
+function RequireAuth({children, allowedRoles}: {children: React.ReactNode, allowedRoles: UserRole[]}) {
   const { pathname } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
 
-  if (user.role < minRole) {
+  if (!allowedRoles.includes(user.role)) {
     return <RouterNavigate to="/login" replace state={pathname} />
   }
 
@@ -150,6 +151,7 @@ function App() {
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/fall-back" element={<LoadingFallback />} />
+
             <Route path="/" element={<Navigate />} />
             <Route path="/ccu-planner" element={<CCUPlanner />} />
             <Route path="/hangar" element={<Hangar />} />
@@ -159,7 +161,8 @@ function App() {
   
             <Route path="/share/hangar/:userId" element={<Share />} />
             
-            <Route path="/checkout/:orderId" element={<Checkout />} />
+            <Route path="/market" element={<Market />} />
+            <Route path="/checkout" element={<Checkout />} />
   
             <Route 
               path="/guide" 
@@ -172,7 +175,7 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/changelog" element={<ChangeLogs />} />
   
-            <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
+            <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
             <Route path="/login" element={<Auth action="login" />} />
             <Route path="/register" element={<Auth action="register" />} />
           </Routes>

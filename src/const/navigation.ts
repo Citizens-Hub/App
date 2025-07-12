@@ -8,6 +8,10 @@ export const navigation = [
     path: "/ccu-planner",
   },
   {
+    name: "navigation.market",
+    path: "/market"
+  },
+  {
     name: "navigation.hangar",
     path: "/hangar",
   },
