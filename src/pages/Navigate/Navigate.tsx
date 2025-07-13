@@ -1,5 +1,5 @@
 import { FormattedMessage } from 'react-intl';
-import BackgroundVideo from '../../components/BackgroundVideo';
+import BackgroundVideo from '@/components/BackgroundVideo';
 import { Link } from 'react-router';
 
 export default function Navigate() {

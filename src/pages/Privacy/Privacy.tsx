@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage } from 'react-intl';
-import { useLocale } from '../../contexts/LocaleContext';
+import { useLocale } from '@/contexts/LocaleContext';
+import { useDocumentData } from '@/hooks';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -39,48 +40,33 @@ function a11yProps(index: number) {
 
 export default function Privacy() {
   const { locale } = useLocale();
-  const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
-  const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(locale === 'zh-CN' ? 0 : 1);
+  
+  // 使用通用文档获取钩子
+  const { 
+    content, 
+    language, 
+    toggleLanguage, 
+    isLoading: loading, 
+    error 
+  } = useDocumentData('/docs/privacy.md', '/docs/privacy.en.md');
+  
+  // 根据当前语言设置选项卡值
+  const tabValue = language === 'zh' ? 0 : 1;
 
+  // 选项卡切换事件
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    if ((newValue === 0 && language === 'en') || (newValue === 1 && language === 'zh')) {
+      toggleLanguage();
+    }
   };
 
+  // 初始化选项卡值，根据应用语言环境
   useEffect(() => {
-    const fetchChangelogs = async () => {
-      try {
-        setLoading(true);
-
-        // 获取中文更新日志
-        const chineseResponse = await fetch('/docs/privacy.md');
-        if (!chineseResponse.ok) {
-          throw new Error(`无法获取中文更新日志: ${chineseResponse.status}`);
-        }
-        const chineseText = await chineseResponse.text();
-        setChineseMarkdown(chineseText);
-
-        // 获取英文更新日志
-        const englishResponse = await fetch('/docs/privacy.en.md');
-        if (!englishResponse.ok) {
-          throw new Error(`Unable to fetch English changelog: ${englishResponse.status}`);
-        }
-        const englishText = await englishResponse.text();
-        setEnglishMarkdown(englishText);
-
-        setError(null);
-      } catch (err) {
-        console.error('获取更新日志时出错:', err);
-        setError((err as Error).message || '获取更新日志时出错');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchChangelogs();
-  }, []);
+    if ((locale === 'zh-CN' && language === 'en') || 
+        (locale !== 'zh-CN' && language === 'zh')) {
+      toggleLanguage();
+    }
+  }, [locale, language, toggleLanguage]);
 
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto'>
@@ -97,7 +83,7 @@ export default function Privacy() {
 
         {error && (
           <Typography color="error">
-            {error}
+            {error instanceof Error ? error.message : 'Failed to load document'}
           </Typography>
         )}
 
@@ -110,7 +96,7 @@ export default function Privacy() {
               </Tabs>
             </Box>
 
-            <TabPanel value={tabValue} index={0}>
+            <TabPanel value={tabValue} index={tabValue}>
               <Box sx={{
                 backgroundColor: 'background.paper',
                 borderRadius: 1,
@@ -118,20 +104,7 @@ export default function Privacy() {
                 textAlign: 'left',
                 margin: '0 auto'
               }}>
-                <MarkdownPreview source={chineseMarkdown} />
-              </Box>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={1}>
-              <Box sx={{
-                backgroundColor: 'background.paper',
-                borderRadius: 1,
-                p: 3,
-                textAlign: 'left',
-                margin: '0 auto'
-              }}
-              >
-                <MarkdownPreview source={englishMarkdown} />
+                <MarkdownPreview source={content} />
               </Box>
             </TabPanel>
           </Box>

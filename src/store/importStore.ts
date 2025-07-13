@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
-import { SharedHangarItem } from '../pages/Share/hooks/useSharedData';
 import { RootState } from '.';
+import { SharedHangarItem } from '@/hooks/swr/share/useSharedData';
 
 export interface ImportItem extends SharedHangarItem {
   selected: boolean;

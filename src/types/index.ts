@@ -187,15 +187,32 @@ export enum ListingType {
 }
 
 export interface ListingItem {
-  id: string;
-  type: ListingType;
+  skuId: string;
   name: string;
-  description: string;
-  imageUrl: string;
-  languages: string[];
-  communicationTools: string[];
-  price?: string;
-  seller: string;
-  createdAt: Date;
+  price: number;
+  item: string;
+  stock: number;
+  lockedStock: number;
+  belongsTo: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
+export enum OrderStatus {
+  Pending = 'pending',
+  Paid = 'paid',
+  Finished = 'finished',
+  Canceled = 'canceled',
+}
+
+export interface Order {
+  id: number;
+  items: string;
+  belongsTo: string;
+  price: number;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+  sessionId: string | null;
+  invoiceId: string | null;
+}

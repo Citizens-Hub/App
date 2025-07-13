@@ -15,12 +15,11 @@ import {
   alpha,
   Card,
 } from "@mui/material";
-import useSharedData from "./hooks/useSharedData";
-import useShipsData from "./hooks/useShipsData";
 import { useDispatch, useSelector } from "react-redux";
 import { setImportItems, clearAllImportData } from "../../store/importStore";
 import { RootState } from "../../store";
 import { Ship } from "../../types";
+import { useSharedData, useShipsData } from "../../hooks";
 
 // Items displayed per page
 const ITEMS_PER_PAGE = 6;
