@@ -309,7 +309,7 @@
   "hangar.filter.showShips": "Ships & Bundles",
   "hangar.filter.showCcus": "CCUs",
   "hangar.usage": "Usage",
-  "hangar.ccuUsage": "Used: {used}, Remaining: {remaining}"
+  "hangar.ccuUsage": "Used: {used}, Remaining: {remaining}",
   "orders.status.pending": "Pending",
   "orders.status.paid": "Shipping",
   "orders.status.finished": "Finished",
