@@ -2,9 +2,9 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from './components/Header'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from './store'
-import { UserRole } from './store/userStore'
+import { logout, UserRole } from './store/userStore'
 import { setImportItems } from './store/importStore'
 import { store } from './store'
 import { Loader2 } from 'lucide-react'
@@ -39,29 +39,29 @@ async function checkSharedHangarUpdates() {
     // 从Redux store获取共享机库数据
     const state = store.getState();
     const { userId, sharedHangarPath } = state.import;
-    
+
     if (!userId || !sharedHangarPath) return;
 
     // 从API获取最新的用户资料
     const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/profile/${userId}`);
     if (!response.ok) return;
-    
+
     const profileData = await response.json();
     const currentSharedHangar = profileData.user.sharedHangar;
-    
+
     // 如果路径有变化，自动获取新数据并更新
     if (currentSharedHangar !== sharedHangarPath) {
       console.log('共享机库已更新，自动重新导入');
-      
+
       // 获取新的共享机库数据
       const hangarResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${currentSharedHangar}`);
       if (!hangarResponse.ok) {
         console.error('获取更新的共享机库数据失败');
         return;
       }
-      
+
       const hangarData = await hangarResponse.json();
-      
+
       // 直接更新Redux store中的数据
       store.dispatch(setImportItems({
         items: hangarData.items,
@@ -69,7 +69,7 @@ async function checkSharedHangarUpdates() {
         userId: userId,
         sharedHangarPath: currentSharedHangar
       }));
-      
+
       console.log('共享机库数据已自动更新');
     }
   } catch (err) {
@@ -77,7 +77,21 @@ async function checkSharedHangarUpdates() {
   }
 }
 
-function RequireAuth({children, allowedRoles}: {children: React.ReactNode, allowedRoles: UserRole[]}) {
+async function checkUserSession(token?: string) {
+  if (!token) {
+    return false;
+  }
+
+  const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/user`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  return response.ok;
+}
+
+function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: UserRole[] }) {
   const { pathname } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
 
@@ -95,11 +109,11 @@ function App() {
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
       setDarkMode(saved === 'true');
-      } else {
-        setDarkMode(
-          window.matchMedia('(prefers-color-scheme: dark)').matches
-		);
-	  }
+    } else {
+      setDarkMode(
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -129,10 +143,21 @@ function App() {
     }
   }, [darkMode]);
 
-  // 应用启动时检查共享机库更新
+  const { user } = useSelector((state: RootState) => state.user);
+  const dispatch = useDispatch();
+
   useEffect(() => {
-    checkSharedHangarUpdates();
-  }, []);
+    (async () => {
+      checkSharedHangarUpdates();
+      if (!user.token) return;
+      const isSessionValid = await checkUserSession(user?.token);
+
+      if (!isSessionValid) {
+        console.log("Session is invalid, logging out");
+        dispatch(logout());
+      }
+    })();
+  }, [user, dispatch]);
 
   const theme = createTheme({
     palette: {
@@ -159,15 +184,15 @@ function App() {
             <Route path="/flea-market" element={<FleaMarket />} />
             <Route path="/store-preview" element={<ResourcesTable />} />
             <Route path="/app-settings" element={<Settings />} />
-  
+
             <Route path="/share/hangar/:userId" element={<Share />} />
-            
+
             <Route path="/market" element={<Market />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/orders" element={<Orders />} />
-  
-            <Route 
-              path="/guide" 
+
+            <Route
+              path="/guide"
               element={
                 <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
                   <Guide showTitle />
@@ -176,7 +201,7 @@ function App() {
             />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/changelog" element={<ChangeLogs />} />
-  
+
             <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
             <Route path="/login" element={<Auth action="login" />} />
             <Route path="/register" element={<Auth action="register" />} />

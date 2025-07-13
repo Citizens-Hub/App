@@ -304,5 +304,9 @@
   "share.successImport": "Successfully imported {count} items",
   "share.importComplete": "Import Complete",
   "share.currency": "Currency: {currency}",
-  "share.successImportAll": "Successfully subscribed"
+  "share.successImportAll": "Successfully subscribed",
+  "orders.status.pending": "Pending",
+  "orders.status.paid": "Shipping",
+  "orders.status.finished": "Finished",
+  "orders.status.canceled": "Canceled"
 }

@@ -201,6 +201,7 @@ export interface ListingItem {
 export enum OrderStatus {
   Pending = 'pending',
   Paid = 'paid',
+  Finished = 'finished',
   Canceled = 'canceled',
 }
 
