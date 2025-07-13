@@ -347,7 +347,7 @@ const Market: React.FC = () => {
                         {isCCU && toShip && fromShip && (
                           <div className='flex flex-col gap-1'>
                             <div className='text-blue-500 text-2xl'>US${item.price.toFixed(2)}</div>
-                            <div className='text-gray-500 line-through text-md'>US${(toShip.msrp - fromShip.msrp) / 100}</div>
+                            {parseInt(discount) > 0 && <div className='text-gray-500 line-through text-md'>US${(toShip.msrp - fromShip.msrp) / 100}</div>}
                           </div>
                         )}
                         {!isCCU && (
