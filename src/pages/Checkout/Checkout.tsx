@@ -125,7 +125,11 @@ export default function Checkout() {
   }, [pendingOrder, ships, listingItems]);
 
   // 计算总价
-  const totalPrice = cart?.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100), 0) || 0;
+  const subtotal = cart?.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100), 0) || 0;
+  // 判断是否免除服务费
+  const isServiceFeeFree = subtotal >= 20;
+  const serviceFee = isServiceFeeFree ? 0 : 0.99;
+  const totalPrice = subtotal + serviceFee;
 
   // 打开协议确认弹窗
   const handleOpenConfirmDialog = () => {
@@ -373,6 +377,11 @@ export default function Checkout() {
 
         {/* 右侧 - 订单摘要 */}
         <Box sx={{ flex: '1 1 35%', maxWidth: { md: '350px' } }}>
+          <Alert severity="info" sx={{ mb: 2, textAlign: 'left', fontSize: '14px' }}>
+            <FormattedMessage id="checkout.limitedTimeOffer" defaultMessage="Limited time offer:" />
+            <br />
+            <FormattedMessage id="checkout.feeWaivedMessage" defaultMessage="Waive software service fee for orders over $20" />
+          </Alert>
           <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
@@ -383,16 +392,28 @@ export default function Checkout() {
                 <FormattedMessage id="checkout.subtotal" defaultMessage="Subtotal" />
               </Typography>
               <Typography variant="body1" fontWeight="500">
-                US${totalPrice.toFixed(2)}
+                US${subtotal.toFixed(2)}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="body1">
-                <FormattedMessage id="checkout.taxes" defaultMessage="Taxes" />
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormattedMessage id="checkout.serviceFee" defaultMessage="Software Service Fee" />
+                {/* {isServiceFeeFree && (
+                  <Typography 
+                    component="span" 
+                    color="success.main" 
+                    sx={{ ml: 1, fontSize: '0.75rem', fontWeight: 500 }}
+                  >
+                    <FormattedMessage id="checkout.feeWaived" defaultMessage="(Waived)" />
+                  </Typography>
+                )} */}
               </Typography>
-              <Typography variant="body1" fontWeight="500">
-                US$0.00
+              <Typography variant="body2" fontWeight="500">
+                {isServiceFeeFree && <span className="text-green-600">(waived)</span>}
+                {isServiceFeeFree ? (
+                  <span style={{ textDecoration: 'line-through', marginLeft: '8px' }}>US$0.99</span>
+                ) : 'US$0.99'}
               </Typography>
             </Box>
 
@@ -403,6 +424,11 @@ export default function Checkout() {
                 </Typography>
                 <Typography variant="body1" fontWeight="700" color="primary">
                   US${totalPrice.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  *<FormattedMessage id="checkout.taxes" defaultMessage="Taxes not included" />
                 </Typography>
               </Box>
             </Box>
