@@ -400,5 +400,6 @@
   "orders.status.pending": "待付款",
   "orders.status.paid": "待发货",
   "orders.status.finished": "已完成",
-  "orders.status.canceled": "已取消"
+  "orders.status.canceled": "已取消",
+  "market.betaNotice": "此页面是一个测试部署且订单运行在测试环境， 所有上架内容均为测试物品，请勿进行下单"
 }

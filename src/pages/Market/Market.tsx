@@ -40,6 +40,7 @@ const Market: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showInStock, setShowInStock] = useState(true);
+  const [showAlert, setShowAlert] = useState(true);
 
   // 过滤商品
   const filteredItems = listingItems.filter(item =>
@@ -150,6 +151,20 @@ const Market: React.FC = () => {
 
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
+      {showAlert && <Alert
+        severity="warning"
+        sx={{ zIndex: 1000, position: 'fixed', top: 65, left: 0, right: 0, width: '100%', borderRadius: 0 }}
+        onClose={() => {
+          setShowAlert(false);
+        }}
+      >
+        <div className="text-sm text-left">
+          <FormattedMessage id="market.betaNotice"
+            defaultMessage="This page is a test deployment and the order is run in the test environment. All the items listed are test items. Please do not place an order."
+          />
+        </div>
+      </Alert>}
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
         <div className='flex flex-row items-center gap-4'>
           <Typography variant="h5">
