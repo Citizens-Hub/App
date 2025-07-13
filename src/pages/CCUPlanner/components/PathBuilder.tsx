@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Button } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Ship, HangarItem } from '../../../types';
+import { Ship, HangarItem } from '@/types';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface PathBuilderProps {

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
-import { RootState } from "../../../store";
-import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "../../../store/upgradesStore";
+import { RootState } from "@/store";
+import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "@/store/upgradesStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight, Archive } from "lucide-react";
-import Crawler from "../../../components/Crawler";
-import UserSelector from "../../../components/UserSelector";
-import { Ship } from "../../../types";
+import Crawler from "@/components/Crawler";
+import UserSelector from "@/components/UserSelector";
+import { Ship } from "@/types";
 import { Link } from "react-router";
 
 interface DisplayEquipmentItem {

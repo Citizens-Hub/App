@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
-import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
 import { Button, IconButton, Input, Select } from '@mui/material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
+import { RootState } from '@/store';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 

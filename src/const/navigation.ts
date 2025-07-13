@@ -18,6 +18,7 @@ export const navigation = [
   {
     name: "navigation.orders",
     path: "/orders",
+    hidden: true,
   },
   {
     name: "navigation.storePreview",

@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import {
   Typography,
-  Button,
   TextField,
   InputAdornment,
   IconButton,
-  Badge,
   Box,
   CircularProgress,
   Snackbar,
@@ -20,16 +18,16 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  Tooltip,
-  Fab
+  Badge
 } from '@mui/material';
-import { Search, ReceiptLongOutlined, Add, Remove } from '@mui/icons-material';
+import { Search } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import useMarketData from './hooks/useMarketData';
 import useCart from './hooks/useCart';
 import CartDrawer from './components/CartDrawer';
-import { ListingItem, CartItem as CartItemType, Resource } from '../../types';
-import { ChevronsRight } from 'lucide-react';
+import { ListingItem, CartItem as CartItemType, Resource } from '@/types';
+import { ChevronsRight, Plus, ShoppingCart, X } from 'lucide-react';
+import { useMarketData } from '@/hooks';
+import { Link } from 'react-router';
 
 const Market: React.FC = () => {
   const intl = useIntl();
@@ -42,7 +40,6 @@ const Market: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showInStock, setShowInStock] = useState(true);
-  const isMobile = window.innerWidth < 768;
 
   // 过滤商品
   const filteredItems = listingItems.filter(item =>
@@ -155,22 +152,21 @@ const Market: React.FC = () => {
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
         <div className='flex flex-row items-center gap-4'>
-          <Typography variant={isMobile ? "h6" : "h5"}>
+          <Typography variant="h5">
             <FormattedMessage id="market.title" defaultMessage="Market" />
           </Typography>
         </div>
 
-        {!isMobile && (
-          <Tooltip title={intl.formatMessage({ id: 'cart.view', defaultMessage: 'View Cart' })}>
-            <div className='p-2 pb-0 cart-button'>
-              <IconButton color="primary" onClick={openCart}>
-                <Badge badgeContent={cart.length} color="secondary">
-                  <ReceiptLongOutlined />
-                </Badge>
-              </IconButton>
-            </div>
-          </Tooltip>
-        )}
+        <div className='p-2 pb-0 cart-button flex gap-4 items-center'>
+          <Link to="/orders">
+            <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+          </Link>
+          <IconButton onClick={openCart}>
+            <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+              <ShoppingCart className='w-6 h-6' />
+            </Badge>
+          </IconButton>
+        </div>
       </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
@@ -239,7 +235,7 @@ const Market: React.FC = () => {
                   {/* <TableCell width="120px">
                     <FormattedMessage id="market.stock" defaultMessage="Stock" />
                   </TableCell> */}
-                  <TableCell width="170px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="market.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>
@@ -352,28 +348,18 @@ const Market: React.FC = () => {
                       </TableCell> */}
                       <TableCell>
                         {inCart ? (
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            color="secondary"
-                            startIcon={<Remove />}
+                          <IconButton
                             onClick={() => removeFromCart(item.skuId)}
-                            size="small"
                           >
-                            <FormattedMessage id="market.removeFromCart" defaultMessage="Remove" />
-                          </Button>
+                            <X className='w-5 h-5 text-red-500' />
+                          </IconButton>
                         ) : (
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            color="primary"
-                            startIcon={<Add />}
+                          <IconButton
                             onClick={() => handleAddToCart(item)}
                             disabled={item.stock <= 0}
-                            size="small"
                           >
-                            <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
-                          </Button>
+                            <Plus className='w-5 h-5' />
+                          </IconButton>
                         )}
                       </TableCell>
                     </TableRow>
@@ -383,19 +369,17 @@ const Market: React.FC = () => {
             </Table>
           </TableContainer>
 
-          {!isMobile && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredItems.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count} ${intl.formatMessage({ id: 'pagination.items', defaultMessage: 'items' })}`}
-            />
-          )}
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredItems.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count} ${intl.formatMessage({ id: 'pagination.items', defaultMessage: 'items' })}`}
+          />
         </Box>
       )}
 
@@ -422,26 +406,6 @@ const Market: React.FC = () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-
-      {/* 移动端浮动购物按钮 */}
-      {isMobile && (
-        <Fab
-          color="primary"
-          aria-label="View Cart"
-          onClick={openCart}
-          className="cart-button"
-          sx={{
-            position: 'fixed',
-            bottom: 20,
-            right: 20,
-            zIndex: 1000
-          }}
-        >
-          <Badge badgeContent={cart.length} color="secondary">
-            <ReceiptLongOutlined />
-          </Badge>
-        </Fab>
-      )}
     </div>
   );
 };

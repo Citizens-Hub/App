@@ -2,12 +2,12 @@ import { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 import { Search, PlusCircle, XCircle, Edit } from "lucide-react";
-import { Ship } from "../../../types";
+import { Ship } from "@/types";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../../store";
-import { addPredict, removePredict } from "../../../store/upgradesStore";
-import Crawler from "../../../components/Crawler";
-import UserSelector from "../../../components/UserSelector";
+import { RootState } from "@/store";
+import { addPredict, removePredict } from "@/store/upgradesStore";
+import Crawler from "@/components/Crawler";
+import UserSelector from "@/components/UserSelector";
 
 export default function ShipsTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();

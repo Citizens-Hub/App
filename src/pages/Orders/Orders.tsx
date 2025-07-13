@@ -1,4 +1,3 @@
-import useOrdersData from "./hooks/useOrdersData";
 import {
   Typography,
   Box,
@@ -18,7 +17,7 @@ import {
 } from '@mui/material';
 
 import { FormattedMessage, useIntl } from 'react-intl';
-import { OrderStatus } from "../../types";
+import { OrderStatus } from "@/types";
 import { useNavigate } from "react-router";
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -27,7 +26,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useState, useEffect } from 'react';
 import { ChevronsRight } from "lucide-react";
 import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { RootState } from '@/store';
+import { useOrdersData } from '@/hooks';
 
 export default function Orders() {
   const { ships, orders, listingItems, loading, error } = useOrdersData();

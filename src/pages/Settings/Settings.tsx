@@ -24,9 +24,9 @@ import {
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { UserRole } from '../../store/userStore';
-import useProfileData from './hooks/useProfileData';
 import { ProfileData } from '../../types';
 import CcuPriorityList from './components/CcuPriorityList';
+import { useProfileData } from '../../hooks';
 
 const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
 

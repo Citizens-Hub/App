@@ -19,24 +19,24 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuEdgeData, Ccu, WbHistoryData } from '../../../types';
+import { Ship, CcuEdgeData, Ccu, WbHistoryData } from '@/types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Dialog, DialogContent, DialogTitle, IconButton, Snackbar, useMediaQuery } from '@mui/material';
-import { selectHangarItems } from '../../../store/upgradesStore';
+import { selectHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder from './PathBuilder';
-import UserSelector from '../../../components/UserSelector';
+import UserSelector from '@/components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import Crawler from '../../../components/Crawler';
+import Crawler from '@/components/Crawler';
 
 interface CcuCanvasProps {
   ships: Ship[];

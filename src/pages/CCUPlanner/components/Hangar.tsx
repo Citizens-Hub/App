@@ -1,15 +1,15 @@
 import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip } from "@mui/material";
-import { Ccu, Ship } from "../../../types";
+import { Ccu, Ship } from "@/types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { selectHangarItems } from "../../../store/upgradesStore";
-import { RootState } from "../../../store";
+import { selectHangarItems } from "@/store/upgradesStore";
+import { RootState } from "@/store";
 import { ExpandLess, ExpandMore, Search } from "@mui/icons-material";
 import ExtensionModal from "./ExtensionModal";
 import { FormattedMessage, useIntl } from "react-intl";
-import Crawler from "../../../components/Crawler";
+import Crawler from "@/components/Crawler";
 import { Gift } from "lucide-react";
-import { selectImportItems } from "../../../store/importStore";
+import { selectImportItems } from "@/store/importStore";
 
 interface ShipSelectorProps {
   ships: Ship[];

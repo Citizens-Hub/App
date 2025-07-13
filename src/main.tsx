@@ -1,12 +1,12 @@
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
-import './index.css'
-import App from './App.tsx'
-import { store } from './store'
-import { LocaleProvider } from './contexts/LocaleContext'
+import '@/index.css'
+import App from '@/App'
+import { store } from '@/store'
+import { LocaleProvider } from '@/contexts/LocaleContext'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from "react-error-boundary";
-import { reportError } from './report.ts'
+import { reportError } from '@/report'
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => {

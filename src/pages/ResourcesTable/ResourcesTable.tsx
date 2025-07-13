@@ -12,8 +12,6 @@ import {
 import { Search, ReceiptLongOutlined } from '@mui/icons-material';
 import Joyride, { TooltipRenderProps } from 'react-joyride';
 import { FormattedMessage, useIntl } from 'react-intl';
-
-import useResourceData from './hooks/useResourceData';
 import useSlideshow from './hooks/useSlideshow';
 import useCart from './hooks/useCart';
 import useSearch from './hooks/useSearch';
@@ -24,6 +22,7 @@ import ResourceDesktopView from './components/ResourceDesktopView';
 import CartDrawer from './components/CartDrawer';
 import CustomTooltip from './components/CustomTooltip';
 import CustomBeacon from './components/CustomBeacon';
+import { useResourceData } from '@/hooks';
 
 export default function ResourcesTable() {
   const intl = useIntl();

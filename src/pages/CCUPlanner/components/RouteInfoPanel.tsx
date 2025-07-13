@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Ship, CcuSourceType, CcuEdgeData } from '../../../types';
+import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider, Alert } from '@mui/material';
 import { InfoOutlined, CheckCircle } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
+import { RootState } from '@/store';
 import { CompletePath } from '../services/PathFinderService';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';

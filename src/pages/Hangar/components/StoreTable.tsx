@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
-import { RootState } from "../../../store";
-import { selectUsersHangarItems } from "../../../store/upgradesStore";
-import { generateItemKey } from "../../../store/shareStore";
+import { RootState } from "@/store";
+import { selectUsersHangarItems } from "@/store/upgradesStore";
+import { generateItemKey } from "@/store/shareStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Chip, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, Autocomplete } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, PlusCircle, List } from "lucide-react";
-import Crawler from "../../../components/Crawler";
-import UserSelector from "../../../components/UserSelector";
-import { ListingItem, Ship } from "../../../types";
+import Crawler from "@/components/Crawler";
+import UserSelector from "@/components/UserSelector";
+import { ListingItem, Ship } from "@/types";
 
 interface DisplayEquipmentItem {
   id: string;

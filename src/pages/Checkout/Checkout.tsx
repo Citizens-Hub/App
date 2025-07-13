@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
-import { CartItem, ListingItem, OrderStatus, Ship } from "../../types";
+import { CartItem, ListingItem, OrderStatus, Ship } from "@/types";
 import { useSelector } from "react-redux";
-import { RootState } from "../../store";
+import { RootState } from "@/store";
 import {
   Box,
   Typography,

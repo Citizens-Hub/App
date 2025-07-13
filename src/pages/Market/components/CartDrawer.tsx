@@ -12,7 +12,7 @@ import {
   Snackbar,
 } from '@mui/material';
 import { Close, Delete, ShoppingCart } from '@mui/icons-material';
-import { CartItem } from '../../../types';
+import { CartItem } from '@/types';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';

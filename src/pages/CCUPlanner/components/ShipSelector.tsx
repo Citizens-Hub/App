@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ccu, Ship, WbHistoryData } from '../../../types';
+import { Ccu, Ship, WbHistoryData } from '@/types';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Button, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
 import { InfoOutlined, Search } from '@mui/icons-material';

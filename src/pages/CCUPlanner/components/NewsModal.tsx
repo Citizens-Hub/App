@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import DiscordIcon from '../../../icons/DiscordIcon';
+import DiscordIcon from '@/icons/DiscordIcon';
 import { Link } from 'react-router';
 
 interface NewsModalProps {

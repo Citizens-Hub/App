@@ -2,15 +2,16 @@ import { Typography } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import HangarTable from './components/HangarTable';
-import useHangarData from './hooks/useHangarData';
+// import useHangarData from './hooks/useHangarData';
 import ShipsTable from './components/ShipsTable';
 import ShareTable from './components/ShareTable';
 import StoreTable from './components/StoreTable';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
-import { UserRole } from '../../store/userStore';
+import { RootState } from '@/store';
+import { UserRole } from '@/store/userStore';
 import { Button } from '@mui/material';
 import { useNavigate } from 'react-router';
+import { useHangarData } from '@/hooks';
 
 enum Page {
   Hangar = 'hangar',
