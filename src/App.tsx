@@ -1,13 +1,13 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
-import Header from './components/Header'
-import { useSelector } from 'react-redux'
-import { RootState } from './store'
-import { UserRole } from './store/userStore'
-import { setImportItems } from './store/importStore'
-import { store } from './store'
+import Header from '@/components/Header'
+import { useDispatch, useSelector } from 'react-redux'
+import { RootState } from '@/store'
+import { logout, UserRole } from '@/store/userStore'
 import { Loader2 } from 'lucide-react'
+import { SWRConfig } from 'swr'
+import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -22,6 +22,9 @@ const Settings = lazy(() => import('./pages/Settings/Settings'));
 const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
 const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
 const Share = lazy(() => import('./pages/Share/Share'));
+const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
+const Market = lazy(() => import('./pages/Market/Market'));
+const Orders = lazy(() => import('./pages/Orders/Orders'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -30,55 +33,11 @@ const LoadingFallback = () => (
   </div>
 );
 
-// 检查共享机库是否有更新
-async function checkSharedHangarUpdates() {
-  try {
-    // 从Redux store获取共享机库数据
-    const state = store.getState();
-    const { userId, sharedHangarPath } = state.import;
-    
-    if (!userId || !sharedHangarPath) return;
-
-    // 从API获取最新的用户资料
-    const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/profile/${userId}`);
-    if (!response.ok) return;
-    
-    const profileData = await response.json();
-    const currentSharedHangar = profileData.user.sharedHangar;
-    
-    // 如果路径有变化，自动获取新数据并更新
-    if (currentSharedHangar !== sharedHangarPath) {
-      console.log('共享机库已更新，自动重新导入');
-      
-      // 获取新的共享机库数据
-      const hangarResponse = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${currentSharedHangar}`);
-      if (!hangarResponse.ok) {
-        console.error('获取更新的共享机库数据失败');
-        return;
-      }
-      
-      const hangarData = await hangarResponse.json();
-      
-      // 直接更新Redux store中的数据
-      store.dispatch(setImportItems({
-        items: hangarData.items,
-        currency: hangarData.currency,
-        userId: userId,
-        sharedHangarPath: currentSharedHangar
-      }));
-      
-      console.log('共享机库数据已自动更新');
-    }
-  } catch (err) {
-    console.error('检查共享机库更新失败', err);
-  }
-}
-
-function RequireAuth({children, minRole}: {children: React.ReactNode, minRole: UserRole}) {
+function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: UserRole[] }) {
   const { pathname } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
 
-  if (user.role < minRole) {
+  if (!allowedRoles.includes(user.role)) {
     return <RouterNavigate to="/login" replace state={pathname} />
   }
 
@@ -92,11 +51,11 @@ function App() {
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
       setDarkMode(saved === 'true');
-      } else {
-        setDarkMode(
-          window.matchMedia('(prefers-color-scheme: dark)').matches
-		);
-	  }
+    } else {
+      setDarkMode(
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -126,10 +85,29 @@ function App() {
     }
   }, [darkMode]);
 
-  // 应用启动时检查共享机库更新
+  const { user } = useSelector((state: RootState) => state.user);
+  const dispatch = useDispatch();
+  
+  // 使用SWR检查用户会话
+  const { error: sessionError } = useUserSession();
+  
+  // 使用SWR获取共享机库更新
+  const { isPathUpdated } = useSharedHangar();
+
+  // 当会话无效时登出
   useEffect(() => {
-    checkSharedHangarUpdates();
-  }, []);
+    if (user.token && sessionError && sessionError.status === 401) {
+      console.log("Session is invalid, logging out");
+      dispatch(logout());
+    }
+  }, [user, sessionError, dispatch]);
+
+  // 共享机库已更新的日志
+  useEffect(() => {
+    if (isPathUpdated) {
+      console.log('共享机库已更新，自动重新导入');
+    }
+  }, [isPathUpdated]);
 
   const theme = createTheme({
     palette: {
@@ -142,40 +120,47 @@ function App() {
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/fall-back" element={<LoadingFallback />} />
-            <Route path="/" element={<Navigate />} />
-            <Route path="/ccu-planner" element={<CCUPlanner />} />
-            <Route path="/hangar" element={<Hangar />} />
-            <Route path="/flea-market" element={<FleaMarket />} />
-            <Route path="/store-preview" element={<ResourcesTable />} />
-            <Route path="/app-settings" element={<Settings />} />
-  
-            <Route path="/share/hangar/:userId" element={<Share />} />
-  
-            <Route 
-              path="/guide" 
-              element={
-                <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
-                  <Guide showTitle />
-                </div>
-              }
-            />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/changelog" element={<ChangeLogs />} />
-  
-            <Route path="/admin" element={<RequireAuth minRole={UserRole.Admin}><Admin /></RequireAuth>} />
-            <Route path="/login" element={<Auth action="login" />} />
-            <Route path="/register" element={<Auth action="register" />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </ThemeProvider>
+    <SWRConfig value={swrConfig}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <BrowserRouter>
+          <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/fall-back" element={<LoadingFallback />} />
+
+              <Route path="/" element={<Navigate />} />
+              <Route path="/ccu-planner" element={<CCUPlanner />} />
+              <Route path="/hangar" element={<Hangar />} />
+              <Route path="/flea-market" element={<FleaMarket />} />
+              <Route path="/store-preview" element={<ResourcesTable />} />
+              <Route path="/app-settings" element={<Settings />} />
+
+              <Route path="/share/hangar/:userId" element={<Share />} />
+
+              <Route path="/market" element={<Market />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/orders" element={<Orders />} />
+
+              <Route
+                path="/guide"
+                element={
+                  <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
+                    <Guide showTitle />
+                  </div>
+                }
+              />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/changelog" element={<ChangeLogs />} />
+
+              <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
+              <Route path="/login" element={<Auth action="login" />} />
+              <Route path="/register" element={<Auth action="register" />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </ThemeProvider>
+    </SWRConfig>
   )
 }
 

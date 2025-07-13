@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CcuSourceType } from '../../../types';
+import { CcuSourceType } from '@/types';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../../store';
-import { setCcuSourceTypePriority } from '../../../store/upgradesStore';
+import { RootState } from '@/store';
+import { setCcuSourceTypePriority } from '@/store/upgradesStore';
 import { MoreHorizontal } from 'lucide-react';
 import {
   DndContext,
@@ -23,7 +23,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CcuSourceTypeStrategyFactory } from '../../../pages/CCUPlanner/services/CcuSourceTypeFactory';
+import { CcuSourceTypeStrategyFactory } from '@/pages/CCUPlanner/services/CcuSourceTypeFactory';
 
 // CCU类型显示样式和颜色
 const ccuTypeStyles = {

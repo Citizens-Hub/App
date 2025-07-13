@@ -1,12 +1,12 @@
 import { getBezierPath, EdgeLabelRenderer, EdgeProps, Edge } from 'reactflow';
-import { CcuEdgeData, CcuSourceType } from '../../../types';
+import { CcuEdgeData, CcuSourceType } from '@/types';
 import { useIntl } from 'react-intl';
 import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
 import { Check } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
+import { RootState } from '@/store';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;

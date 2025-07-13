@@ -148,6 +148,7 @@
   "ccuPlanner.noSearchResults": "No Result",
   "navigation.home": "Home",
   "navigation.ccuPlanner": "CCU Planner",
+  "navigation.market": "Market",
   "navigation.storePreview": "Store Preview",
   "navigation.privacy": "Privacy Policy",
   "navigation.changelog": "Changelog",
@@ -159,6 +160,8 @@
   "navigation.appSettings": "App Settings",
   "navigation.hangarShare": "Hangar Share",
   "navigation.guide": "Guide",
+  "navigation.orders": "Orders",
+  "navigation.checkout": "Checkout",
   "app.menu": "Menu",
   "admin.heading": "Admin",
   "admin.ships.title": "Ships' Data",
@@ -301,5 +304,9 @@
   "share.successImport": "Successfully imported {count} items",
   "share.importComplete": "Import Complete",
   "share.currency": "Currency: {currency}",
-  "share.successImportAll": "Successfully subscribed"
+  "share.successImportAll": "Successfully subscribed",
+  "orders.status.pending": "Pending",
+  "orders.status.paid": "Shipping",
+  "orders.status.finished": "Finished",
+  "orders.status.canceled": "Canceled"
 }

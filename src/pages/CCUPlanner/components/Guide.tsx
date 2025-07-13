@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
-import { useLocale } from '../../../contexts/LocaleContext';
 import { FormattedMessage } from 'react-intl';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
