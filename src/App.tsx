@@ -96,7 +96,7 @@ function App() {
 
   // 当会话无效时登出
   useEffect(() => {
-    if (user.token && sessionError) {
+    if (user.token && sessionError && sessionError.status === 401) {
       console.log("Session is invalid, logging out");
       dispatch(logout());
     }

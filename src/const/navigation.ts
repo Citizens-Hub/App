@@ -13,7 +13,8 @@ export const navigation = [
   },
   {
     name: "navigation.market",
-    path: "/market"
+    path: "/market",
+    hidden: true,
   },
   {
     name: "navigation.orders",
