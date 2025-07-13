@@ -305,9 +305,9 @@ const Market: React.FC = () => {
                             <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
                               <ChevronsRight className='w-8 h-8' />
                             </div>
-                            <div className='absolute top-2 right-2 p-2 bg-orange-400 flex items-center justify-center'>
+                            {parseInt(discount) > 0 && <div className='absolute top-2 right-2 p-2 bg-orange-400 flex items-center justify-center'>
                               <span className='text-white text-sm'>{discount}% Off</span>
-                            </div>
+                            </div>}
                           </Box>
                         ) : (
                           <Box
