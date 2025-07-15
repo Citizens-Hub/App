@@ -1,4 +1,4 @@
-import { ProfileData } from '../../../types';
+import { ProfileData } from '@/types';
 import { useApi } from '../useApi';
 
 // API响应类型

@@ -18,21 +18,22 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  Badge
+  Badge,
+  ButtonGroup
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import useCart from './hooks/useCart';
 import CartDrawer from './components/CartDrawer';
 import { ListingItem, CartItem as CartItemType, Resource } from '@/types';
-import { ChevronsRight, Plus, ShoppingCart, X } from 'lucide-react';
+import { ChevronsRight, Plus, ShoppingCart, Minus } from 'lucide-react';
 import { useMarketData } from '@/hooks';
 import { Link } from 'react-router';
+import { useCartStore } from '@/hooks/useCartStore';
 
 const Market: React.FC = () => {
   const intl = useIntl();
   const { ships, listingItems, loading, error } = useMarketData();
-  const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart } = useCart();
+  const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -40,12 +41,11 @@ const Market: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showInStock, setShowInStock] = useState(true);
-  const [showAlert, setShowAlert] = useState(true);
+  const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== "development");
 
   // 过滤商品
   const filteredItems = listingItems.filter(item =>
-    (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.item.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
     (showInStock ? item.stock > 0 : true)
   );
 
@@ -86,16 +86,32 @@ const Market: React.FC = () => {
 
   // 添加到购物车
   const handleAddToCart = (item: ListingItem) => {
-    const itemDetails = JSON.parse(item.item);
-    const fromShip = getShipDetails(itemDetails.from);
-    const toShip = getShipDetails(itemDetails.to);
+    const fromShip = getShipDetails(item.fromShipId);
+    const toShip = getShipDetails(item.toShipId);
+
+    // 检查购物车中是否已有此商品
+    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+
+    // 如果购物车中已有此商品，增加数量
+    if (existingCartItem) {
+      const currentQuantity = existingCartItem.quantity || 1;
+      if (currentQuantity < (item.stock - item.lockedStock)) {
+        updateItemQuantity(item.skuId, currentQuantity + 1);
+
+        // 显示成功消息
+        setSnackbarMessage(intl.formatMessage({ id: 'market.quantityUpdated', defaultMessage: 'Quantity updated' }));
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      }
+      return;
+    }
 
     // 创建购物车项目
     const cartItem: Resource = {
       id: item.skuId,
       name: item.name,
       title: item.name,
-      subtitle: item.item,
+      subtitle: item.itemType,
       excerpt: '',
       type: 'ship',
       media: {
@@ -125,6 +141,12 @@ const Market: React.FC = () => {
     setSnackbarMessage(intl.formatMessage({ id: 'market.addedToCart', defaultMessage: 'Added to cart' }));
     setSnackbarSeverity('success');
     setSnackbarOpen(true);
+  };
+
+  // 获取可用库存
+  const getAvailableStock = (resourceId: string) => {
+    const item = listingItems.find(item => item.skuId === resourceId);
+    return item ? item.stock - item.lockedStock : 0;
   };
 
   // 搜索框变更
@@ -250,17 +272,17 @@ const Market: React.FC = () => {
                   {/* <TableCell width="120px">
                     <FormattedMessage id="market.stock" defaultMessage="Stock" />
                   </TableCell> */}
-                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1, textAlign: 'center' }}>
                     <FormattedMessage id="market.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedItems.map((item) => {
-                  const itemDetails = JSON.parse(item.item);
+                  // const itemDetails = JSON.parse(item.item);
 
-                  const fromShip = getShipDetails(itemDetails.from);
-                  const toShip = getShipDetails(itemDetails.to);
+                  const fromShip = getShipDetails(item.fromShipId);
+                  const toShip = getShipDetails(item.toShipId);
                   const isCCU = fromShip && toShip && fromShip.id !== toShip.id;
 
                   const inCart = cart.some((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
@@ -336,7 +358,7 @@ const Market: React.FC = () => {
                             <div className='text-gray-500 mr-2 dark:text-gray-400'>
                               <FormattedMessage id="market.available" defaultMessage="Available Stock" />:
                             </div>
-                            <span className='text-blue-500'>{item.stock}</span>
+                            <span className='text-blue-500'>{item.stock - item.lockedStock}</span>
                           </div>
                           {/* <Typography variant="caption" color="text.secondary">
                             <FormattedMessage id="market.seller" defaultMessage="Seller" />: {item.belongsTo}
@@ -363,18 +385,54 @@ const Market: React.FC = () => {
                       </TableCell> */}
                       <TableCell>
                         {inCart ? (
-                          <IconButton
-                            onClick={() => removeFromCart(item.skuId)}
-                          >
-                            <X className='w-5 h-5 text-red-500' />
-                          </IconButton>
+                          <div className='flex items-center justify-center'>
+                            {/* <IconButton
+                              onClick={() => removeFromCart(item.skuId)}
+                            >
+                              <X className='w-5 h-5 text-red-500' />
+                            </IconButton> */}
+                            <ButtonGroup size="small" aria-label="quantity">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  const currentItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+                                  const currentQuantity = currentItem?.quantity || 1;
+                                  if (currentQuantity > 1) {
+                                    updateItemQuantity(item.skuId, currentQuantity - 1);
+                                  } else {
+                                    removeFromCart(item.skuId);
+                                  }
+                                }}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </IconButton>
+                              <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+                                {(cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId)?.quantity || 1)}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                disabled={(cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId)?.quantity || Infinity) >= (item.stock - item.lockedStock)}
+                                onClick={() => {
+                                  const currentItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+                                  const currentQuantity = currentItem?.quantity || 1;
+                                  if (currentQuantity < (item.stock - item.lockedStock)) {
+                                    updateItemQuantity(item.skuId, currentQuantity + 1);
+                                  }
+                                }}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </IconButton>
+                            </ButtonGroup>
+                          </div>
                         ) : (
-                          <IconButton
-                            onClick={() => handleAddToCart(item)}
-                            disabled={item.stock <= 0}
-                          >
-                            <Plus className='w-5 h-5' />
-                          </IconButton>
+                          <div className='flex items-center justify-center'>
+                            <IconButton
+                              onClick={() => handleAddToCart(item)}
+                              disabled={item.stock <= 0}
+                            >
+                              <Plus className='w-5 h-5' />
+                            </IconButton>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -404,6 +462,8 @@ const Market: React.FC = () => {
         cart={cart}
         onClose={closeCart}
         onRemoveFromCart={removeFromCart}
+        onUpdateQuantity={updateItemQuantity}
+        getAvailableStock={getAvailableStock}
       />
 
       {/* 通知 */}

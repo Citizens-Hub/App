@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApi, useAuthApi } from '../useApi';
-import { Order, Ship, ShipsData, UserRole } from '@/types';
+import { DetailedOrder, Ship, ShipsData, UserRole } from '@/types';
 
 // 用户信息类型
 interface UserInfo {
@@ -12,7 +12,7 @@ interface UserInfo {
   emailVerified: boolean;
 }
 
-export default function useOrdersData() {
+export default function useOrderData(orderId: string) {
   // 使用SWR获取船只数据
   const { 
     data: shipsData,
@@ -22,10 +22,10 @@ export default function useOrdersData() {
 
   // 使用SWR获取订单数据（需要认证）
   const { 
-    data: ordersData,
-    error: ordersError,
-    isLoading: ordersLoading 
-  } = useAuthApi<Order[]>('/api/orders');
+    data: orderData,
+    error: orderError,
+    isLoading: orderLoading 
+  } = useAuthApi<DetailedOrder>(`/api/orders/${orderId}`);
 
   // 使用SWR获取用户信息（需要认证）
   const { 
@@ -41,13 +41,13 @@ export default function useOrdersData() {
   }, [shipsData]);
 
   // 加载状态和错误处理
-  const loading = shipsLoading || ordersLoading || userInfoLoading;
-  const error = (shipsError || ordersError || userInfoError) 
+  const loading = shipsLoading || orderLoading || userInfoLoading;
+  const error = (shipsError || orderError || userInfoError) 
     ? 'Failed to load data' : null;
 
   return { 
     ships, 
-    orders: ordersData || [],
+    order: orderData || null,
     userInfo: userInfoData || null,
     loading, 
     error 

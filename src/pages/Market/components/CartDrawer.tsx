@@ -10,138 +10,194 @@ import {
   Avatar,
   Button,
   Snackbar,
+  Alert,
+  ButtonGroup
 } from '@mui/material';
-import { Close, Delete, ShoppingCart } from '@mui/icons-material';
+import { Close } from '@mui/icons-material';
 import { CartItem } from '@/types';
 import { useState } from 'react';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
+import { X, Plus, Minus } from 'lucide-react';
 
 interface CartDrawerProps {
   open: boolean;
   cart: CartItem[];
   onClose: () => void;
   onRemoveFromCart: (resourceId: string) => void;
+  onUpdateQuantity?: (resourceId: string, quantity: number) => void;
+  getAvailableStock?: (resourceId: string) => number;
 }
 
-export default function CartDrawer({
-  open,
-  cart,
-  onClose,
-  onRemoveFromCart
-}: CartDrawerProps) {
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+const CartDrawer: React.FC<CartDrawerProps> = ({ 
+  open, 
+  cart, 
+  onClose, 
+  onRemoveFromCart, 
+  onUpdateQuantity,
+  getAvailableStock 
+}) => {
   const intl = useIntl();
   const navigate = useNavigate();
-  const cartTotal = cart.reduce((total, item) => {
-    const price = item.resource.nativePrice.discounted || item.resource.nativePrice.amount;
-    return total + price;
-  }, 0);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  // 计算总价，考虑数量
+  const total = cart.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100) * (item.quantity || 1), 0);
+
+  // 处理数量增减
+  const handleQuantityChange = (resourceId: string, newQuantity: number) => {
+    if (!onUpdateQuantity || newQuantity < 1) return;
+    
+    // 检查库存限制
+    if (getAvailableStock) {
+      const availableStock = getAvailableStock(resourceId);
+      if (newQuantity > availableStock) {
+        setSnackbarMessage(intl.formatMessage({ 
+          id: 'cart.stockLimit', 
+          defaultMessage: 'Cannot add more than available stock' 
+        }));
+        setSnackbarOpen(true);
+        return;
+      }
+    }
+    
+    onUpdateQuantity(resourceId, newQuantity);
+  };
+
+  // 处理结账
   const handleCheckout = () => {
-    // Navigate to checkout page
-    navigate('/checkout', { 
-      state: { 
-        cart: cart,
-        cartTotal: cartTotal
-      } 
-    });
+    if (cart.length === 0) {
+      setSnackbarMessage(intl.formatMessage({ id: 'cart.emptyCart', defaultMessage: 'Your cart is empty' }));
+      setSnackbarOpen(true);
+      return;
+    }
+
+    navigate('/checkout');
     onClose();
   };
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={onClose}
-    >
-      <Box sx={{ width: { xs: '100%', sm: 450 }, p: 2 }}>
-        <Typography variant="h6" gutterBottom className='flex justify-between items-center'>
-          {intl.formatMessage({ id: 'cart.title', defaultMessage: '我的购物车' })}
+    <>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: 400 } }
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="h6">
+            <FormattedMessage id="cart.title" defaultMessage="Your Cart" />
+          </Typography>
           <IconButton onClick={onClose}>
             <Close />
           </IconButton>
-        </Typography>
+        </Box>
+
         {cart.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            {intl.formatMessage({ id: 'cart.empty', defaultMessage: '购物车中还没有商品' })}
-          </Typography>
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              <FormattedMessage id="cart.empty" defaultMessage="Your cart is empty" />
+            </Typography>
+          </Box>
         ) : (
           <>
-            <List>
+            <List sx={{ flexGrow: 1, overflow: 'auto' }}>
               {cart.map((item) => (
                 <Box key={item.resource.id}>
                   <ListItem
+                    sx={{ py: 2 }}
                     secondaryAction={
                       <IconButton edge="end" onClick={() => onRemoveFromCart(item.resource.id)}>
-                        <Delete />
+                        <X className="w-5 h-5 text-red-500" />
                       </IconButton>
                     }
                   >
-                    <Box sx={{
-                      mr: 2,
-                      minWidth: 60,
-                      minHeight: 60,
-                      position: 'relative'
-                    }}>
-                      <Avatar
-                        alt={item.resource.name}
-                        src={item.resource.media.thumbnail.storeSmall.startsWith('http') ?
-                          item.resource.media.thumbnail.storeSmall :
-                          `https://robertsspaceindustries.com/${item.resource.media.thumbnail.storeSmall}`}
-                        variant="square"
-                        sx={{ width: 60, height: 60 }}
-                      />
-                    </Box>
+                    <Avatar
+                      variant="square"
+                      src={item.resource.media.thumbnail.storeSmall}
+                      alt={item.resource.name}
+                      sx={{ mr: 2, width: 60, height: 60 }}
+                    />
                     <ListItemText
                       primary={item.resource.name}
                       secondary={
-                        <Typography variant="body2">
-                          {((item.resource.nativePrice.discounted || item.resource.nativePrice.amount) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}
-                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                          <div className='text-gray-500'>
+                            US${(item.resource.nativePrice.amount / 100).toFixed(2)}
+                          </div>
+                          
+                          {onUpdateQuantity && (
+                            <ButtonGroup size="small" aria-label="quantity" sx={{ mt: 1 }}>
+                              <IconButton 
+                                size="small"
+                                onClick={() => handleQuantityChange(item.resource.id, (item.quantity || 1) - 1)}
+                                disabled={(item.quantity || 1) <= 1}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </IconButton>
+                              <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+                                {item.quantity || 1}
+                              </Typography>
+                              <IconButton 
+                                size="small"
+                                onClick={() => handleQuantityChange(item.resource.id, (item.quantity || 1) + 1)}
+                                disabled={(item.quantity || Infinity) >= (getAvailableStock?.(item.resource.id) || Infinity)}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </IconButton>
+                            </ButtonGroup>
+                          )}
+                        </Box>
                       }
+                      disableTypography
                     />
                   </ListItem>
                   <Divider />
                 </Box>
               ))}
             </List>
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                {intl.formatMessage({ id: 'cart.total', defaultMessage: '总价' })}
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body1">USD:</Typography>
-                <Typography variant="body1" fontWeight="bold">
-                  {(cartTotal / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}
-                </Typography>
+
+            <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <div className='text-gray-500'>
+                  <FormattedMessage id="cart.total" defaultMessage="Total" />
+                </div>
+                <div className='text-blue-500'>
+                  US${total.toFixed(2)}
+                </div>
               </Box>
-              {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                <Typography variant="body2" color="text.secondary">CNY:</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  ~{(cartTotal * exchangeRate / 100).toLocaleString("zh-CN", {style:"currency", currency:"CNY"})}
-                </Typography>
-              </Box> */}
-              <Button
-                startIcon={<ShoppingCart />}
-                variant="outlined"
+              <Button 
+                variant="contained" 
+                color="primary" 
                 fullWidth
-                sx={{ mt: 2 }}
                 onClick={handleCheckout}
-                disabled={cart.length === 0}
               >
-                {intl.formatMessage({ id: 'cart.checkout', defaultMessage: '结账' })}
+                <FormattedMessage id="cart.checkout" defaultMessage="Checkout" />
               </Button>
             </Box>
           </>
         )}
-      </Box>
+      </Drawer>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={() => setSnackbarOpen(false)}
-        message={intl.formatMessage({ id: 'cart.copied', defaultMessage: '已复制清单到剪贴板' })}
-      />
-    </Drawer>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="warning"
+          variant="filled"
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </>
   );
-} 
+};
+
+export default CartDrawer; 

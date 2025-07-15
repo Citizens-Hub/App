@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
-import { Ship, ShipsData } from '../../../types';
+import { Ship, ShipsData } from '@/types';
 
 /**
  * Hook to fetch and manage ships data

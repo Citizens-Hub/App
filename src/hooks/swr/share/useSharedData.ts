@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import { useApi } from '../useApi';
-import { ProfileData } from '../../../types';
+import { ProfileData } from '@/types';
 import { fetcher } from '../swr-config';
 
 // Shared hangar item interface

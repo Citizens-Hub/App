@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { ResourcesData } from '../../../types';
+import { ResourcesData } from '@/types';
 import { fetcher } from '../swr-config';
 import { useApi } from '../useApi';
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Ccu, Ship, WbHistoryData } from '../../../types';
+import { Ccu, Ship, WbHistoryData } from '@/types';
 import { useApi } from '../useApi';
 
 // API响应类型

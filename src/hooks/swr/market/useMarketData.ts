@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
-import { ListingItem, Ship, ShipsData } from '../../../types';
+import { ListingItem, Ship, ShipsData } from '@/types';
 
 export default function useMarketData() {
   // 使用SWR获取船只数据

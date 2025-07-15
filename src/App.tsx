@@ -4,10 +4,12 @@ import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate }
 import Header from '@/components/Header'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store'
-import { logout, UserRole } from '@/store/userStore'
-import { Loader2 } from 'lucide-react'
+import { logout } from '@/store/userStore'
+import { UserRole } from '@/types'
+import { Check, Loader2, X } from 'lucide-react'
 import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
+import Verify from './pages/Verify/Verify'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -25,6 +27,7 @@ const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
+const OrderDetail = lazy(() => import('./pages/OrderDetail/OrderDetail'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -86,6 +89,7 @@ function App() {
   }, [darkMode]);
 
   const { user } = useSelector((state: RootState) => state.user);
+  const { data: userSession } = useUserSession();
   const dispatch = useDispatch();
   
   // 使用SWR检查用户会话
@@ -141,6 +145,7 @@ function App() {
               <Route path="/market" element={<Market />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/:orderId" element={<OrderDetail />} />
 
               <Route
                 path="/guide"
@@ -156,8 +161,24 @@ function App() {
               <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
               <Route path="/login" element={<Auth action="login" />} />
               <Route path="/register" element={<Auth action="register" />} />
+              <Route path="/verify/:token" element={<Verify />} />
             </Routes>
           </Suspense>
+          {
+            import.meta.env.VITE_PUBLIC_ENV === "development" && (
+              <div className='fixed top-24 right-8 w-fit bg-white opacity-50 z-50 text-left p-4 select-none pointer-events-none border'>
+                Current session:
+                <div>User: {userSession?.user?.name}</div>
+                <div>Email: {userSession?.user?.email}</div>
+                <div>{userSession?.user?.emailVerified ? <>
+                  <Check className='w-4 h-4 inline-block text-green-500' /> Email
+                </> : <>
+                  <X className='w-4 h-4 inline-block text-red-500' /> Email Not
+                </>} Verified</div>
+                <div>Role: {userSession?.user?.role}</div>
+              </div>
+            )
+          }
         </BrowserRouter>
       </ThemeProvider>
     </SWRConfig>

@@ -1,8 +1,8 @@
 import useSWR from 'swr';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
-import { setImportItems } from '../../store/importStore';
+import { RootState } from '@/store';
+import { setImportItems } from '@/store/importStore';
 import { fetcher } from './swr-config';
 import { useUserProfile } from './useApi';
 import { SharedHangarData } from './share/useSharedData';

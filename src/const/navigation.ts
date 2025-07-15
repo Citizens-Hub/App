@@ -14,12 +14,12 @@ export const navigation = [
   {
     name: "navigation.market",
     path: "/market",
-    hidden: true,
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.orders",
     path: "/orders",
-    hidden: true,
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.storePreview",

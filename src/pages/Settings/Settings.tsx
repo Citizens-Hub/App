@@ -1,8 +1,8 @@
 import { useEffect, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearUpgrades, setCurrency } from '../../store/upgradesStore';
-import { clearAllImportData } from '../../store/importStore';
-import { RootState } from '../../store';
+import { clearUpgrades, setCurrency } from '@/store/upgradesStore';
+import { clearAllImportData } from '@/store/importStore';
+import { RootState } from '@/store';
 import {
   Typography,
   Button,
@@ -23,10 +23,9 @@ import {
   Divider,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { UserRole } from '../../store/userStore';
-import { ProfileData } from '../../types';
+import { ProfileData, UserRole } from '@/types';
 import CcuPriorityList from './components/CcuPriorityList';
-import { useProfileData } from '../../hooks';
+import { useProfileData } from '@/hooks';
 
 const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
 
@@ -54,7 +53,7 @@ export default function Settings() {
 
     // immutable
     email: null,
-    emailVerified: 0,
+    emailVerified: false,
   });
 
   useEffect(() => {
@@ -223,12 +222,60 @@ export default function Settings() {
                         <FormattedMessage id="settings.emailDescription" defaultMessage="Your email address." />
                       </Typography>
                     </div>
-                    <Input
-                      value={profileData?.email}
-                      disabled
-                      sx={{ width: '250px' }}
-                      size='small'
-                    />
+                    <div className="flex flex-col items-end gap-4">
+                      <Input
+                        value={profileData?.email}
+                        disabled
+                        sx={{ width: '250px' }}
+                        size='small'
+                      />
+                      {!profileData?.emailVerified && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => {
+                            setIsSubmitting(true);
+                            fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/verify`, {
+                              method: 'GET',
+                              headers: {
+                                'Authorization': `Bearer ${user.token}`
+                              }
+                            })
+                            .then(res => {
+                              if (!res.ok) {
+                                throw new Error('发送验证邮件失败');
+                              }
+                              return res.json();
+                            })
+                            .then(() => {
+                              setSuccessMessage(intl.formatMessage({
+                                id: 'settings.verificationEmailSent',
+                                defaultMessage: 'Verification email has been sent, please check your inbox'
+                              }));
+                              setSnackbarOpen(true);
+                            })
+                            .catch(err => {
+                              setErrorMessage(intl.formatMessage({
+                                id: 'settings.verificationEmailFailed',
+                                defaultMessage: 'Failed to send verification email'
+                              }));
+                              setSnackbarOpen(true);
+                              console.error(err);
+                            })
+                            .finally(() => {
+                              setIsSubmitting(false);
+                            });
+                          }}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <FormattedMessage id="settings.sendVerification" defaultMessage="Send Verification Email" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className='flex flex-row items-center gap-2 justify-between'>
                     <div>

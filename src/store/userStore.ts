@@ -1,11 +1,5 @@
+import { UserRole } from "@/types";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-
-export enum UserRole {
-  Guest = 0,
-  User = 1,
-  Admin = 2,
-  Reseller = 3,
-}
 
 export interface User {
   id: string,

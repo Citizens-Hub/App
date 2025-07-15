@@ -8,10 +8,10 @@ import ShareTable from './components/ShareTable';
 import StoreTable from './components/StoreTable';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { UserRole } from '@/store/userStore';
 import { Button } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { useHangarData } from '@/hooks';
+import { UserRole } from '@/types';
 
 enum Page {
   Hangar = 'hangar',

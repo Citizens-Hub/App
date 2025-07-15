@@ -215,11 +215,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       body: JSON.stringify({
         name: item.name,
         price: value,
-        item: JSON.stringify({
-          type: item.type,
-          from: item.from.id,
-          to: item.to.id
-        }),
+        // item: JSON.stringify({
+        //   type: item.type,
+        //   from: item.from.id,
+        //   to: item.to.id
+        // }),
+        itemType: item.type.toLowerCase(),
+        fromShipId: item.from.id,
+        toShipId: item.to.id,
+        shipId: undefined,
         stock: stock,
         lockedStock: stock,
         belongsTo: id

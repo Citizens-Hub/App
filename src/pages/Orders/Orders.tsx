@@ -13,7 +13,7 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
-  TablePagination
+  TablePagination,
 } from '@mui/material';
 
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -23,52 +23,49 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import SearchIcon from '@mui/icons-material/Search';
-import { useState, useEffect } from 'react';
-import { ChevronsRight } from "lucide-react";
-import { useSelector } from 'react-redux';
-import { RootState } from '@/store';
+import { useState, useEffect, useMemo } from 'react';
+import { Check, ChevronsRight, Info, Loader2, X } from "lucide-react";
 import { useOrdersData } from '@/hooks';
 
 export default function Orders() {
-  const { ships, orders, listingItems, loading, error } = useOrdersData();
+  const { ships, orders, loading, error } = useOrdersData();
   const navigate = useNavigate();
   const intl = useIntl();
   const isMobile = window.innerWidth < 768;
-  const { user } = useSelector((state: RootState) => state.user);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filteredOrders, setFilteredOrders] = useState(orders);
 
-  // 过滤订单
-  useEffect(() => {
-    if (orders) {
-      const filtered = orders.filter(order => {
-        if (searchTerm === '') return true;
+  // 使用useMemo过滤订单
+  const filteredOrdersList = useMemo(() => {
+    if (!orders) return [];
+    
+    return orders.filter(order => {
+      if (searchTerm === '') return true;
 
-        // 匹配订单ID
-        if (order.id.toString().includes(searchTerm)) return true;
+      // 匹配订单ID
+      if (order.id.toString().includes(searchTerm)) return true;
 
-        // 匹配订单中的商品名称
-        try {
-          const orderItems = parseOrderItems(order.items);
-          if (orderItems?.some((item: { skuId: string; quantity: number }) => {
-            const shipInfo = ships.find(ship => ship.skus?.some(sku => sku.id === Number(item.skuId)));
-            return shipInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-          })) {
-            return true;
-          }
-        } catch (err) {
-          console.error('Error parsing order items', err);
-        }
+      // 匹配订单中的商品名称
+      const orderItems = order.items;
+      if (orderItems?.some((item) => {
+        const marketItem = item.marketItem;
+        const shipInfo = ships.find(ship => ship.skus?.some(sku => sku.id === Number(marketItem.skuId)));
+        return shipInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          marketItem.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      })) {
+        return true;
+      }
 
-        return false;
-      });
-
-      setFilteredOrders(filtered);
-      setPage(0); // 重置到第一页
-    }
+      return false;
+    });
   }, [searchTerm, orders, ships]);
+  
+  useEffect(() => {
+    setFilteredOrders(filteredOrdersList);
+    setPage(0);
+  }, [filteredOrdersList]);
 
   // 处理搜索
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,14 +106,12 @@ export default function Orders() {
     const order = orders.find(order => order.id === orderId);
     if (!order) return;
 
-    fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/invoice?invoiceId=${order.invoiceId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${user?.token}`
+    // Navigate to the order details page
+    navigate(`/orders/${orderId}`, {
+      state: {
+        order,
+        ships
       }
-    }).then(res => res.json()).then(data => {
-      window.open(data.url, '_blank');
     });
   };
 
@@ -151,20 +146,6 @@ export default function Orders() {
         sx={{ fontWeight: 500 }}
       />
     );
-  };
-
-  // 解析订单项目
-  const parseOrderItems = (itemsString: string) => {
-    try {
-      return JSON.parse(itemsString);
-    } catch {
-      return { items: [] };
-    }
-  };
-
-  // 根据skuId获取商品详情
-  const getItemDetails = (skuId: string) => {
-    return listingItems.find(item => item.skuId.toString() === skuId);
   };
 
   // 显示加载状态
@@ -271,8 +252,8 @@ export default function Orders() {
             <Table stickyHeader aria-label="orders list table">
               <TableHead>
                 <TableRow>
-                  <TableCell width="100px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.id" defaultMessage="Order ID" />
+                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <FormattedMessage id="orders.id" defaultMessage="ID" />
                   </TableCell>
                   <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="orders.image" defaultMessage="Image" />
@@ -282,6 +263,9 @@ export default function Orders() {
                   </TableCell>
                   <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="orders.price" defaultMessage="Price" />
+                  </TableCell>
+                  <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <FormattedMessage id="orders.charge" defaultMessage="Charged" />
                   </TableCell>
                   <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
                     <FormattedMessage id="orders.status" defaultMessage="Status" />
@@ -296,18 +280,22 @@ export default function Orders() {
               </TableHead>
               <TableBody>
                 {paginatedOrders.map((order) => {
-                  const orderItems = parseOrderItems(order.items);
+                  const orderItems = order.items;
                   const date = new Date(order.createdAt).toLocaleDateString();
 
                   // 获取第一个商品的详情用于显示图片
                   const firstItem = orderItems?.length > 0 ? orderItems[0] : null;
-                  const firstItemDetails = firstItem ? getItemDetails(firstItem.skuId) : null;
-                  const fromShipId = firstItemDetails ? JSON.parse(firstItemDetails.item).from : null;
-                  const toShipId = firstItemDetails ? JSON.parse(firstItemDetails.item).to : null;
+                  const marketItem = firstItem?.marketItem;
+
+                  const fromShipId = marketItem?.fromShipId;
+                  const toShipId = marketItem?.toShipId;
+                  const shipId = marketItem?.shipId;
 
                   const fromShip = fromShipId ? ships.find(ship => ship.id === fromShipId) : null;
                   const toShip = toShipId ? ships.find(ship => ship.id === toShipId) : null;
-                  const isCCU = fromShip && toShip && fromShip.id !== toShip.id;
+                  const ship = shipId ? ships.find(ship => ship.id === shipId) : null;
+
+                  const isCCU = marketItem?.itemType === 'ccu' && fromShip && toShip;
 
                   return (
                     <TableRow
@@ -366,30 +354,46 @@ export default function Orders() {
                           <Box
                             component="img"
                             sx={{ width: 280, height: 160, objectFit: 'cover' }}
-                            src={toShip?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
-                            alt={firstItemDetails?.name || ''}
+                            src={(toShip || ship)?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
+                            alt={marketItem?.name || ''}
                           />
                         )}
                       </TableCell>
                       <TableCell>
                         <div className='flex flex-col gap-2'>
-                          {orderItems?.slice(0, 4).map((item: { skuId: string; quantity: number }, index: number) => {
-                            // 查找商品信息
-                            const itemDetails = getItemDetails(item.skuId);
-                            const shipInfo = ships.find(ship => ship.skus?.some(sku => sku.id === Number(item.skuId)));
+                          {orderItems?.slice(0, 4).map((item, index: number) => {
+                            const marketItem = item.marketItem;
+                            const itemName = marketItem?.name;
 
                             return (
-                              <div key={index} className="flex items-center">
-                                <div className='text-[14px]'>
-                                  - {(itemDetails ? itemDetails.name : shipInfo ? shipInfo.name : `Item #${item.skuId}`)?.slice(0, 25)}...
+                              <div className="flex items-center" key={index}>
+                                <div className='text-[14px] flex items-center gap-1 max-w-[200px]'>
+                                  <div className='flex items-center gap-1'>
+                                    {(item.quantity === item?.cancelledQuantity ||
+                                      order.status === OrderStatus.Canceled) ? (
+                                      <X className='w-4 h-4 text-red-500' />
+                                    ) : order.status === OrderStatus.Pending ? <Loader2 className={`w-4 h-4 text-orange-500 animate-spin ${index !== 0 && 'animate-none opacity-0'}`} /> :
+                                      item?.cancelledQuantity ? (<>
+                                        <Info className='w-4 h-4 text-orange-500' />
+                                        <div className='text-[12px] text-orange-500 text-nowrap'>
+                                          {item.quantity - item?.cancelledQuantity} / {item.quantity}
+                                        </div>
+                                      </>) : (<>
+                                        <Check className='w-4 h-4 text-green-500' />
+                                        <div className='text-[12px] text-green-500 text-nowrap'>
+                                          {item.quantity} / {item.quantity}
+                                        </div>
+                                      </>)}
+                                  </div>
+                                  <div className='truncate'>{itemName}</div>
                                 </div>
-                                {item.quantity > 1 && (
+                                {/* {item.quantity > 1 && (
                                   <Chip
                                     size="small"
                                     label={`x${item.quantity}`}
                                     sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
                                   />
-                                )}
+                                )} */}
                               </div>
                             );
                           })}
@@ -403,6 +407,13 @@ export default function Orders() {
                       <TableCell>
                         <div className='text-[16px] text-blue-500 font-bold'>
                           ${order.price}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='text-[16px] text-blue-500 font-bold'>
+                          {
+                            order.status === OrderStatus.Paid && <>${order.price - order.items.reduce((acc, item) => acc + item.price * (item?.cancelledQuantity || 0), 0)}</>
+                          }
                         </div>
                       </TableCell>
                       <TableCell>{getStatusChip(order.status)}</TableCell>
@@ -421,7 +432,7 @@ export default function Orders() {
                             startIcon={<PaymentIcon />}
                             onClick={() => handleRestartPayment(order.id)}
                           >
-                            <FormattedMessage id="orders.restartPayment" defaultMessage="Pay Now" />
+                            <FormattedMessage id="orders.restartPayment" defaultMessage="Pay" />
                           </Button>
                         )}
                         {order.status === OrderStatus.Paid && (
@@ -432,7 +443,7 @@ export default function Orders() {
                             startIcon={<ReceiptLongIcon />}
                             onClick={() => handleViewReceipt(order.id)}
                           >
-                            <FormattedMessage id="orders.viewReceipt" defaultMessage="View Receipt" />
+                            <FormattedMessage id="orders.viewReceipt" defaultMessage="Details" />
                           </Button>
                         )}
                       </TableCell>

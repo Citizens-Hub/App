@@ -1,7 +1,8 @@
 import useSWR, { SWRConfiguration } from 'swr';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { RootState } from '@/store';
 import { fetcher, authFetcher } from './swr-config';
+import { UserInfo } from '@/types';
 
 // API基础URL
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -55,7 +56,7 @@ export function useUserProfile(userId?: string) {
 export function useUserSession() {
   const { user } = useSelector((state: RootState) => state.user);
   
-  return useAuthApi<{ok: boolean}>(
+  return useAuthApi<{success: boolean, user: UserInfo}>(
     user.token ? '/api/auth/user' : null,
     {
       refreshInterval: 5 * 60 * 1000, // 每5分钟检查一次会话

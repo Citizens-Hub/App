@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
 import useSWR from 'swr';
-import { Ship, ShipsData } from '../../../types';
+import { Ship, ShipsData } from '@/types';
 import { fetcher } from '../swr-config';
 
 // 汇率API响应类型

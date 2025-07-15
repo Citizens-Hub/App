@@ -14,7 +14,7 @@ import {
 import { useNavigate } from 'react-router';
 import { FormattedMessage } from 'react-intl';
 import { useDispatch } from 'react-redux';
-import { login, UserRole } from '@/store/userStore';
+import { login, User } from '@/store/userStore';
 import { md5 } from 'js-md5';
 import { Helmet } from 'react-helmet';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -24,14 +24,7 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 interface LoginResponse {
   success: boolean;
   message: string;
-  user: {
-    id: string;
-    username: string;
-    nickname: string;
-    avatar: string;
-    email: string;
-    role: UserRole;
-  };
+  user: User;
   token: string;
 }
 

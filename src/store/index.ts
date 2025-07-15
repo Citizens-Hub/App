@@ -3,6 +3,7 @@ import { upgradesSlice } from "./upgradesStore";
 import { userSlice } from "./userStore";
 import shareReducer from "./shareStore";
 import importReducer from "./importStore";
+import cartReducer from "./cartStore";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     upgrades: upgradesSlice.reducer,
     share: shareReducer,
     import: importReducer,
+    cart: cartReducer,
   },
 });
 
