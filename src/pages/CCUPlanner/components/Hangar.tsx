@@ -1,4 +1,4 @@
-import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip } from "@mui/material";
+import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip, Link } from "@mui/material";
 import { Ccu, Ship } from "@/types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
@@ -131,11 +131,17 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   return (
     <>
       <div className="flex items-center justify-left gap-2 px-1">
-        <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="My Hangar" />
+        <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="Hangar" />
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>
         <Crawler ships={ships} />
+      </div>
+
+      <div className="flex items-center justify-left gap-2 px-1">
+        <Link href="#" onClick={() => setExtensionModalOpen(true)}>
+          <FormattedMessage id="ccuPlanner.downloadBrowserExtension" defaultMessage="Download Extension" />
+        </Link>
       </div>
 
       {hangarExpanded && (
