@@ -324,5 +324,7 @@
   "import.error": "船舶データの読み込みに失敗しました",
   "import.prevPage": "前のページ",
   "import.nextPage": "次のページ",
-  "import.pageInfo": "ページ {current} / {total}"
+  "import.pageInfo": "ページ {current} / {total}",
+  "hangar.usage": "使用状況",
+  "hangar.ccuUsage": "使用済み: {used}, 残り: {remaining}"
 }

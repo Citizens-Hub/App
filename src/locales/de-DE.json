@@ -324,5 +324,7 @@
   "import.error": "Fehler beim Laden der Schiffsdaten",
   "import.prevPage": "Vorherige Seite",
   "import.nextPage": "Nächste Seite",
-  "import.pageInfo": "Seite {current} von {total}"
+  "import.pageInfo": "Seite {current} von {total}",
+  "hangar.usage": "Nutzung",
+  "hangar.ccuUsage": "Verwendet: {used}, Verbleibend: {remaining}"
 }

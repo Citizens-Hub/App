@@ -113,6 +113,20 @@ export default function RouteInfoPanel({
 
       pathFinderService.resetNodeBestCost();
 
+      // 获取所有已完成的路径，找出匹配当前目标节点的路径
+      const allCompletedPaths = pathFinderService.getCompletedPaths();
+      const relevantCompletedPaths = allCompletedPaths.filter(cp => 
+        cp.ship.id === selectedNode.data.ship.id
+      );
+      
+      // 将已完成路径转换为CompletePath格式
+      const completedPaths = relevantCompletedPaths.map(cp => cp.path);
+      
+      // 如果找到了已完成路径，确保它们被包含在结果中
+      if (completedPaths.length > 0) {
+        console.log(`Found ${completedPaths.length} completed paths to the target node`);
+      }
+
       const startNodes = pathFinderService.findStartNodes(edges, nodes);
       console.log('Found start nodes:', startNodes.map(n => n.id));
 
@@ -143,10 +157,28 @@ export default function RouteInfoPanel({
         }
       });
 
-      const completePaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, getServiceData());
+      const generatedPaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, getServiceData());
 
-      console.log('Final number of complete paths:', completePaths.length);
-      return completePaths;
+      // 合并生成的路径和已完成的路径
+      const mergedPaths = [...generatedPaths];
+      
+      // 添加所有已完成的路径，确保它们会被展示
+      completedPaths.forEach(completedPath => {
+        // 检查是否已存在于生成的路径中
+        const existsInGenerated = mergedPaths.some(path => 
+          path.startNodeId === completedPath.startNodeId && 
+          path.path.length === completedPath.path.length &&
+          path.path[path.path.length - 1].ship.id === completedPath.path[completedPath.path.length - 1].ship.id
+        );
+        
+        // 如果不存在，添加到合并的路径中
+        if (!existsInGenerated) {
+          mergedPaths.push(completedPath);
+        }
+      });
+
+      console.log('Final number of complete paths:', mergedPaths.length);
+      return mergedPaths;
     } catch (error) {
       console.error('Error during path calculation:', error);
       return [];
@@ -155,6 +187,25 @@ export default function RouteInfoPanel({
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };
+
+    // 过滤掉包含已用完CCU的路径
+    const filteredPaths = completePaths.filter(path => {
+      // 检查路径是否已完成
+      const { completed } = pathFinderService.isPathCompleted(path);
+      
+      // 已完成的路径不过滤
+      if (completed) {
+        return true;
+      }
+      
+      // 检查路径中的每条边
+      return !path.edges.some(edge => {
+        // 获取价格信息
+        const priceInfo = pathFinderService.getPriceInfo(edge.edge, getServiceData());
+        // 如果边标记为已用完，过滤掉这条路径
+        return priceInfo.isUsedUp === true;
+      });
+    });
 
     // Sort based on sorting options
     const sortPaths = (a: CompletePath, b: CompletePath) => {
@@ -223,7 +274,7 @@ export default function RouteInfoPanel({
     };
 
     return {
-      paths: completePaths.sort(sortPaths)
+      paths: filteredPaths.sort(sortPaths)
     };
   }, [completePaths, sortByNewInvestment, pathFinderService, exchangeRate, conciergeValue, startShipPrices, getServiceData]);
 
@@ -246,6 +297,13 @@ export default function RouteInfoPanel({
   useEffect(() => {
     setCurrentPage(0);
   }, [selectedNode]);
+
+  useEffect(() => {
+    // 当总页数变化时，确保currentPage不超出范围
+    if (totalPages > 0 && _currentPage >= totalPages) {
+      setCurrentPage(0);
+    }
+  }, [totalPages, _currentPage]);
 
   const handleMarkAsCompleted = (path: CompletePath) => {
     if (!selectedNode) return;
@@ -536,7 +594,7 @@ export default function RouteInfoPanel({
                             <span className="text-black dark:text-white mr-1">
                               <FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" />:
                             </span>
-                            <span className="text-blue-400">{completePath.totalThirdPartyPrice.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
+                            <span className="text-blue-400">{completePath.totalThirdPartyPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
                           </div>
                         </div>
 
