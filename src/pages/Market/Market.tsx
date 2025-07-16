@@ -46,7 +46,7 @@ const Market: React.FC = () => {
   // 过滤商品
   const filteredItems = listingItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (showInStock ? item.stock > 0 : true)
+    (showInStock ? item.stock - item.lockedStock > 0 : true)
   );
 
   // 排序商品：先按库存状态排序（有库存的在前），然后按价格排序（价格高的在前）
