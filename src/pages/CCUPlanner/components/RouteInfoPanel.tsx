@@ -573,7 +573,7 @@ export default function RouteInfoPanel({
                     {
                       completePath.edges.some(edge => {
                         const { usdPrice, tpPrice } = pathFinderService.getPriceInfo(edge.edge, getServiceData());
-                        return usdPrice + tpPrice === 0;
+                        return usdPrice + tpPrice === 0 && edge.edge.data?.sourceType !== CcuSourceType.HANGER;
                       }) && (
                         <Alert severity="error">
                           <FormattedMessage id="routeInfoPanel.noPrice" defaultMessage="Some of the CCUs in this route are not available." />
@@ -723,7 +723,7 @@ export default function RouteInfoPanel({
                           return (
                             <div
                               key={edgeIndex}
-                              className={`${usdPrice + tpPrice === 0 && "bg-red-200 dark:bg-red-900/20"} p-2 rounded text-sm border-b border-gray-200 dark:border-gray-800 last:border-b-0 flex flex-col gap-2 ${isEdgeCompleted ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
+                              className={`${usdPrice + tpPrice === 0 && pathEdge.edge.data?.sourceType !== CcuSourceType.HANGER && "bg-red-200 dark:bg-red-900/20"} p-2 rounded text-sm border-b border-gray-200 dark:border-gray-800 last:border-b-0 flex flex-col gap-2 ${isEdgeCompleted ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
                             >
                               <div className="flex mb-1 gap-2 justify-between w-full">
                                 <div className='flex gap-4'>
@@ -764,7 +764,7 @@ export default function RouteInfoPanel({
                                 </span>
 
                                 {
-                                  usdPrice + tpPrice === 0 ? (
+                                  (usdPrice + tpPrice === 0 && pathEdge.edge.data?.sourceType !== CcuSourceType.HANGER) ? (
                                     <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                       <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
                                       <span className="text-red-600 dark:text-red-400">Not available</span>

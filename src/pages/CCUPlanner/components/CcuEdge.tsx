@@ -138,7 +138,7 @@ export default function CcuEdge({
       />
       <EdgeLabelRenderer>
         {
-          price === 0 ? <div
+          (price === 0 && data.sourceType !== CcuSourceType.HANGER) ? <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
