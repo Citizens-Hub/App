@@ -75,7 +75,7 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
                   <FormattedMessage id="extensionModal.firefoxLink" defaultMessage="Firefox Add-ons" />
                 </Link>
                 <Link 
-                  href="/citizens_hub-1.0.0.xpi" 
+                  href="/citizens_hub-1.0.2.xpi" 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
