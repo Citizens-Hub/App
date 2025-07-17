@@ -11,7 +11,6 @@ export {
 
 // 基础功能钩子
 export { default as useSharedHangar } from './useSharedHangar';
-export { default as useDocumentData } from './useDocumentData';
 
 // 市场相关钩子
 export { default as useMarketData } from './market/useMarketData';
