@@ -415,7 +415,7 @@
   "orders.status.pending": "待付款",
   "orders.status.paid": "已付款",
   "orders.status.canceled": "已取消",
-
+  "orders.status.finished": "已完成",
   "orderDetail.backToOrders": "返回订单列表",
   "orderDetail.viewInvoice": "查看发票",
   "orderDetail.orderId": "订单号",

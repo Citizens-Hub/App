@@ -40,7 +40,7 @@ const statusColor: Record<string, string> = {
   processing: 'info',
   cancelled: 'error',
   refunded: 'default',
-  finished: 'default',
+  finished: 'secondary',
 };
 
 interface CCUToOpen {
@@ -66,7 +66,7 @@ const OrderDetail = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error'>('success');
 
-  const { order, error, mutateOrder: mutate, ships } = useRelatedOrderData(orderId || '');
+  const { order, error, loading, mutateOrder: mutate, ships } = useRelatedOrderData(orderId || '');
 
   // 处理返回上一页
   const handleBack = () => {
@@ -248,13 +248,13 @@ const OrderDetail = () => {
     setIsGoShippingDialogOpen(false);
   };
 
-  // if (isLoadingOrder) {
-  //   return (
-  //     <Box sx={{ p: 3 }}>
-  //       <Typography><FormattedMessage id="common.loading" defaultMessage="Loading..." /></Typography>
-  //     </Box>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography><FormattedMessage id="common.loading" defaultMessage="Loading..." /></Typography>
+      </Box>
+    );
+  }
 
   if (error || !order) {
     return (

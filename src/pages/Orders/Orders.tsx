@@ -129,6 +129,9 @@ export default function Orders() {
       case OrderStatus.Canceled:
         color = "error";
         break;
+      case OrderStatus.Finished:
+        color = "secondary";
+        break;
       default:
         color = "default";
     }
@@ -312,7 +315,8 @@ export default function Orders() {
                         borderLeftColor: order.status === OrderStatus.Paid ? 'success.main' :
                           order.status === OrderStatus.Pending ? 'warning.main' :
                             order.status === OrderStatus.Canceled ? 'error.main' :
-                              'divider'
+                              order.status === OrderStatus.Finished ? 'secondary.main' :
+                                'divider'
                       }}>
                         #{order.id}
                       </TableCell>
@@ -435,7 +439,7 @@ export default function Orders() {
                             <FormattedMessage id="orders.restartPayment" defaultMessage="Pay" />
                           </Button>
                         )}
-                        {order.status === OrderStatus.Paid && (
+                        {(order.status === OrderStatus.Paid || order.status === OrderStatus.Finished) && (
                           <Button
                             fullWidth
                             variant="outlined"

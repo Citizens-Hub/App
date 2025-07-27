@@ -65,6 +65,9 @@ export default function OrderDetail() {
       case OrderStatus.Canceled:
         color = "error";
         break;
+      case OrderStatus.Finished:
+        color = "secondary";
+        break;
       default:
         color = "default";
     }
@@ -244,7 +247,9 @@ export default function OrderDetail() {
                     borderLeft: '4px solid',
                     borderLeftColor: order.status === OrderStatus.Paid ? 'success.main' :
                       order.status === OrderStatus.Pending ? 'warning.main' :
-                        order.status === OrderStatus.Canceled ? 'error.main' : 'divider',
+                        order.status === OrderStatus.Canceled ? 'error.main' :
+                          order.status === OrderStatus.Finished ? 'secondary.main' :
+                            'divider',
                     pl: 1
                   }}
                 >
