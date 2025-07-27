@@ -25,7 +25,9 @@ export default function useOrderData(orderId: string) {
     data: orderData,
     error: orderError,
     isLoading: orderLoading 
-  } = useAuthApi<DetailedOrder>(`/api/orders/${orderId}`);
+  } = useAuthApi<DetailedOrder>(`/api/orders/${orderId}`, {
+    revalidateOnFocus: true,
+  });
 
   // 使用SWR获取用户信息（需要认证）
   const { 
