@@ -278,6 +278,10 @@ export interface DetailedOrder extends Order {
   items: DetailedOrderItem[];
 }
 
+export interface DetailedRelatedOrder extends DetailedOrder {
+  customerEmail: string;
+}
+
 // export interface OrderItem {
 //   skuId: string;
 //   quantity: number;
@@ -301,3 +305,27 @@ export interface UserInfo {
   name: string;
   role: UserRole;
 }
+
+export interface RequestItem {
+  type: string;
+  message?: {
+    type: string;
+    request: {
+      url: string;
+      responseType: string;
+      method: string;
+      data: null | object | object[];
+    };
+    requestId: string;
+  };
+  request?: {
+    url: string;
+    data: null | object | object[];
+    responseType: string;
+    method: string;
+  };
+  requestId?: number | string;
+}
+
+export type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "Hangar pass" | undefined;
+export type InsuranceType = "LTI" | "Other"

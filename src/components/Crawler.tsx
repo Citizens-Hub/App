@@ -323,6 +323,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (requestId === "user-info") {
           userRef.current = event.data.message.value.data[0].data.account;
 
+          sessionStorage.setItem("currentRSIAccount", event.data.message.value.data[0].data.account.id)
+
           dispatch(addUser(userRef.current));
           dispatch(clearUpgrades(userRef.current.id));
 

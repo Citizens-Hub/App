@@ -73,5 +73,10 @@ export const navigation = [
     name: "navigation.checkout",
     path: "/checkout",
     hidden: true,
+  },
+  {
+    name: "navigation.reseller",
+    path: "/reseller",
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   }
 ];

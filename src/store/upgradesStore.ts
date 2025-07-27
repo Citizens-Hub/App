@@ -12,6 +12,7 @@ interface HangarItem {
   belongsTo: number,
   quantity?: number,
   pageId?: number,
+  pageIds?: number[],
 }
 
 export interface CCUItem extends HangarItem {
@@ -155,11 +156,16 @@ export const upgradesSlice = createSlice({
         state.items.ccus.push({
           ...action.payload,
           quantity: 1,
+          pageIds: action.payload.pageId ? [action.payload.pageId] : [],
         });
       } else {
         const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
         if (item) {
           item.quantity = (item.quantity || 1) + 1;
+          item.pageIds = item.pageIds || [];
+          if (action.payload.pageId && !item.pageIds.includes(action.payload.pageId)) {
+            item.pageIds.push(action.payload.pageId);
+          }
         }
       }
       localStorage.setItem('state', JSON.stringify(state));
@@ -177,11 +183,16 @@ export const upgradesSlice = createSlice({
         state.items.ccus.push({
           ...action.payload,
           quantity: 1,
+          pageIds: action.payload.pageId ? [action.payload.pageId] : [],
         });
       } else {
         const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
         if (item) {
           item.quantity = (item.quantity || 1) + 1;
+          item.pageIds = item.pageIds || [];
+          if (action.payload.pageId && !item.pageIds.includes(action.payload.pageId)) {
+            item.pageIds.push(action.payload.pageId);
+          }
         }
       }
       localStorage.setItem('state', JSON.stringify(state));

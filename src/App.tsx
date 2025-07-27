@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store'
 import { logout } from '@/store/userStore'
 import { UserRole } from '@/types'
-import { Check, Loader2, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 import Verify from './pages/Verify/Verify'
@@ -27,7 +27,9 @@ const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
-const OrderDetail = lazy(() => import('./pages/OrderDetail/OrderDetail'));
+const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
+const Reseller = lazy(() => import('./pages/Reseller/Hangar'));
+const ResellerOrderDetail = lazy(() => import('./pages/Reseller/OrderDetail'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -89,7 +91,7 @@ function App() {
   }, [darkMode]);
 
   const { user } = useSelector((state: RootState) => state.user);
-  const { data: userSession } = useUserSession();
+  // const { data: userSession } = useUserSession();
   const dispatch = useDispatch();
   
   // 使用SWR检查用户会话
@@ -147,6 +149,9 @@ function App() {
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:orderId" element={<OrderDetail />} />
 
+              <Route path="/reseller" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Reseller /></RequireAuth>} />
+              <Route path="/reseller/orders/:orderId" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Suspense fallback={<LoadingFallback />}><ResellerOrderDetail /></Suspense></RequireAuth>} />
+
               <Route
                 path="/guide"
                 element={
@@ -164,7 +169,7 @@ function App() {
               <Route path="/verify/:token" element={<Verify />} />
             </Routes>
           </Suspense>
-          {
+          {/* {
             import.meta.env.VITE_PUBLIC_ENV === "development" && (
               <div className='fixed top-24 right-8 w-fit bg-white opacity-50 z-50 text-left p-4 select-none pointer-events-none border'>
                 Current session:
@@ -178,7 +183,7 @@ function App() {
                 <div>Role: {userSession?.user?.role}</div>
               </div>
             )
-          }
+          } */}
         </BrowserRouter>
       </ThemeProvider>
     </SWRConfig>

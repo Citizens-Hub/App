@@ -5,7 +5,7 @@ import HangarTable from './components/HangarTable';
 // import useHangarData from './hooks/useHangarData';
 import ShipsTable from './components/ShipsTable';
 import ShareTable from './components/ShareTable';
-import StoreTable from './components/StoreTable';
+// import StoreTable from './components/StoreTable';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { Button } from '@mui/material';
@@ -27,7 +27,7 @@ export default function Hangar() {
   const navigate = useNavigate();
 
   const isAuthenticated = user.role >= UserRole.User;
-  const isReseller = [UserRole.Reseller, UserRole.Admin].includes(user.role);
+  // const isReseller = [UserRole.Reseller, UserRole.Admin].includes(user.role);
 
   // 处理未登录用户点击共享标签页的情况
   const handlePageChange = (page: Page) => {
@@ -60,19 +60,19 @@ export default function Hangar() {
             <FormattedMessage id="hangar.sharedDescription" defaultMessage="View shared content here" />
           </Typography>
         </div>}
-        {isReseller && <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyStore ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.MyStore)}>
+        {/* {isReseller && <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyStore ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.MyStore)}>
           <FormattedMessage id="hangar.myStore" defaultMessage="My Store" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />
           </Typography>
-        </div>}
+        </div>} */}
       </div>
 
       <div className='p-4 w-full h-[calc(100vh-128px-65px)] overflow-y-auto sm:mt-28'>
         {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
           {currentPage === Page.Hangar && <HangarTable ships={ships} />}
           {currentPage === Page.Ships && <ShipsTable ships={ships} />}
-          {currentPage === Page.MyStore && <StoreTable ships={ships} />}
+          {/* {currentPage === Page.MyStore && <StoreTable ships={ships} />} */}
           {currentPage === Page.Shared && isAuthenticated ? (
             <ShareTable ships={ships} exchangeRates={exchangeRates} />
           ) : currentPage === Page.Shared && (
