@@ -100,6 +100,7 @@ export default function CCUPlanner() {
         }
 
         if (event.data.message.requestId === "add-to-cart") {
+          queuedRequests.pop();
           window.open("https://robertsspaceindustries.com/en/store/pledge/cart", "_blank");
         }
       }
