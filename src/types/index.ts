@@ -158,7 +158,6 @@ export interface CcuEdgeData {
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
   importItems: ImportItem[];
-  handleAddToCart: (from: number, to: number) => void;
 }
 
 export interface WbHistoryData {
