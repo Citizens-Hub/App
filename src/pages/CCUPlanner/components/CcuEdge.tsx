@@ -4,9 +4,10 @@ import { useIntl } from 'react-intl';
 import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
-import { Check } from 'lucide-react';
+import { Check, ShoppingCart } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { IconButton } from '@mui/material';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -127,6 +128,8 @@ export default function CcuEdge({
     customPrice: data.customPrice,
   });
 
+  const ccuAvailable = data.ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;
+
   return (
     <>
       <path
@@ -160,6 +163,41 @@ export default function CcuEdge({
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
             {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
             +{price.toLocaleString(locale, { style: 'currency', currency })}
+            {
+              [CcuSourceType.AVAILABLE_WB, CcuSourceType.OFFICIAL].includes(sourceType) && ccuAvailable && (
+                <IconButton size="small" onClick={() => {
+                  // if (sourceType === CcuSourceType.AVAILABLE_WB) {
+                  const sku = data.ccus.find(c => c.id === data.targetShip?.id)?.skus
+                    .filter(s => s.price <= (data.targetShip?.msrp || 0))
+                    .sort((a, b) => a.price - b.price)[0];
+                  if (sku && data.sourceShip?.id && data.targetShip?.id) {
+                    window.postMessage({
+                      type: 'ccuPlannerAppIntegrationRequest',
+                      message: {
+                        type: "httpRequest",
+                        request: {
+                          "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                          "responseType": "json",
+                          "method": "post",
+                          "data": [{
+                            "operationName": "addToCart",
+                            "variables": {
+                              "from": data.sourceShip.id,
+                              "to": sku.id
+                            },
+                            "query": "mutation addToCart($from: Int!, $to: Int!) {\n  addToCart(from: $from, to: $to) {\n    jwt\n  }\n}\n"
+                          }]
+                        },
+                        requestId: "init-add-to-cart"
+                      }
+                    }, '*');
+                  }
+                  // }
+                }}>
+                  <ShoppingCart className="w-3 h-3 text-white" />
+                </IconButton>
+              )
+            }
           </div>
         }
       </EdgeLabelRenderer>

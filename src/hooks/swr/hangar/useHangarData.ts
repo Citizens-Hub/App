@@ -42,7 +42,7 @@ export default function useHangarData() {
   const error = (shipsError || exchangeRateError) ? 'Failed to load data' : null;
 
   return { 
-    ships, 
+    ships,
     exchangeRates, 
     loading, 
     error 

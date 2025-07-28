@@ -4,9 +4,49 @@ import CcuCanvas from './components/CcuCanvas'
 import { FormattedMessage } from 'react-intl'
 import NewsModal from './components/NewsModal'
 import { useCcuPlannerData } from '@/hooks'
+import { useEffect } from 'react'
 
 export default function CCUPlanner() {
   const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useCcuPlannerData()
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+
+      if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
+        if (event.data.message.requestId === "init-add-to-cart") {
+          // console.log("event.data", event.data.message.value.data[0].data.addToCart.jwt);
+          const jwt = event.data.message.value.data[0].data.addToCart.jwt;
+
+          window.postMessage({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                "url": "https://robertsspaceindustries.com/api/store/v2/cart/token",
+                "responseType": "json",
+                "method": "post",
+                "data": {
+                  jwt
+                }
+              },
+              requestId: "add-to-cart"
+            }
+          }, '*');
+        }
+
+        if (event.data.message.requestId === "add-to-cart") {
+          window.open("https://robertsspaceindustries.com/en/store/pledge/cart", "_blank");
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
   
   if (loading) return (
     <div>
