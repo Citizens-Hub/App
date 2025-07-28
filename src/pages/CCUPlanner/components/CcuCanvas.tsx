@@ -36,7 +36,6 @@ import { Close } from '@mui/icons-material';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import Crawler from '@/components/Crawler';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -684,9 +683,9 @@ function CcuCanvasContent() {
             <Background color="#333" gap={32} />
             <Panel position="top-right">
               <div className='gap-2 hidden sm:flex'>
-                <div className='flex flex-col gap-2 items-center justify-center'>
+                {/* <div className='flex flex-col gap-2 items-center justify-center'>
                   <Crawler ships={ships} />
-                </div>
+                </div> */}
                 <div className='bg-white dark:bg-[#121212]'>
                   <UserSelector />
                 </div>

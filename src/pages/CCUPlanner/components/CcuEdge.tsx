@@ -166,33 +166,66 @@ export default function CcuEdge({
             {
               [CcuSourceType.AVAILABLE_WB, CcuSourceType.OFFICIAL].includes(sourceType) && ccuAvailable && (
                 <IconButton size="small" onClick={() => {
-                  // if (sourceType === CcuSourceType.AVAILABLE_WB) {
                   const sku = data.ccus.find(c => c.id === data.targetShip?.id)?.skus
                     .filter(s => s.price <= (data.targetShip?.msrp || 0))
                     .sort((a, b) => a.price - b.price)[0];
                   if (sku && data.sourceShip?.id && data.targetShip?.id) {
                     window.postMessage({
-                      type: 'ccuPlannerAppIntegrationRequest',
+                      type: "addToCartRequest",
                       message: {
-                        type: "httpRequest",
-                        request: {
-                          "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
-                          "responseType": "json",
-                          "method": "post",
-                          "data": [{
-                            "operationName": "addToCart",
-                            "variables": {
-                              "from": data.sourceShip.id,
-                              "to": sku.id
-                            },
-                            "query": "mutation addToCart($from: Int!, $to: Int!) {\n  addToCart(from: $from, to: $to) {\n    jwt\n  }\n}\n"
-                          }]
-                        },
-                        requestId: "init-add-to-cart"
+                        from: data.sourceShip.id,
+                        to: sku.id
                       }
-                    }, '*');
+                    }, "*")
+                    // window.postMessage({
+                    //   type: "ccuPlannerAppIntegrationRequest",
+                    //   message: {
+                    //     type: "httpRequest",
+                    //     request: {
+                    //       url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+                    //       data: null,
+                    //       responseType: "json",
+                    //       method: "post"
+                    //     },
+                    //     requestId: "cart-set-auth-token"
+                    //   }
+                    // }, "*");
+            
+                    // window.postMessage({
+                    //   type: "ccuPlannerAppIntegrationRequest",
+                    //   message: {
+                    //     type: "httpRequest",
+                    //     request: {
+                    //       url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+                    //       data: {},
+                    //       responseType: "json",
+                    //       method: "post"
+                    //     },
+                    //     requestId: "cart-set-context-token"
+                    //   }
+                    // }, "*");
+                    
+                    // window.postMessage({
+                    //   type: 'ccuPlannerAppIntegrationRequest',
+                    //   message: {
+                    //     type: "httpRequest",
+                    //     request: {
+                    //       "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                    //       "responseType": "json",
+                    //       "method": "post",
+                    //       "data": [{
+                    //         "operationName": "addToCart",
+                    //         "variables": {
+                    //           "from": data.sourceShip.id,
+                    //           "to": sku.id
+                    //         },
+                    //         "query": "mutation addToCart($from: Int!, $to: Int!) {\n  addToCart(from: $from, to: $to) {\n    jwt\n  }\n}\n"
+                    //       }]
+                    //     },
+                    //     requestId: "init-add-to-cart"
+                    //   }
+                    // }, '*');
                   }
-                  // }
                 }}>
                   <ShoppingCart className="w-3 h-3 text-white" />
                 </IconButton>

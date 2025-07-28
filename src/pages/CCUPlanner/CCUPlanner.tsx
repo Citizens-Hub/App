@@ -10,10 +10,74 @@ export default function CCUPlanner() {
   const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useCcuPlannerData()
 
   useEffect(() => {
+    const queuedRequests: { from: number, to: number }[] = [];
+
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== window) return;
 
+      if (event.data?.type === 'addToCartRequest') {
+        if (queuedRequests.length > 0) return;
+
+        queuedRequests.push({
+          from: event.data.message.from,
+          to: event.data.message.to
+        })
+
+        window.postMessage({
+          type: "ccuPlannerAppIntegrationRequest",
+          message: {
+            type: "httpRequest",
+            request: {
+              url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+              data: null,
+              responseType: "json",
+              method: "post"
+            },
+            requestId: "cart-set-auth-token"
+          }
+        }, "*");
+      }
+
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
+        if (event.data.message.requestId === "cart-set-auth-token") {
+          window.postMessage({
+            type: "ccuPlannerAppIntegrationRequest",
+            message: {
+              type: "httpRequest",
+              request: {
+                url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+                data: {},
+                responseType: "json",
+                method: "post"
+              },
+              requestId: "cart-set-context-token"
+            }
+          }, "*");
+        }
+
+        if (event.data.message.requestId === "cart-set-context-token") {
+          window.postMessage({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
+                "responseType": "json",
+                "method": "post",
+                "data": [{
+                  "operationName": "addToCart",
+                  "variables": {
+                    "from": queuedRequests[0].from,
+                    "to": queuedRequests[0].to
+                  },
+                  "query": "mutation addToCart($from: Int!, $to: Int!) {\n  addToCart(from: $from, to: $to) {\n    jwt\n  }\n}\n"
+                }]
+              },
+              requestId: "init-add-to-cart"
+            }
+          }, '*');
+        }
+
         if (event.data.message.requestId === "init-add-to-cart") {
           // console.log("event.data", event.data.message.value.data[0].data.addToCart.jwt);
           const jwt = event.data.message.value.data[0].data.addToCart.jwt;
@@ -47,7 +111,7 @@ export default function CCUPlanner() {
       window.removeEventListener('message', handleMessage);
     };
   }, []);
-  
+
   if (loading) return (
     <div>
       <h1 className="flex items-center gap-4 px-8">

@@ -320,6 +320,44 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
         const requestId = event.data.message.requestId;
 
+        if (requestId === "set-auth-token") {
+          addToQueue({
+            type: "ccuPlannerAppIntegrationRequest",
+            message: {
+              type: "httpRequest",
+              request: {
+                url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
+                data: {},
+                responseType: "json",
+                method: "post"
+              },
+              requestId: "set-context-token"
+            }
+          });
+        }
+
+        if (requestId === "set-context-token") {
+          addToQueue({
+            type: 'ccuPlannerAppIntegrationRequest',
+            message: {
+              type: "httpRequest",
+              request: {
+                url: "https://robertsspaceindustries.com/graphql",
+                responseType: "json",
+                method: "post",
+                data: [
+                  {
+                    "operationName": "account",
+                    "variables": {},
+                    "query": "query account {\n  account {\n    isAnonymous\n    ... on RsiAuthenticatedAccount {\n      avatar\n      badges {\n        id\n        title\n        __typename\n      }\n      badgeIcons {\n        favorite {\n          name\n          icon\n          __typename\n        }\n        organization {\n          name\n          icon\n          url\n          __typename\n        }\n        __typename\n      }\n      displayname\n      id\n      nickname\n      profileUrl\n      roles {\n        name\n        __typename\n      }\n      updatedAt\n      username\n      email\n      status\n      referral_code\n      __typename\n    }\n    __typename\n  }\n}"
+                  }
+                ]
+              },
+              requestId: "user-info"
+            }
+          });
+        }
+
         if (requestId === "user-info") {
           userRef.current = event.data.message.value.data[0].data.account;
 
@@ -502,42 +540,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
               method: "post"
             },
             requestId: "set-auth-token"
-          }
-        });
-
-        // 添加上下文请求到队列
-        addToQueue({
-          type: "ccuPlannerAppIntegrationRequest",
-          message: {
-            type: "httpRequest",
-            request: {
-              url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
-              data: {},
-              responseType: "json",
-              method: "post"
-            },
-            requestId: "set-context-token"
-          }
-        });
-
-        // 添加用户信息请求到队列
-        addToQueue({
-          type: 'ccuPlannerAppIntegrationRequest',
-          message: {
-            type: "httpRequest",
-            request: {
-              url: "https://robertsspaceindustries.com/graphql",
-              responseType: "json",
-              method: "post",
-              data: [
-                {
-                  "operationName": "account",
-                  "variables": {},
-                  "query": "query account {\n  account {\n    isAnonymous\n    ... on RsiAuthenticatedAccount {\n      avatar\n      badges {\n        id\n        title\n        __typename\n      }\n      badgeIcons {\n        favorite {\n          name\n          icon\n          __typename\n        }\n        organization {\n          name\n          icon\n          url\n          __typename\n        }\n        __typename\n      }\n      displayname\n      id\n      nickname\n      profileUrl\n      roles {\n        name\n        __typename\n      }\n      updatedAt\n      username\n      email\n      status\n      referral_code\n      __typename\n    }\n    __typename\n  }\n}"
-                }
-              ]
-            },
-            requestId: "user-info"
           }
         });
       }}
