@@ -15,7 +15,7 @@ export default function HeaderAd() {
     <div className="items-center justify-center hidden lg:flex -my-10">
       <Adsense
         key={key}
-        client={import.meta.env.VITE_ADSENSE_CLIENT}
+        client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
         slot="4587258440"
         style={{ width: 500, height: 65 }}
         format=""
