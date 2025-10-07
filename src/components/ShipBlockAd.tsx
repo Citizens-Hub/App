@@ -1,6 +1,6 @@
 import { Adsense } from '@ctrl/react-adsense';
 
-export default function HeaderAd() {
+export default function ShipBlockAd() {
   return (
     <Adsense
       client={import.meta.env.VITE_ADSENSE_CLIENT}
