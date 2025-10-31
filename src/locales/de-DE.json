@@ -129,6 +129,7 @@
   "shipNode.historical": "Historisches",
   "routeInfoPanel.historical": "Historisches WB",
   "ccuPlanner.showHistoryWBTooltip": "Dies ist eine Testfunktion, die Daten sind möglicherweise nicht genau",
+  "ccuPlanner.historyWBHint": "Sie können detaillierte WB-Historie auf der {link}-Seite überprüfen",
   "pathBuilder.step1": "Wählen Sie Ihre Startschiffe aus",
   "pathBuilder.step3": "Wählen Sie alle Schiffe aus, die im Pfad enthalten sein sollen",
   "pathBuilder.selectedShips": "Ausgewählte Schiffe",

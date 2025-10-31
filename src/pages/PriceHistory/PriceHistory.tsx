@@ -219,12 +219,12 @@ export default function PriceHistory() {
             <Typography variant="h5" className='mb-2'>
               {selectedShip.name}
             </Typography>
-            <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-4'>
+            <Typography variant="body2" className='text-gray-500 dark:text-gray-400'>
               {selectedShip.manufacturer.name}
             </Typography>
             
             {/* Chart and Timeline - Side by side layout */}
-            <div className='flex-1 flex flex-row gap-4 min-h-0'>
+            <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
               <div className='flex-[1] min-w-0 overflow-y-auto'>
                 <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
               </div>
@@ -827,7 +827,7 @@ function PriceHistoryChart({ history, currentMsrp }: { history: PriceHistoryEnti
 
   return (
     <Box className='h-full'>
-      <Box className='bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm h-full'>
+      <Box className='bg-white dark:bg-gray-800 p-4 h-full'>
         <Line data={chartData} options={chartOptions} />
       </Box>
     </Box>

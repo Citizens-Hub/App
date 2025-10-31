@@ -129,6 +129,7 @@
   "shipNode.historical": "過去の",
   "routeInfoPanel.historical": "過去のWB",
   "ccuPlanner.showHistoryWBTooltip": "これはテスト機能であり、データが正確でない場合があります",
+  "ccuPlanner.historyWBHint": "{link}ページで詳細なWB履歴を確認できます",
   "pathBuilder.step1": "開始する船を選択してください",
   "pathBuilder.step3": "パスに含める必要があるすべての船を選択してください",
   "pathBuilder.selectedShips": "選択された船",

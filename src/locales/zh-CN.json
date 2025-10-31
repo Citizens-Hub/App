@@ -129,6 +129,7 @@
   "shipNode.historical": "历史",
   "routeInfoPanel.historical": "历史WB",
   "ccuPlanner.showHistoryWBTooltip": "这是一个测试功能，数据可能不准确",
+  "ccuPlanner.historyWBHint": "您可以前往{link}页面查询详细WB历史记录",
   "pathBuilder.step1": "选择您的起始舰船",
   "pathBuilder.step3": "选择所有需要包含在路径中的舰船",
   "pathBuilder.selectedShips": "已选舰船",

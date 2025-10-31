@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ccu, Ship, WbHistoryData } from '@/types';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { Link } from 'react-router';
 import { Button, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
 import { InfoOutlined, Search } from '@mui/icons-material';
 
@@ -111,6 +112,19 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
           </label>
           <Switch checked={showHistoryWB} onChange={(e) => setShowHistoryWB(e.target.checked)} />
         </div>
+        <div className='px-2 pb-2'>
+          <p className='text-xs text-gray-500 dark:text-gray-400'>
+            <FormattedMessage 
+              id="ccuPlanner.historyWBHint" 
+              defaultMessage="You can check detailed WB historical records on the {link} page"
+              values={{
+                link: <Link to="/price-history" className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline">
+                  <FormattedMessage id="navigation.priceHistory" defaultMessage="Price History" />
+                </Link>
+              }}
+            />
+          </p>
+        </div>
 
         <div className='flex items-center gap-2 px-2 pb-2 justify-between'>
           <label className='flex items-center gap-2'>
@@ -121,7 +135,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
       </div>
 
       {(!isMobile || searchTerm !== '') &&
-        <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px)] sm:max-h-full max-h-[calc(100vh-425px)]">
+        <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px-24px)] sm:max-h-full max-h-[calc(100vh-425px)]">
           {/* <ShipBlockAd /> */}
           {filteredShips.map((ship) => (
             <div
