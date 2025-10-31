@@ -162,6 +162,7 @@
   "navigation.guide": "Guide",
   "navigation.orders": "Orders",
   "navigation.checkout": "Checkout",
+  "navigation.priceHistory": "Price History",
   "app.menu": "Menu",
   "checkout.loginRequired": "Login Required",
   "checkout.loginMessage": "You need to be logged in to proceed with your purchase.",
@@ -324,5 +325,14 @@
   "verify.success": "Verification successful!",
   "verify.redirecting": "Redirecting to settings...",
   "verify.error": "Verification failed",
-  "verify.goToLogin": "Go to Login"
+  "verify.goToLogin": "Go to Login",
+  "priceHistory.title": "Price History",
+  "priceHistory.searchPlaceholder": "Search ships...",
+  "priceHistory.ccuUnavailable": "CCU Unavailable",
+  "priceHistory.selectShip": "Select a ship to view price history",
+  "priceHistory.noHistory": "No price history available",
+  "priceHistory.historyTitle": "Price History",
+  "priceHistory.chart.title": "Price Trend",
+  "priceHistory.chart.price": "Price",
+  "priceHistory.chart.basePrice": "Base Price"
 }

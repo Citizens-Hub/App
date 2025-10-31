@@ -264,6 +264,7 @@
   "ships.prediction": "予測価格",
   "ships.actions": "アクション",
   "navigation.importManager": "インポートマネージャー",
+  "navigation.priceHistory": "価格履歴",
   "share.title": "共有",
   "share.loading": "データを読み込み中...",
   "share.error": "データの読み込みに失敗しました",
@@ -326,5 +327,14 @@
   "import.nextPage": "次のページ",
   "import.pageInfo": "ページ {current} / {total}",
   "hangar.usage": "使用状況",
-  "hangar.ccuUsage": "使用済み: {used}, 残り: {remaining}"
+  "hangar.ccuUsage": "使用済み: {used}, 残り: {remaining}",
+  "priceHistory.title": "価格履歴",
+  "priceHistory.searchPlaceholder": "船を検索...",
+  "priceHistory.ccuUnavailable": "CCU利用不可",
+  "priceHistory.selectShip": "価格履歴を表示する船を選択してください",
+  "priceHistory.noHistory": "価格履歴がありません",
+  "priceHistory.historyTitle": "価格履歴",
+  "priceHistory.chart.title": "価格トレンド",
+  "priceHistory.chart.price": "価格",
+  "priceHistory.chart.basePrice": "ベース価格"
 }

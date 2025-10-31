@@ -161,6 +161,7 @@
   "navigation.hangarShare": "Hangar teilen",
   "navigation.orders": "Bestellungen",
   "navigation.checkout": "Kasse",
+  "navigation.priceHistory": "Preisverlauf",
   "app.menu": "Menü",
   "admin.heading": "Admin",
   "admin.ships.title": "Schiffsdaten",
@@ -326,5 +327,14 @@
   "import.nextPage": "Nächste Seite",
   "import.pageInfo": "Seite {current} von {total}",
   "hangar.usage": "Nutzung",
-  "hangar.ccuUsage": "Verwendet: {used}, Verbleibend: {remaining}"
+  "hangar.ccuUsage": "Verwendet: {used}, Verbleibend: {remaining}",
+  "priceHistory.title": "Preisverlauf",
+  "priceHistory.searchPlaceholder": "Schiffe suchen...",
+  "priceHistory.ccuUnavailable": "CCU nicht verfügbar",
+  "priceHistory.selectShip": "Wählen Sie ein Schiff aus, um den Preisverlauf anzuzeigen",
+  "priceHistory.noHistory": "Kein Preisverlauf verfügbar",
+  "priceHistory.historyTitle": "Preisverlauf",
+  "priceHistory.chart.title": "Preistrend",
+  "priceHistory.chart.price": "Preis",
+  "priceHistory.chart.basePrice": "Grundpreis"
 }

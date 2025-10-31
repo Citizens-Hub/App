@@ -35,4 +35,7 @@ export { default as useProfileData } from './profile/useProfileData';
 
 // 共享数据相关钩子
 export { default as useSharedData } from './share/useSharedData';
-export { default as useShipsData } from './share/useShipsData'; 
+export { default as useShipsData } from './share/useShipsData';
+
+// 价格历史相关钩子
+export { default as usePriceHistoryData } from './priceHistory/usePriceHistoryData'; 

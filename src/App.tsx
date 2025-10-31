@@ -14,6 +14,7 @@ import Verify from './pages/Verify/Verify'
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
 const CCUPlanner = lazy(() => import('./pages/CCUPlanner/CCUPlanner'));
+const PriceHistory = lazy(() => import('./pages/PriceHistory/PriceHistory'));
 const Privacy = lazy(() => import('./pages/Privacy/Privacy'));
 const ChangeLogs = lazy(() => import('./pages/ChangeLogs/ChangeLogs'));
 const Auth = lazy(() => import('./pages/Auth/Auth'));
@@ -141,6 +142,7 @@ function App() {
               <Route path="/flea-market" element={<FleaMarket />} />
               <Route path="/store-preview" element={<ResourcesTable />} />
               <Route path="/app-settings" element={<Settings />} />
+              <Route path="/price-history" element={<PriceHistory />} />
 
               <Route path="/share/hangar/:userId" element={<Share />} />
 

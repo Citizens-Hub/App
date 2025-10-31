@@ -8,6 +8,10 @@ export const navigation = [
     path: "/ccu-planner",
   },
   {
+    name: "navigation.priceHistory",
+    path: "/price-history",
+  },
+  {
     name: "navigation.hangar",
     path: "/hangar",
   },
@@ -24,6 +28,7 @@ export const navigation = [
   {
     name: "navigation.storePreview",
     path: "/store-preview",
+    hidden: true,
   },
   {
     name: "navigation.appSettings",
@@ -78,5 +83,5 @@ export const navigation = [
     name: "navigation.reseller",
     path: "/reseller",
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
-  }
+  },
 ];

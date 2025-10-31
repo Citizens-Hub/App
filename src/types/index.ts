@@ -329,3 +329,22 @@ export interface RequestItem {
 
 export type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "Hangar pass" | undefined;
 export type InsuranceType = "LTI" | "Other"
+
+export interface PriceHistoryEntry {
+  change: "+" | "-";
+  edition?: string;
+  sku?: number;
+  msrp?: number;
+  baseMsrp?: number;
+  items?: Array<{ id: number; title: string }> | null;
+  ts: number;
+}
+
+export interface PriceHistoryEntity {
+  id: number;
+  history: PriceHistoryEntry[];
+}
+
+export interface PriceHistoryData {
+  entities: Record<string, PriceHistoryEntity>;
+}

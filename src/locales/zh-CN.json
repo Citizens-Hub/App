@@ -173,6 +173,7 @@
   "navigation.hangarShare": "共享机库",
   "navigation.orders": "订单",
   "navigation.checkout": "结账",
+  "navigation.priceHistory": "价格历史",
   "app.menu": "菜单",
   "checkout.loginRequired": "需要登录",
   "checkout.loginMessage": "您需要登录才能继续购买。",
@@ -444,5 +445,14 @@
   "verify.success": "验证成功！",
   "verify.redirecting": "正在跳转到设置页面...",
   "verify.error": "验证失败",
-  "verify.goToLogin": "前往登录"
+  "verify.goToLogin": "前往登录",
+  "priceHistory.title": "价格历史",
+  "priceHistory.searchPlaceholder": "搜索舰船...",
+  "priceHistory.ccuUnavailable": "CCU不可用",
+  "priceHistory.selectShip": "选择一艘舰船以查看价格历史",
+  "priceHistory.noHistory": "暂无价格历史记录",
+  "priceHistory.historyTitle": "价格历史",
+  "priceHistory.chart.title": "价格趋势",
+  "priceHistory.chart.price": "价格",
+  "priceHistory.chart.basePrice": "基础价格"
 }
