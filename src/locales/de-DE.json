@@ -337,5 +337,8 @@
   "priceHistory.historyTitle": "Preisverlauf",
   "priceHistory.chart.title": "Preistrend",
   "priceHistory.chart.price": "Preis",
-  "priceHistory.chart.basePrice": "Grundpreis"
+  "priceHistory.chart.basePrice": "Grundpreis",
+  "priceHistory.chart.listed": "Gelistet:",
+  "priceHistory.chart.removed": "Entfernt:",
+  "priceHistory.chart.currentlyAvailable": "Derzeit verfügbar"
 }

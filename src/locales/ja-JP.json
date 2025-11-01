@@ -337,5 +337,8 @@
   "priceHistory.historyTitle": "価格履歴",
   "priceHistory.chart.title": "価格トレンド",
   "priceHistory.chart.price": "価格",
-  "priceHistory.chart.basePrice": "ベース価格"
+  "priceHistory.chart.basePrice": "ベース価格",
+  "priceHistory.chart.listed": "掲載:",
+  "priceHistory.chart.removed": "削除:",
+  "priceHistory.chart.currentlyAvailable": "現在利用可能"
 }

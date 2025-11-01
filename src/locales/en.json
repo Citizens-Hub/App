@@ -335,5 +335,8 @@
   "priceHistory.historyTitle": "Price History",
   "priceHistory.chart.title": "Price Trend",
   "priceHistory.chart.price": "Price",
-  "priceHistory.chart.basePrice": "Base Price"
+  "priceHistory.chart.basePrice": "Base Price",
+  "priceHistory.chart.listed": "Listed:",
+  "priceHistory.chart.removed": "Removed:",
+  "priceHistory.chart.currentlyAvailable": "Currently available"
 }
