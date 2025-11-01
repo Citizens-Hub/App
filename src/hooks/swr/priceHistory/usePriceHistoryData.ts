@@ -1,27 +1,26 @@
 import { useMemo } from 'react';
-import useSWR from 'swr';
-import { fetcher } from '../swr-config';
 import { PriceHistoryData } from '@/types';
+import { useApi } from '@/hooks';
 
 /**
  * Hook to fetch and manage price history data
  */
 export default function usePriceHistoryData() {
-  // Use SWR to fetch price history data
+  // Use API to fetch price history data
   const { 
     data: priceHistoryData, 
     error, 
-    isLoading: loading 
-  } = useSWR<PriceHistoryData[]>('/data/price_history.json', fetcher);
+    isLoading: loading
+  } = useApi<PriceHistoryData>('/api/ccus/history');
 
   // Process and cache price history data
   const { priceHistoryMap } = useMemo(() => {
-    if (!priceHistoryData || !Array.isArray(priceHistoryData) || priceHistoryData.length === 0) {
+    if (!priceHistoryData || !priceHistoryData.entities) {
       return { priceHistoryMap: {} };
     }
 
-    // The data structure is an array with entities
-    const entities = priceHistoryData[0]?.entities || {};
+    // The data structure has entities directly
+    const entities = priceHistoryData.entities;
     
     // Create ID to PriceHistoryEntity mapping
     const mapping: Record<number, PriceHistoryData['entities'][string]> = {};
