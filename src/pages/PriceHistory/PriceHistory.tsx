@@ -5,13 +5,16 @@ import {
   InputAdornment,
   Typography,
   CircularProgress,
-  Box
+  Box,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   Title,
@@ -21,6 +24,7 @@ import {
   TooltipItem,
   TooltipModel
 } from 'chart.js';
+import 'chartjs-adapter-date-fns';
 import { Line } from 'react-chartjs-2';
 import { useShipsData, usePriceHistoryData } from '@/hooks';
 import { PriceHistoryEntity } from '@/types';
@@ -31,6 +35,7 @@ import { CcusData } from '@/types';
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   Title,
@@ -230,7 +235,7 @@ export default function PriceHistory() {
                 <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
               </div>
 
-              <div className='flex-[5] min-w-0'>
+              <div className='flex-[5] min-w-0 flex flex-col'>
                 <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
               </div>
             </div>
@@ -256,6 +261,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
   const [isDarkMode, setIsDarkMode] = useState(() =>
     document.documentElement.classList.contains('dark')
   );
+  const [useRealTimeScale, setUseRealTimeScale] = useState(false);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -432,7 +438,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 
     const datasets: Array<{
       label: string;
-      data: Array<number | null>;
+      data: Array<number | null> | Array<{ x: number; y: number | null }>;
       borderColor: string;
       backgroundColor: string;
       fill: boolean;
@@ -444,86 +450,165 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 
     editionArray.forEach((edition, index) => {
       const periods = editionPeriods.get(edition)!;
-      const data: Array<number | null> = [];
+      
+      if (useRealTimeScale) {
+        // Time scale mode: use {x: timestamp, y: price} format
+        const data: Array<{ x: number; y: number | null }> = [];
 
-      for (const ts of sortedTimestamps) {
-        let value: number | null = null;
+        for (const ts of sortedTimestamps) {
+          let value: number | null = null;
 
-        for (const period of periods) {
-          if (period.endTs === null) {
-            // Still active - include up to and including now (connect to today)
-            if (ts >= period.startTs && ts <= now) {
-              value = period.price;
-              break;
-            }
-          } else {
-            // Closed period - [start, end) interval (start included, end excluded)
-            if (ts === period.endTs) {
-              // This is the end point (excluded from interval)
-              value = null;
-              break;
-            }
-            // Check if timestamp is in [start, end) interval
-            if (ts >= period.startTs && ts < period.endTs) {
-              // This timestamp is within the interval (included)
-              value = period.price;
-              break;
+          for (const period of periods) {
+            if (period.endTs === null) {
+              // Still active - include up to and including now (connect to today)
+              if (ts >= period.startTs && ts <= now) {
+                value = period.price;
+                break;
+              }
+            } else {
+              // Closed period - [start, end) interval (start included, end excluded)
+              if (ts === period.endTs) {
+                // This is the end point (excluded from interval)
+                value = null;
+                break;
+              }
+              // Check if timestamp is in [start, end) interval
+              if (ts >= period.startTs && ts < period.endTs) {
+                // This timestamp is within the interval (included)
+                value = period.price;
+                break;
+              }
             }
           }
+
+          data.push({ x: ts, y: value });
         }
 
-        data.push(value);
-      }
+        // Calculate pointRadius array: only show points at the start and end of each continuous segment
+        const pointRadius: Array<number> = [];
+        const pointHoverRadius: Array<number> = [];
 
-      // Calculate pointRadius array: only show points at the start and end of each continuous segment
-      const pointRadius: Array<number> = [];
-      const pointHoverRadius: Array<number> = [];
+        for (let i = 0; i < data.length; i++) {
+          const currentValue = data[i].y;
+          const prevValue = i > 0 ? data[i - 1].y : null;
+          const nextValue = i < data.length - 1 ? data[i + 1].y : null;
 
-      for (let i = 0; i < data.length; i++) {
-        const currentValue = data[i];
-        const prevValue = i > 0 ? data[i - 1] : null;
-        const nextValue = i < data.length - 1 ? data[i + 1] : null;
+          // Show point if:
+          // 1. Current point has a value (not null)
+          // 2. It's the start of a segment (prev is null, current is not null)
+          // 3. It's the end of a segment (current is not null, next is null)
+          // 4. It's a single point segment (prev is null, current is not null, next is null)
+          if (currentValue !== null) {
+            const isStartOfSegment = prevValue === null;
+            const isEndOfSegment = nextValue === null;
 
-        // Show point if:
-        // 1. Current point has a value (not null)
-        // 2. It's the start of a segment (prev is null, current is not null)
-        // 3. It's the end of a segment (current is not null, next is null)
-        // 4. It's a single point segment (prev is null, current is not null, next is null)
-        if (currentValue !== null) {
-          const isStartOfSegment = prevValue === null;
-          const isEndOfSegment = nextValue === null;
-
-          if (isStartOfSegment || isEndOfSegment) {
-            pointRadius.push(4);
-            pointHoverRadius.push(6);
+            if (isStartOfSegment || isEndOfSegment) {
+              pointRadius.push(4);
+              pointHoverRadius.push(6);
+            } else {
+              pointRadius.push(0);
+              pointHoverRadius.push(0);
+            }
           } else {
             pointRadius.push(0);
             pointHoverRadius.push(0);
           }
-        } else {
-          pointRadius.push(0);
-          pointHoverRadius.push(0);
         }
-      }
 
-      datasets.push({
-        label: edition,
-        data,
-        borderColor: getEditionColor(getEditionName(edition, 0), index),
-        backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
-        fill: true,
-        tension: 0,
-        pointRadius: pointRadius,
-        pointHoverRadius: pointHoverRadius,
-        spanGaps: false // Don't connect across null values
-      });
+        datasets.push({
+          label: edition,
+          data,
+          borderColor: getEditionColor(getEditionName(edition, 0), index),
+          backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          fill: true,
+          tension: 0,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          spanGaps: false // Don't connect across null values
+        });
+      } else {
+        // Category scale mode: use array format
+        const data: Array<number | null> = [];
+
+        for (const ts of sortedTimestamps) {
+          let value: number | null = null;
+
+          for (const period of periods) {
+            if (period.endTs === null) {
+              // Still active - include up to and including now (connect to today)
+              if (ts >= period.startTs && ts <= now) {
+                value = period.price;
+                break;
+              }
+            } else {
+              // Closed period - [start, end) interval (start included, end excluded)
+              if (ts === period.endTs) {
+                // This is the end point (excluded from interval)
+                value = null;
+                break;
+              }
+              // Check if timestamp is in [start, end) interval
+              if (ts >= period.startTs && ts < period.endTs) {
+                // This timestamp is within the interval (included)
+                value = period.price;
+                break;
+              }
+            }
+          }
+
+          data.push(value);
+        }
+
+        // Calculate pointRadius array: only show points at the start and end of each continuous segment
+        const pointRadius: Array<number> = [];
+        const pointHoverRadius: Array<number> = [];
+
+        for (let i = 0; i < data.length; i++) {
+          const currentValue = data[i];
+          const prevValue = i > 0 ? data[i - 1] : null;
+          const nextValue = i < data.length - 1 ? data[i + 1] : null;
+
+          // Show point if:
+          // 1. Current point has a value (not null)
+          // 2. It's the start of a segment (prev is null, current is not null)
+          // 3. It's the end of a segment (current is not null, next is null)
+          // 4. It's a single point segment (prev is null, current is not null, next is null)
+          if (currentValue !== null) {
+            const isStartOfSegment = prevValue === null;
+            const isEndOfSegment = nextValue === null;
+
+            if (isStartOfSegment || isEndOfSegment) {
+              pointRadius.push(4);
+              pointHoverRadius.push(6);
+            } else {
+              pointRadius.push(0);
+              pointHoverRadius.push(0);
+            }
+          } else {
+            pointRadius.push(0);
+            pointHoverRadius.push(0);
+          }
+        }
+
+        datasets.push({
+          label: edition,
+          data,
+          borderColor: getEditionColor(getEditionName(edition, 0), index),
+          backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          fill: true,
+          tension: 0,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          spanGaps: false // Don't connect across null values
+        });
+      }
     });
 
     return {
-      labels,
+      labels: useRealTimeScale ? undefined : labels,
       datasets
     };
-  }, [getEditionName, history, intl.locale]);
+  }, [getEditionName, history, intl.locale, useRealTimeScale]);
 
   // Helper function to find period info for a data point
   const findPeriodForDataPoint = useCallback((
@@ -638,8 +723,40 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
             const items = tooltipModel.dataPoints.filter((item: TooltipItem<'line'>) => item.parsed.y !== null);
 
             if (items.length > 0) {
-              // Get the first item's dataIndex (they should all be the same for index mode)
-              const dataIndex = items[0].dataIndex;
+              // Get timestamp from parsed data
+              let dataIndex: number;
+              let timestamp: number;
+              
+              if (useRealTimeScale) {
+                // Time scale mode: get timestamp from parsed.x
+                timestamp = items[0].parsed.x as number;
+                // Find the index in sortedTimestamps
+                dataIndex = sortedTimestamps.findIndex(ts => ts === timestamp);
+                // If not found exactly, find the closest timestamp
+                if (dataIndex === -1 && sortedTimestamps.length > 0) {
+                  // Find the closest timestamp
+                  let closestIndex = 0;
+                  let minDiff = Math.abs(sortedTimestamps[0] - timestamp);
+                  for (let i = 1; i < sortedTimestamps.length; i++) {
+                    const diff = Math.abs(sortedTimestamps[i] - timestamp);
+                    if (diff < minDiff) {
+                      minDiff = diff;
+                      closestIndex = i;
+                    }
+                  }
+                  dataIndex = closestIndex;
+                  timestamp = sortedTimestamps[dataIndex];
+                }
+              } else {
+                // Category scale mode: use dataIndex
+                dataIndex = items[0].dataIndex;
+                if (dataIndex >= 0 && dataIndex < sortedTimestamps.length) {
+                  timestamp = sortedTimestamps[dataIndex];
+                } else {
+                  return; // Invalid data index
+                }
+              }
+
               const titleLines = tooltipModel.title || [];
 
               // Add title (date)
@@ -807,7 +924,27 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       }
     },
     scales: {
-      x: {
+      x: useRealTimeScale ? {
+        type: 'time' as const,
+        time: {
+          unit: 'day' as const,
+          displayFormats: {
+            day: 'MMM d, yyyy'
+          },
+          tooltipFormat: 'MMM d, yyyy HH:mm'
+        },
+        grid: {
+          color: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.5)',
+        },
+        ticks: {
+          color: isDarkMode ? 'rgb(156, 163, 175)' : 'rgb(107, 114, 128)',
+          maxRotation: 45,
+          minRotation: 45,
+          font: {
+            size: 11
+          }
+        }
+      } : {
         grid: {
           color: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.5)',
         },
@@ -847,7 +984,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       axis: 'x' as const,
       intersect: false
     }
-  }), [isDarkMode, intl, periodData, findPeriodForDataPoint, history]);
+      }), [isDarkMode, intl, periodData, findPeriodForDataPoint, history, useRealTimeScale]);
 
   if (!chartData) {
     return null;
@@ -934,9 +1071,30 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-      <Box className='h-full'>
-        <Box className='bg-white dark:bg-gray-800 p-4 h-full'>
-          <Line data={chartData} options={chartOptions} />
+      <Box className='h-full flex flex-col'>
+        <Box className='bg-white dark:bg-gray-800 p-4 flex-1 flex flex-col'>
+          <Box className='mb-2 flex justify-end'>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={useRealTimeScale}
+                  onChange={(e) => setUseRealTimeScale(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  <FormattedMessage 
+                    id="priceHistory.chart.realTimeScale" 
+                    defaultMessage="Real Time Scale" 
+                  />
+                </Typography>
+              }
+            />
+          </Box>
+          <Box className='flex-1 min-h-0'>
+            <Line data={chartData} options={chartOptions} />
+          </Box>
         </Box>
       </Box>
     </>
