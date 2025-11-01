@@ -1240,7 +1240,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         }
       `}</style>
       <Box className='h-full flex flex-col'>
-        <Box className='bg-white dark:bg-gray-800 p-4 pt-0 flex-1 flex flex-col'>
+        <Box className='bg-white dark:bg-gray-800 pb-4 pl-4 flex-1 flex flex-col'>
           <Box className='mb-2 flex justify-end'>
             <FormControlLabel
               control={
