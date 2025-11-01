@@ -268,33 +268,38 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
     return () => observer.disconnect();
   }, []);
 
-  const getEditionName = useCallback((edition: string) => {
+  const getEditionName = useCallback((edition: string, skuId: number) => {
     if (
       edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' upgrade') ||
       edition.toLowerCase().includes('standard') ||
-      edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade')
+      edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade') ||
+      edition.trim() === "Unknown"
     ) {
-      return 'Standard';
+      return 'Standard: ' + skuId.toString();
     }
 
-    return "Warbond";
+    return "Warbond: " + skuId.toString();
   }, [shipName]);
 
   // Generate distinct colors for editions
   const getEditionColor = (_edition: string, index: number): string => {
-    const colors = [
+    const standardColors = [
       'rgb(59, 130, 246)',    // blue
+      'rgb(14, 165, 233)',    // cyan
+    ];
+
+    const warbondColors = [
       'rgb(251, 191, 36)',    // yellow
       'rgb(245, 101, 101)',   // red
       'rgb(236, 72, 153)',    // pink
       'rgb(251, 146, 60)',    // orange
-      'rgb(16, 185, 129)',    // green
-      'rgb(139, 92, 246)',    // purple
-      'rgb(14, 165, 233)',    // cyan
-      'rgb(34, 197, 94)',     // emerald
-      'rgb(168, 85, 247)',    // violet
     ];
-    return colors[index % colors.length];
+
+    if (_edition.includes('Standard:')) {
+      return standardColors[index % standardColors.length];
+    }
+
+    return warbondColors[index % warbondColors.length];
   };
 
   // Filter and sort history entries that have price data
@@ -316,7 +321,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 
     // Process entries to build periods
     for (const entry of sortedHistory) {
-      const edition = getEditionName(entry.edition || 'Unknown');
+      const edition = getEditionName(entry.edition || 'Unknown', entry.sku || 0);
 
       // console.log("edition>>>>", edition, new Date(entry.ts).toLocaleDateString(intl.locale, {
       //   month: 'short',
@@ -504,7 +509,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       datasets.push({
         label: edition,
         data,
-        borderColor: getEditionColor(getEditionName(edition), index),
+        borderColor: getEditionColor(getEditionName(edition, 0), index),
         backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
         fill: true,
         tension: 0,
