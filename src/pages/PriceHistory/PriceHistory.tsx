@@ -275,10 +275,10 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade') ||
       edition.trim() === "Unknown"
     ) {
-      return 'Standard: ' + skuId.toString();
+      return 'Standard (Sku:' + skuId.toString() + ")";
     }
 
-    return "Warbond: " + skuId.toString();
+    return "Warbond (Sku:" + skuId.toString() + ")";
   }, [shipName]);
 
   // Generate distinct colors for editions
@@ -295,7 +295,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       'rgb(251, 146, 60)',    // orange
     ];
 
-    if (_edition.includes('Standard:')) {
+    if (_edition.includes('Standard')) {
       return standardColors[index % standardColors.length];
     }
 
@@ -308,6 +308,16 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 
     const now = Date.now();
     const sortedHistory = [...history].sort((a, b) => a.ts - b.ts);
+
+    // sortedHistory.forEach(entry => {
+    //   entry.ts = Math.ceil(entry.ts / 1000 / 24 / 60 / 60) * 1000 * 24 * 60 * 60;
+
+    //   console.log("entry>>>>", new Date(entry.ts).toLocaleDateString(intl.locale, {
+    //     month: 'short',
+    //     day: 'numeric',
+    //     year: 'numeric'
+    //   }));
+    // });
 
     // Build periods for each edition: [startTs, endTs) - closed start, open end
     interface EditionPeriod {
@@ -413,7 +423,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       })
     );
 
-    for (let i = 1; i < labels.length; i++) {
+    for (let i = labels.length - 1; i > 0; i--) {
       if (labels[i] === labels[i - 1]) {
         labels[i] = '';
       }
