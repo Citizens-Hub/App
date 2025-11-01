@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { 
-  TextField, 
-  InputAdornment, 
-  Typography, 
+import {
+  TextField,
+  InputAdornment,
+  Typography,
   CircularProgress,
   Box
 } from '@mui/material';
@@ -58,21 +58,21 @@ export default function PriceHistory() {
   // Filter ships based on search term
   const filteredShips = useMemo(() => {
     if (!ships) return [];
-    
+
     // Filter out ships with price 0 and ships without price history
     let filtered = ships.filter(ship => {
       // Must have price > 1500
       if (ship.msrp <= 1500) return false;
-      
+
       // Must have price history records (ship is available for sale)
       const priceHistory = priceHistoryMap[ship.id];
       if (!priceHistory || !priceHistory.history || priceHistory.history.length === 0) {
         return false;
       }
-      
+
       return true;
     });
-    
+
     if (searchTerm) {
       filtered = filtered.filter(ship =>
         ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,7 +86,7 @@ export default function PriceHistory() {
 
   // Get selected ship
   const selectedShip = selectedShipId ? ships.find(s => s.id === selectedShipId) : null;
-  
+
   // Get price history for selected ship
   const selectedPriceHistory = selectedShipId ? priceHistoryMap[selectedShipId] : null;
 
@@ -99,7 +99,7 @@ export default function PriceHistory() {
   const getWbPrice = (shipId: number) => {
     const ship = ships.find(s => s.id === shipId);
     if (!ship) return null;
-    
+
     const ccu = ccus.find(c => c.id === shipId);
     if (ccu) {
       const wbSku = ccu.skus.find(sku => sku.price < ship.msrp && sku.available);
@@ -154,14 +154,13 @@ export default function PriceHistory() {
           {filteredShips.map((ship) => {
             const wbPrice = getWbPrice(ship.id);
             // const hasCcu = hasCcuAvailable(ship.id);
-            
+
             return (
               <div
                 key={ship.id}
                 onClick={() => setSelectedShipId(ship.id)}
-                className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
-                  selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
+                className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                  }`}
               >
                 <div className='flex items-center gap-3'>
                   {ship.medias?.productThumbMediumAndSmall && (
@@ -222,7 +221,7 @@ export default function PriceHistory() {
             <Typography variant="body2" className='text-gray-500 dark:text-gray-400'>
               {selectedShip.manufacturer.name}
             </Typography>
-            
+
             {/* Chart and Timeline - Side by side layout */}
             <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
               <div className='flex-[1] min-w-0 overflow-y-auto'>
@@ -250,9 +249,9 @@ export default function PriceHistory() {
 function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceHistoryEntity['history'] | null; currentMsrp: number; shipName: string }) {
   // Keep currentMsrp for potential future use (e.g., showing current price when no history)
   void currentMsrp;
-  
+
   const intl = useIntl();
-  const [isDarkMode, setIsDarkMode] = useState(() => 
+  const [isDarkMode, setIsDarkMode] = useState(() =>
     document.documentElement.classList.contains('dark')
   );
 
@@ -260,17 +259,21 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark'));
     });
-    
+
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['class']
     });
-    
+
     return () => observer.disconnect();
   }, []);
 
   const getEditionName = useCallback((edition: string) => {
-    if (edition.toLowerCase() === shipName.toLowerCase() + ' upgrade' || edition.toLowerCase().includes('standard')) {
+    if (
+      edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' upgrade') ||
+      edition.toLowerCase().includes('standard') ||
+      edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade')
+    ) {
       return 'Standard';
     }
 
@@ -314,6 +317,12 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
     // Process entries to build periods
     for (const entry of sortedHistory) {
       const edition = getEditionName(entry.edition || 'Unknown');
+
+      // console.log("edition>>>>", edition, new Date(entry.ts).toLocaleDateString(intl.locale, {
+      //   month: 'short',
+      //   day: 'numeric',
+      //   year: 'numeric'
+      // }));
 
       if (entry.change === '+') {
         const price = (entry.msrp ?? entry.baseMsrp ?? 0) / 100;
@@ -427,6 +436,14 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       for (const ts of sortedTimestamps) {
         let value: number | null = null;
 
+        // console.log("ts>>>>", new Date(ts).toLocaleDateString(intl.locale, {
+        //   month: 'short',
+        //   day: 'numeric',
+        //   year: 'numeric'
+        // }));
+
+        // console.log("periods>>>>", periods);
+
         for (const period of periods) {
           if (period.endTs === null) {
             // Still active - include up to and including now (connect to today)
@@ -456,12 +473,12 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       // Calculate pointRadius array: only show points at the start and end of each continuous segment
       const pointRadius: Array<number> = [];
       const pointHoverRadius: Array<number> = [];
-      
+
       for (let i = 0; i < data.length; i++) {
         const currentValue = data[i];
         const prevValue = i > 0 ? data[i - 1] : null;
         const nextValue = i < data.length - 1 ? data[i + 1] : null;
-        
+
         // Show point if:
         // 1. Current point has a value (not null)
         // 2. It's the start of a segment (prev is null, current is not null)
@@ -470,7 +487,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         if (currentValue !== null) {
           const isStartOfSegment = prevValue === null;
           const isEndOfSegment = nextValue === null;
-          
+
           if (isStartOfSegment || isEndOfSegment) {
             pointRadius.push(4);
             pointHoverRadius.push(6);
@@ -496,7 +513,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         spanGaps: false // Don't connect across null values
       });
     });
-    
+
     return {
       labels,
       datasets
@@ -541,7 +558,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         borderWidth: 1,
         padding: 12,
         callbacks: {
-          label: function(context: { dataset: { label?: string }; parsed: { y: number | null } }) {
+          label: function (context: { dataset: { label?: string }; parsed: { y: number | null } }) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
@@ -577,7 +594,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         },
         ticks: {
           color: isDarkMode ? 'rgb(156, 163, 175)' : 'rgb(107, 114, 128)',
-          callback: function(value: string | number) {
+          callback: function (value: string | number) {
             return (value as number).toLocaleString(intl.locale, {
               style: 'currency',
               currency: 'USD',
@@ -616,16 +633,16 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 // Price History Timeline Component
 function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['history'] | null }) {
   const intl = useIntl();
-  
+
   // Helper function to check if edition indicates a discount version
   const isDiscountEdition = (edition?: string) => {
     if (!edition) return false;
     const lowerEdition = edition.toLowerCase();
-    return lowerEdition.includes('warbond') || 
-           lowerEdition.includes(' - wb') || 
-           lowerEdition.includes('-wb') ||
-           lowerEdition.endsWith(' - ') ||
-           lowerEdition.includes('upgrade -');
+    return lowerEdition.includes('warbond') ||
+      lowerEdition.includes(' - wb') ||
+      lowerEdition.includes('-wb') ||
+      lowerEdition.endsWith(' - ') ||
+      lowerEdition.includes('upgrade -');
   };
 
   // Helper function to get effective price for an entry
@@ -634,48 +651,48 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
     if (entry.msrp !== undefined) {
       return entry.msrp;
     }
-    
+
     // If this is a discount edition removal (change === '-' and edition indicates discount)
     if (entry.change === '-' && isDiscountEdition(entry.edition)) {
       // Use baseMsrp if available
       if (entry.baseMsrp !== undefined) {
         return entry.baseMsrp;
       }
-      
+
       // Sort history by timestamp (newest first for easier lookup)
       const sortedHistory = [...allHistory].sort((a, b) => b.ts - a.ts);
       const currentIndex = sortedHistory.findIndex(e => e.ts === entry.ts && e.edition === entry.edition);
-      
+
       if (currentIndex >= 0) {
         // First, look for a standard edition added after this removal (in the past, so earlier timestamp)
         // Since sortedHistory is newest first, we look at indices after currentIndex (older entries)
         for (let i = currentIndex + 1; i < sortedHistory.length; i++) {
           const laterEntry = sortedHistory[i];
           // If we find a standard edition addition after removal, that's the recovered price
-          if (laterEntry.change === '+' && 
-              laterEntry.msrp !== undefined && 
-              !isDiscountEdition(laterEntry.edition) &&
-              laterEntry.ts < entry.ts) {
+          if (laterEntry.change === '+' &&
+            laterEntry.msrp !== undefined &&
+            !isDiscountEdition(laterEntry.edition) &&
+            laterEntry.ts < entry.ts) {
             return laterEntry.baseMsrp || laterEntry.msrp;
           }
         }
-        
+
         // If not found, look for the most recent standard edition before the discount was added
         // This represents the price before the discount was applied
         for (let i = currentIndex + 1; i < sortedHistory.length; i++) {
           const prevEntry = sortedHistory[i];
-          if (prevEntry.change === '+' && 
-              prevEntry.msrp !== undefined && 
-              !isDiscountEdition(prevEntry.edition)) {
+          if (prevEntry.change === '+' &&
+            prevEntry.msrp !== undefined &&
+            !isDiscountEdition(prevEntry.edition)) {
             return prevEntry.baseMsrp || prevEntry.msrp;
           }
         }
       }
     }
-    
+
     return undefined;
   };
-  
+
   if (!history || history.length === 0) {
     return (
       <Typography variant="body2" className='text-gray-400'>
@@ -686,11 +703,11 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
 
   // Sort history by timestamp (oldest first for counting)
   const sortedHistoryForCounting = [...history].sort((a, b) => a.ts - b.ts);
-  
+
   // Calculate active SKU count after each entry
   const skuCountAfterEntry = new Map<number, number>();
   let activeSkuCount = 0;
-  
+
   for (const entry of sortedHistoryForCounting) {
     if (entry.change === '+') {
       activeSkuCount++;
@@ -700,7 +717,7 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
     // Store the count after processing this entry
     skuCountAfterEntry.set(entry.ts, activeSkuCount);
   }
-  
+
   // Helper to check if ship is unavailable after a timestamp
   const isUnavailableAfter = (ts: number): boolean => {
     return (skuCountAfterEntry.get(ts) ?? 0) === 0;
@@ -708,7 +725,7 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
 
   // Sort history by timestamp (newest first)
   const sortedHistory = [...history].sort((a, b) => b.ts - a.ts);
-  
+
   // Process entries to get effective prices and availability status
   const processedHistory = sortedHistory.map(entry => ({
     ...entry,
@@ -724,54 +741,53 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
           const processedEntry = entry as ProcessedEntry;
           const displayPrice = processedEntry.effectiveMsrp ?? entry.msrp;
           const isUnavailable = processedEntry.isUnavailable ?? false;
-          
+
           return (
-          <div
-            key={index}
-            className={`border-l-2 pl-4 pb-4 text-left ${
-              entry.change === '+' ? 'border-green-500' : 'border-red-500'
-            }`}
-          >
-            <div className='flex items-center gap-2 mb-1'>
-              <span
-                className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold`}
-              >{entry.change}</span>
-              <div className='font-medium text-left text-md'>
-                {new Date(entry.ts).toLocaleDateString(intl.locale, {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  // hour: '2-digit',
-                  // minute: '2-digit'
-                })}
-              </div>
-              {/* {isUnavailable && (
+            <div
+              key={index}
+              className={`border-l-2 pl-4 pb-4 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'
+                }`}
+            >
+              <div className='flex items-center gap-2 mb-1'>
+                <span
+                  className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold`}
+                >{entry.change}</span>
+                <div className='font-medium text-left text-md'>
+                  {new Date(entry.ts).toLocaleDateString(intl.locale, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    // hour: '2-digit',
+                    // minute: '2-digit'
+                  })}
+                </div>
+                {/* {isUnavailable && (
                 <span className='text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-left text-md'>
                   <FormattedMessage id="priceHistory.unavailable" defaultMessage="Unavailable" />
                 </span>
               )} */}
+              </div>
+              {entry.edition && (
+                <div className='text-gray-600 dark:text-gray-300 mb-1'>
+                  {entry.edition}
+                </div>
+              )}
+              {displayPrice !== undefined && !isUnavailable && (
+                <div className='font-bold text-blue-400 text-left text-md'>
+                  {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                  {entry.baseMsrp && entry.baseMsrp !== displayPrice && (
+                    <span className='text-gray-400 line-through ml-2'>
+                      {(entry.baseMsrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                    </span>
+                  )}
+                </div>
+              )}
+              {isUnavailable && entry.change === '-' && (
+                <div className='text-gray-500 dark:text-gray-400 italic text-left text-md'>
+                  <FormattedMessage id="priceHistory.allSkusRemoved" defaultMessage="All SKUs removed" />
+                </div>
+              )}
             </div>
-            {entry.edition && (
-              <div className='text-gray-600 dark:text-gray-300 mb-1'>
-                {entry.edition}
-              </div>
-            )}
-            {displayPrice !== undefined && !isUnavailable && (
-              <div className='font-bold text-blue-400 text-left text-md'>
-                {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                {entry.baseMsrp && entry.baseMsrp !== displayPrice && (
-                  <span className='text-gray-400 line-through ml-2'>
-                    {(entry.baseMsrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                  </span>
-                )}
-              </div>
-            )}
-            {isUnavailable && entry.change === '-' && (
-              <div className='text-gray-500 dark:text-gray-400 italic text-left text-md'>
-                <FormattedMessage id="priceHistory.allSkusRemoved" defaultMessage="All SKUs removed" />
-              </div>
-            )}
-          </div>
           );
         })}
       </div>
