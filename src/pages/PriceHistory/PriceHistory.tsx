@@ -284,15 +284,17 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
   // Generate distinct colors for editions
   const getEditionColor = (_edition: string, index: number): string => {
     const standardColors = [
-      'rgb(59, 130, 246)',    // blue
-      'rgb(14, 165, 233)',    // cyan
+      'rgb(37, 99, 235)',     // blue-600 (deeper blue)
+      // 'rgb(96, 165, 250)',    // blue-400 (lighter blue)
     ];
 
     const warbondColors = [
-      'rgb(251, 191, 36)',    // yellow
-      'rgb(245, 101, 101)',   // red
-      'rgb(236, 72, 153)',    // pink
-      'rgb(251, 146, 60)',    // orange
+      'rgb(34, 197, 94)',     // green-500 (bright green)
+      'rgb(249, 115, 22)',    // orange-500 (vibrant orange)
+      'rgb(168, 85, 247)',    // purple-500 (vibrant purple)
+      'rgb(239, 68, 68)',     // red-500 (bright red)
+      'rgb(234, 179, 8)',     // yellow-500 (golden yellow)
+      'rgb(236, 72, 153)',    // pink-500 (bright pink)
     ];
 
     if (_edition.includes('Standard')) {
