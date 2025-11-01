@@ -943,6 +943,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
     scales: {
       x: useRealTimeScale ? {
         type: 'time' as const,
+        max: Date.now(),
         time: {
           unit: 'day' as const,
           displayFormats: {
