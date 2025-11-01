@@ -349,3 +349,24 @@ export interface PriceHistoryData {
   entities: Record<string, PriceHistoryEntity>;
   updatedAt: string;
 }
+
+export interface WatchlistItem {
+  id: number;
+  shipId: number;
+  shipName: string;
+  shipAlias: string | null;
+  shipMsrp: number;
+  shipImage: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WatchlistData {
+  items: WatchlistItem[];
+  count: number;
+}
+
+export interface WatchlistResponse {
+  success: boolean;
+  data: WatchlistData;
+}

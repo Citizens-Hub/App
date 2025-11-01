@@ -9,7 +9,7 @@ import {
   FormControlLabel,
   Switch
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { Search, InfoOutlined } from '@mui/icons-material';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,7 +18,7 @@ import {
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
   Filler,
   TooltipItem,
@@ -26,10 +26,14 @@ import {
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { Line } from 'react-chartjs-2';
-import { useShipsData, usePriceHistoryData } from '@/hooks';
+import { useShipsData, usePriceHistoryData, useWatchlistData, useWarbondSubscription, useUserSession } from '@/hooks';
 import { PriceHistoryEntity } from '@/types';
 import { useApi } from '@/hooks/swr/useApi';
 import { CcusData } from '@/types';
+import AddToWatchlistButton from '@/components/AddToWatchlistButton';
+import { Button, Snackbar, Alert, Tooltip } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 
 // Register Chart.js components
 ChartJS.register(
@@ -39,7 +43,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend,
   Filler
 );
@@ -54,6 +58,23 @@ export default function PriceHistory() {
 
   // Fetch price history data
   const { priceHistoryMap, loading: priceHistoryLoading, error: priceHistoryError, updatedAt } = usePriceHistoryData();
+
+  // Fetch watchlist data
+  const { isInWatchlist } = useWatchlistData();
+
+  // Fetch subscription status
+  const { isEnabled: isSubscribed, mutate: mutateSubscription } = useWarbondSubscription();
+  const { data: userSession } = useUserSession();
+  const { user } = useSelector((state: RootState) => state.user);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionSnackbar, setSubscriptionSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+
+  const isLoggedIn = !!user.token;
+  const isEmailVerified = userSession?.user?.emailVerified ?? false;
 
   // Fetch CCU data to check if CCU is available
   const { data: ccusData } = useApi<CcusData>('/api/ccus');
@@ -88,8 +109,19 @@ export default function PriceHistory() {
       );
     }
 
-    return filtered.sort((a, b) => a.msrp - b.msrp);
-  }, [ships, searchTerm, priceHistoryMap]);
+    // Sort: watchlist ships first, then by price
+    return filtered.sort((a, b) => {
+      const aInWatchlist = isInWatchlist(a.id);
+      const bInWatchlist = isInWatchlist(b.id);
+      
+      // If one is in watchlist and the other is not, put watchlist ship first
+      if (aInWatchlist && !bInWatchlist) return -1;
+      if (!aInWatchlist && bInWatchlist) return 1;
+      
+      // If both are in watchlist or both are not, sort by price
+      return a.msrp - b.msrp;
+    });
+  }, [ships, searchTerm, priceHistoryMap, isInWatchlist]);
 
   // Get selected ship
   const selectedShip = selectedShipId ? ships.find(s => s.id === selectedShipId) : null;
@@ -113,6 +145,63 @@ export default function PriceHistory() {
       return wbSku ? wbSku.price : null;
     }
     return null;
+  };
+
+  // Handle subscription toggle
+  const handleToggleSubscription = async () => {
+    if (!isLoggedIn || !isEmailVerified) return;
+
+    setSubscriptionLoading(true);
+    const isEnabling = !isSubscribed;
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wb-subscription/${isEnabling ? 'enable' : 'disable'}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        await mutateSubscription();
+        setSubscriptionSnackbar({
+          open: true,
+          message: intl.formatMessage(
+            {
+              id: isEnabling ? 'warbondSubscription.enableSuccess' : 'warbondSubscription.disableSuccess',
+              defaultMessage: isEnabling ? 'Warbond subscription enabled' : 'Warbond subscription disabled',
+            }
+          ),
+          severity: 'success',
+        });
+      } else {
+        setSubscriptionSnackbar({
+          open: true,
+          message: data.message || intl.formatMessage({
+            id: isEnabling ? 'warbondSubscription.enableFailed' : 'warbondSubscription.disableFailed',
+            defaultMessage: isEnabling ? 'Failed to enable subscription' : 'Failed to disable subscription',
+          }),
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      setSubscriptionSnackbar({
+        open: true,
+        message: intl.formatMessage({
+          id: 'warbondSubscription.error',
+          defaultMessage: 'An error occurred while updating subscription',
+        }),
+        severity: 'error',
+      });
+      console.error('Subscription error:', error);
+    } finally {
+      setSubscriptionLoading(false);
+    }
   };
 
   if (loading) {
@@ -155,6 +244,41 @@ export default function PriceHistory() {
               }
             }}
           />
+          <Box className="mt-3">
+            <Button
+              variant="outlined"
+              color={isSubscribed ? "error" : "primary"}
+              size="small"
+              fullWidth
+              onClick={handleToggleSubscription}
+              disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
+            >
+              {subscriptionLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <FormattedMessage
+                  id={isSubscribed ? 'warbondSubscription.disable' : 'warbondSubscription.enable'}
+                  defaultMessage={isSubscribed ? 'Disable Subscription' : 'Enable Subscription'}
+                />
+              )}
+            </Button>
+            <div className="text-gray-500 dark:text-gray-400 mt-2 text-xs text-left flex items-center gap-1">
+              <FormattedMessage id="warbondSubscription.description"
+                defaultMessage="You will receive email notifications when warbonds are listed or removed."
+              />
+              <Tooltip 
+                arrow 
+                title={
+                  <FormattedMessage 
+                    id="warbondSubscription.emailDeliveryDisclaimer"
+                    defaultMessage="Email delivery may be affected by multiple factors and is not guaranteed."
+                  />
+                }
+              >
+                <InfoOutlined sx={{ fontSize: 14, cursor: 'help' }} />
+              </Tooltip>
+            </div>
+          </Box>
         </div>
 
         <div className='flex-1 overflow-y-auto'>
@@ -211,6 +335,11 @@ export default function PriceHistory() {
                       </Typography>
                     )} */}
                   </div>
+                  <AddToWatchlistButton
+                    shipId={ship.id}
+                    shipName={ship.name}
+                    size="small"
+                  />
                 </div>
               </div>
             );
@@ -228,23 +357,30 @@ export default function PriceHistory() {
             <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-2'>
               {selectedShip.manufacturer.name}
             </Typography> */}
-            {updatedAt && (
-              <Typography variant="caption" className='text-gray-400 dark:text-gray-500 mb-4'>
-                <FormattedMessage 
-                  id="priceHistory.dataUpdatedAt" 
-                  defaultMessage="Data updated at: {updatedAt}" 
-                  values={{
-                    updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })
-                  }}
-                />
-              </Typography>
-            )}
+            <div className='flex items-center justify-between mb-4'>
+              {updatedAt && (
+                <Typography variant="caption" className='text-gray-400 dark:text-gray-500'>
+                  <FormattedMessage
+                    id="priceHistory.dataUpdatedAt"
+                    defaultMessage="Data updated at: {updatedAt}"
+                    values={{
+                      updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    }}
+                  />
+                </Typography>
+              )}
+              {/* <AddToWatchlistButton
+                shipId={selectedShip.id}
+                shipName={selectedShip.name}
+                size="small"
+              /> */}
+            </div>
 
             {/* Chart and Timeline - Side by side layout */}
             <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
@@ -265,6 +401,20 @@ export default function PriceHistory() {
           </div>
         )}
       </div>
+      <Snackbar
+        open={subscriptionSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
+          severity={subscriptionSnackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {subscriptionSnackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
@@ -467,7 +617,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 
     editionArray.forEach((edition, index) => {
       const periods = editionPeriods.get(edition)!;
-      
+
       if (useRealTimeScale) {
         // Time scale mode: use {x: timestamp, y: price} format
         const data: Array<{ x: number; y: number | null }> = [];
@@ -743,7 +893,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
               // Get timestamp from parsed data
               let dataIndex: number;
               let timestamp: number;
-              
+
               if (useRealTimeScale) {
                 // Time scale mode: get timestamp from parsed.x
                 timestamp = items[0].parsed.x as number;
@@ -1002,7 +1152,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       axis: 'x' as const,
       intersect: false
     }
-      }), [isDarkMode, intl, periodData, findPeriodForDataPoint, history, useRealTimeScale]);
+  }), [isDarkMode, intl, periodData, findPeriodForDataPoint, history, useRealTimeScale]);
 
   if (!chartData) {
     return null;
@@ -1102,9 +1252,9 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
               }
               label={
                 <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                  <FormattedMessage 
-                    id="priceHistory.chart.realTimeScale" 
-                    defaultMessage="Real Time Scale" 
+                  <FormattedMessage
+                    id="priceHistory.chart.realTimeScale"
+                    defaultMessage="Real Time Scale"
                   />
                 </Typography>
               }
