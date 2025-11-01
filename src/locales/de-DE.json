@@ -340,5 +340,6 @@
   "priceHistory.chart.basePrice": "Grundpreis",
   "priceHistory.chart.listed": "Gelistet:",
   "priceHistory.chart.removed": "Entfernt:",
-  "priceHistory.chart.currentlyAvailable": "Derzeit verfügbar"
+  "priceHistory.chart.currentlyAvailable": "Derzeit verfügbar",
+  "priceHistory.dataUpdatedAt": "Daten aktualisiert am: {updatedAt}"
 }

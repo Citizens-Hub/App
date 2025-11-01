@@ -338,5 +338,6 @@
   "priceHistory.chart.basePrice": "Base Price",
   "priceHistory.chart.listed": "Listed:",
   "priceHistory.chart.removed": "Removed:",
-  "priceHistory.chart.currentlyAvailable": "Currently available"
+  "priceHistory.chart.currentlyAvailable": "Currently available",
+  "priceHistory.dataUpdatedAt": "Data updated at: {updatedAt}"
 }

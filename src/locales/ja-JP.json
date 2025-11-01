@@ -340,5 +340,6 @@
   "priceHistory.chart.basePrice": "ベース価格",
   "priceHistory.chart.listed": "掲載:",
   "priceHistory.chart.removed": "削除:",
-  "priceHistory.chart.currentlyAvailable": "現在利用可能"
+  "priceHistory.chart.currentlyAvailable": "現在利用可能",
+  "priceHistory.dataUpdatedAt": "データ更新時刻: {updatedAt}"
 }

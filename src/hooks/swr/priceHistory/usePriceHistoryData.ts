@@ -44,6 +44,7 @@ export default function usePriceHistoryData() {
     priceHistoryMap,
     loading, 
     error: error ? 'Failed to load price history data' : null, 
-    getPriceHistoryById
+    getPriceHistoryById,
+    updatedAt: priceHistoryData?.updatedAt
   };
 }

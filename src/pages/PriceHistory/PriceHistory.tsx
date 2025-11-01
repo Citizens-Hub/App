@@ -53,7 +53,7 @@ export default function PriceHistory() {
   const { ships, loading: shipsLoading, error: shipsError } = useShipsData();
 
   // Fetch price history data
-  const { priceHistoryMap, loading: priceHistoryLoading, error: priceHistoryError } = usePriceHistoryData();
+  const { priceHistoryMap, loading: priceHistoryLoading, error: priceHistoryError, updatedAt } = usePriceHistoryData();
 
   // Fetch CCU data to check if CCU is available
   const { data: ccusData } = useApi<CcusData>('/api/ccus');
@@ -222,12 +222,29 @@ export default function PriceHistory() {
       <div className='flex-1 flex flex-col overflow-hidden'>
         {selectedShip ? (
           <div className='flex flex-col h-full p-4'>
-            <Typography variant="h5" className='mb-2'>
+            {/* <Typography variant="h5" className='mb-2'>
               {selectedShip.name}
             </Typography>
-            <Typography variant="body2" className='text-gray-500 dark:text-gray-400'>
+            <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-2'>
               {selectedShip.manufacturer.name}
-            </Typography>
+            </Typography> */}
+            {updatedAt && (
+              <Typography variant="caption" className='text-gray-400 dark:text-gray-500 mb-4'>
+                <FormattedMessage 
+                  id="priceHistory.dataUpdatedAt" 
+                  defaultMessage="Data updated at: {updatedAt}" 
+                  values={{
+                    updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })
+                  }}
+                />
+              </Typography>
+            )}
 
             {/* Chart and Timeline - Side by side layout */}
             <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>

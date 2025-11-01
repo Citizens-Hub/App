@@ -458,5 +458,6 @@
   "priceHistory.chart.basePrice": "基础价格",
   "priceHistory.chart.listed": "上架于:",
   "priceHistory.chart.removed": "移除于:",
-  "priceHistory.chart.currentlyAvailable": "目前可用"
+  "priceHistory.chart.currentlyAvailable": "目前可用",
+  "priceHistory.dataUpdatedAt": "数据更新时间: {updatedAt}"
 }
