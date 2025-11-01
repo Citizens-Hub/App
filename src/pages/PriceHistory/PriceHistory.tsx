@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { 
   TextField, 
@@ -230,7 +230,7 @@ export default function PriceHistory() {
               </div>
 
               <div className='flex-[5] min-w-0'>
-                <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} />
+                <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
               </div>
             </div>
           </div>
@@ -247,7 +247,10 @@ export default function PriceHistory() {
 }
 
 // Price History Chart Component
-function PriceHistoryChart({ history, currentMsrp }: { history: PriceHistoryEntity['history'] | null; currentMsrp: number }) {
+function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceHistoryEntity['history'] | null; currentMsrp: number; shipName: string }) {
+  // Keep currentMsrp for potential future use (e.g., showing current price when no history)
+  void currentMsrp;
+  
   const intl = useIntl();
   const [isDarkMode, setIsDarkMode] = useState(() => 
     document.documentElement.classList.contains('dark')
@@ -266,463 +269,239 @@ function PriceHistoryChart({ history, currentMsrp }: { history: PriceHistoryEnti
     return () => observer.disconnect();
   }, []);
 
+  const getEditionName = useCallback((edition: string) => {
+    if (edition.toLowerCase() === shipName.toLowerCase() + ' upgrade' || edition.toLowerCase().includes('standard')) {
+      return 'Standard';
+    }
+
+    return "Warbond";
+  }, [shipName]);
+
+  // Generate distinct colors for editions
+  const getEditionColor = (_edition: string, index: number): string => {
+    const colors = [
+      'rgb(59, 130, 246)',    // blue
+      'rgb(251, 191, 36)',    // yellow
+      'rgb(245, 101, 101)',   // red
+      'rgb(236, 72, 153)',    // pink
+      'rgb(251, 146, 60)',    // orange
+      'rgb(16, 185, 129)',    // green
+      'rgb(139, 92, 246)',    // purple
+      'rgb(14, 165, 233)',    // cyan
+      'rgb(34, 197, 94)',     // emerald
+      'rgb(168, 85, 247)',    // violet
+    ];
+    return colors[index % colors.length];
+  };
+
   // Filter and sort history entries that have price data
   const chartData = useMemo(() => {
     if (!history) return null;
 
-    // Helper function to check if edition indicates a discount version
-    const isDiscountEdition = (edition?: string) => {
-      if (!edition) return false;
-      const lowerEdition = edition.toLowerCase();
-      return lowerEdition.includes('warbond') || 
-             lowerEdition.includes(' - wb') || 
-             lowerEdition.includes('-wb') ||
-             lowerEdition.endsWith(' - ') ||
-             lowerEdition.includes('upgrade -');
-    };
-
-    // Helper function to get effective price for an entry
-    const getEffectivePrice = (entry: PriceHistoryEntity['history'][0], allHistory: PriceHistoryEntity['history']): number | undefined => {
-      // If entry has msrp, use it
-      if (entry.msrp !== undefined) {
-        return entry.msrp;
-      }
-      
-      // If this is a discount edition removal (change === '-' and edition indicates discount)
-      if (entry.change === '-' && isDiscountEdition(entry.edition)) {
-        // Use baseMsrp if available
-        if (entry.baseMsrp !== undefined) {
-          return entry.baseMsrp;
-        }
-        
-        // Sort history by timestamp (newest first for easier lookup)
-        const sortedHistory = [...allHistory].sort((a, b) => b.ts - a.ts);
-        const currentIndex = sortedHistory.findIndex(e => e.ts === entry.ts && e.edition === entry.edition);
-        
-        if (currentIndex >= 0) {
-          // First, look for a standard edition added after this removal (in the past, so earlier timestamp)
-          // Since sortedHistory is newest first, we look at indices after currentIndex (older entries)
-          for (let i = currentIndex + 1; i < sortedHistory.length; i++) {
-            const laterEntry = sortedHistory[i];
-            // If we find a standard edition addition after removal, that's the recovered price
-            if (laterEntry.change === '+' && 
-                laterEntry.msrp !== undefined && 
-                !isDiscountEdition(laterEntry.edition) &&
-                laterEntry.ts < entry.ts) {
-              return laterEntry.baseMsrp || laterEntry.msrp;
-            }
-          }
-          
-          // If not found, look for the most recent standard edition before the discount was added
-          // This represents the price before the discount was applied
-          for (let i = currentIndex + 1; i < sortedHistory.length; i++) {
-            const prevEntry = sortedHistory[i];
-            if (prevEntry.change === '+' && 
-                prevEntry.msrp !== undefined && 
-                !isDiscountEdition(prevEntry.edition)) {
-              return prevEntry.baseMsrp || prevEntry.msrp;
-            }
-          }
-        }
-      }
-      
-      return undefined;
-    };
-    
-    type ProcessedEntry = PriceHistoryEntity['history'][0] & { effectiveMsrp?: number };
-    
-    // Process entries to include discount removal entries with recovered prices
-    const processedEntries: ProcessedEntry[] = history.map(entry => {
-      const effectivePrice = getEffectivePrice(entry, history);
-      return {
-        ...entry,
-        effectiveMsrp: effectivePrice
-      };
-    });
-    
-    // Filter entries with effective price, sort by timestamp (oldest first for chart)
-    const entriesWithPrice = processedEntries
-      .filter(entry => entry.effectiveMsrp !== undefined)
-      .sort((a, b) => a.ts - b.ts);
-
-    // If no history entries with price, create a single horizontal line with current price
-    if (entriesWithPrice.length === 0 && currentMsrp > 0) {
-      const now = Date.now();
-      const labels = [
-        new Date(now - 86400000).toLocaleDateString(intl.locale, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        }),
-        new Date(now).toLocaleDateString(intl.locale, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      ];
-      
-      return {
-        labels,
-        datasets: [
-          {
-            label: intl.formatMessage({ id: 'priceHistory.chart.price', defaultMessage: 'Price' }),
-            data: [currentMsrp / 100, currentMsrp / 100],
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: 'rgb(59, 130, 246)',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-          }
-        ]
-      };
-    }
-
-    // If only one history entry with price, add current price as second point
-    if (entriesWithPrice.length === 1 && currentMsrp > 0) {
-      const firstEntry = entriesWithPrice[0];
-      const now = Date.now();
-      const labels = [
-        new Date(firstEntry.ts).toLocaleDateString(intl.locale, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        }),
-        new Date(now).toLocaleDateString(intl.locale, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      ];
-      
-      const firstPrice = (firstEntry.effectiveMsrp ?? firstEntry.msrp ?? 0) / 100;
-      const currentPrice = currentMsrp / 100;
-      
-      const baseMsrpData = firstEntry.baseMsrp && firstEntry.baseMsrp !== firstEntry.msrp
-        ? [(firstEntry.baseMsrp / 100), null]
-        : [];
-      
-      const hasBaseMsrp = baseMsrpData.length > 0;
-
-      return {
-        labels,
-        datasets: [
-          {
-            label: intl.formatMessage({ id: 'priceHistory.chart.price', defaultMessage: 'Price' }),
-            data: [firstPrice, currentPrice],
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: 'rgb(59, 130, 246)',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-          },
-          ...(hasBaseMsrp ? [{
-            label: intl.formatMessage({ id: 'priceHistory.chart.basePrice', defaultMessage: 'Base Price' }),
-            data: [firstEntry.baseMsrp ? firstEntry.baseMsrp / 100 : null, null],
-            borderColor: 'rgb(156, 163, 175)',
-            backgroundColor: 'rgba(156, 163, 175, 0.1)',
-            borderDash: [5, 5],
-            fill: false,
-            tension: 0,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-            pointBackgroundColor: 'rgb(156, 163, 175)',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-          }] : [])
-        ]
-      };
-    }
-
-    if (entriesWithPrice.length === 0) return null;
-
-    // Calculate active SKU count at each timestamp to identify unavailable periods
-    // Sort all history entries by timestamp (oldest first)
-    const sortedHistory = [...history].sort((a, b) => a.ts - b.ts);
-    
-    // Track active SKU count over time
-    // Map: timestamp -> active SKU count
-    const skuCountMap = new Map<number, number>();
-    let activeSkuCount = 0;
-    
-    // Initialize with first timestamp if it exists
-    if (sortedHistory.length > 0) {
-      // Check if we start with SKUs already available (if first entry is removal, start from 0)
-      // Otherwise, we need to count from the beginning
-      for (const entry of sortedHistory) {
-        if (entry.change === '+') {
-          activeSkuCount++;
-        } else if (entry.change === '-') {
-          activeSkuCount = Math.max(0, activeSkuCount - 1);
-        }
-        // Store the count after processing this entry
-        skuCountMap.set(entry.ts, activeSkuCount);
-      }
-    }
-    
-    // Get unavailable periods: [startTs, endTs][]
-    const unavailablePeriods: Array<[number, number]> = [];
-    let unavailableStart: number | null = null;
-    
-    for (let i = 0; i < sortedHistory.length; i++) {
-      const entry = sortedHistory[i];
-      const countBefore = i > 0 ? (skuCountMap.get(sortedHistory[i - 1].ts) ?? 0) : 0;
-      const countAfter = skuCountMap.get(entry.ts) ?? 0;
-      
-      // If count drops to 0, start unavailable period
-      if (countBefore > 0 && countAfter === 0 && unavailableStart === null) {
-        unavailableStart = entry.ts;
-      }
-      // If count goes from 0 to >0, end unavailable period
-      if (countBefore === 0 && countAfter > 0 && unavailableStart !== null) {
-        unavailablePeriods.push([unavailableStart, entry.ts]);
-        unavailableStart = null;
-      }
-    }
-    
-    // If we end in an unavailable state, extend to current time
-    if (unavailableStart !== null) {
-      unavailablePeriods.push([unavailableStart, Date.now()]);
-    }
-
-    // Prepare chart data - add current time point at the end
     const now = Date.now();
-    
-    // Helper to check if a timestamp is unavailable (has 0 active SKUs at that time)
-    const checkUnavailableAtTime = (ts: number): boolean => {
-      // Find the most recent history entry at or before this timestamp
-      const relevantEntries = sortedHistory.filter(e => e.ts <= ts);
-      let count = 0;
-      for (const entry of relevantEntries) {
-        if (entry.change === '+') {
-          count++;
-        } else if (entry.change === '-') {
-          count = Math.max(0, count - 1);
+    const sortedHistory = [...history].sort((a, b) => a.ts - b.ts);
+
+    // Build periods for each edition: [startTs, endTs) - closed start, open end
+    interface EditionPeriod {
+      startTs: number;
+      endTs: number | null; // null means still active
+      price: number;
+    }
+
+    const editionPeriods = new Map<string, EditionPeriod[]>();
+    const activeEditions = new Map<string, { startTs: number; price: number }>();
+
+    // Process entries to build periods
+    for (const entry of sortedHistory) {
+      const edition = getEditionName(entry.edition || 'Unknown');
+
+      if (entry.change === '+') {
+        const price = (entry.msrp ?? entry.baseMsrp ?? 0) / 100;
+        // If this edition was already active, close the previous period first
+        if (activeEditions.has(edition)) {
+          const previous = activeEditions.get(edition)!;
+          if (!editionPeriods.has(edition)) {
+            editionPeriods.set(edition, []);
+          }
+          // End previous period just before new start (open interval)
+          editionPeriods.get(edition)!.push({
+            startTs: previous.startTs,
+            endTs: entry.ts, // This will be excluded (open end)
+            price: previous.price
+          });
+        }
+        // Start new period
+        activeEditions.set(edition, { startTs: entry.ts, price });
+      } else if (entry.change === '-') {
+        // Edition removed - close the period
+        if (activeEditions.has(edition)) {
+          const active = activeEditions.get(edition)!;
+          if (!editionPeriods.has(edition)) {
+            editionPeriods.set(edition, []);
+          }
+          // [start, end) - include start, exclude end
+          editionPeriods.get(edition)!.push({
+            startTs: active.startTs,
+            endTs: entry.ts, // Removal timestamp (excluded from interval)
+            price: active.price
+          });
+          activeEditions.delete(edition);
         }
       }
-      return count === 0;
-    };
-    
-    // Check availability for each entry and mark unavailable periods with null to break line
-    // Also break line if there's an unavailable period between consecutive price points
-    const historicalMsrpData: Array<number | null> = [];
-    const historicalBaseMsrpData: Array<number | null> = [];
-    const historicalLabelsWithGaps: string[] = [];
-    
-    // Check if any entry has baseMsrp different from msrp
-    const hasBaseMsrp = entriesWithPrice.some(entry => 
-      entry.baseMsrp && entry.baseMsrp !== entry.msrp
+    }
+
+    // Close remaining active editions (they continue to now)
+    for (const [edition, active] of activeEditions.entries()) {
+      if (!editionPeriods.has(edition)) {
+        editionPeriods.set(edition, []);
+      }
+      editionPeriods.get(edition)!.push({
+        startTs: active.startTs,
+        endTs: null, // Still active
+        price: active.price
+      });
+    }
+
+    // Collect all unique timestamps needed for the chart
+    // For [start, end) intervals, we need:
+    // - start (included)
+    // - end - 1ms (last valid point before end, if end > start + 1ms)
+    // - end (excluded, will be null)
+    const allTimestamps = new Set<number>();
+    for (const periods of editionPeriods.values()) {
+      for (const period of periods) {
+        allTimestamps.add(period.startTs);
+        if (period.endTs !== null) {
+          // Add end - 1ms as the last valid point (included in [start, end))
+          // Only add if it's different from startTs and >= startTs
+          const lastValidTs = period.endTs - 1;
+          if (lastValidTs >= period.startTs && lastValidTs !== period.startTs) {
+            allTimestamps.add(lastValidTs);
+          }
+          // Add end point itself (will be null, excluded from interval)
+          allTimestamps.add(period.endTs);
+        } else {
+          // Still active, add now as the latest point
+          allTimestamps.add(now);
+        }
+      }
+    }
+
+    // Sort all timestamps
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+
+    // Create labels from timestamps
+    const labels = sortedTimestamps.map(ts =>
+      new Date(ts).toLocaleDateString(intl.locale, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
     );
-    
-    for (let i = 0; i < entriesWithPrice.length; i++) {
-      const entry = entriesWithPrice[i];
-      const price = (entry.effectiveMsrp ?? entry.msrp ?? 0) / 100;
-      const basePrice = hasBaseMsrp && entry.baseMsrp && entry.baseMsrp !== entry.msrp
-        ? entry.baseMsrp / 100
-        : null;
-      
-      // Check if this timestamp has 0 active SKUs (unavailable)
-      const isUnavailable = checkUnavailableAtTime(entry.ts);
-      
-      // Before processing current entry, check if there's an unavailable period starting between previous and current entry
-      if (i > 0) {
-        const prevEntry = entriesWithPrice[i - 1];
-        const prevIsUnavailable = checkUnavailableAtTime(prevEntry.ts);
-        
-        // If previous point was available, check if there's an unavailable period starting between them
-        if (!prevIsUnavailable) {
-          // Find the unavailable period that starts between prevEntry and entry
-          const unavailablePeriodBetween = unavailablePeriods.find(([startTs]) => {
-            return startTs > prevEntry.ts && startTs < entry.ts;
-          });
-          
-          if (unavailablePeriodBetween) {
-            const [unavailableStartTs] = unavailablePeriodBetween;
-            // Get the last price from previous entry (the price at the moment SKU was removed)
-            const prevPrice = (prevEntry.effectiveMsrp ?? prevEntry.msrp ?? 0) / 100;
-            const prevBasePrice = hasBaseMsrp && prevEntry.baseMsrp && prevEntry.baseMsrp !== prevEntry.msrp
-              ? prevEntry.baseMsrp / 100
-              : null;
-            
-            // Add a point at the unavailable period start time with the previous price
-            // This point will be connected to the previous point (same price)
-            historicalMsrpData.push(prevPrice);
-            historicalBaseMsrpData.push(prevBasePrice);
-            historicalLabelsWithGaps.push(
-              new Date(unavailableStartTs).toLocaleDateString(intl.locale, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            );
-            
-            // Insert null to break the line connection to the next point
-            historicalMsrpData.push(null);
-            historicalBaseMsrpData.push(null);
-            historicalLabelsWithGaps.push(
-              new Date(unavailableStartTs + (entry.ts - unavailableStartTs) / 2).toLocaleDateString(intl.locale, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            );
-          }
-        }
-      }
-      
-      // Process current entry
-      if (isUnavailable) {
-        // If current point is unavailable, add null to break the line
-        historicalMsrpData.push(null);
-        historicalBaseMsrpData.push(null);
-        historicalLabelsWithGaps.push(
-          new Date(entry.ts).toLocaleDateString(intl.locale, {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })
-        );
-      } else {
-        // Normal available point with price
-        historicalMsrpData.push(price);
-        historicalBaseMsrpData.push(basePrice);
-        historicalLabelsWithGaps.push(
-          new Date(entry.ts).toLocaleDateString(intl.locale, {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })
-        );
+
+    for (let i = 1; i < labels.length; i++) {
+      if (labels[i] === labels[i - 1]) {
+        labels[i] = '';
       }
     }
 
-    // Add current time point if currentMsrp is available
-    // Also check if there's an unavailable period between last historical point and current time
-    const labels = [...historicalLabelsWithGaps];
-    const msrpData = [...historicalMsrpData];
-    const baseMsrpData = hasBaseMsrp ? [...historicalBaseMsrpData] : [];
-    
-    if (currentMsrp > 0) {
-      // Check if there's an unavailable period between last entry and current time
-      if (entriesWithPrice.length > 0) {
-        const lastEntry = entriesWithPrice[entriesWithPrice.length - 1];
-        const lastIsUnavailable = checkUnavailableAtTime(lastEntry.ts);
-        
-        if (!lastIsUnavailable) {
-          // Find the unavailable period that starts between lastEntry and now
-          const unavailablePeriodBetween = unavailablePeriods.find(([startTs]) => {
-            return startTs > lastEntry.ts && startTs < now;
-          });
-          
-          if (unavailablePeriodBetween) {
-            const [unavailableStartTs] = unavailablePeriodBetween;
-            // Get the last price from last entry (the price at the moment SKU was removed)
-            const lastPrice = (lastEntry.effectiveMsrp ?? lastEntry.msrp ?? 0) / 100;
-            const lastBasePrice = hasBaseMsrp && lastEntry.baseMsrp && lastEntry.baseMsrp !== lastEntry.msrp
-              ? lastEntry.baseMsrp / 100
-              : null;
-            
-            // Add a point at the unavailable period start time with the last price
-            // This point will be connected to the last point (same price)
-            msrpData.push(lastPrice);
-            if (hasBaseMsrp) {
-              baseMsrpData.push(lastBasePrice);
+    // Build datasets for each edition
+    const editionArray = Array.from(editionPeriods.keys()).sort();
+
+    const datasets: Array<{
+      label: string;
+      data: Array<number | null>;
+      borderColor: string;
+      backgroundColor: string;
+      fill: boolean;
+      tension: number;
+      pointRadius: number | Array<number>;
+      pointHoverRadius: number | Array<number>;
+      spanGaps: boolean;
+    }> = [];
+
+    editionArray.forEach((edition, index) => {
+      const periods = editionPeriods.get(edition)!;
+      const data: Array<number | null> = [];
+
+      for (const ts of sortedTimestamps) {
+        let value: number | null = null;
+
+        for (const period of periods) {
+          if (period.endTs === null) {
+            // Still active - include up to and including now (connect to today)
+            if (ts >= period.startTs && ts <= now) {
+              value = period.price;
+              break;
             }
-            labels.push(
-              new Date(unavailableStartTs).toLocaleDateString(intl.locale, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            );
-            
-            // Insert null to break the line connection to the next point
-            msrpData.push(null);
-            if (hasBaseMsrp) {
-              baseMsrpData.push(null);
+          } else {
+            // Closed period - [start, end) interval (start included, end excluded)
+            if (ts === period.endTs) {
+              // This is the end point (excluded from interval)
+              value = null;
+              break;
             }
-            labels.push(
-              new Date(unavailableStartTs + (now - unavailableStartTs) / 2).toLocaleDateString(intl.locale, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            );
+            // Check if timestamp is in [start, end) interval
+            if (ts >= period.startTs && ts < period.endTs) {
+              // This timestamp is within the interval (included)
+              value = period.price;
+              break;
+            }
           }
         }
-      }
-      
-      // Check if current point is unavailable
-      const currentIsUnavailable = checkUnavailableAtTime(now);
-      msrpData.push(currentIsUnavailable ? null : currentMsrp / 100);
-      
-      // Add current baseMsrp if applicable
-      if (hasBaseMsrp) {
-        const lastEntry = entriesWithPrice[entriesWithPrice.length - 1];
-        const currentBaseMsrp = lastEntry?.baseMsrp && lastEntry.baseMsrp !== lastEntry.msrp
-          ? lastEntry.baseMsrp / 100
-          : null;
-        baseMsrpData.push(currentBaseMsrp);
-      }
-      
-      labels.push(
-        new Date(now).toLocaleDateString(intl.locale, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      );
-    }
 
+        data.push(value);
+      }
 
-    // Point colors: gray for unavailable periods (though they'll be null, this is for consistency)
-    const pointBackgroundColors = msrpData.map((price) => {
-      // If price is null (unavailable), use gray color (though point won't be shown)
-      if (price === null) return 'rgb(156, 163, 175)';
-      return 'rgb(59, 130, 246)';
+      // Calculate pointRadius array: only show points at the start and end of each continuous segment
+      const pointRadius: Array<number> = [];
+      const pointHoverRadius: Array<number> = [];
+      
+      for (let i = 0; i < data.length; i++) {
+        const currentValue = data[i];
+        const prevValue = i > 0 ? data[i - 1] : null;
+        const nextValue = i < data.length - 1 ? data[i + 1] : null;
+        
+        // Show point if:
+        // 1. Current point has a value (not null)
+        // 2. It's the start of a segment (prev is null, current is not null)
+        // 3. It's the end of a segment (current is not null, next is null)
+        // 4. It's a single point segment (prev is null, current is not null, next is null)
+        if (currentValue !== null) {
+          const isStartOfSegment = prevValue === null;
+          const isEndOfSegment = nextValue === null;
+          
+          if (isStartOfSegment || isEndOfSegment) {
+            pointRadius.push(4);
+            pointHoverRadius.push(6);
+          } else {
+            pointRadius.push(0);
+            pointHoverRadius.push(0);
+          }
+        } else {
+          pointRadius.push(0);
+          pointHoverRadius.push(0);
+        }
+      }
+
+      datasets.push({
+        label: edition,
+        data,
+        borderColor: getEditionColor(getEditionName(edition), index),
+        backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
+        fill: true,
+        tension: 0,
+        pointRadius: pointRadius,
+        pointHoverRadius: pointHoverRadius,
+        spanGaps: false // Don't connect across null values
+      });
     });
-
+    
     return {
       labels,
-      datasets: [
-        {
-          label: intl.formatMessage({ id: 'priceHistory.chart.price', defaultMessage: 'Price' }),
-          data: msrpData,
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          fill: true,
-          tension: 0,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBackgroundColor: pointBackgroundColors,
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          spanGaps: false, // Don't connect across null values (unavailable periods)
-        },
-        ...(hasBaseMsrp ? [{
-          label: intl.formatMessage({ id: 'priceHistory.chart.basePrice', defaultMessage: 'Base Price' }),
-          data: baseMsrpData,
-          borderColor: 'rgb(156, 163, 175)',
-          backgroundColor: 'rgba(156, 163, 175, 0.1)',
-          borderDash: [5, 5],
-          fill: false,
-          tension: 0,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          pointBackgroundColor: 'rgb(156, 163, 175)',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-        }] : [])
-      ]
+      datasets
     };
-  }, [history, currentMsrp, intl]);
+  }, [getEditionName, history, intl.locale]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
