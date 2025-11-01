@@ -594,7 +594,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         external: (context: { chart: ChartJS; tooltip: TooltipModel<'line'> }) => {
           // Tooltip element
           let tooltipEl = document.getElementById('chartjs-tooltip');
-          
+
           // Create element on first render
           if (!tooltipEl) {
             tooltipEl = document.createElement('div');
@@ -636,12 +636,12 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           // Process each tooltip item
           if (tooltipModel.dataPoints && tooltipModel.dataPoints.length > 0) {
             const items = tooltipModel.dataPoints.filter((item: TooltipItem<'line'>) => item.parsed.y !== null);
-            
+
             if (items.length > 0) {
               // Get the first item's dataIndex (they should all be the same for index mode)
               const dataIndex = items[0].dataIndex;
               const titleLines = tooltipModel.title || [];
-              
+
               // Add title (date)
               if (titleLines.length > 0) {
                 innerHtml += `<div class="tooltip-title">${titleLines[0]}</div>`;
@@ -652,7 +652,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
                 const item = items[i];
                 const datasetLabel = item.dataset.label || '';
                 const price = item.parsed.y;
-                
+
                 // Find period info
                 const period = findPeriodForDataPoint(
                   dataIndex,
@@ -671,14 +671,14 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
                   style: 'currency',
                   currency: 'USD'
                 })}</span></span>`;
-                
+
                 if (history?.find(h => h.ts === period?.startTs)?.items && history.find(h => h.ts === period?.startTs)!.items!.length > 1)
                   innerHtml += `<span class="tooltip-items-value">w/ ${history.find(h => h.ts === period?.startTs)!.items!.slice(1).flatMap(item => item.title).join(', ')}</span>`;
 
                 // Add start and end time if period found
                 if (period) {
                   innerHtml += '<div class="tooltip-time-info">';
-                  
+
                   // Start time (listed time)
                   const startDate = new Date(period.startTs).toLocaleString(intl.locale, {
                     year: 'numeric',
@@ -711,7 +711,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
                     innerHtml += `<span class="tooltip-time-value">${endDate}</span>`;
                     innerHtml += `</div>`;
                   }
-                  
+
                   innerHtml += '</div>';
                 }
 
@@ -741,33 +741,33 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           tooltipEl.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
           tooltipEl.style.zIndex = '1000';
           tooltipEl.style.maxWidth = '300px';
-          
+
           // Temporarily position to measure
           tooltipEl.style.left = '-9999px';
           tooltipEl.style.top = '-9999px';
-          
+
           // Get tooltip dimensions after rendering
           const tooltipRect = tooltipEl.getBoundingClientRect();
           const tooltipWidth = tooltipRect.width;
           const tooltipHeight = tooltipRect.height;
-          
+
           // Calculate initial position (data point position)
           const dataPointX = position.left + window.scrollX + tooltipModel.caretX;
           const dataPointY = position.top + window.scrollY + tooltipModel.caretY;
-          
+
           // Calculate offsets to avoid covering the data point
           const offsetX = 10; // Horizontal offset from data point
           const offsetY = 10; // Vertical offset from data point
-          
+
           // Get viewport dimensions
           const viewportWidth = window.innerWidth;
           const viewportHeight = window.innerHeight;
-          
+
           // Determine horizontal position (left or right of data point)
           let left: number;
           const spaceOnRight = viewportWidth - dataPointX - offsetX;
           const spaceOnLeft = dataPointX - offsetX;
-          
+
           if (spaceOnRight >= tooltipWidth) {
             // Enough space on the right, place tooltip to the right
             left = dataPointX + offsetX;
@@ -780,12 +780,12 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
             // Clamp to viewport boundaries
             left = Math.max(10, Math.min(left, viewportWidth - tooltipWidth - 10));
           }
-          
+
           // Determine vertical position (above or below data point)
           let top: number;
           const spaceBelow = viewportHeight - dataPointY - offsetY;
           const spaceAbove = dataPointY - offsetY;
-          
+
           if (spaceBelow >= tooltipHeight) {
             // Enough space below, place tooltip below
             top = dataPointY + offsetY;
@@ -798,7 +798,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
             // Clamp to viewport boundaries
             top = Math.max(10, Math.min(top, viewportHeight - tooltipHeight - 10));
           }
-          
+
           // Apply final position
           tooltipEl.style.left = left + 'px';
           tooltipEl.style.top = top + 'px';
@@ -1058,10 +1058,10 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
           return (
             <div
               key={index}
-              className={`border-l-2 pl-4 pb-4 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'
+              className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'
                 }`}
             >
-              <div className='flex items-center gap-2 mb-1'>
+              <div className='flex items-center gap-2'>
                 <span
                   className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold`}
                 >{entry.change}</span>
@@ -1070,21 +1070,22 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
-                    // hour: '2-digit',
-                    // minute: '2-digit'
+                    hour: '2-digit'
                   })}
                 </div>
-                {/* {isUnavailable && (
-                <span className='text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-left text-md'>
-                  <FormattedMessage id="priceHistory.unavailable" defaultMessage="Unavailable" />
-                </span>
-              )} */}
               </div>
               {entry.edition && (
-                <div className='text-gray-600 dark:text-gray-300 mb-1'>
+                <div className='text-gray-600 dark:text-gray-300'>
                   {entry.edition}
                 </div>
               )}
+              {
+                entry.items && entry.items.length > 1 && entry.change === '+' && (
+                  <div className='text-gray-500 dark:text-gray-400 text-left text-sm mb-1'>
+                    w/ {entry.items.slice(1).flatMap(item => item.title).join(', ')}
+                  </div>
+                )
+              }
               {displayPrice !== undefined && !isUnavailable && (
                 <div className='font-bold text-blue-400 text-left text-md'>
                   {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
@@ -1095,11 +1096,11 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
                   )}
                 </div>
               )}
-              {isUnavailable && entry.change === '-' && (
+              {/* {isUnavailable && entry.change === '-' && (
                 <div className='text-gray-500 dark:text-gray-400 italic text-left text-md'>
                   <FormattedMessage id="priceHistory.allSkusRemoved" defaultMessage="All SKUs removed" />
                 </div>
-              )}
+              )} */}
             </div>
           );
         })}
