@@ -1384,12 +1384,11 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
           return (
             <div
               key={index}
-              className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'
-                }`}
+              className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
             >
               <div className='flex items-center gap-2'>
                 <span
-                  className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold`}
+                  className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold -translate-y-[2px]`}
                 >{entry.change}</span>
                 <div className='font-medium text-left text-md'>
                   {new Date(entry.ts).toLocaleDateString(intl.locale, {
