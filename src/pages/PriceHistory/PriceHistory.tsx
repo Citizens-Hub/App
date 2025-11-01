@@ -672,7 +672,8 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
                   currency: 'USD'
                 })}</span></span>`;
                 
-                innerHtml += `<span class="tooltip-items-value">w/ ${history?.find(h => h.ts === period?.startTs)?.items?.slice(1).flatMap(item => item.title).join(', ')}</span>`;
+                if (history?.find(h => h.ts === period?.startTs)?.items && history.find(h => h.ts === period?.startTs)!.items!.length > 1)
+                  innerHtml += `<span class="tooltip-items-value">w/ ${history.find(h => h.ts === period?.startTs)!.items!.slice(1).flatMap(item => item.title).join(', ')}</span>`;
 
                 // Add start and end time if period found
                 if (period) {
