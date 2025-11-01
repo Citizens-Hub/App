@@ -578,7 +578,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           label: function (context: { dataset: { label?: string }; parsed: { y: number | null } }) {
             let label = context.dataset.label || '';
             if (label) {
-              label += ': ';
+              label += ':';
             }
             if (context.parsed.y !== null) {
               label += (context.parsed.y).toLocaleString(intl.locale, {
@@ -586,6 +586,17 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
                 currency: 'USD'
               });
             }
+
+            const skuId = label.match(/Sku:(\d+)/)?.[1];
+
+            const sku = history?.find(h => h.sku === parseInt(skuId || '0') && h.change === '+');
+
+            const items = sku?.items;
+
+            if (items && items.length > 1) {
+              label += ` /w ${items.slice(1).map(item => item.title).join(', ')}`;
+            }
+
             return label;
           }
         }
@@ -623,8 +634,8 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
             size: 11
           }
         },
-        beginAtZero: false,
-        grace: '10%'
+        beginAtZero: true,
+        grace: '15%'
       }
     },
     interaction: {
@@ -632,7 +643,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       axis: 'x' as const,
       intersect: false
     }
-  }), [intl, isDarkMode]);
+  }), [history, intl, isDarkMode]);
 
   if (!chartData) {
     return null;
