@@ -357,7 +357,7 @@ export default function PriceHistory() {
             <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-2'>
               {selectedShip.manufacturer.name}
             </Typography> */}
-            <div className='flex items-center justify-between mb-4'>
+            <div className='flex items-center justify-end mb-4'>
               {updatedAt && (
                 <Typography variant="caption" className='text-gray-400 dark:text-gray-500'>
                   <FormattedMessage
@@ -1240,7 +1240,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
         }
       `}</style>
       <Box className='h-full flex flex-col'>
-        <Box className='bg-white dark:bg-gray-800 p-4 flex-1 flex flex-col'>
+        <Box className='bg-white dark:bg-gray-800 p-4 pt-0 flex-1 flex flex-col'>
           <Box className='mb-2 flex justify-end'>
             <FormControlLabel
               control={
