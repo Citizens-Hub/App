@@ -1,219 +1,92 @@
 <div align="center">
 
-# 🚀 Citizens' Hub
+# Citizens' Hub
 
-### Your Ultimate Star Citizen Ship Upgrade Planner
+Planning your ship upgrades has never been easier!
 
-*Plan your fleet upgrades with precision and save credits like a true citizen*
+[![](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
 
-
-[![Discord](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
-
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/Citizens-Hub/App)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
-![Citizens Hub Interface](https://github.com/user-attachments/assets/5842031b-28ff-484b-9a46-100c0d57732d)
+![image](https://github.com/user-attachments/assets/5842031b-28ff-484b-9a46-100c0d57732d)
 
 </div>
 
+- Browse all available ships
+- Plan your upgrade path using pledges from your hangar
+- See upgrade paths and costs at a glance
+- Export & import your CCU chain
 
-## 💡 Usage
+## So how do I use it?
 
-*Users are advised to use this tool responsibly and at their own risk.*
+If you're using it for the first time, you're probably eager to start creating your first chain. The first thing you need to decide is the starting and ending points of the chain.
 
-## ✨ Features
+For the upcoming Fleet Week, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
 
-<table>
-<tr>
-<td width="50%">
+![](https://citizenshub.app/imgs/tutorial/02.png)
 
-### 🛸 Smart Ship Browser
-Browse the entire Star Citizen ship catalog with real-time pricing and availability
+You can find them in the available ships on the left and drag them onto the canvas. At the same time, you can see that there are several currently available WB (Warbond) packages at the top of the available ship selector. So, to save more money for an extra treat.
 
-### 🔗 Visual CCU Chains
-Drag-and-drop interface to build your perfect upgrade path
+![](https://citizenshub.app/imgs/tutorial/03.png)
 
-</td>
-<td width="50%">
+The essence of planning a CCU path lies in inserting enough WB CCU packages into the path. Let's turn on the option to display historical WBs and see what historical WBs are available (ships that have had WBs in the past are more likely to have new WBs in the future).
 
-### 💰 Cost Optimization
-Automatically find the cheapest routes and maximize your savings
+![](https://citizenshub.app/imgs/tutorial/04.png)
 
-### 📦 Hangar Integration
-Import your existing pledges via browser extension
+For simplicity, as an example, we only added a few packages to the line. This way, we get a CCU chain. Click on our target ship to see the detailed upgrade path and cost.
 
-</td>
-</tr>
-</table>
+**Special reminder:** If you need to use historical WBs for your planning, you need to click the edit path button on the ship node card, select historical WB for a certain path. When connecting nodes, only currently on-sale WBs and CCUs in your hangar will be automatically set.
 
+## What if I want to use the CCUs in my hangar?
 
-## 🎯 Quick Start
+For Chrome & Edge users:
 
-### 1️⃣ Choose Your Targets
+[Chrome web store](https://chromewebstore.google.com/detail/citizens-hub/hngpbfpdnkobjjjbdmfncbbjjhpdmaap)
 
-Start by selecting your **starting ship** and **destination ship**. Drag them from the ship selector onto the canvas.
+For Firefox users:
 
-> 💡 **Pro Tip**: Look for Warbond (WB) packages at the top of the ship selector - they're your key to massive savings!
+[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/citizens-hub/)
 
-![Choosing Ships](https://citizenshub.app/imgs/tutorial/02.png)
+After completing the installation, make sure you are logged into the official Star Citizen website. If everything is fine, click the refresh button in the "My Hangar" section (not the browser's refresh button! After installing the extension, you'll need to refresh the page once, but not afterwards). Soon, the CCUs you own will be displayed here.
 
+![](https://citizenshub.app/imgs/tutorial/05.png)
 
-### 2️⃣ Build Your Chain
+## So, what if I want to buy CCUs from eBay?
 
-Enable **historical WB display** to see ships that previously had Warbond offers. Ships with past WB sales are likely to have future ones!
+It's simple. Find a reliable seller and ask for the price of the CCUs they are selling.
 
-![Building Chain](https://citizenshub.app/imgs/tutorial/04.png)
+For example, if someone is selling a CCU from Nova to Vanguard Sentinel for $10 (just an example, the Vanguard Sentinel doesn't have such cheap WBs now).
 
-> ⚠️ **Important**: Historical WBs must be manually selected in the edit path menu. Only current WBs and your hangar CCUs connect automatically.
+Then you need to click the edit path button on the Vanguard Sentinel node, and for the incoming link from Nova, select "Manual: Third-party CCU" and set the price to $10.
 
+**Note:** If the currency displayed for third-party CCUs here is not your preferred currency, go to [App Settings](https://citizenshub.app/app-settings) - Preferences and select your preferred currency.
 
-### 3️⃣ View Your Route
+![](https://citizenshub.app/imgs/tutorial/06.png)
 
-Click any target ship to see:
-- 📊 Complete upgrade path
-- 💵 Total cost breakdown
-- 🎯 Savings compared to direct upgrade
+## Another Case
 
+If the Vanguard Sentinel will be a WB during Fleet Week, then you have two paths to choose from – you can buy the CCU from eBay, or wait for the official WB. But you can't make up your mind because you want to save money and also want store credit/spending.
 
-## 🔧 Hangar Integration
+![](https://citizenshub.app/imgs/tutorial/07.png)
 
-### Browser Extension Setup
+Very simple! Duplicate a Vanguard Sentinel node, create another connection from Nova to Vanguard Sentinel, and select historical WB (or "Manual: Official CCU", so you can set a custom estimated price).
 
-<table>
-<tr>
-<td align="center" width="33%">
+You may have noticed that the historical WB's Vanguard Sentinel node is not connected to the MOLE. Don't worry! This route will also be included in the calculation when you finally view the upgrade route for the Starlancer TAC. You just need to ensure that a node corresponding to the current ship has a connection created.
 
-**Chrome/Edge**
+![](https://citizenshub.app/imgs/tutorial/08.png)
 
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Install-blue?logo=googlechrome)](https://chromewebstore.google.com/detail/citizens-hub/hngpbfpdnkobjjjbdmfncbbjjhpdmaap)
+Remember the "have your cake and eat it too" dilemma we just talked about? Let's consider this problem quantitatively:
 
-</td>
-<td align="center" width="33%">
+You want store credit, so you spend money. We know that you can earn store credit by purchasing items for others. You might give the buyer a discount, say 10%, then the cost for you to obtain $1 of store credit is 10 cents. You can factor store credit into consideration by setting the store credit value in the panel on the right.
 
-**Firefox**
+Also, you can set the cost of purchasing your starting ship in the panel on the right. This will help to better calculate the total value of the entire chain.
 
-[![Firefox Extension](https://img.shields.io/badge/Firefox-Install-orange?logo=firefox)](https://addons.mozilla.org/en-US/firefox/addon/citizens-hub/)
+Just remember, the final cost of a route we calculate is equivalent to the money you actually spend + the money you need to spend to buy back the store credit lost due to purchasing CCUs from third parties. If you don't want store credit, just set this value to 0.
 
-</td>
-<td align="center" width="33%">
+## How to change the priority order for automatically selecting CCU sources when creating connections
 
-**Other Browsers**
+Go to [App Settings](/app-settings) to set the priority order. When creating connections, the system will automatically select CCU sources based on this priority order and their availability.
 
-*Coming Soon*
+![](https://citizenshub.app/imgs/tutorial/09.png)
 
-</td>
-</tr>
-</table>
+## Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?
 
-#### Installation Steps:
-1. Install the extension for your browser
-2. Log into [robertsspaceindustries.com](https://robertsspaceindustries.com)
-3. Navigate to Citizens' Hub
-4. Click the **refresh button** in the "My Hangar" section
-5. Your CCUs will appear automatically
-
-![Hangar Integration](https://citizenshub.app/imgs/tutorial/05.png)
-
-
-## 💎 Advanced Features
-
-### Third-Party CCU Integration
-
-Planning to buy CCUs from trusted sellers? No problem!
-
-**Example**: Adding a $10 Nova → Vanguard Sentinel CCU from eBay
-
-1. Click **Edit Path** on the Vanguard Sentinel node
-2. For the Nova incoming link, select **"Manual: Third-party CCU"**
-3. Set price to **$10**
-
-![Third Party CCU](https://citizenshub.app/imgs/tutorial/06.png)
-
-> 💱 **Currency Settings**: Set your preferred currency in [App Settings](https://citizenshub.app/app-settings) → Preferences
-
-
-### Multiple Path Planning
-
-Can't decide between official WB or third-party purchase? **Compare both routes!**
-
-1. **Duplicate** the destination node
-2. Create connections for **both options**:
-   - Official WB path
-   - Third-party purchase path
-3. The calculator will show **both routes** when viewing final costs
-
-![Multiple Paths](https://citizenshub.app/imgs/tutorial/07.png)
-
-
-### Store Credit Optimization
-
-Factor in your store credit strategy:
-
-```
-Real Cost = Money Spent + (Lost Store Credit × Credit Value %)
-```
-
-**Configure in the right panel:**
-- 💳 Set store credit acquisition cost (e.g., 10% for reselling)
-- 🚀 Add starting ship purchase cost
-- 📈 See true total investment
-
-![Store Credit](https://citizenshub.app/imgs/tutorial/08.png)
-
-> 💡 **Don't need store credit?** Set the value to **0%**
-
-
-## ⚙️ Settings & Customization
-
-### CCU Source Priority
-
-Customize which CCU sources the app prefers when auto-connecting nodes:
-
-**Navigate to**: [App Settings](https://citizenshub.app/app-settings) → CCU Priority
-
-**Default Priority Order**:
-1. 🎫 Hangar CCUs (you already own them!)
-2. 🏷️ Current Warbond offers
-3. 💰 Third-party purchases
-4. 📅 Historical Warbonds
-
-![Priority Settings](https://citizenshub.app/imgs/tutorial/09.png)
-
-
-## 🗺️ Roadmap
-
-- [ ] 🔄 Buy-back pledge integration
-- [ ] 📱 Mobile app version
-- [ ] 🤖 AI-powered route suggestions
-- [ ] 📊 Fleet value tracking
-- [ ] 🌐 Multi-language support
-
-
-## 🤝 Community
-
-Join our community of Citizens optimizing their fleets:
-
-- 💬 [Discord Server](https://discord.gg/AEuRtb5Vy8)
-- 🐛 [Report Issues](https://github.com/yourusername/citizenshub/issues)
-- 💡 [Feature Requests](https://github.com/yourusername/citizenshub/discussions)
-
-
-## ⚠️ Disclaimer
-
-*Citizens' Hub is an independent tool developed by the community and is not affiliated with Cloud Imperium Games or Roberts Space Industries. All trademarks and registered trademarks are the property of their respective owners. This tool is intended for personal use only and should not be used for commercial purposes. Users are responsible for ensuring compliance with all applicable terms of service and policies of third-party platforms when using this tool.*
-
-
-## 📄 License
-
-This project is licensed under the Citizens Hub Custom Open License - see the [LICENSE](LICENSE.md) file for details.
-
-
-<div align="center">
-
-**Made with ❤️ for the Star Citizen community**
-
-*Not affiliated with Cloud Imperium Games or Roberts Space Industries*
-
-[🌐 Visit Website](https://citizenshub.app) • [📚 Documentation](https://citizenshub.app/docs) • [🎮 Discord](https://discord.gg/AEuRtb5Vy8)
-
-</div>
+Working on it, will be supported in the future.
