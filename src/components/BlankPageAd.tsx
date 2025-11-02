@@ -19,6 +19,7 @@ export default function BlankPageAd() {
       style={{ display: 'block' }}
       format="auto"
       adTest={import.meta.env.DEV ? "on" : "off"}
+      responsive="true"
     />
   );
 }
