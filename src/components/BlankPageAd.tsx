@@ -7,7 +7,7 @@ export default function BlankPageAd() {
       <Adsense
         client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
         slot="7853733031"
-        style={{ display: 'inline-block', width: '100%', height: '450px' }}
+        style={{ display: 'inline-block', width: '100%', height: '450px', maxWidth: '728px' }}
         format=""
         adTest={import.meta.env.DEV ? "on" : "off"}
       />
