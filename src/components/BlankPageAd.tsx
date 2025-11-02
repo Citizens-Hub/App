@@ -12,14 +12,16 @@ export default function BlankPageAd() {
   }, [pathname]);
 
   return (
-    <Adsense
-      key={key}
-      client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
-      slot="7853733031"
-      style={{ display: 'block' }}
-      format="auto"
-      adTest={import.meta.env.DEV ? "on" : "off"}
-      responsive="true"
-    />
+    <div className="w-full">
+      <Adsense
+        key={key}
+        client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
+        slot="7853733031"
+        style={{ display: 'block' }}
+        format="auto"
+        adTest={import.meta.env.DEV ? "on" : "off"}
+        responsive="true"
+      />
+    </div>
   );
 }
