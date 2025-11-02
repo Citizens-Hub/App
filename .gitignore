@@ -38,3 +38,5 @@ yarn.lock
 
 # Workspace
 pnpm-workspace.yaml
+.buildtimelog
+.github
