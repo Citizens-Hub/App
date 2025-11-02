@@ -572,3 +572,5 @@ vite v7.1.12 building for production...
 
 If you discover a security issue, please report it immediately by contacting the maintainers via this [Repo](https://github.com/Citizens-Hub/App) or [Discord](https://discord.com/invite/AEuRtb5Vy8).
 
+
+<sub>Last updated: 2nd Nov, 2955 (Also 2025 😉) | Citizens' Hub Community</sub>

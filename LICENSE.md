@@ -1,5 +1,8 @@
 # Citizens Hub Custom Open License
 
+- Version: 1.1.1
+- Updated: 2nd Nov 2025
+
 By using the software, you agree to all of the terms and conditions below.
 
 ![License](public/imgs/docs/License.webp)

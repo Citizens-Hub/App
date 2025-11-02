@@ -345,4 +345,6 @@ Go to [App Settings](/app-settings) to set the priority order. When creating con
 
 <br>
 
+<sub>Last updated: 2nd Nov, 2955 (Also 2025 😉) | Citizens' Hub Community</sub>
+
 </div>
