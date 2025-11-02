@@ -17,10 +17,9 @@ export default function BlankPageAd() {
         key={key}
         client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
         slot="7853733031"
-        style={{ display: 'block' }}
-        format="auto"
+        style={{ display: 'inline-block', width: '100%', height: '450px' }}
+        // format="auto"
         adTest={import.meta.env.DEV ? "on" : "off"}
-        responsive="true"
       />
     </div>
   );
