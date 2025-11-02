@@ -34,6 +34,7 @@ import AddToWatchlistButton from '@/components/AddToWatchlistButton';
 import { Button, Snackbar, Alert, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import BlankPageAd from '@/components/BlankPageAd';
 
 // Register Chart.js components
 ChartJS.register(
@@ -394,10 +395,11 @@ export default function PriceHistory() {
             </div>
           </div>
         ) : (
-          <div className='flex items-center justify-center h-full'>
+          <div className='flex flex-col items-center justify-center h-full'>
             <Typography variant="body1" className='text-gray-400'>
               <FormattedMessage id="priceHistory.selectShip" defaultMessage="Select a ship to view price history" />
             </Typography>
+            <BlankPageAd />
           </div>
         )}
       </div>
