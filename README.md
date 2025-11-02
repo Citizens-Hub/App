@@ -19,12 +19,48 @@
 - [🚀 Citizens' Hub](#-citizens-hub)
     - [Your Ultimate Star Citizen Ship Upgrade Planner](#your-ultimate-star-citizen-ship-upgrade-planner)
   - [Table of Contents](#table-of-contents)
+  - [I cloned the repo but how do I run it locally?](#i-cloned-the-repo-but-how-do-i-run-it-locally)
+    - [How to install](#how-to-install)
+    - [How to run](#how-to-run)
   - [So how do I use it?](#so-how-do-i-use-it)
   - [What if I want to use the CCUs in my hangar?](#what-if-i-want-to-use-the-ccus-in-my-hangar)
   - [So, what if I want to buy CCUs from eBay?](#so-what-if-i-want-to-buy-ccus-from-ebay)
   - [Another Case](#another-case)
   - [How to change the priority order for automatically selecting CCU sources when creating connections](#how-to-change-the-priority-order-for-automatically-selecting-ccu-sources-when-creating-connections)
   - [Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?](#can-i-see-my-buy-back-pledgesshipsship-packages-in-my-hangar-and-incorporate-them-into-the-ccu-chain-construction)
+
+
+## I cloned the repo but how do I run it locally?
+
+We use mainly `pnpm` but you can also use `bun` for better performance and speed.
+
+### How to install
+
+With `pnpm`
+
+```bash
+pnpm i
+```
+
+or with `bun`
+
+```bash
+bun install
+```
+
+### How to run
+
+With `pnpm`
+
+```bash
+pnpm dev
+```
+
+or with `bun`
+
+```bash
+bun dev
+```
 
 
 ## So how do I use it?
