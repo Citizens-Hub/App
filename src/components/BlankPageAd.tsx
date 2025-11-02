@@ -12,7 +12,7 @@ export default function BlankPageAd() {
   }, [pathname]);
 
   return (
-    <div className="w-full">
+    <div className="w-full max-h-[400px]">
       <Adsense
         key={key}
         client={import.meta.env.VITE_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID}
