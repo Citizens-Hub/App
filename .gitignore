@@ -29,3 +29,12 @@ background.restored.js
 stats.html
 
 .VSCodeCounter
+
+# Package distribution
+pnpm-lock.yaml
+package-lock.json
+bun.lock
+yarn.lock
+
+# Workspace
+pnpm-workspace.yaml
