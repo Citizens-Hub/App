@@ -1,19 +1,31 @@
 <div align="center">
 
-# Citizens' Hub
+# 🚀 Citizens' Hub
 
-Planning your ship upgrades has never been easier!
+### Your Ultimate Star Citizen Ship Upgrade Planner
 
-[![](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
+*Plan your fleet upgrades with precision and save credits like a true citizen*
 
-![image](https://github.com/user-attachments/assets/5842031b-28ff-484b-9a46-100c0d57732d)
+[![Discord](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
+
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/Citizens-Hub/App)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+![Citizens Hub Interface](https://github.com/user-attachments/assets/5842031b-28ff-484b-9a46-100c0d57732d)
 
 </div>
 
-- Browse all available ships
-- Plan your upgrade path using pledges from your hangar
-- See upgrade paths and costs at a glance
-- Export & import your CCU chain
+## Table of Contents
+- [🚀 Citizens' Hub](#-citizens-hub)
+    - [Your Ultimate Star Citizen Ship Upgrade Planner](#your-ultimate-star-citizen-ship-upgrade-planner)
+  - [Table of Contents](#table-of-contents)
+  - [So how do I use it?](#so-how-do-i-use-it)
+  - [What if I want to use the CCUs in my hangar?](#what-if-i-want-to-use-the-ccus-in-my-hangar)
+  - [So, what if I want to buy CCUs from eBay?](#so-what-if-i-want-to-buy-ccus-from-ebay)
+  - [Another Case](#another-case)
+  - [How to change the priority order for automatically selecting CCU sources when creating connections](#how-to-change-the-priority-order-for-automatically-selecting-ccu-sources-when-creating-connections)
+  - [Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?](#can-i-see-my-buy-back-pledgesshipsship-packages-in-my-hangar-and-incorporate-them-into-the-ccu-chain-construction)
+
 
 ## So how do I use it?
 
@@ -90,3 +102,13 @@ Go to [App Settings](/app-settings) to set the priority order. When creating con
 ## Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?
 
 Working on it, will be supported in the future.
+
+<div align="center">
+
+**Made with ❤️ for the Star Citizen community**
+
+*Not affiliated with Cloud Imperium Games or Roberts Space Industries*
+
+[🌐 Visit Website](https://citizenshub.app) • [🎮 Discord](https://discord.gg/AEuRtb5Vy8)
+
+</div>
