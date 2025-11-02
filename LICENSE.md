@@ -1,4 +1,4 @@
-# Software License Agreement
+# Citizens Hub Custom Open License
 
 By using the software, you agree to all of the terms and conditions below.
 
