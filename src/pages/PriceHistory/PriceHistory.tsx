@@ -7,9 +7,12 @@ import {
   CircularProgress,
   Box,
   FormControlLabel,
-  Switch
+  Switch,
+  useMediaQuery,
+  useTheme,
+  IconButton
 } from '@mui/material';
-import { Search, InfoOutlined } from '@mui/icons-material';
+import { Search, InfoOutlined, ArrowBack, Timeline, BarChart } from '@mui/icons-material';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -51,8 +54,11 @@ ChartJS.register(
 
 export default function PriceHistory() {
   const intl = useIntl();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedShipId, setSelectedShipId] = useState<number | null>(null);
+  const [mobileViewMode, setMobileViewMode] = useState<'timeline' | 'chart'>('timeline');
 
   // Fetch ships data
   const { ships, loading: shipsLoading, error: shipsError } = useShipsData();
@@ -221,10 +227,102 @@ export default function PriceHistory() {
     );
   }
 
+  // Mobile view: full screen price history when ship is selected
+  if (isMobile && selectedShipId) {
+    return (
+      <>
+        <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 flex flex-col bg-white dark:bg-gray-900'>
+          {/* Header with back button */}
+          <div className='p-3 border-b border-gray-200 dark:border-gray-800'>
+            {/* First row: Back button, Ship name, View toggle */}
+            <div className='flex items-center gap-2'>
+              <IconButton
+                onClick={() => setSelectedShipId(null)}
+                aria-label="back"
+                size="small"
+                sx={{ flexShrink: 0 }}
+              >
+                <ArrowBack />
+              </IconButton>
+              <Typography variant="h6" className='truncate flex-1 min-w-0 text-left'>
+                {selectedShip?.name}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => setMobileViewMode('timeline')}
+                  color={mobileViewMode === 'timeline' ? 'primary' : 'default'}
+                  aria-label="timeline view"
+                >
+                  <Timeline fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => setMobileViewMode('chart')}
+                  color={mobileViewMode === 'chart' ? 'primary' : 'default'}
+                  aria-label="chart view"
+                >
+                  <BarChart fontSize="small" />
+                </IconButton>
+              </Box>
+            </div>
+            {/* Second row: Update time */}
+            {updatedAt && (
+              <div className='flex items-center justify-end mt-2'>
+                <Typography variant="caption" className='text-gray-400 dark:text-gray-500'>
+                  <FormattedMessage
+                    id="priceHistory.dataUpdatedAt"
+                    defaultMessage="Data updated at: {updatedAt}"
+                    values={{
+                      updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    }}
+                  />
+                </Typography>
+              </div>
+            )}
+          </div>
+          
+          {/* Content area - Timeline or Chart based on view mode */}
+          <div className='flex-1 overflow-y-auto p-4'>
+            {mobileViewMode === 'timeline' ? (
+              <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+            ) : (
+              <PriceHistoryChart 
+                history={selectedPriceHistory?.history || null} 
+                currentMsrp={selectedShip?.msrp || 0} 
+                shipName={selectedShip?.name || ''} 
+              />
+            )}
+          </div>
+        </div>
+        <Snackbar
+          open={subscriptionSnackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
+            severity={subscriptionSnackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {subscriptionSnackbar.message}
+          </Alert>
+        </Snackbar>
+      </>
+    );
+  }
+
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 flex flex-col md:flex-row'>
       {/* Left Panel - Ship List */}
-      <div className='w-full md:w-96 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-hidden'>
+      <div className={`w-full md:w-96 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
         <div className='p-4 border-b border-gray-200 dark:border-gray-800'>
           {/* <Typography variant="h6" className='mb-4'>
             <FormattedMessage id="priceHistory.title" defaultMessage="Price History" />
@@ -349,7 +447,7 @@ export default function PriceHistory() {
       </div>
 
       {/* Right Panel - Price History Details */}
-      <div className='flex-1 flex flex-col overflow-hidden'>
+      <div className={`flex-1 flex flex-col overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
         {selectedShip ? (
           <div className='flex flex-col h-full p-4'>
             {/* <Typography variant="h5" className='mb-2'>
