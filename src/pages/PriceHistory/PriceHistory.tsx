@@ -493,13 +493,14 @@ export default function PriceHistory() {
             </div>
           </div>
         ) : (
-          <div className='flex flex-col items-center justify-center h-full'>
+          <div className='flex flex-col items-center justify-between py-2 h-full'>
             <Typography variant="body1" className='text-gray-400'>
               <FormattedMessage id="priceHistory.selectShip" defaultMessage="Select a ship to view price history" />
             </Typography>
-            <div className='mt-4'>
+            <div>
               <BlankPageAd />
             </div>
+            <div />
           </div>
         )}
       </div>
