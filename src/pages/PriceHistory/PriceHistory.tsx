@@ -497,7 +497,9 @@ export default function PriceHistory() {
             <Typography variant="body1" className='text-gray-400'>
               <FormattedMessage id="priceHistory.selectShip" defaultMessage="Select a ship to view price history" />
             </Typography>
-            <BlankPageAd />
+            <div className='mt-4'>
+              <BlankPageAd />
+            </div>
           </div>
         )}
       </div>
