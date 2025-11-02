@@ -41,7 +41,6 @@ export default function AddToWatchlistButton({
 
     if (!canAddToWatchlist) return;
 
-
     setLoading(true);
     const isAdding = !shipInWatchlist;
     try {
