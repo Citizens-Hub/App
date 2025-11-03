@@ -28,7 +28,6 @@ export const navigation = [
   {
     name: "navigation.storePreview",
     path: "/store-preview",
-    hidden: true,
   },
   {
     name: "navigation.appSettings",
