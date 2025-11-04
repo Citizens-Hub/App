@@ -405,5 +405,19 @@
   "mediaLibrary.noImages": "No images found",
   "mediaLibrary.copy": "Copy",
   "mediaLibrary.insert": "Insert",
-  "mediaLibrary.copied": "Copied"
+  "mediaLibrary.copied": "Copied",
+  "blog.comment.title": "Comments",
+  "blog.comment.placeholder": "Write your comment...",
+  "blog.comment.submit": "Post Comment",
+  "blog.comment.submitting": "Submitting...",
+  "blog.comment.noComments": "No comments yet. Be the first to comment!",
+  "blog.comment.loginRequired": "Please log in to post a comment.",
+  "blog.comment.emailVerificationRequired": "Please verify your email to post a comment.",
+  "blog.comment.createSuccess": "Comment posted successfully",
+  "blog.comment.createError": "Failed to post comment",
+  "blog.comment.deleteSuccess": "Comment deleted successfully",
+  "blog.comment.deleteError": "Failed to delete comment",
+  "blog.comment.delete.confirmTitle": "Confirm Delete",
+  "blog.comment.delete.confirmMessage": "Are you sure you want to delete this comment? This action cannot be undone.",
+  "blog.comment.delete.deleting": "Deleting..."
 }

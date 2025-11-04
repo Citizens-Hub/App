@@ -432,3 +432,32 @@ export interface UpdateBlogPostRequest {
   published?: boolean;
   image?: string | null;
 }
+
+export interface BlogComment {
+  id: string;
+  content: string;
+  author: BlogAuthor;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBlogCommentRequest {
+  content: string;
+  turnstileToken?: string;
+}
+
+export interface BlogCommentsResponse {
+  success: boolean;
+  comments: BlogComment[];
+}
+
+export interface CreateBlogCommentResponse {
+  success: boolean;
+  message?: string;
+  comment: BlogComment;
+}
+
+export interface DeleteBlogCommentResponse {
+  success: boolean;
+  message?: string;
+}
