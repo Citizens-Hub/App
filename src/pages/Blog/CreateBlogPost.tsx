@@ -371,6 +371,29 @@ export default function CreateBlogPost() {
         .w-md-editor-text {
           width: 100% !important;
         }
+        /* Use default fonts for markdown editor */
+        .w-md-editor,
+        .w-md-editor *,
+        .w-md-editor-text,
+        .w-md-editor-text *,
+        .w-md-editor-text-textarea,
+        .w-md-editor-text-textarea * {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        }
+        /* Use monospace font for code editor area */
+        .w-md-editor-text-textarea {
+          font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace !important;
+        }
+        /* Use default font for preview area */
+        .w-md-editor-preview,
+        .w-md-editor-preview * {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+        }
+        /* Code blocks in preview should use monospace */
+        .w-md-editor-preview code,
+        .w-md-editor-preview pre {
+          font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace !important;
+        }
       `}</style>
     </div>
   );
