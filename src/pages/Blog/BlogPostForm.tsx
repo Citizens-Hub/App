@@ -10,7 +10,7 @@ import { Loader2, Save, X, Upload, XCircle, Image as ImageIcon } from 'lucide-re
 import { CreateBlogPostRequest, UpdateBlogPostRequest } from '@/types';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
-import { Button } from '@mui/material';
+import { Button, IconButton } from '@mui/material';
 import MediaLibraryModal from './components/MediaLibraryModal';
 
 interface BlogPostFormProps {
@@ -356,21 +356,22 @@ export default function BlogPostForm({ mode }: BlogPostFormProps) {
                     className="w-full h-64 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
-                    <label
-                      htmlFor="coverImage"
+                    <IconButton
+                      color="primary"
+                      onClick={() => document.getElementById('coverImage')?.click()}
                       className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors cursor-pointer"
                       title={intl.formatMessage({ id: 'blog.create.changeImage', defaultMessage: 'Change image' })}
                     >
                       <Upload className="w-5 h-5" />
-                    </label>
-                    <button
-                      type="button"
+                    </IconButton>
+                    <IconButton
+                      color="warning"
                       onClick={handleRemoveImage}
                       className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                       aria-label={intl.formatMessage({ id: 'blog.create.removeImage', defaultMessage: 'Remove image' })}
                     >
                       <XCircle className="w-5 h-5" />
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
               ) : (

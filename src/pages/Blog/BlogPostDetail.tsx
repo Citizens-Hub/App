@@ -78,7 +78,7 @@ export default function BlogPostDetail() {
   };
 
   return (
-    <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
+    <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto pb-[120px]">
       <article className="max-w-4xl mx-auto text-left">
         <Link
           to="/blog"
