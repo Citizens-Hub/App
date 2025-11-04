@@ -87,4 +87,9 @@ export const navigation = [
     name: "navigation.blog",
     path: "/blog",
   },
+  {
+    name: "navigation.blog",
+    path: "/blog/:slug",
+    hidden: true,
+  },
 ];
