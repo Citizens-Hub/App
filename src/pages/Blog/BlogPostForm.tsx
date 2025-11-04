@@ -1,28 +1,47 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { useCreateBlogPost } from '@/hooks/swr/blog/useCreateBlogPost';
 import { useUpdateBlogPost } from '@/hooks/swr/blog/useUpdateBlogPost';
 import { useBlogPost } from '@/hooks/swr/blog/useBlogPost';
 import { useUploadAttachment } from '@/hooks/swr/blog/useUploadAttachment';
+import { useLocale } from '@/contexts/LocaleContext';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Loader2, Save, X, Upload, XCircle } from 'lucide-react';
-import { UpdateBlogPostRequest } from '@/types';
+import { Loader2, Save, X, Upload, XCircle, Image as ImageIcon } from 'lucide-react';
+import { CreateBlogPostRequest, UpdateBlogPostRequest } from '@/types';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import { Button } from '@mui/material';
+import MediaLibraryModal from './components/MediaLibraryModal';
 
-export default function EditBlogPost() {
+interface BlogPostFormProps {
+  mode: 'create' | 'edit';
+}
+
+type BlogPostFormData = {
+  slug: string;
+  title: string;
+  content: string;
+  language: string;
+  excerpt: string;
+  published: boolean;
+  image: string | null;
+};
+
+export default function BlogPostForm({ mode }: BlogPostFormProps) {
   const intl = useIntl();
-  const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
-  const { data: blogPostData, isLoading: isLoadingPost, error: postError } = useBlogPost(slug || null);
-  const { updatePost, loading, error } = useUpdateBlogPost();
+  const navigate = useNavigate();
+  const { locale } = useLocale();
+  const { createPost, loading: creating, error: createError } = useCreateBlogPost();
+  const { updatePost, loading: updating, error: updateError } = useUpdateBlogPost();
+  const { data: blogPostData, isLoading: isLoadingPost, error: postError } = useBlogPost(mode === 'edit' ? slug || null : null);
   const { uploadFile, loading: uploading, error: uploadError } = useUploadAttachment();
-  
-  const [formData, setFormData] = useState<UpdateBlogPostRequest>({
+
+  const [formData, setFormData] = useState<BlogPostFormData>({
     slug: '',
     title: '',
     content: '',
-    language: '',
+    language: locale.startsWith('zh') ? 'zh' : locale.split('-')[0],
     excerpt: '',
     published: false,
     image: null,
@@ -32,10 +51,14 @@ export default function EditBlogPost() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
-  // Load post data when available
+  const loading = mode === 'create' ? creating : updating;
+  const error = mode === 'create' ? createError : updateError;
+
+  // Load post data when in edit mode
   useEffect(() => {
-    if (blogPostData?.post) {
+    if (mode === 'edit' && blogPostData?.post) {
       const post = blogPostData.post;
       setFormData({
         slug: post.slug,
@@ -47,10 +70,10 @@ export default function EditBlogPost() {
         image: post.image || null,
       });
       if (post.image) {
-        setPreviewImage(post.image);
+        setPreviewImage(import.meta.env.VITE_PUBLIC_API_ENDPOINT + post.image);
       }
     }
-  }, [blogPostData]);
+  }, [mode, blogPostData]);
 
   useEffect(() => {
     // Check if dark mode is enabled
@@ -82,19 +105,19 @@ export default function EditBlogPost() {
 
   // Auto-generate slug when title changes (if slug hasn't been manually edited)
   useEffect(() => {
-    if (!isSlugManuallyEdited && formData.title && blogPostData?.post) {
+    if (!isSlugManuallyEdited && formData.title) {
       const autoSlug = generateSlug(formData.title);
-      if (autoSlug !== blogPostData.post.slug) {
+      if (mode === 'create' || (mode === 'edit' && blogPostData?.post && autoSlug !== blogPostData.post.slug)) {
         setFormData((prev) => ({ ...prev, slug: autoSlug }));
       }
     }
-  }, [formData.title, isSlugManuallyEdited, blogPostData]);
+  }, [formData.title, isSlugManuallyEdited, mode, blogPostData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
-    if (!slug) {
+    if (mode === 'edit' && !slug) {
       setSubmitError(intl.formatMessage({ id: 'blog.edit.invalidSlug', defaultMessage: 'Invalid post slug' }));
       return;
     }
@@ -105,13 +128,40 @@ export default function EditBlogPost() {
         URL.revokeObjectURL(previewImage);
       }
       
-      const result = await updatePost(slug, formData);
+      let result;
+      if (mode === 'create') {
+        const createData: CreateBlogPostRequest = {
+          slug: formData.slug,
+          title: formData.title,
+          content: formData.content,
+          language: formData.language,
+          excerpt: formData.excerpt,
+          published: formData.published,
+          image: formData.image,
+        };
+        result = await createPost(createData);
+      } else {
+        const updateData: UpdateBlogPostRequest = {
+          slug: formData.slug,
+          title: formData.title,
+          content: formData.content,
+          language: formData.language,
+          excerpt: formData.excerpt,
+          published: formData.published,
+          image: formData.image,
+        };
+        result = await updatePost(slug!, updateData);
+      }
+      
       if (result.success) {
         navigate(`/blog/${result.post.slug}`);
       }
     } catch (err) {
       const error = err as Error;
-      setSubmitError(error.message || intl.formatMessage({ id: 'blog.edit.error', defaultMessage: 'Failed to update blog post' }));
+      const errorMessage = mode === 'create' 
+        ? intl.formatMessage({ id: 'blog.create.error', defaultMessage: 'Failed to create blog post' })
+        : intl.formatMessage({ id: 'blog.edit.error', defaultMessage: 'Failed to update blog post' });
+      setSubmitError(error.message || errorMessage);
     }
   };
 
@@ -124,7 +174,7 @@ export default function EditBlogPost() {
     };
   }, [previewImage]);
 
-  const handleChange = (field: keyof UpdateBlogPostRequest, value: string | boolean | null) => {
+  const handleChange = (field: keyof BlogPostFormData, value: string | boolean | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -142,7 +192,10 @@ export default function EditBlogPost() {
       }
     } catch (err) {
       const error = err as Error;
-      setSubmitError(error.message || intl.formatMessage({ id: 'blog.edit.uploadError', defaultMessage: 'Failed to upload image' }));
+      const uploadErrorMessage = mode === 'create'
+        ? intl.formatMessage({ id: 'blog.create.uploadError', defaultMessage: 'Failed to upload image' })
+        : intl.formatMessage({ id: 'blog.edit.uploadError', defaultMessage: 'Failed to upload image' });
+      setSubmitError(error.message || uploadErrorMessage);
     }
 
     // Reset input
@@ -157,7 +210,22 @@ export default function EditBlogPost() {
     setPreviewImage(null);
   };
 
-  if (isLoadingPost) {
+  const handleInsertMarkdown = (markdown: string) => {
+    const currentContent = formData.content || '';
+    const newContent = currentContent + '\n' + markdown;
+    handleChange('content', newContent);
+  };
+
+  const handleCancel = () => {
+    if (mode === 'create') {
+      navigate('/blog');
+    } else {
+      navigate(`/blog/${slug}`);
+    }
+  };
+
+  // Show loading state for edit mode
+  if (mode === 'edit' && isLoadingPost) {
     return (
       <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
         <div className="flex items-center justify-center py-12">
@@ -167,7 +235,8 @@ export default function EditBlogPost() {
     );
   }
 
-  if (postError || !blogPostData?.post) {
+  // Show error state for edit mode
+  if (mode === 'edit' && (postError || !blogPostData?.post)) {
     return (
       <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
         <div className="flex flex-col items-center justify-center py-12">
@@ -188,11 +257,31 @@ export default function EditBlogPost() {
     );
   }
 
+  const pageTitle = mode === 'create' 
+    ? intl.formatMessage({ id: 'blog.create.title', defaultMessage: 'Create Blog Post' })
+    : intl.formatMessage({ id: 'blog.edit.title', defaultMessage: 'Edit Blog Post' });
+
+  const submitButtonText = mode === 'create'
+    ? intl.formatMessage({ id: 'blog.create.submit', defaultMessage: 'Create Post' })
+    : intl.formatMessage({ id: 'blog.edit.submit', defaultMessage: 'Update Post' });
+
+  const savingText = mode === 'create'
+    ? intl.formatMessage({ id: 'blog.create.saving', defaultMessage: 'Saving...' })
+    : intl.formatMessage({ id: 'blog.edit.saving', defaultMessage: 'Saving...' });
+
+  const errorMessage = mode === 'create'
+    ? intl.formatMessage({ id: 'blog.create.error', defaultMessage: 'Failed to create blog post' })
+    : intl.formatMessage({ id: 'blog.edit.error', defaultMessage: 'Failed to update blog post' });
+
+  const uploadErrorMessage = mode === 'create'
+    ? intl.formatMessage({ id: 'blog.create.uploadError', defaultMessage: 'Failed to upload image' })
+    : intl.formatMessage({ id: 'blog.edit.uploadError', defaultMessage: 'Failed to upload image' });
+
   return (
     <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          <FormattedMessage id="blog.edit.title" defaultMessage="Edit Blog Post" />
+          {pageTitle}
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6 w-full">
@@ -204,7 +293,7 @@ export default function EditBlogPost() {
             <input
               type="text"
               id="slug"
-              value={formData.slug || ''}
+              value={formData.slug}
               onChange={(e) => {
                 setIsSlugManuallyEdited(true);
                 handleChange('slug', e.target.value);
@@ -223,7 +312,7 @@ export default function EditBlogPost() {
             <input
               type="text"
               id="title"
-              value={formData.title || ''}
+              value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -237,7 +326,7 @@ export default function EditBlogPost() {
             </label>
             <textarea
               id="excerpt"
-              value={formData.excerpt || ''}
+              value={formData.excerpt}
               onChange={(e) => handleChange('excerpt', e.target.value)}
               required
               rows={3}
@@ -313,12 +402,23 @@ export default function EditBlogPost() {
 
           {/* Content */}
           <div>
-            <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
-              <FormattedMessage id="blog.create.content" defaultMessage="Content (Markdown)" />
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">
+                <FormattedMessage id="blog.create.content" defaultMessage="Content (Markdown)" />
+              </label>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ImageIcon className="w-4 h-4" />}
+                onClick={() => setMediaLibraryOpen(true)}
+                className="text-sm"
+              >
+                <FormattedMessage id="mediaLibrary.title" defaultMessage="Media Library" />
+              </Button>
+            </div>
             <div data-color-mode={isDarkMode ? 'dark' : 'light'}>
               <MDEditor
-                value={formData.content || ''}
+                value={formData.content}
                 onChange={(value) => handleChange('content', value || '')}
                 preview="live"
                 visibleDragbar={true}
@@ -334,7 +434,7 @@ export default function EditBlogPost() {
             </label>
             <select
               id="language"
-              value={formData.language || ''}
+              value={formData.language}
               onChange={(e) => handleChange('language', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -349,7 +449,7 @@ export default function EditBlogPost() {
             <input
               type="checkbox"
               id="published"
-              checked={formData.published || false}
+              checked={formData.published}
               onChange={(e) => handleChange('published', e.target.checked)}
               className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
             />
@@ -362,7 +462,7 @@ export default function EditBlogPost() {
           {(error || submitError) && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-sm text-red-800 dark:text-red-200">
-                {submitError || error?.message || intl.formatMessage({ id: 'blog.edit.error', defaultMessage: 'Failed to update blog post' })}
+                {submitError || error?.message || errorMessage}
               </p>
             </div>
           )}
@@ -371,7 +471,7 @@ export default function EditBlogPost() {
           {uploadError && !uploading && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-sm text-red-800 dark:text-red-200">
-                {uploadError.message || intl.formatMessage({ id: 'blog.edit.uploadError', defaultMessage: 'Failed to upload image' })}
+                {uploadError.message || uploadErrorMessage}
               </p>
             </div>
           )}
@@ -388,19 +488,19 @@ export default function EditBlogPost() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  <FormattedMessage id="blog.edit.saving" defaultMessage="Saving..." />
+                  {savingText}
                 </>
               ) : (
                 <>
                   <Save className="w-5 h-5 mr-2" />
-                  <FormattedMessage id="blog.edit.submit" defaultMessage="Update Post" />
+                  {submitButtonText}
                 </>
               )}
             </Button>
             <Button
               type="button"
               color="error"
-              onClick={() => navigate(`/blog/${slug}`)}
+              onClick={handleCancel}
               className="inline-flex items-center px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               <X className="w-5 h-5 mr-2" />
@@ -409,6 +509,13 @@ export default function EditBlogPost() {
           </div>
         </form>
       </div>
+      
+      <MediaLibraryModal
+        open={mediaLibraryOpen}
+        onClose={() => setMediaLibraryOpen(false)}
+        onInsert={handleInsertMarkdown}
+      />
+      
       <style>{`
         /* MDEditor tooltip left alignment */
         .w-md-editor-toolbar [data-tooltip]::before,

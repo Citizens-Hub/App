@@ -394,5 +394,18 @@
   "blog.delete.confirmTitle": "削除の確認",
   "blog.delete.confirmMessage": "このブログ記事を削除してもよろしいですか？この操作は元に戻せません。",
   "blog.delete.deleting": "削除中...",
-  "blog.delete.error": "ブログ記事の削除に失敗しました"
+  "blog.delete.error": "ブログ記事の削除に失敗しました",
+  "blog.create.coverImage": "カバー画像",
+  "blog.create.uploadCoverImage": "クリックしてカバー画像をアップロード",
+  "blog.create.changeImage": "画像を変更",
+  "blog.create.removeImage": "画像を削除",
+  "blog.create.uploading": "アップロード中...",
+  "blog.create.uploadError": "画像のアップロードに失敗しました",
+  "mediaLibrary.title": "メディアライブラリ",
+  "mediaLibrary.upload": "画像をアップロード",
+  "mediaLibrary.search": "画像を検索...",
+  "mediaLibrary.noImages": "画像が見つかりません",
+  "mediaLibrary.copy": "コピー",
+  "mediaLibrary.insert": "挿入",
+  "mediaLibrary.copied": "コピーしました"
 }

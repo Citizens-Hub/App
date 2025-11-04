@@ -512,5 +512,18 @@
   "blog.delete.confirmTitle": "确认删除",
   "blog.delete.confirmMessage": "您确定要删除这篇博客文章吗？此操作无法撤销。",
   "blog.delete.deleting": "删除中...",
-  "blog.delete.error": "删除博客文章失败"
+  "blog.delete.error": "删除博客文章失败",
+  "blog.create.coverImage": "封面图片",
+  "blog.create.uploadCoverImage": "点击上传封面图片",
+  "blog.create.changeImage": "更换图片",
+  "blog.create.removeImage": "删除图片",
+  "blog.create.uploading": "上传中...",
+  "blog.create.uploadError": "上传图片失败",
+  "mediaLibrary.title": "媒体库",
+  "mediaLibrary.upload": "上传图片",
+  "mediaLibrary.search": "搜索图片...",
+  "mediaLibrary.noImages": "未找到图片",
+  "mediaLibrary.copy": "复制",
+  "mediaLibrary.insert": "插入",
+  "mediaLibrary.copied": "已复制"
 }

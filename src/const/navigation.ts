@@ -92,4 +92,14 @@ export const navigation = [
     path: "/blog/:slug",
     hidden: true,
   },
+  {
+    name: "navigation.blog",
+    path: "/blog/:slug/edit",
+    hidden: true,
+  },
+  {
+    name: "navigation.blog",
+    path: "/blog/create",
+    hidden: true,
+  }
 ];

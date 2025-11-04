@@ -394,5 +394,18 @@
   "blog.delete.confirmTitle": "Löschen bestätigen",
   "blog.delete.confirmMessage": "Sind Sie sicher, dass Sie diesen Blog-Beitrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
   "blog.delete.deleting": "Wird gelöscht...",
-  "blog.delete.error": "Fehler beim Löschen des Blog-Beitrags"
+  "blog.delete.error": "Fehler beim Löschen des Blog-Beitrags",
+  "blog.create.coverImage": "Titelbild",
+  "blog.create.uploadCoverImage": "Klicken Sie, um ein Titelbild hochzuladen",
+  "blog.create.changeImage": "Bild ändern",
+  "blog.create.removeImage": "Bild entfernen",
+  "blog.create.uploading": "Wird hochgeladen...",
+  "blog.create.uploadError": "Fehler beim Hochladen des Bildes",
+  "mediaLibrary.title": "Medienbibliothek",
+  "mediaLibrary.upload": "Bild hochladen",
+  "mediaLibrary.search": "Bilder suchen...",
+  "mediaLibrary.noImages": "Keine Bilder gefunden",
+  "mediaLibrary.copy": "Kopieren",
+  "mediaLibrary.insert": "Einfügen",
+  "mediaLibrary.copied": "Kopiert"
 }

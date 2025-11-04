@@ -33,8 +33,7 @@ const Reseller = lazy(() => import('./pages/Reseller/Hangar'));
 const ResellerOrderDetail = lazy(() => import('./pages/Reseller/OrderDetail'));
 const BlogList = lazy(() => import('./pages/Blog/BlogList'));
 const BlogPostDetail = lazy(() => import('./pages/Blog/BlogPostDetail'));
-const BlogCreate = lazy(() => import('./pages/Blog/CreateBlogPost'));
-const BlogEdit = lazy(() => import('./pages/Blog/EditBlogPost'));
+const BlogPostForm = lazy(() => import('./pages/Blog/BlogPostForm'));
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -171,8 +170,8 @@ function App() {
 
               <Route path="/blog" element={<BlogList />} />
               <Route path="/blog/:slug" element={<BlogPostDetail />} />
-              <Route path="/blog/:slug/edit" element={<RequireAuth allowedRoles={[UserRole.Admin]}><BlogEdit /></RequireAuth>} />
-              <Route path="/blog/create" element={<RequireAuth allowedRoles={[UserRole.Admin]}><BlogCreate /></RequireAuth>} />
+              <Route path="/blog/:slug/edit" element={<RequireAuth allowedRoles={[UserRole.Admin]}><BlogPostForm mode="edit" /></RequireAuth>} />
+              <Route path="/blog/create" element={<RequireAuth allowedRoles={[UserRole.Admin]}><BlogPostForm mode="create" /></RequireAuth>} />
 
               <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
               <Route path="/login" element={<Auth action="login" />} />

@@ -392,5 +392,18 @@
   "blog.delete.confirmTitle": "Confirm Delete",
   "blog.delete.confirmMessage": "Are you sure you want to delete this blog post? This action cannot be undone.",
   "blog.delete.deleting": "Deleting...",
-  "blog.delete.error": "Failed to delete blog post"
+  "blog.delete.error": "Failed to delete blog post",
+  "blog.create.coverImage": "Cover Image",
+  "blog.create.uploadCoverImage": "Click to upload cover image",
+  "blog.create.changeImage": "Change image",
+  "blog.create.removeImage": "Remove image",
+  "blog.create.uploading": "Uploading...",
+  "blog.create.uploadError": "Failed to upload image",
+  "mediaLibrary.title": "Media Library",
+  "mediaLibrary.upload": "Upload Image",
+  "mediaLibrary.search": "Search images...",
+  "mediaLibrary.noImages": "No images found",
+  "mediaLibrary.copy": "Copy",
+  "mediaLibrary.insert": "Insert",
+  "mediaLibrary.copied": "Copied"
 }
