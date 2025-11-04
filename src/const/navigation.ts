@@ -83,4 +83,8 @@ export const navigation = [
     path: "/reseller",
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
+  {
+    name: "navigation.blog",
+    path: "/blog",
+  },
 ];

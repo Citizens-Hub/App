@@ -26,6 +26,7 @@
     "@types/node": "^22.15.17",
     "@types/react-helmet": "^6.1.11",
     "@uiw/react-markdown-preview": "^5.1.4",
+    "@uiw/react-md-editor": "^4.0.8",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
     "chartjs-plugin-zoom": "^2.2.0",

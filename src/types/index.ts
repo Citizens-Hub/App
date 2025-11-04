@@ -370,3 +370,65 @@ export interface WatchlistResponse {
   success: boolean;
   data: WatchlistData;
 }
+
+// Blog types
+export interface BlogAuthor {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  language: string;
+  excerpt: string;
+  published: boolean;
+  author: BlogAuthor;
+  createdAt: string;
+  updatedAt: string;
+  image?: string | null;
+  tags?: string[];
+}
+
+export interface BlogPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface BlogPostsResponse {
+  success: boolean;
+  posts: BlogPost[];
+  pagination: BlogPagination;
+}
+
+export interface BlogPostResponse {
+  success: boolean;
+  message?: string;
+  post: BlogPost;
+}
+
+export interface CreateBlogPostRequest {
+  slug: string;
+  title: string;
+  content: string;
+  language: string;
+  excerpt: string;
+  published: boolean;
+  image?: string | null;
+}
+
+export interface UpdateBlogPostRequest {
+  slug?: string;
+  title?: string;
+  content?: string;
+  language?: string;
+  excerpt?: string;
+  published?: boolean;
+  image?: string | null;
+}
