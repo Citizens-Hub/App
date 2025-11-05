@@ -490,7 +490,7 @@ export default function PriceHistory() {
             </Box>
           </div>
 
-          <div className='flex-1 overflow-y-auto'>
+          <div className='flex-1 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.ships.label', defaultMessage: 'List of ships with price history' })}>
             {filteredShips.map((ship) => {
               const wbPrice = getWbPrice(ship.id);
               // const hasCcu = hasCcuAvailable(ship.id);
@@ -500,7 +500,7 @@ export default function PriceHistory() {
                   key={ship.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={intl.formatMessage({ id: "priceHistory.selectShip", defaultMessage: "Select {shipName} to view price history" }, { shipName: ship.name })}
+                  aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "View price history for {shipName}" }, { shipName: ship.name })}
                   onClick={() => handleShipSelect(ship.id)}
                   className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                 >
