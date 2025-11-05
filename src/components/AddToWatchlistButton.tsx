@@ -108,7 +108,7 @@ export default function AddToWatchlistButton({
   );
 
   const disabledHeart = (
-    <IconButton size={size} disabled>
+    <IconButton size={size} disabled aria-label={intl.formatMessage({ id: 'watchlist.loginRequired', defaultMessage: 'Login and email verification required to add to watchlist' })}>
       <Heart size={iconSize} style={{ color: '#f44336', opacity: 0.3 }} />
     </IconButton>
   );

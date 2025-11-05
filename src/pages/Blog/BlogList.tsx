@@ -7,6 +7,7 @@ import { FormattedMessage } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { UserRole } from '@/types';
+import { Helmet } from 'react-helmet';
 
 export default function BlogList() {
   const [page, setPage] = useState(1);
@@ -79,8 +80,39 @@ export default function BlogList() {
   const featuredPost = posts.length > 0 ? posts[0] : null;
   const otherPosts = posts.slice(1);
 
+  // Prepare SEO meta information
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const pageUrl = page > 1 
+    ? `${baseUrl}/blog?page=${page}`
+    : `${baseUrl}/blog`;
+  const metaTitle = page > 1
+    ? `Blog Posts - Page ${page} | Citizens' Hub`
+    : "Star Citizen Blog - Latest News, Guides & Updates | Citizens' Hub";
+  const metaDescription = page > 1
+    ? `Browse Star Citizen blog posts - Page ${page} of ${pagination.totalPages}. Latest news, guides, and updates from the Star Citizen community.`
+    : "Stay updated with the latest Star Citizen news, guides, and community updates. Read blog posts about ships, gameplay tips, and more on Citizens' Hub.";
+  const metaImage = featuredPost?.image 
+    ? `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${featuredPost.image}`
+    : `${baseUrl}/logo.png`;
+
   return (
-    <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
+    <>
+      <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta name="keywords" content="Star Citizen, blog, news, guides, updates, Star Citizen community, ship reviews, gameplay tips" />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content={metaImage} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={metaImage} />
+        <link rel="canonical" href={pageUrl} />
+      </Helmet>
+      <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto">
       <div className="max-w-[1200px] mx-auto">
         <CreateButton />
         {/* Featured post (first post) */}
@@ -125,6 +157,7 @@ export default function BlogList() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

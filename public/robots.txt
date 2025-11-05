@@ -24,5 +24,4 @@
 # AND RELATED RIGHTS IN THE DIGITAL SINGLE MARKET.
 
 User-Agent: *
-Content-signal: search=yes,ai-train=yes
-Allow: /
+Disallow: /app-settings

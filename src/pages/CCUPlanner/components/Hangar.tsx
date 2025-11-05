@@ -132,7 +132,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     <>
       <div className="flex items-center justify-left gap-2 px-1">
         <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="Hangar" />
-        <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)}>
+        <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)} aria-label={hangarExpanded ? intl.formatMessage({ id: 'ccuPlanner.collapseHangar', defaultMessage: 'Collapse Hangar' }) : intl.formatMessage({ id: 'ccuPlanner.expandHangar', defaultMessage: 'Expand Hangar' })}>
           {hangarExpanded ? <ExpandLess /> : <ExpandMore />}
         </IconButton>
         <Crawler ships={ships} />

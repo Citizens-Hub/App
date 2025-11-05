@@ -100,7 +100,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
         </div>
 
         <div className='flex items-center gap-2 px-2 pb-2 justify-between'>
-          <label className='flex items-center gap-2'>
+          <label className='flex items-center gap-2' htmlFor="showHistoryWB">
             <FormattedMessage id="ccuPlanner.showHistoryWB" defaultMessage="Show History WB" />
             <Tooltip title={
               <span style={{ fontSize: '14px' }}>
@@ -110,7 +110,7 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
               <InfoOutlined sx={{ fontSize: 16 }} />
             </Tooltip>
           </label>
-          <Switch checked={showHistoryWB} onChange={(e) => setShowHistoryWB(e.target.checked)} />
+          <Switch checked={showHistoryWB} onChange={(e) => setShowHistoryWB(e.target.checked)} id="showHistoryWB" />
         </div>
         <div className='px-2 pb-2'>
           <p className='text-xs text-gray-500 dark:text-gray-400'>
@@ -127,10 +127,10 @@ export default function ShipSelector({ ships, ccus, wbHistory, onDragStart, onMo
         </div>
 
         <div className='flex items-center gap-2 px-2 pb-2 justify-between'>
-          <label className='flex items-center gap-2'>
+          <label className='flex items-center gap-2' htmlFor="onlyShowAvailable">
             <FormattedMessage id="ccuPlanner.onlyShowAvailable" defaultMessage="Only show available ships" />
           </label>
-          <Switch checked={onlyShowAvailable} onChange={(e) => setOnlyShowAvailable(e.target.checked)} />
+          <Switch checked={onlyShowAvailable} onChange={(e) => setOnlyShowAvailable(e.target.checked)} id="onlyShowAvailable" />
         </div>
       </div>
 

@@ -2,12 +2,13 @@ import { IconButton, Menu, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useLocale } from '../contexts/LocaleContext';
 import LanguageIcon from '@mui/icons-material/Language';
+import { useIntl } from 'react-intl';
 
 export default function LanguageSwitcher() {
   const { locale, setLocale } = useLocale();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-
+  const intl = useIntl();
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -29,6 +30,7 @@ export default function LanguageSwitcher() {
         size="small"
         sx={{ ml: 1 }}
         className="text-gray-800 dark:text-white"
+        aria-label={intl.formatMessage({ id: "header.language", defaultMessage: "Switch language" })}
       >
         <LanguageIcon />
         {/* {(() => {

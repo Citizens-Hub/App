@@ -5,6 +5,7 @@ import { Refresh } from "@mui/icons-material";
 import { IconButton, LinearProgress } from "@mui/material";
 import { reportError } from "../report";
 import { Ship } from "../types";
+import { useIntl } from "react-intl";
 
 // 定义请求类型接口
 interface RequestItem {
@@ -32,6 +33,7 @@ type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "H
 type InsuranceType = "LTI" | "Other"
 
 export default function Crawler({ ships }: { ships: Ship[] }) {
+  const intl = useIntl();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const totalRequestsRef = useRef(0);
   const completedRequestsRef = useRef(0);
@@ -544,6 +546,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         });
       }}
       disabled={ships.length === 0}
+      aria-label={intl.formatMessage({ id: 'crawler.refetch', defaultMessage: 'Refetch My Hangar Data' })}
     >
       <Refresh className={isRefreshing ? 'animate-spin' : ''} />
     </IconButton>

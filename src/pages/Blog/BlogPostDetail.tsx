@@ -252,9 +252,40 @@ export default function BlogPostDetail() {
 
   const comments = commentsData?.comments || [];
 
+  // Prepare SEO meta information
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const pageUrl = `${baseUrl}/blog/${slug}`;
+  const metaTitle = `${post.title} | Citizens' Hub`;
+  const metaDescription = post.excerpt || post.content.substring(0, 160).replace(/[#*`]/g, '').trim() || `${post.title} - Star Citizen blog post on Citizens' Hub`;
+  const metaImage = post.image 
+    ? `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${post.image}`
+    : `${baseUrl}/logo.png`;
+  const metaKeywords = post.tags && post.tags.length > 0
+    ? `Star Citizen, ${post.tags.join(', ')}`
+    : 'Star Citizen, blog, news, guides, updates';
+
   return (
     <>
       <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta name="keywords" content={metaKeywords} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:type" content="article" />
+        <meta property="og:image" content={metaImage} />
+        <meta property="article:published_time" content={post.createdAt} />
+        <meta property="article:modified_time" content={post.updatedAt} />
+        <meta property="article:author" content={post.author.name} />
+        {post.tags && post.tags.length > 0 && post.tags.map((tag) => (
+          <meta key={tag} property="article:tag" content={tag} />
+        ))}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={metaImage} />
+        <link rel="canonical" href={pageUrl} />
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
       </Helmet>
       <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto pb-[120px]">
