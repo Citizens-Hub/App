@@ -177,6 +177,10 @@ export default function PriceHistory() {
       return;
     }
 
+    if (shipSlug) {
+      navigate('/price-history', { replace: true });
+    }
+
     setSelectedShipId(shipId);
   };
 
