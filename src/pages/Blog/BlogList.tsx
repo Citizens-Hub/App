@@ -87,9 +87,9 @@ export default function BlogList() {
     : `${baseUrl}/blog`;
   const metaTitle = page > 1
     ? `Blog Posts - Page ${page} | Citizens' Hub`
-    : "Star Citizen Blog - Latest News, Guides & Updates | Citizens' Hub";
+    : "Citizens' Hub blog - Latest News, Guides & Updates | Citizens' Hub";
   const metaDescription = page > 1
-    ? `Browse Star Citizen blog posts - Page ${page} of ${pagination.totalPages}. Latest news, guides, and updates from the Star Citizen community.`
+    ? `Browse Citizens' Hub blog posts - Page ${page} of ${pagination.totalPages}. Latest news, guides, and updates from the Star Citizen community.`
     : "Stay updated with the latest Star Citizen news, guides, and community updates. Read blog posts about ships, gameplay tips, and more on Citizens' Hub.";
   const metaImage = featuredPost?.image 
     ? `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${featuredPost.image}`

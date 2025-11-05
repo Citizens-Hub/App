@@ -256,7 +256,7 @@ export default function BlogPostDetail() {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const pageUrl = `${baseUrl}/blog/${slug}`;
   const metaTitle = `${post.title} | Citizens' Hub`;
-  const metaDescription = post.excerpt || post.content.substring(0, 160).replace(/[#*`]/g, '').trim() || `${post.title} - Star Citizen blog post on Citizens' Hub`;
+  const metaDescription = post.excerpt || post.content.substring(0, 160).replace(/[#*`]/g, '').trim() || `${post.title} - Citizens' Hub blog post`;
   const metaImage = post.image 
     ? `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}${post.image}`
     : `${baseUrl}/logo.png`;
