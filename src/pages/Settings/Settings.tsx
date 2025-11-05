@@ -146,20 +146,20 @@ export default function Settings() {
 
       <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
         {
-          user.role !== UserRole.Guest && <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Profile ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Profile)}>
+          user.role !== UserRole.Guest && <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.profile", defaultMessage: "Profile" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Profile ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Profile)}>
             <FormattedMessage id="settings.profile" defaultMessage="Profile" />
             <Typography variant='body2' color='text.secondary'>
               <FormattedMessage id="settings.profileDescription" defaultMessage="Manage your profile here." />
             </Typography>
           </div>
         }
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Preferences ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Preferences)}>
+        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.preferences", defaultMessage: "Preferences" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Preferences ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Preferences)}>
           <FormattedMessage id="settings.preferences" defaultMessage="Preferences" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="settings.preferencesDescription" defaultMessage="Manage your preferences and settings here." />
           </Typography>
         </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.LocalData ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.LocalData)}>
+        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.localData", defaultMessage: "Local Data" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.LocalData ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.LocalData)}>
           <FormattedMessage id="settings.localData" defaultMessage="Local Data" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="settings.localDataDescription" defaultMessage="Manage your local data here." />
@@ -233,6 +233,7 @@ export default function Settings() {
                         <Button
                           variant="outlined"
                           size="small"
+                          aria-label={intl.formatMessage({ id: "settings.sendVerification", defaultMessage: "Send Verification Email" })}
                           onClick={() => {
                             setIsSubmitting(true);
                             fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/verify`, {
@@ -318,6 +319,7 @@ export default function Settings() {
                     variant="contained" 
                     color="primary" 
                     disabled={isSubmitting}
+                    aria-label={intl.formatMessage({ id: "settings.save", defaultMessage: "Save" })}
                     onClick={() => {
                       setIsSubmitting(true);
                       fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/profile`, {
@@ -377,6 +379,7 @@ export default function Settings() {
                 variant="contained" 
                 color="error"
                 fullWidth
+                aria-label={intl.formatMessage({ id: "settings.deleteAccount", defaultMessage: "Delete Account" })}
                 onClick={() => {
                   if (window.confirm(intl.formatMessage({
                     id: 'settings.deleteAccountConfirm',
@@ -470,6 +473,7 @@ export default function Settings() {
                 <Button
                   variant="contained"
                   color="error"
+                  aria-label={intl.formatMessage({ id: "settings.clearAllData", defaultMessage: "Clear All Data" })}
                   onClick={() => setClearAllDataDialog(true)}
                 >
                   <FormattedMessage id="settings.clearAllData" defaultMessage="Clear All Data" />
@@ -481,6 +485,7 @@ export default function Settings() {
                 <Button
                   variant="contained"
                   color="error"
+                  aria-label={intl.formatMessage({ id: "settings.clearImportData", defaultMessage: "Clear Imported Data" })}
                   onClick={() => setClearImportDialog(true)}
                 >
                   <FormattedMessage id="settings.clearImportData" defaultMessage="Clear Imported Data" />
@@ -496,7 +501,7 @@ export default function Settings() {
                         users.map((user) => (
                           <div key={user.id} className='flex flex-row items-center gap-2 justify-between'>
                             {user.nickname || user.username}
-                            <Button variant="contained" color="error" onClick={() => {
+                            <Button variant="contained" color="error" aria-label={intl.formatMessage({ id: "settings.clearUserData", defaultMessage: "Clear User Data" }, { userName: user.nickname || user.username })} onClick={() => {
                               setSelectedUserToClear(user.id);
                               setClearUserDataDialog(true);
                             }}>
@@ -527,10 +532,10 @@ export default function Settings() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setClearAllDataDialog(false)}>
+          <Button onClick={() => setClearAllDataDialog(false)} aria-label={intl.formatMessage({ id: "common.cancel", defaultMessage: "Cancel" })}>
             <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
           </Button>
-          <Button onClick={handleClearAllData} color="error" autoFocus>
+          <Button onClick={handleClearAllData} color="error" autoFocus aria-label={intl.formatMessage({ id: "common.confirm", defaultMessage: "Confirm" })}>
             <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
           </Button>
         </DialogActions>
@@ -550,10 +555,10 @@ export default function Settings() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setClearUserDataDialog(false)}>
+          <Button onClick={() => setClearUserDataDialog(false)} aria-label={intl.formatMessage({ id: "common.cancel", defaultMessage: "Cancel" })}>
             <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
           </Button>
-          <Button onClick={handleClearUserData} color="error" autoFocus>
+          <Button onClick={handleClearUserData} color="error" autoFocus aria-label={intl.formatMessage({ id: "common.confirm", defaultMessage: "Confirm" })}>
             <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
           </Button>
         </DialogActions>
@@ -573,10 +578,10 @@ export default function Settings() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setClearImportDialog(false)}>
+          <Button onClick={() => setClearImportDialog(false)} aria-label={intl.formatMessage({ id: "common.cancel", defaultMessage: "Cancel" })}>
             <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
           </Button>
-          <Button onClick={handleClearImportData} color="error" autoFocus>
+          <Button onClick={handleClearImportData} color="error" autoFocus aria-label={intl.formatMessage({ id: "common.confirm", defaultMessage: "Confirm" })}>
             <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
           </Button>
         </DialogActions>

@@ -259,7 +259,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         <div>
           <FormattedMessage id="pathBuilder.title" defaultMessage="Path Builder" />
         </div>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label={intl.formatMessage({ id: "pathBuilder.close", defaultMessage: "Close" })}>
           <Close />
         </IconButton>
       </DialogTitle>
@@ -326,6 +326,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             });
                           }
                         }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={isSelected ? intl.formatMessage({ id: "pathBuilder.deselectShip", defaultMessage: "Deselect {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectShip", defaultMessage: "Select {shipName}" }, { shipName: ship.name })}
                         className={`p-2 h-fit cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 w-full 
                           ${isSelected ? 'bg-amber-100 dark:bg-gray-900' : ''} 
                           ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -361,6 +364,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         (hasCcus ? currentStep === 2 : currentStep === 1) && (!isDisabled) && (<>
                           {
                             wb && <div
+                              role="button"
+                              tabIndex={0}
+                              aria-label={isWbSelected ? intl.formatMessage({ id: "pathBuilder.deselectWarbound", defaultMessage: "Deselect warbound version of {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectWarbound", defaultMessage: "Select warbound version of {shipName}" }, { shipName: ship.name })}
                               className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isWbSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                               onClick={() => {
                                 if (isWbSelected) {
@@ -390,6 +396,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           }
                           {
                             historical && <div
+                              role="button"
+                              tabIndex={0}
+                              aria-label={isHistoricalSelected ? intl.formatMessage({ id: "pathBuilder.deselectHistorical", defaultMessage: "Deselect historical version of {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectHistorical", defaultMessage: "Select historical version of {shipName}" }, { shipName: ship.name })}
                               className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isHistoricalSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                               onClick={() => {
                                 if (isHistoricalSelected) {
@@ -446,6 +455,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     return (
                       <div
                         key={ccu.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={isSelected ? intl.formatMessage({ id: "pathBuilder.deselectCcu", defaultMessage: "Deselect CCU {ccuName}" }, { ccuName: ccu.name }) : intl.formatMessage({ id: "pathBuilder.selectCcu", defaultMessage: "Select CCU {ccuName}" }, { ccuName: ccu.name })}
                         className={`p-3 border-b border-gray-200 cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 ${isSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
                         onClick={() => toggleCcu(ccu)}
                       >
@@ -477,7 +489,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               } else {
                 prevStep();
               }
-            }} variant="outlined">
+            }} variant="outlined" aria-label={currentStep === 0 ? intl.formatMessage({ id: "pathBuilder.cancel", defaultMessage: "Cancel" }) : intl.formatMessage({ id: "pathBuilder.prevStep", defaultMessage: "Previous step" })}>
               {
                 currentStep === 0 ? (
                   <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
@@ -497,6 +509,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       : !(stepShips[currentStep]?.length > 0)  // In other steps, require selected ships
                   }
                   color="primary"
+                  aria-label={intl.formatMessage({ id: "pathBuilder.nextStep", defaultMessage: "Next step" })}
                 >
                   <FormattedMessage id="pathBuilder.nextStep" defaultMessage="Next step" />
                 </Button>
@@ -506,6 +519,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   variant="contained"
                   disabled={!(stepShips[1]?.length > 0)}
                   color="primary"
+                  aria-label={intl.formatMessage({ id: "pathBuilder.createPath", defaultMessage: "Create path" })}
                 >
                   <FormattedMessage id="pathBuilder.createPath" defaultMessage="Create path" />
                 </Button>

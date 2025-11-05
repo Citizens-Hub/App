@@ -460,6 +460,7 @@ export default function PriceHistory() {
                 fullWidth
                 onClick={handleToggleSubscription}
                 disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
+                aria-label={isSubscribed ? intl.formatMessage({ id: "warbondSubscription.disable", defaultMessage: "Disable Subscription" }) : intl.formatMessage({ id: "warbondSubscription.enable", defaultMessage: "Enable Subscription" })}
               >
                 {subscriptionLoading ? (
                   <CircularProgress size={16} color="inherit" />
@@ -497,6 +498,9 @@ export default function PriceHistory() {
               return (
                 <div
                   key={ship.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={intl.formatMessage({ id: "priceHistory.selectShip", defaultMessage: "Select {shipName} to view price history" }, { shipName: ship.name })}
                   onClick={() => handleShipSelect(ship.id)}
                   className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                 >

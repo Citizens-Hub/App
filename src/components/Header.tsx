@@ -94,7 +94,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
       className="flex items-center justify-between gap-2 border-b border-gray-200 w-full absolute bg-white top-0 right-0 p-3 dark:bg-[#121212] dark:border-gray-800"
     >
       <div className="flex items-center gap-2">
-        <IconButton onClick={() => setMenuOpen(!menuOpen)}>
+        <IconButton onClick={() => setMenuOpen(!menuOpen)} aria-label={intl.formatMessage({ id: "header.toggleMenu", defaultMessage: "Toggle menu" })}>
           <MenuIcon />
         </IconButton>
         {
@@ -128,6 +128,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             size="small"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'white' }}
             className="flex items-center gap-2 text-gray-800 dark:text-white"
+            aria-label={translateApiAvailable === SCBoxTranslateStatus.Available ? intl.formatMessage({ id: "app.translate", defaultMessage: "翻译" }) : intl.formatMessage({ id: "app.showOriginal", defaultMessage: "显示原文" })}
           >
             <img src="/scbox.png" className="w-4 h-4" />
             <span>
@@ -162,6 +163,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           color="inherit"
           sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
           className="text-gray-800 dark:text-white"
+          aria-label={darkMode ? intl.formatMessage({ id: "header.lightMode", defaultMessage: "Switch to light mode" }) : intl.formatMessage({ id: "header.darkMode", defaultMessage: "Switch to dark mode" })}
         >
           {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
@@ -171,6 +173,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
             className="text-gray-800 dark:text-white"
+            aria-label={intl.formatMessage({ id: "header.openQQ", defaultMessage: "Open QQ group" })}
           >
             {/* <DiscordIcon /> */}
             <QQIcon />
@@ -179,6 +182,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
             className="text-gray-800 dark:text-white"
+            aria-label={intl.formatMessage({ id: "header.openDiscord", defaultMessage: "Open Discord server" })}
           >
             <DiscordIcon />
           </IconButton>
@@ -188,6 +192,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           color="inherit"
           sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
           className="text-gray-800 dark:text-white"
+          aria-label={intl.formatMessage({ id: "header.openGithub", defaultMessage: "Open GitHub repository" })}
         >
           <GithubIcon />
         </IconButton>
@@ -197,6 +202,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <IconButton
                 onClick={(event) => setAnchorEl(event.currentTarget)}
                 sx={{ p: 0, ml: 1 }}
+                aria-label={intl.formatMessage({ id: "header.openUserMenu", defaultMessage: "Open user menu" })}
               >
                 <Avatar src={user?.avatar} />
               </IconButton>
@@ -205,7 +211,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 open={Boolean(anchorEl)}
                 onClose={() => setAnchorEl(null)}
               >
-                <MenuItem onClick={() => navigate('/login')}>
+                <MenuItem onClick={() => navigate('/login')} aria-label={intl.formatMessage({ id: "user.login", defaultMessage: "Login/Register" })}>
                   <FormattedMessage id="user.login" defaultMessage="Login/Register" />
                 </MenuItem>
               </Menu>
@@ -215,6 +221,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <IconButton
                 onClick={(event) => setAnchorEl(event.currentTarget)}
                 sx={{ p: 0, ml: 1 }}
+                aria-label={intl.formatMessage({ id: "header.openUserMenu", defaultMessage: "Open user menu" })}
               >
                 <Avatar src={user?.avatar} />
               </IconButton>
@@ -223,10 +230,10 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 open={Boolean(anchorEl)}
                 onClose={() => setAnchorEl(null)}
               >
-                <MenuItem onClick={() => navigate('/app-settings')}>
+                <MenuItem onClick={() => navigate('/app-settings')} aria-label={intl.formatMessage({ id: "user.profile", defaultMessage: "Profile" })}>
                   <FormattedMessage id="user.profile" defaultMessage="Profile" />
                 </MenuItem>
-                <MenuItem onClick={() => dispatch(logout())}>
+                <MenuItem onClick={() => dispatch(logout())} aria-label={intl.formatMessage({ id: "user.logout", defaultMessage: "Logout" })}>
                   <FormattedMessage id="user.logout" defaultMessage="Logout" />
                 </MenuItem>
               </Menu>
@@ -254,7 +261,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <h2 className="text-xl font-bold">
                 <FormattedMessage id="app.menu" defaultMessage="菜单" />
               </h2>
-              <IconButton onClick={() => setMenuOpen(false)} size="small">
+              <IconButton onClick={() => setMenuOpen(false)} size="small" aria-label={intl.formatMessage({ id: "header.closeMenu", defaultMessage: "Close menu" })}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -292,6 +299,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                   color="inherit"
                   sx={{ bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
                   className="text-gray-800 dark:text-white"
+                  aria-label={intl.formatMessage({ id: "header.openGithub", defaultMessage: "Open GitHub repository" })}
                 >
                   <GithubIcon />
                 </IconButton>
@@ -302,6 +310,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                     color="inherit"
                     sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
                     className="text-gray-800 dark:text-white"
+                    aria-label={intl.formatMessage({ id: "header.openQQ", defaultMessage: "Open QQ group" })}
                   >
                     <QQIcon />
                   </IconButton>
@@ -312,6 +321,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                     color="inherit"
                     sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
                     className="text-gray-800 dark:text-white"
+                    aria-label={intl.formatMessage({ id: "header.openDiscord", defaultMessage: "Open Discord server" })}
                   >
                     <DiscordIcon />
                   </IconButton>

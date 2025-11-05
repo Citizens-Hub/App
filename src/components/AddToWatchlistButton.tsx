@@ -145,6 +145,13 @@ export default function AddToWatchlistButton({
             size={size}
             onClick={handleToggleWatchlist}
             disabled={loading}
+            aria-label={intl.formatMessage(
+              {
+                id: shipInWatchlist ? 'watchlist.removeFromWatchlist' : 'watchlist.addToWatchlist',
+                defaultMessage: shipInWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist',
+              },
+              { shipName: shipName || 'ship' }
+            )}
           >
             {heartIcon}
           </IconButton>

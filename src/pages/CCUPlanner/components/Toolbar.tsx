@@ -25,6 +25,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         onClick={onClear}
         disabled={!hasContent}
         title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
+        aria-label={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -42,6 +43,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         onClick={onSave}
         disabled={!hasContent}
         title={intl.formatMessage({ id: "toolbar.save", defaultMessage: "Save" })}
+        aria-label={intl.formatMessage({ id: "toolbar.save", defaultMessage: "Save" })}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -59,6 +61,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         onClick={onExport}
         disabled={!hasContent}
         title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
+        aria-label={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -75,6 +78,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
         variant="outlined"
         onClick={onImport}
         title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
+        aria-label={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -92,6 +96,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
           variant="outlined"
           onClick={onOpenPathBuilder}
           title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
+          aria-label={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
           color="primary"
           sx={{
             display: 'flex',
@@ -112,6 +117,7 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
             variant="outlined"
             onClick={onOpenGuide}
             title={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
+            aria-label={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
             sx={{
               display: 'flex',
               alignItems: 'center',

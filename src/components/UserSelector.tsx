@@ -1,11 +1,12 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { setSelectedUser } from '../store/upgradesStore';
 import { Avatar, Box, Typography, Stack, Tooltip, IconButton } from '@mui/material';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { X } from 'lucide-react';
 import { RootState } from '../store';
 
 export default function UserSelector() {
+  const intl = useIntl();
   const users = useSelector((state: RootState) => state.upgrades.users);
   const selectedUser = useSelector((state: RootState) => state.upgrades.selectedUser);
 
@@ -27,6 +28,9 @@ export default function UserSelector() {
               src={user.avatar || "https://cdn.robertsspaceindustries.com/static/images/account/avatar_default_big.jpg"} 
               alt={user.username}
               onClick={() => handleUserSelect(user.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={intl.formatMessage({ id: "userSelector.selectUser", defaultMessage: "Select user {userName}" }, { userName: user.nickname || user.username || '用户' })}
               sx={{
                 width: 40, 
                 height: 40,
@@ -49,7 +53,7 @@ export default function UserSelector() {
           <Typography variant="body2" sx={{ ml: 1 }}>
             <FormattedMessage id="userSelector.currentUser" defaultMessage="Active: {user}" values={{ user: users.find(user => user.id === selectedUser)?.nickname || users.find(user => user.id === selectedUser)?.username }} />
           </Typography>
-          <IconButton size="small" onClick={() => handleUserSelect(-1)}>
+          <IconButton size="small" onClick={() => handleUserSelect(-1)} aria-label={intl.formatMessage({ id: "userSelector.clearSelection", defaultMessage: "Clear user selection" })}>
             <X className='w-4 h-4' />
           </IconButton>
         </Box>
