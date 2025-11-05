@@ -12,6 +12,11 @@ export const navigation = [
     path: "/price-history",
   },
   {
+    name: "navigation.priceHistory",
+    path: "/price-history/:shipSlug",
+    hidden: true,
+  },
+  {
     name: "navigation.hangar",
     path: "/hangar",
   },

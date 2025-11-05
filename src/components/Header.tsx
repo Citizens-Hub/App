@@ -45,6 +45,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         const regexPath = new RegExp('^' + item.path.replace(/:[^/]+/g, '([^/]+)') + '$');
         return regexPath.test(path);
       }
+      if (path.endsWith('/')) {
+        path = path.slice(0, -1);
+      }
       return item.path === path;
     });
   };

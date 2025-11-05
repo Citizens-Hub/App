@@ -145,7 +145,7 @@ function App() {
               <Route path="/flea-market" element={<FleaMarket />} />
               <Route path="/store-preview" element={<ResourcesTable />} />
               <Route path="/app-settings" element={<Settings />} />
-              <Route path="/price-history" element={<PriceHistory />} />
+              <Route path="/price-history/:shipSlug?" element={<PriceHistory />} />
 
               <Route path="/share/hangar/:userId" element={<Share />} />
 

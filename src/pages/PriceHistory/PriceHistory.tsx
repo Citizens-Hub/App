@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useParams, useNavigate, Link } from 'react-router';
 import {
   TextField,
   InputAdornment,
@@ -13,6 +14,7 @@ import {
   IconButton
 } from '@mui/material';
 import { Search, InfoOutlined, ArrowBack, Timeline, BarChart } from '@mui/icons-material';
+import { Helmet } from 'react-helmet';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -52,10 +54,22 @@ ChartJS.register(
   Filler
 );
 
+// Generate URL-friendly slug from ship name
+const generateSlug = (name: string): string => {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+};
+
 export default function PriceHistory() {
   const intl = useIntl();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { shipSlug } = useParams<{ shipSlug?: string }>();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedShipId, setSelectedShipId] = useState<number | null>(null);
   const [mobileViewMode, setMobileViewMode] = useState<'timeline' | 'chart'>('timeline');
@@ -120,18 +134,54 @@ export default function PriceHistory() {
     return filtered.sort((a, b) => {
       const aInWatchlist = isInWatchlist(a.id);
       const bInWatchlist = isInWatchlist(b.id);
-      
+
       // If one is in watchlist and the other is not, put watchlist ship first
       if (aInWatchlist && !bInWatchlist) return -1;
       if (!aInWatchlist && bInWatchlist) return 1;
-      
+
       // If both are in watchlist or both are not, sort by price
       return a.msrp - b.msrp;
     });
   }, [ships, searchTerm, priceHistoryMap, isInWatchlist]);
 
+  // Find ship by slug
+  const findShipBySlug = useCallback((slug: string | undefined): number | null => {
+    if (!slug || !ships || ships.length === 0) return null;
+    const ship = ships.find(s => generateSlug(s.name) === slug);
+    return ship ? ship.id : null;
+  }, [ships]);
+
+  // Initialize selected ship from URL parameter
+  useEffect(() => {
+    if (!ships || ships.length === 0) return;
+
+    if (shipSlug) {
+      const shipId = findShipBySlug(shipSlug);
+      if (shipId !== null) {
+        // Only update if different to avoid unnecessary re-renders
+        if (shipId !== selectedShipId) {
+          setSelectedShipId(shipId);
+        }
+      } else {
+        // If slug doesn't match any ship, navigate to base URL
+        navigate('/price-history', { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipSlug, ships, findShipBySlug]);
+
+  // Handle ship selection and update URL
+  const handleShipSelect = (shipId: number | null) => {
+    if (shipId === null) {
+      setSelectedShipId(null);
+      return;
+    }
+
+    setSelectedShipId(shipId);
+  };
+
   // Get selected ship
-  const selectedShip = selectedShipId ? ships.find(s => s.id === selectedShipId) : null;
+  const selectedShip = selectedShipId ? ships?.find(s => s.id === selectedShipId) : null;
 
   // Get price history for selected ship
   const selectedPriceHistory = selectedShipId ? priceHistoryMap[selectedShipId] : null;
@@ -227,17 +277,49 @@ export default function PriceHistory() {
     );
   }
 
+  // Prepare SEO meta information
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const pageUrl = selectedShip
+    ? `${baseUrl}/price-history/${generateSlug(selectedShip.name)}`
+    : `${baseUrl}/price-history`;
+  const currentPrice = selectedShip ? (selectedShip.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : null;
+
+  const metaTitle = selectedShip
+    ? `${selectedShip.name} Price History - Star Citizen Ship Prices | Citizens' Hub`
+    : "Star Citizen Ship Price History - Track Ship Prices & Warbond Deals | Citizens' Hub";
+
+  const metaDescription = selectedShip
+    ? `Track the price history of ${selectedShip.name} (${selectedShip.manufacturer.name}) in Star Citizen. View current price ${currentPrice ? `(${currentPrice})` : ''}, historical price changes, warbond deals, and availability timeline.`
+    : 'Browse and track price history for all Star Citizen ships. Monitor ship prices, warbond deals, and availability changes. Find the best deals on your favorite ships.';
+
+  const metaImage = selectedShip?.medias?.productThumbMediumAndSmall || '';
+
   // Mobile view: full screen price history when ship is selected
   if (isMobile && selectedShipId) {
     return (
       <>
+        <Helmet>
+          <title>{metaTitle}</title>
+          <meta name="description" content={metaDescription} />
+          <meta name="keywords" content={`Star Citizen, ${selectedShip?.name}, ${selectedShip?.manufacturer.name}, ship price history, warbond, price tracking, Star Citizen ships`} />
+          <meta property="og:title" content={metaTitle} />
+          <meta property="og:description" content={metaDescription} />
+          <meta property="og:url" content={pageUrl} />
+          <meta property="og:type" content="website" />
+          {metaImage && <meta property="og:image" content={metaImage} />}
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={metaTitle} />
+          <meta name="twitter:description" content={metaDescription} />
+          {metaImage && <meta name="twitter:image" content={metaImage} />}
+          <link rel="canonical" href={pageUrl} />
+        </Helmet>
         <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 flex flex-col bg-white dark:bg-gray-900'>
           {/* Header with back button */}
           <div className='p-3 border-b border-gray-200 dark:border-gray-800'>
             {/* First row: Back button, Ship name, View toggle */}
             <div className='flex items-center gap-2'>
               <IconButton
-                onClick={() => setSelectedShipId(null)}
+                onClick={() => handleShipSelect(null)}
                 aria-label="back"
                 size="small"
                 sx={{ flexShrink: 0 }}
@@ -287,16 +369,16 @@ export default function PriceHistory() {
               </div>
             )}
           </div>
-          
+
           {/* Content area - Timeline or Chart based on view mode */}
           <div className='flex-1 overflow-y-auto p-4'>
             {mobileViewMode === 'timeline' ? (
               <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
             ) : (
-              <PriceHistoryChart 
-                history={selectedPriceHistory?.history || null} 
-                currentMsrp={selectedShip?.msrp || 0} 
-                shipName={selectedShip?.name || ''} 
+              <PriceHistoryChart
+                history={selectedPriceHistory?.history || null}
+                currentMsrp={selectedShip?.msrp || 0}
+                shipName={selectedShip?.name || ''}
               />
             )}
           </div>
@@ -320,205 +402,232 @@ export default function PriceHistory() {
   }
 
   return (
-    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 flex flex-col md:flex-row'>
-      {/* Left Panel - Ship List */}
-      <div className={`w-full md:w-96 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
-        <div className='p-4 border-b border-gray-200 dark:border-gray-800'>
-          {/* <Typography variant="h6" className='mb-4'>
+    <>
+      <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta name="keywords" content={selectedShip
+          ? `Star Citizen, ${selectedShip.name}, ${selectedShip.manufacturer.name}, ship price history, warbond, price tracking, Star Citizen ships`
+          : 'Star Citizen, ship price history, warbond deals, price tracking, Star Citizen ships, ship prices, CCU, Star Citizen marketplace'} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:type" content="website" />
+        {metaImage && <meta property="og:image" content={metaImage} />}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        {metaImage && <meta name="twitter:image" content={metaImage} />}
+        <link rel="canonical" href={pageUrl} />
+      </Helmet>
+      <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 flex flex-col md:flex-row'>
+        {/* Left Panel - Ship List */}
+        <div className='hidden'>
+          {
+            ships.map((ship) => (
+              <Link to={`/price-history/${generateSlug(ship.name)}`} key={ship.id}>
+                {ship.name}
+              </Link>
+            ))
+          }
+        </div>
+        <div className={`w-full md:w-96 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
+          <div className='p-4 border-b border-gray-200 dark:border-gray-800'>
+            {/* <Typography variant="h6" className='mb-4'>
             <FormattedMessage id="priceHistory.title" defaultMessage="Price History" />
           </Typography> */}
-          <TextField
-            size="small"
-            fullWidth
-            placeholder={intl.formatMessage({ id: 'priceHistory.searchPlaceholder', defaultMessage: 'Search ships...' })}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search fontSize="small" />
-                  </InputAdornment>
-                ),
-              }
-            }}
-          />
-          <Box className="mt-3">
-            <Button
-              variant="outlined"
-              color={isSubscribed ? "error" : "primary"}
+            <TextField
               size="small"
               fullWidth
-              onClick={handleToggleSubscription}
-              disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
-            >
-              {subscriptionLoading ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <FormattedMessage
-                  id={isSubscribed ? 'warbondSubscription.disable' : 'warbondSubscription.enable'}
-                  defaultMessage={isSubscribed ? 'Disable Subscription' : 'Enable Subscription'}
-                />
-              )}
-            </Button>
-            <div className="text-gray-500 dark:text-gray-400 mt-2 text-xs text-left flex items-center gap-1">
-              <FormattedMessage id="warbondSubscription.description"
-                defaultMessage="You will receive email notifications when warbonds are listed or removed."
-              />
-              <Tooltip 
-                arrow 
-                title={
-                  <FormattedMessage 
-                    id="warbondSubscription.emailDeliveryDisclaimer"
-                    defaultMessage="Email delivery may be affected by multiple factors and is not guaranteed."
-                  />
+              placeholder={intl.formatMessage({ id: 'priceHistory.searchPlaceholder', defaultMessage: 'Search ships...' })}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search fontSize="small" />
+                    </InputAdornment>
+                  ),
                 }
+              }}
+            />
+            <Box className="mt-3">
+              <Button
+                variant="outlined"
+                color={isSubscribed ? "error" : "primary"}
+                size="small"
+                fullWidth
+                onClick={handleToggleSubscription}
+                disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
               >
-                <InfoOutlined sx={{ fontSize: 14, cursor: 'help' }} />
-              </Tooltip>
-            </div>
-          </Box>
-        </div>
-
-        <div className='flex-1 overflow-y-auto'>
-          {filteredShips.map((ship) => {
-            const wbPrice = getWbPrice(ship.id);
-            // const hasCcu = hasCcuAvailable(ship.id);
-
-            return (
-              <div
-                key={ship.id}
-                onClick={() => setSelectedShipId(ship.id)}
-                className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                  }`}
-              >
-                <div className='flex items-center gap-3'>
-                  {ship.medias?.productThumbMediumAndSmall && (
-                    <img
-                      src={ship.medias.productThumbMediumAndSmall}
-                      alt={ship.name}
-                      className='w-16 h-16 object-cover rounded'
+                {subscriptionLoading ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <FormattedMessage
+                    id={isSubscribed ? 'warbondSubscription.disable' : 'warbondSubscription.enable'}
+                    defaultMessage={isSubscribed ? 'Disable Subscription' : 'Enable Subscription'}
+                  />
+                )}
+              </Button>
+              <div className="text-gray-500 dark:text-gray-400 mt-2 text-xs text-left flex items-center gap-1">
+                <FormattedMessage id="warbondSubscription.description"
+                  defaultMessage="You will receive email notifications when warbonds are listed or removed."
+                />
+                <Tooltip
+                  arrow
+                  title={
+                    <FormattedMessage
+                      id="warbondSubscription.emailDeliveryDisclaimer"
+                      defaultMessage="Email delivery may be affected by multiple factors and is not guaranteed."
                     />
-                  )}
-                  <div className='flex-1 min-w-0'>
-                    <div className='flex items-center gap-2 mb-1'>
-                      {wbPrice && (
-                        <span className='text-xs text-white bg-orange-400 rounded px-1'>WB</span>
-                      )}
-                      <Typography variant="body2" className='font-medium truncate'>
-                        {ship.name}
-                      </Typography>
-                    </div>
-                    <div className='text-gray-500 dark:text-gray-400 text-left text-sm'>
-                      {ship.manufacturer.name}
-                    </div>
-                    <div className='flex items-center gap-2 mt-1'>
-                      {wbPrice ? (
-                        <>
-                          <span className='text-sm text-gray-400 line-through'>
+                  }
+                >
+                  <InfoOutlined sx={{ fontSize: 14, cursor: 'help' }} />
+                </Tooltip>
+              </div>
+            </Box>
+          </div>
+
+          <div className='flex-1 overflow-y-auto'>
+            {filteredShips.map((ship) => {
+              const wbPrice = getWbPrice(ship.id);
+              // const hasCcu = hasCcuAvailable(ship.id);
+
+              return (
+                <div
+                  key={ship.id}
+                  onClick={() => handleShipSelect(ship.id)}
+                  className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                >
+                  <div className='flex items-center gap-3'>
+                    {ship.medias?.productThumbMediumAndSmall && (
+                      <img
+                        src={ship.medias.productThumbMediumAndSmall}
+                        alt={ship.name}
+                        className='w-16 h-16 object-cover rounded'
+                      />
+                    )}
+                    <div className='flex-1 min-w-0'>
+                      <div className='flex items-center gap-2 mb-1'>
+                        {wbPrice && (
+                          <span className='text-xs text-white bg-orange-400 rounded px-1'>WB</span>
+                        )}
+                        <Typography variant="body2" className='font-medium truncate'>
+                          {ship.name}
+                        </Typography>
+                      </div>
+                      <div className='text-gray-500 dark:text-gray-400 text-left text-sm'>
+                        {ship.manufacturer.name}
+                      </div>
+                      <div className='flex items-center gap-2 mt-1'>
+                        {wbPrice ? (
+                          <>
+                            <span className='text-sm text-gray-400 line-through'>
+                              {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                            </span>
+                            <span className='text-sm text-blue-400 font-bold'>
+                              {(wbPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                            </span>
+                          </>
+                        ) : (
+                          <span className='text-sm text-blue-400 font-bold'>
                             {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
                           </span>
-                          <span className='text-sm text-blue-400 font-bold'>
-                            {(wbPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                          </span>
-                        </>
-                      ) : (
-                        <span className='text-sm text-blue-400 font-bold'>
-                          {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                        </span>
-                      )}
-                    </div>
-                    {/* {!hasCcu && (
+                        )}
+                      </div>
+                      {/* {!hasCcu && (
                       <Typography variant="caption" className='text-red-500 block mt-1'>
                         <FormattedMessage id="priceHistory.ccuUnavailable" defaultMessage="CCU Unavailable" />
                       </Typography>
                     )} */}
+                    </div>
+                    <AddToWatchlistButton
+                      shipId={ship.id}
+                      shipName={ship.name}
+                      size="small"
+                    />
                   </div>
-                  <AddToWatchlistButton
-                    shipId={ship.id}
-                    shipName={ship.name}
-                    size="small"
-                  />
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Right Panel - Price History Details */}
-      <div className={`flex-1 flex flex-col overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
-        {selectedShip ? (
-          <div className='flex flex-col h-full p-4'>
-            {/* <Typography variant="h5" className='mb-2'>
+        {/* Right Panel - Price History Details */}
+        <div className={`flex-1 flex flex-col overflow-hidden ${isMobile && selectedShipId ? 'hidden' : ''}`}>
+          {selectedShip ? (
+            <div className='flex flex-col h-full p-4'>
+              {/* <Typography variant="h5" className='mb-2'>
               {selectedShip.name}
             </Typography>
             <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-2'>
               {selectedShip.manufacturer.name}
             </Typography> */}
-            <div className='flex items-center justify-end mb-4'>
-              {updatedAt && (
-                <Typography variant="caption" className='text-gray-400 dark:text-gray-500'>
-                  <FormattedMessage
-                    id="priceHistory.dataUpdatedAt"
-                    defaultMessage="Data updated at: {updatedAt}"
-                    values={{
-                      updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
-                    }}
-                  />
-                </Typography>
-              )}
-              {/* <AddToWatchlistButton
+              <div className='flex items-center justify-end mb-4'>
+                {updatedAt && (
+                  <Typography variant="caption" className='text-gray-400 dark:text-gray-500'>
+                    <FormattedMessage
+                      id="priceHistory.dataUpdatedAt"
+                      defaultMessage="Data updated at: {updatedAt}"
+                      values={{
+                        updatedAt: new Date(updatedAt).toLocaleString(intl.locale, {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      }}
+                    />
+                  </Typography>
+                )}
+                {/* <AddToWatchlistButton
                 shipId={selectedShip.id}
                 shipName={selectedShip.name}
                 size="small"
               /> */}
-            </div>
-
-            {/* Chart and Timeline - Side by side layout */}
-            <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
-              <div className='flex-[1] min-w-0 overflow-y-auto'>
-                <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
               </div>
 
-              <div className='flex-[5] min-w-0 flex flex-col'>
-                <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
+              {/* Chart and Timeline - Side by side layout */}
+              <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
+                <div className='flex-[1] min-w-0 overflow-y-auto'>
+                  <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+                </div>
+
+                <div className='flex-[5] min-w-0 flex flex-col'>
+                  <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className='flex flex-col items-center justify-between py-2 h-full'>
-            <Typography variant="body1" className='text-gray-400'>
-              <FormattedMessage id="priceHistory.selectShip" defaultMessage="Select a ship to view price history" />
-            </Typography>
-            <div className='w-full'>
-              <BlankPageAd />
+          ) : (
+            <div className='flex flex-col items-center justify-between py-2 h-full'>
+              <Typography variant="body1" className='text-gray-400'>
+                <FormattedMessage id="priceHistory.selectShip" defaultMessage="Select a ship to view price history" />
+              </Typography>
+              <div className='w-full'>
+                <BlankPageAd />
+              </div>
+              <div />
             </div>
-            <div />
-          </div>
-        )}
-      </div>
-      <Snackbar
-        open={subscriptionSnackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
+          )}
+        </div>
+        <Snackbar
+          open={subscriptionSnackbar.open}
+          autoHideDuration={6000}
           onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
-          severity={subscriptionSnackbar.severity}
-          sx={{ width: '100%' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          {subscriptionSnackbar.message}
-        </Alert>
-      </Snackbar>
-    </div>
+          <Alert
+            onClose={() => setSubscriptionSnackbar(prev => ({ ...prev, open: false }))}
+            severity={subscriptionSnackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {subscriptionSnackbar.message}
+          </Alert>
+        </Snackbar>
+      </div>
+    </>
   );
 }
 
