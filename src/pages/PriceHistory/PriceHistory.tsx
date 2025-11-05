@@ -595,11 +595,11 @@ export default function PriceHistory() {
 
               {/* Chart and Timeline - Side by side layout */}
               <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
-                <div className='flex-[1] min-w-0 overflow-y-auto' aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
+                <div className='flex-[1] min-w-0 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
                   <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
                 </div>
 
-                <div className='flex-[5] min-w-0 flex flex-col'>
+                <div className='flex-[5] min-w-0 flex flex-col' role="figure" aria-label={intl.formatMessage({ id: 'priceHistory.chart.label', defaultMessage: 'Price history chart for {shipName}' }, { shipName: selectedShip.name })}>
                   <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
                 </div>
               </div>
@@ -1455,7 +1455,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-      <Box className='h-full flex flex-col' aria-hidden>
+      <Box className='h-full flex flex-col'>
         <Box className='bg-white dark:bg-gray-800 pb-4 pl-4 flex-1 flex flex-col'>
           <Box className='mb-2 flex justify-end'>
             <FormControlLabel
