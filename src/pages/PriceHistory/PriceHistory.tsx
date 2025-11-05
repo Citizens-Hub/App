@@ -496,61 +496,62 @@ export default function PriceHistory() {
               // const hasCcu = hasCcuAvailable(ship.id);
 
               return (
-                <div
-                  key={ship.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "View price history for {shipName}" }, { shipName: ship.name })}
-                  onClick={() => handleShipSelect(ship.id)}
-                  className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-                >
-                  <div className='flex items-center gap-3'>
-                    {ship.medias?.productThumbMediumAndSmall && (
-                      <img
-                        src={ship.medias.productThumbMediumAndSmall}
-                        alt={ship.name}
-                        className='w-16 h-16 object-cover rounded'
-                      />
-                    )}
-                    <div className='flex-1 min-w-0'>
-                      <div className='flex items-center gap-2 mb-1'>
-                        {wbPrice && (
-                          <span className='text-xs text-white bg-orange-400 rounded px-1'>WB</span>
-                        )}
-                        <Typography variant="body2" className='font-medium truncate'>
-                          {ship.name}
-                        </Typography>
-                      </div>
-                      <div className='text-gray-500 dark:text-gray-400 text-left text-sm'>
-                        {ship.manufacturer.name}
-                      </div>
-                      <div className='flex items-center gap-2 mt-1'>
-                        {wbPrice ? (
-                          <>
-                            <span className='text-sm text-gray-400 line-through'>
+                <div key={ship.id} role="listitem">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "View price history for {shipName}" }, { shipName: ship.name })}
+                    onClick={() => handleShipSelect(ship.id)}
+                    className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                  >
+                    <div className='flex items-center gap-3'>
+                      {ship.medias?.productThumbMediumAndSmall && (
+                        <img
+                          src={ship.medias.productThumbMediumAndSmall}
+                          alt={ship.name}
+                          className='w-16 h-16 object-cover rounded'
+                        />
+                      )}
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex items-center gap-2 mb-1'>
+                          {wbPrice && (
+                            <span className='text-xs text-white bg-orange-400 rounded px-1'>WB</span>
+                          )}
+                          <Typography variant="body2" className='font-medium truncate'>
+                            {ship.name}
+                          </Typography>
+                        </div>
+                        <div className='text-gray-500 dark:text-gray-400 text-left text-sm'>
+                          {ship.manufacturer.name}
+                        </div>
+                        <div className='flex items-center gap-2 mt-1'>
+                          {wbPrice ? (
+                            <>
+                              <span className='text-sm text-gray-400 line-through'>
+                                {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                              </span>
+                              <span className='text-sm text-blue-400 font-bold'>
+                                {(wbPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                              </span>
+                            </>
+                          ) : (
+                            <span className='text-sm text-blue-400 font-bold'>
                               {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
                             </span>
-                            <span className='text-sm text-blue-400 font-bold'>
-                              {(wbPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                            </span>
-                          </>
-                        ) : (
-                          <span className='text-sm text-blue-400 font-bold'>
-                            {(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                          </span>
-                        )}
-                      </div>
-                      {/* {!hasCcu && (
+                          )}
+                        </div>
+                        {/* {!hasCcu && (
                       <Typography variant="caption" className='text-red-500 block mt-1'>
                         <FormattedMessage id="priceHistory.ccuUnavailable" defaultMessage="CCU Unavailable" />
                       </Typography>
                     )} */}
+                      </div>
+                      <AddToWatchlistButton
+                        shipId={ship.id}
+                        shipName={ship.name}
+                        size="small"
+                      />
                     </div>
-                    <AddToWatchlistButton
-                      shipId={ship.id}
-                      shipName={ship.name}
-                      size="small"
-                    />
                   </div>
                 </div>
               );
@@ -1602,14 +1603,19 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
               key={index}
               role="listitem"
               className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
-              aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, { edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit'
-              })}) : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "An {edition} sku was removed on {date}" }, { edition: entry.edition, date: new Date(entry.ts).toLocaleDateString(intl.locale, {
-                year: 'numeric',
-                month: 'long', day: 'numeric', hour: '2-digit' })})}
+              aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, {
+                edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit'
+                })
+              }) : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "An {edition} sku was removed on {date}" }, {
+                edition: entry.edition, date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                  year: 'numeric',
+                  month: 'long', day: 'numeric', hour: '2-digit'
+                })
+              })}
             >
               <div className='flex items-center gap-2' aria-hidden>
                 <span
