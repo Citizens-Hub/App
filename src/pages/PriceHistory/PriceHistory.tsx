@@ -675,17 +675,11 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade') ||
       edition.trim() === "Unknown"
     ) {
-      return intl.formatMessage(
-        { id: "priceHistory.edition.standard", defaultMessage: "Standard (Sku:{skuId})" },
-        { skuId: skuId.toString() }
-      );
+      return `Standard (Sku:${skuId})`;
     }
 
-    return intl.formatMessage(
-      { id: "priceHistory.edition.warbond", defaultMessage: "Warbond (Sku:{skuId})" },
-      { skuId: skuId.toString() }
-    );
-  }, [shipName, intl]);
+    return `Warbond (Sku:${skuId})`;
+  }, [shipName]);
 
   // Generate distinct colors for editions
   const getEditionColor = (_edition: string, index: number): string => {
