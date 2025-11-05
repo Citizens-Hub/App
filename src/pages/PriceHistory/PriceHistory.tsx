@@ -320,7 +320,7 @@ export default function PriceHistory() {
             <div className='flex items-center gap-2'>
               <IconButton
                 onClick={() => handleShipSelect(null)}
-                aria-label="back"
+                aria-label={intl.formatMessage({ id: "priceHistory.back", defaultMessage: "Back" })}
                 size="small"
                 sx={{ flexShrink: 0 }}
               >
@@ -334,7 +334,7 @@ export default function PriceHistory() {
                   size="small"
                   onClick={() => setMobileViewMode('timeline')}
                   color={mobileViewMode === 'timeline' ? 'primary' : 'default'}
-                  aria-label="timeline view"
+                  aria-label={intl.formatMessage({ id: "priceHistory.switchToTimelineView", defaultMessage: "Switch to timeline view" })}
                 >
                   <Timeline fontSize="small" />
                 </IconButton>
@@ -342,7 +342,7 @@ export default function PriceHistory() {
                   size="small"
                   onClick={() => setMobileViewMode('chart')}
                   color={mobileViewMode === 'chart' ? 'primary' : 'default'}
-                  aria-label="chart view"
+                  aria-label={intl.formatMessage({ id: "priceHistory.switchToChartView", defaultMessage: "Switch to chart view" })}
                 >
                   <BarChart fontSize="small" />
                 </IconButton>
@@ -371,17 +371,21 @@ export default function PriceHistory() {
           </div>
 
           {/* Content area - Timeline or Chart based on view mode */}
-          <div className='flex-1 overflow-y-auto p-4'>
+          <>
             {mobileViewMode === 'timeline' ? (
-              <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+              <div className='flex-1 overflow-y-auto p-4 flex flex-col gap-2' role="list" aria-label={intl.formatMessage({ id: "priceHistory.timeline.label", defaultMessage: "Price history timeline for {shipName}" }, { shipName: selectedShip?.name || '' })}>
+                <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+              </div>
             ) : (
-              <PriceHistoryChart
-                history={selectedPriceHistory?.history || null}
-                currentMsrp={selectedShip?.msrp || 0}
-                shipName={selectedShip?.name || ''}
-              />
+              <div className='flex-1 overflow-y-auto p-4 flex flex-col gap-2' role="figure" aria-label={intl.formatMessage({ id: "priceHistory.chart.label", defaultMessage: "Price history chart for {shipName}" }, { shipName: selectedShip?.name || '' })}>
+                <PriceHistoryChart
+                  history={selectedPriceHistory?.history || null}
+                  currentMsrp={selectedShip?.msrp || 0}
+                  shipName={selectedShip?.name || ''}
+                />
+              </div>
             )}
-          </div>
+          </>
         </div>
         <Snackbar
           open={subscriptionSnackbar.open}
@@ -460,6 +464,7 @@ export default function PriceHistory() {
                 fullWidth
                 onClick={handleToggleSubscription}
                 disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
+                id="warbondSubscription.button"
                 aria-label={isSubscribed ? intl.formatMessage({ id: "warbondSubscription.disable", defaultMessage: "Disable Subscription" }) : intl.formatMessage({ id: "warbondSubscription.enable", defaultMessage: "Enable Subscription" })}
               >
                 {subscriptionLoading ? (
@@ -471,7 +476,7 @@ export default function PriceHistory() {
                   />
                 )}
               </Button>
-              <div className="text-gray-500 dark:text-gray-400 mt-2 text-xs text-left flex items-center gap-1">
+              <label htmlFor="warbondSubscription.button" className="text-gray-500 dark:text-gray-400 mt-2 text-xs text-left flex items-center gap-1">
                 <FormattedMessage id="warbondSubscription.description"
                   defaultMessage="You will receive email notifications when warbonds are listed or removed."
                 />
@@ -486,21 +491,24 @@ export default function PriceHistory() {
                 >
                   <InfoOutlined sx={{ fontSize: 14, cursor: 'help' }} />
                 </Tooltip>
-              </div>
+              </label>
             </Box>
           </div>
 
-          <div className='flex-1 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.ships.label', defaultMessage: 'List of ships with price history' })}>
+          <div className='flex-1 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: "priceHistory.shipList", defaultMessage: "Ship list" })}>
             {filteredShips.map((ship) => {
               const wbPrice = getWbPrice(ship.id);
               // const hasCcu = hasCcuAvailable(ship.id);
 
               return (
-                <div key={ship.id} role="listitem">
+                <div
+                  key={ship.id}
+                  role="listitem"
+                >
                   <div
                     role="button"
                     tabIndex={0}
-                    aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "View price history for {shipName}" }, { shipName: ship.name })}
+                    aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "{shipName}'s price history" }, { shipName: ship.name })}
                     onClick={() => handleShipSelect(ship.id)}
                     className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                   >
@@ -596,7 +604,7 @@ export default function PriceHistory() {
 
               {/* Chart and Timeline - Side by side layout */}
               <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
-                <div className='flex-[1] min-w-0 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
+                <div className='flex-[1] min-w-0 overflow-y-auto flex flex-col gap-2' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
                   <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
                 </div>
 
@@ -667,11 +675,17 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
       edition.toLowerCase().trim() === (shipName.toLowerCase().trim() + ' - upgrade') ||
       edition.trim() === "Unknown"
     ) {
-      return 'Standard (Sku:' + skuId.toString() + ")";
+      return intl.formatMessage(
+        { id: "priceHistory.edition.standard", defaultMessage: "Standard (Sku:{skuId})" },
+        { skuId: skuId.toString() }
+      );
     }
 
-    return "Warbond (Sku:" + skuId.toString() + ")";
-  }, [shipName]);
+    return intl.formatMessage(
+      { id: "priceHistory.edition.warbond", defaultMessage: "Warbond (Sku:{skuId})" },
+      { skuId: skuId.toString() }
+    );
+  }, [shipName, intl]);
 
   // Generate distinct colors for editions
   const getEditionColor = (_edition: string, index: number): string => {
@@ -1590,78 +1604,87 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
   }));
 
   return (
-    <div>
-      <div className='space-y-4'>
-        {processedHistory.map((entry, index) => {
-          type ProcessedEntry = PriceHistoryEntity['history'][0] & { effectiveMsrp?: number; isUnavailable?: boolean };
-          const processedEntry = entry as ProcessedEntry;
-          const displayPrice = processedEntry.effectiveMsrp ?? entry.msrp;
-          const isUnavailable = processedEntry.isUnavailable ?? false;
+    <>
+      {processedHistory.map((entry, index) => {
+        type ProcessedEntry = PriceHistoryEntity['history'][0] & { effectiveMsrp?: number; isUnavailable?: boolean };
+        const processedEntry = entry as ProcessedEntry;
+        const displayPrice = processedEntry.effectiveMsrp ?? entry.msrp;
+        const isUnavailable = processedEntry.isUnavailable ?? false;
 
-          return (
-            <div
-              key={index}
-              role="listitem"
-              className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
-              aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, {
-                edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+        const ariaLabelText = entry.change === '+'
+          ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "{edition} for {price} was added on {date}" }, {
+            edition: entry.edition || intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
+            price: displayPrice ? (displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }) : intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
+            date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit'
+            })
+          })
+          : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "{edition} was removed on {date}" }, {
+            edition: entry.edition || intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
+            date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit'
+            })
+          });
+
+        return (
+          <div
+            key={index}
+            role="listitem"
+            className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
+            aria-label={ariaLabelText}
+          >
+            {/* Screen reader only text for better mobile accessibility */}
+            <span className="sr-only">{ariaLabelText}</span>
+            <div className='flex items-center gap-2' aria-hidden>
+              <span
+                className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold -translate-y-[2px]`}
+              >{entry.change}</span>
+              <div className='font-medium text-left text-md'>
+                {new Date(entry.ts).toLocaleDateString(intl.locale, {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
                   hour: '2-digit'
-                })
-              }) : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "An {edition} sku was removed on {date}" }, {
-                edition: entry.edition, date: new Date(entry.ts).toLocaleDateString(intl.locale, {
-                  year: 'numeric',
-                  month: 'long', day: 'numeric', hour: '2-digit'
-                })
-              })}
-            >
-              <div className='flex items-center gap-2' aria-hidden>
-                <span
-                  className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold -translate-y-[2px]`}
-                >{entry.change}</span>
-                <div className='font-medium text-left text-md'>
-                  {new Date(entry.ts).toLocaleDateString(intl.locale, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit'
-                  })}
-                </div>
+                })}
               </div>
-              {entry.edition && (
-                <div className='text-gray-600 dark:text-gray-300' aria-hidden>
-                  {entry.edition}
+            </div>
+            {entry.edition && (
+              <div className='text-gray-600 dark:text-gray-300' aria-hidden>
+                {entry.edition}
+              </div>
+            )}
+            {
+              entry.items && entry.items.length > 1 && entry.change === '+' && (
+                <div className='text-gray-500 dark:text-gray-400 text-left text-sm mb-1' aria-hidden>
+                  w/ {entry.items.slice(1).flatMap(item => item.title).join(', ')}
                 </div>
-              )}
-              {
-                entry.items && entry.items.length > 1 && entry.change === '+' && (
-                  <div className='text-gray-500 dark:text-gray-400 text-left text-sm mb-1' aria-hidden>
-                    w/ {entry.items.slice(1).flatMap(item => item.title).join(', ')}
-                  </div>
-                )
-              }
-              {displayPrice !== undefined && !isUnavailable && (
-                <div className='font-bold text-blue-400 text-left text-md' aria-hidden>
-                  {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                  {entry.baseMsrp && entry.baseMsrp !== displayPrice && (
-                    <span className='text-gray-400 line-through ml-2'>
-                      {(entry.baseMsrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
-                    </span>
-                  )}
-                </div>
-              )}
-              {/* {isUnavailable && entry.change === '-' && (
+              )
+            }
+            {displayPrice !== undefined && !isUnavailable && (
+              <div className='font-bold text-blue-400 text-left text-md' aria-hidden>
+                {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                {entry.baseMsrp && entry.baseMsrp !== displayPrice && (
+                  <span className='text-gray-400 line-through ml-2'>
+                    {(entry.baseMsrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                  </span>
+                )}
+              </div>
+            )}
+            {/* {isUnavailable && entry.change === '-' && (
                 <div className='text-gray-500 dark:text-gray-400 italic text-left text-md'>
                   <FormattedMessage id="priceHistory.allSkusRemoved" defaultMessage="All SKUs removed" />
                 </div>
               )} */}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+          </div>
+        );
+      })}
+    </>
   );
 }
 

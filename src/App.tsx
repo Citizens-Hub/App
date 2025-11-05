@@ -70,7 +70,7 @@ function App() {
   useEffect(() => {
     const host = window.location.hostname;
 
-    if (host === 'localhost') {
+    if (host === 'localhost' || host.startsWith('192.168')) {
       return;
     }
 

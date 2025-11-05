@@ -5,3 +5,4 @@ alwaysApply: true
 ---
 所有的注释请使用英文，如果发现其他语言注释顺手改掉
 使用react-intl进行本地化，locales在src/locales
+在翻译时，对于aria-label的本地化文本需要确保有效信息在句子前面 举例：对于Price History中的舰船选择列表，每个子项aria-label可以是{shipName}'s price history，也可以是price history of {shipName}，此时需要将变量{shipName}放在句子前面，确保其被先读出
