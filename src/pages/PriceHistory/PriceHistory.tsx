@@ -595,7 +595,7 @@ export default function PriceHistory() {
 
               {/* Chart and Timeline - Side by side layout */}
               <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
-                <div className='flex-[1] min-w-0 overflow-y-auto'>
+                <div className='flex-[1] min-w-0 overflow-y-auto' aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
                   <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
                 </div>
 
@@ -1455,7 +1455,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
           color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-      <Box className='h-full flex flex-col'>
+      <Box className='h-full flex flex-col' aria-hidden>
         <Box className='bg-white dark:bg-gray-800 pb-4 pl-4 flex-1 flex flex-col'>
           <Box className='mb-2 flex justify-end'>
             <FormControlLabel
@@ -1601,8 +1601,16 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
             <div
               key={index}
               className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
+              aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, { edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit'
+              })}) : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "An {edition} sku was removed on {date}" }, { edition: entry.edition, date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                year: 'numeric',
+                month: 'long', day: 'numeric', hour: '2-digit' })})}
             >
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-2' aria-hidden>
                 <span
                   className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold -translate-y-[2px]`}
                 >{entry.change}</span>
@@ -1616,19 +1624,19 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
                 </div>
               </div>
               {entry.edition && (
-                <div className='text-gray-600 dark:text-gray-300'>
+                <div className='text-gray-600 dark:text-gray-300' aria-hidden>
                   {entry.edition}
                 </div>
               )}
               {
                 entry.items && entry.items.length > 1 && entry.change === '+' && (
-                  <div className='text-gray-500 dark:text-gray-400 text-left text-sm mb-1'>
+                  <div className='text-gray-500 dark:text-gray-400 text-left text-sm mb-1' aria-hidden>
                     w/ {entry.items.slice(1).flatMap(item => item.title).join(', ')}
                   </div>
                 )
               }
               {displayPrice !== undefined && !isUnavailable && (
-                <div className='font-bold text-blue-400 text-left text-md'>
+                <div className='font-bold text-blue-400 text-left text-md' aria-hidden>
                   {(displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
                   {entry.baseMsrp && entry.baseMsrp !== displayPrice && (
                     <span className='text-gray-400 line-through ml-2'>
