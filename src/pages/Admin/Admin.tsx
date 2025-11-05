@@ -6,6 +6,9 @@ import { Ship, StoreShipsData } from '@/types';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 
+/**
+ * @deprecated This page is no longer used and will be removed in the future.
+ */
 export default function Admin() {
   const intl = useIntl();
   const [loading, setLoading] = useState({

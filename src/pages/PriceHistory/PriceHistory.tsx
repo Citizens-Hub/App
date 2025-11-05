@@ -1602,43 +1602,32 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
   }));
 
   return (
-    <>
+    <div className='space-y-4'>
       {processedHistory.map((entry, index) => {
         type ProcessedEntry = PriceHistoryEntity['history'][0] & { effectiveMsrp?: number; isUnavailable?: boolean };
         const processedEntry = entry as ProcessedEntry;
         const displayPrice = processedEntry.effectiveMsrp ?? entry.msrp;
         const isUnavailable = processedEntry.isUnavailable ?? false;
 
-        const ariaLabelText = entry.change === '+'
-          ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "{edition} for {price} was added on {date}" }, {
-            edition: entry.edition || intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
-            price: displayPrice ? (displayPrice / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }) : intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
-            date: new Date(entry.ts).toLocaleDateString(intl.locale, {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit'
-            })
-          })
-          : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "{edition} was removed on {date}" }, {
-            edition: entry.edition || intl.formatMessage({ id: "priceHistory.unknown", defaultMessage: "Unknown" }),
-            date: new Date(entry.ts).toLocaleDateString(intl.locale, {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit'
-            })
-          });
-
         return (
           <div
             key={index}
             role="listitem"
             className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
-            aria-label={ariaLabelText}
+            aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, {
+              edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit'
+              })
+            }) : intl.formatMessage({ id: "priceHistory.timeline.entry.removed", defaultMessage: "An {edition} sku was removed on {date}" }, {
+              edition: entry.edition, date: new Date(entry.ts).toLocaleDateString(intl.locale, {
+                year: 'numeric',
+                month: 'long', day: 'numeric', hour: '2-digit'
+              })
+            })}
           >
-            {/* Screen reader only text for better mobile accessibility */}
-            <span className="sr-only">{ariaLabelText}</span>
             <div className='flex items-center gap-2' aria-hidden>
               <span
                 className={`${entry.change === '+' ? 'text-green-500' : 'text-red-500'} text-left text-md font-bold -translate-y-[2px]`}
@@ -1682,7 +1671,7 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 
