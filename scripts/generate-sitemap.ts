@@ -6,22 +6,22 @@ import { join } from 'path';
 const publicRoutes = [
   {
     path: '/',
-    priority: 1,
+    priority: 0.8,
     changefreq: 'weekly',
   },
   {
     path: '/ccu-planner',
-    priority: 0.8,
+    priority: 1,
     changefreq: 'weekly',
   },
   {
     path: '/hangar',
-    priority: 0.8,
+    priority: 1,
     changefreq: 'weekly',
   },
   {
     path: '/price-history',
-    priority: 0.8,
+    priority: 1,
     changefreq: 'weekly',
   },
   {
@@ -31,27 +31,27 @@ const publicRoutes = [
   },
   {
     path: '/privacy',
-    priority: 0.8,
+    priority: 0.5,
     changefreq: 'monthly',
   },
   {
     path: '/changelog',
-    priority: 0.8,
+    priority: 0.5,
     changefreq: 'monthly',
   },
   {
     path: '/blog',
-    priority: 0.8,
+    priority: 1,
     changefreq: 'weekly',
   },
   {
     path: '/login',
-    priority: 0.8,
+    priority: 0.5,
     changefreq: 'monthly',
   },
   {
     path: '/register',
-    priority: 0.8,
+    priority: 0.5,
     changefreq: 'monthly',
   },
 ];
@@ -120,7 +120,7 @@ const main = async () => {
   blogPosts.forEach(blogPost => {
     publicRoutes.push({
       path: `/blog/${blogPost.slug}`,
-      priority: 0.5,
+      priority: 0.8,
       changefreq: 'weekly',
     });
   });

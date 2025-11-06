@@ -1,8 +1,8 @@
 <div align="center">
 
-### Install the browser extension and click the **Refresh** button (top-right) to fetch your hangar data
+### Install the browser extension and click the [Sync Hangar] button top-right to sync your hangar & buy-backs
 
-💡 **Note:** Please make sure you’re logged in to your [RSI account](https://robertsspaceindustries.com/en/) before using the extension.
+💡 **Note:** Please make sure you’re logged in at [robertsspaceindustries.com](https://robertsspaceindustries.com/en/) before using the extension.
 
 <table>
 <tr>

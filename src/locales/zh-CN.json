@@ -552,5 +552,9 @@
   "blog.comment.deleteError": "评论删除失败",
   "blog.comment.delete.confirmTitle": "确认删除",
   "blog.comment.delete.confirmMessage": "您确定要删除这条评论吗？此操作无法撤销。",
-  "blog.comment.delete.deleting": "删除中..."
+  "blog.comment.delete.deleting": "删除中...",
+  "crawler.sync": "同步机库",
+  "crawler.loginRequired": "请在 https://robertsspaceindustries.com/en/ 登录以同步您的机库数据",
+  "crawler.unknownItem": "未知物品",
+  "crawler.unknownBundle": "未知礼包"
 }

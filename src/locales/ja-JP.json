@@ -420,5 +420,9 @@
   "mediaLibrary.noImages": "画像が見つかりません",
   "mediaLibrary.copy": "コピー",
   "mediaLibrary.insert": "挿入",
-  "mediaLibrary.copied": "コピーしました"
+  "mediaLibrary.copied": "コピーしました",
+  "crawler.sync": "ハンガーを同期",
+  "crawler.loginRequired": "ハンガーデータを同期するには、https://robertsspaceindustries.com/en/ でログインしてください",
+  "crawler.unknownItem": "不明なアイテム",
+  "crawler.unknownBundle": "不明なバンドル"
 }

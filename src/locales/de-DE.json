@@ -420,5 +420,9 @@
   "mediaLibrary.noImages": "Keine Bilder gefunden",
   "mediaLibrary.copy": "Kopieren",
   "mediaLibrary.insert": "Einfügen",
-  "mediaLibrary.copied": "Kopiert"
+  "mediaLibrary.copied": "Kopiert",
+  "crawler.sync": "Hangar synchronisieren",
+  "crawler.loginRequired": "Bitte melden Sie sich unter https://robertsspaceindustries.com/en/ an, um Ihre Hangar-Daten zu synchronisieren",
+  "crawler.unknownItem": "Unbekannter Artikel",
+  "crawler.unknownBundle": "Unbekanntes Bundle"
 }

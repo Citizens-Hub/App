@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle, OtherItem } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
-import { Refresh } from "@mui/icons-material";
-import { IconButton, LinearProgress } from "@mui/material";
+// import { Refresh } from "@mui/icons-material";
+import { Button, LinearProgress, Snackbar, Alert } from "@mui/material";
 import { reportError } from "../report";
 import { Ship } from "../types";
-import { useIntl } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 
 // 定义请求类型接口
 interface RequestItem {
@@ -38,6 +38,15 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
   const totalRequestsRef = useRef(0);
   const completedRequestsRef = useRef(0);
   const [progress, setProgress] = useState(0);
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
   const requestQueueRef = useRef<RequestItem[]>([]);
   const activeRequestsRef = useRef<Set<string | number>>(new Set());
   const shipsRef = useRef<{
@@ -66,15 +75,15 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     isAnonymous: false,
   });
 
-  useEffect(() => {
-    if (isRefreshing) {
-      const timer = setTimeout(() => {
-        setIsRefreshing(false);
-      }, 1000);
+  // useEffect(() => {
+  //   if (isRefreshing) {
+  //     const timer = setTimeout(() => {
+  //       setIsRefreshing(false);
+  //     }, 1000);
 
-      return () => clearTimeout(timer);
-    }
-  }, [isRefreshing]);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [isRefreshing]);
 
   const dispatch = useDispatch();
 
@@ -180,7 +189,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           default:
             currentOthers.push({
               id: id,
-              name: itemName || "Unknown Item",
+              name: itemName || intl.formatMessage({ id: 'crawler.unknownItem', defaultMessage: 'Unknown Item' }),
               withImage: !!item.querySelectorAll(".image").length,
               image: itemImage?.startsWith("https://") ? itemImage : `https://robertsspaceindustries.com/${itemImage}`,
               type: itemType || "",
@@ -202,7 +211,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             name: ship.name
           })),
           others: currentOthers,
-          name: bundleName || "Unknown Bundle",
+          name: bundleName || intl.formatMessage({ id: 'crawler.unknownBundle', defaultMessage: 'Unknown Bundle' }),
           insurance: currentInsurance,
           value: parseInt((value as string).replace("$", "").replace(" USD", "")),
           isBuyBack: false,
@@ -231,7 +240,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       }
 
     });
-  }, [dispatch, ships, tryResolveCCU]);
+  }, [dispatch, ships, tryResolveCCU, intl]);
 
   const parseBuybackCCUs = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
@@ -363,6 +372,22 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (requestId === "user-info") {
           userRef.current = event.data.message.value.data[0].data.account;
 
+          if (userRef.current.isAnonymous) {
+            setNotification({
+              open: true,
+              message: intl.formatMessage({
+                id: 'crawler.loginRequired',
+                defaultMessage: 'Please log in at https://robertsspaceindustries.com/en/ to sync your hangar data'
+              }),
+              severity: 'warning',
+            });
+            setProgress(0);
+            completedRequestsRef.current = 0;
+            totalRequestsRef.current = 0;
+            setIsRefreshing(false);
+            return;
+          }
+
           sessionStorage.setItem("currentRSIAccount", event.data.message.value.data[0].data.account.id)
 
           dispatch(addUser(userRef.current));
@@ -487,13 +512,14 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           activeRequestsRef.current.delete(requestId);
         }
 
-        console.log("completed", requestId);
-
         completedRequestsRef.current++;
         setProgress(completedRequestsRef.current / totalRequestsRef.current * 100);
         if (completedRequestsRef.current >= totalRequestsRef.current) {
           setTimeout(() => {
             setProgress(0);
+            completedRequestsRef.current = 0;
+            totalRequestsRef.current = 0;
+            setIsRefreshing(false);
           }, 500);
         }
 
@@ -504,7 +530,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef, tryResolveCCU]);
+  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef, tryResolveCCU, intl]);
 
   return <>
     <div className="w-full flex flex-col items-center justify-center fixed top-0 left-0 right-0">
@@ -516,7 +542,54 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         />
       )}
     </div>
-    <IconButton
+    <Button
+      variant="text"
+      onClick={() => {
+        setIsRefreshing(true);
+        setProgress(0);
+        totalRequestsRef.current = 0;
+        completedRequestsRef.current = 0;
+
+        requestQueueRef.current = [];
+        activeRequestsRef.current.clear();
+        buybackCCUsRef.current = [];
+        buybackCCUsProcessedRef.current = 0;
+        shipsRef.current = [];
+
+        addToQueue({
+          type: "ccuPlannerAppIntegrationRequest",
+          message: {
+            type: "httpRequest",
+            request: {
+              url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+              data: null,
+              responseType: "json",
+              method: "post"
+            },
+            requestId: "set-auth-token"
+          }
+        });
+      }}
+      disabled={ships.length === 0 || isRefreshing}
+      aria-label={intl.formatMessage({ id: 'crawler.sync', defaultMessage: 'Sync Hangar' })}
+    >
+      <FormattedMessage id="crawler.sync" defaultMessage="Sync Hangar" />
+    </Button>
+    <Snackbar
+      open={notification.open}
+      autoHideDuration={6000}
+      onClose={() => setNotification({ ...notification, open: false })}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert
+        onClose={() => setNotification({ ...notification, open: false })}
+        severity={notification.severity}
+        sx={{ width: '100%' }}
+      >
+        {notification.message}
+      </Alert>
+    </Snackbar>
+    {/* <IconButton
       color="primary"
       size="small"
       onClick={() => {
@@ -549,6 +622,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       aria-label={intl.formatMessage({ id: 'crawler.refetch', defaultMessage: 'Refetch My Hangar Data' })}
     >
       <Refresh className={isRefreshing ? 'animate-spin' : ''} />
-    </IconButton>
+    </IconButton> */}
   </>
 }

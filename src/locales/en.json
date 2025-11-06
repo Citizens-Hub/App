@@ -432,5 +432,9 @@
   "blog.comment.deleteError": "Failed to delete comment",
   "blog.comment.delete.confirmTitle": "Confirm Delete",
   "blog.comment.delete.confirmMessage": "Are you sure you want to delete this comment? This action cannot be undone.",
-  "blog.comment.delete.deleting": "Deleting..."
+  "blog.comment.delete.deleting": "Deleting...",
+  "crawler.sync": "Sync Hangar",
+  "crawler.loginRequired": "Please log in at https://robertsspaceindustries.com/en/ to sync your hangar data",
+  "crawler.unknownItem": "Unknown Item",
+  "crawler.unknownBundle": "Unknown Bundle"
 }
