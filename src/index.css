@@ -23,8 +23,9 @@
 }
 
 @font-face{
-  font-family: 'ZhuoJianGanLanJianTi';
-  src : url('/fonts/ZhuoJianGanLanJianTi-Regular.ttf');
+  font-family: 'NotoSansSC';
+  src : url('/fonts/NotoSansSC-VariableFont_wght.ttf');
+  font-weight: variable;
 }
 
 @font-face{
@@ -60,7 +61,7 @@ a:hover {
 }
 
 * {
-  font-family: 'Quantico', 'ZhuoJianGanLanJianTi', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-family: 'Quantico', 'NotoSansSC', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
 .hide-scrollbar {

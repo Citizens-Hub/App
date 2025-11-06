@@ -377,8 +377,11 @@ export default function PriceHistory() {
           {/* Content area - Timeline or Chart based on view mode */}
           <>
             {mobileViewMode === 'timeline' ? (
-              <div className='flex-1 overflow-y-auto p-4 flex flex-col gap-2' role="list" aria-label={intl.formatMessage({ id: "priceHistory.timeline.label", defaultMessage: "Price history timeline for {shipName}" }, { shipName: selectedShip?.name || '' })}>
-                <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+              <div className='flex-1 overflow-y-auto p-4 flex flex-col gap-2'>
+                <PriceHistoryTimeline 
+                  history={selectedPriceHistory?.history || null} 
+                  ariaLabel={intl.formatMessage({ id: "priceHistory.timeline.label", defaultMessage: "Price history timeline for {shipName}" }, { shipName: selectedShip?.name || '' })}
+                />
               </div>
             ) : (
               <div className='flex-1 overflow-y-auto p-4 flex flex-col gap-2' role="figure" aria-label={intl.formatMessage({ id: "priceHistory.chart.label", defaultMessage: "Price history chart for {shipName}" }, { shipName: selectedShip?.name || '' })}>
@@ -511,7 +514,6 @@ export default function PriceHistory() {
                 >
                   <div
                     role="button"
-                    tabIndex={0}
                     aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "{shipName}'s price history" }, { shipName: ship.name })}
                     onClick={() => handleShipSelect(ship.id)}
                     className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
@@ -608,8 +610,11 @@ export default function PriceHistory() {
 
               {/* Chart and Timeline - Side by side layout */}
               <div className='flex-1 flex flex-row gap-4 min-h-0 mt-4'>
-                <div className='flex-[1] min-w-0 overflow-y-auto flex flex-col gap-2' role="list" aria-label={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}>
-                  <PriceHistoryTimeline history={selectedPriceHistory?.history || null} />
+                <div className='flex-[1] min-w-0 overflow-y-auto flex flex-col gap-2'>
+                  <PriceHistoryTimeline 
+                    history={selectedPriceHistory?.history || null} 
+                    ariaLabel={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}
+                  />
                 </div>
 
                 <div className='flex-[5] min-w-0 flex flex-col' role="figure" aria-label={intl.formatMessage({ id: 'priceHistory.chart.label', defaultMessage: 'Price history chart for {shipName}' }, { shipName: selectedShip.name })}>
@@ -1499,7 +1504,7 @@ function PriceHistoryChart({ history, currentMsrp, shipName }: { history: PriceH
 }
 
 // Price History Timeline Component
-function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['history'] | null }) {
+function PriceHistoryTimeline({ history, ariaLabel }: { history: PriceHistoryEntity['history'] | null; ariaLabel?: string }) {
   const intl = useIntl();
 
   // Helper function to check if edition indicates a discount version
@@ -1602,7 +1607,7 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
   }));
 
   return (
-    <div className='space-y-4'>
+    <ul className='space-y-4 list-none' aria-label={ariaLabel}>
       {processedHistory.map((entry, index) => {
         type ProcessedEntry = PriceHistoryEntity['history'][0] & { effectiveMsrp?: number; isUnavailable?: boolean };
         const processedEntry = entry as ProcessedEntry;
@@ -1610,9 +1615,9 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
         const isUnavailable = processedEntry.isUnavailable ?? false;
 
         return (
-          <div
+          <li
             key={index}
-            role="listitem"
+            tabIndex={0}
             className={`border-l-2 pl-4 py-2 text-left ${entry.change === '+' ? 'border-green-500' : 'border-red-500'}`}
             aria-label={entry.change === '+' ? intl.formatMessage({ id: "priceHistory.timeline.entry.added", defaultMessage: "An {edition} sku for {price} was added on {date}" }, {
               edition: entry.edition, price: (displayPrice ? displayPrice / 100 : "unknown").toLocaleString(intl.locale, { style: 'currency', currency: 'USD' }), date: new Date(entry.ts).toLocaleDateString(intl.locale, {
@@ -1668,10 +1673,10 @@ function PriceHistoryTimeline({ history }: { history: PriceHistoryEntity['histor
                   <FormattedMessage id="priceHistory.allSkusRemoved" defaultMessage="All SKUs removed" />
                 </div>
               )} */}
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 
