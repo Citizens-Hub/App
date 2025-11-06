@@ -36,6 +36,7 @@ import { Close } from '@mui/icons-material';
 import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import { useNavigate } from 'react-router';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -91,6 +92,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
 
 // Move main functionality to this child component
 function CcuCanvasContent() {
+  const navigate = useNavigate();
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -699,7 +701,10 @@ function CcuCanvasContent() {
                 onExport={handleExport}
                 onImport={handleImport}
                 onOpenPathBuilder={handleOpenPathBuilder}
-                onOpenGuide={() => setGuideOpen(true)}
+                onOpenGuide={() => {
+                  // setGuideOpen(true)
+                  navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale === 'zh-CN' ? '-zh' : ''))
+                }}
               />
             </div>
             <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
