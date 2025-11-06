@@ -10,6 +10,7 @@ import UserSelector from "@/components/UserSelector";
 import { Ship } from "@/types";
 import { Link } from "react-router";
 import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
+import MarkdownPreview from '@uiw/react-markdown-preview';
 
 interface DisplayEquipmentItem {
   pageId?: number;
@@ -181,6 +182,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const [showBuybacks, setShowBuybacks] = useState(true);
   const [expandedBundles, setExpandedBundles] = useState<{ [key: string]: boolean }>({});
   const [completedPaths] = useState<StoredCompletedPath[]>(JSON.parse(localStorage.getItem('completedPaths') || '[]'));
+  const [hangarMarkdown, setHangarMarkdown] = useState<string>('');
 
   const { locale } = intl;
   const { users } = useSelector((state: RootState) => state.upgrades);
@@ -243,6 +245,22 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
     processStoreData();
   }, [intl, items, ships]);
+
+  useEffect(() => {
+    const fetchHangarMarkdown = async () => {
+      try {
+        const response = await fetch('/docs/hangar.md');
+        if (response.ok) {
+          const text = await response.text();
+          setHangarMarkdown(text);
+        }
+      } catch (err) {
+        console.error('Failed to fetch hangar.md:', err);
+      }
+    };
+
+    fetchHangarMarkdown();
+  }, []);
 
   // 处理搜索
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,6 +432,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     page * rowsPerPage + rowsPerPage
   );
 
+  // Check if hangar is empty (based on original data, not filtered)
+  const isHangarEmpty = hangarShips.length === 0 && ccus.length === 0 && hangarBundles.length === 0;
+
   return (<>
     <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
       <div className='flex flex-col gap-2 items-center justify-center'>
@@ -422,82 +443,91 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       <UserSelector />
     </div>
 
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-      <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '60%' } }}>
-        <TextField
-          fullWidth
-          variant="outlined"
-          placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search ships and upgrades...' })}
-          value={searchTerm}
-          onChange={handleSearchChange}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              )
-            }
-          }}
-          size="small"
-        />
-      </Box>
-      <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '40%' } }}>
-        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1, display: 'flex', alignItems: 'center' }}>
-          <FormGroup row sx={{ width: '100%', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showBuybacks}
-                    onChange={handleBuybackFilterChange}
-                    size="small"
-                    color="primary"
-                  />
-                }
-                label={intl.formatMessage({ id: 'hangar.filter.showBuybacks', defaultMessage: 'Include Buybacks' })}
-                sx={{ minWidth: 'auto', mr: 0 }}
-              />
-            </Box>
-            <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showShips}
-                    onChange={handleShipFilterChange}
-                    size="small"
-                    color="primary"
-                  />
-                }
-                label={intl.formatMessage({ id: 'hangar.filter.showShips', defaultMessage: 'Ships & Bundles' })}
-                sx={{ minWidth: 'auto', mr: 2 }}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showCcus}
-                    onChange={handleCcuFilterChange}
-                    size="small"
-                    color="primary"
-                  />
-                }
-                label={intl.formatMessage({ id: 'hangar.filter.showCcus', defaultMessage: 'CCUs' })}
-                sx={{ minWidth: 'auto' }}
-              />
-            </Box>
-          </FormGroup>
+    {!isHangarEmpty && (
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '60%' } }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search ships and upgrades...' })}
+            value={searchTerm}
+            onChange={handleSearchChange}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                )
+              }
+            }}
+            size="small"
+          />
+        </Box>
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '40%' } }}>
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1, display: 'flex', alignItems: 'center' }}>
+            <FormGroup row sx={{ width: '100%', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showBuybacks}
+                      onChange={handleBuybackFilterChange}
+                      size="small"
+                      color="primary"
+                    />
+                  }
+                  label={intl.formatMessage({ id: 'hangar.filter.showBuybacks', defaultMessage: 'Include Buybacks' })}
+                  sx={{ minWidth: 'auto', mr: 0 }}
+                />
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showShips}
+                      onChange={handleShipFilterChange}
+                      size="small"
+                      color="primary"
+                    />
+                  }
+                  label={intl.formatMessage({ id: 'hangar.filter.showShips', defaultMessage: 'Ships & Bundles' })}
+                  sx={{ minWidth: 'auto', mr: 2 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showCcus}
+                      onChange={handleCcuFilterChange}
+                      size="small"
+                      color="primary"
+                    />
+                  }
+                  label={intl.formatMessage({ id: 'hangar.filter.showCcus', defaultMessage: 'CCUs' })}
+                  sx={{ minWidth: 'auto' }}
+                />
+              </Box>
+            </FormGroup>
+          </Box>
         </Box>
       </Box>
-    </Box>
+    )}
 
     {isLoading ? (
       <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography>
-    ) : filteredEquipment.length === 0 ? (
+    ) : isHangarEmpty ? (
       <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography variant="h6">
-          <FormattedMessage id="hangar.noEquipment" defaultMessage="No ships or upgrades in your hangar" />
-        </Typography>
+        {hangarMarkdown && (
+          <div className='overflow-auto px-[20px] max-w-[1200px] mx-auto'>
+            <MarkdownPreview
+              source={hangarMarkdown}
+              wrapperElement={{
+                'data-color-mode': document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+              }}
+            />
+          </div>
+        )}
       </Box>
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>

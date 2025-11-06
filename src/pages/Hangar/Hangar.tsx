@@ -47,12 +47,12 @@ export default function Hangar() {
             <FormattedMessage id="hangar.hangarDescription" defaultMessage="View items in your hangar here" />
           </Typography>
         </div>
-        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.ships", defaultMessage: "Ships" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Ships ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Ships)}>
+        {/* <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.ships", defaultMessage: "Ships" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Ships ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Ships)}>
           <FormattedMessage id="hangar.ships" defaultMessage="Ships" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="hangar.shipsDescription" defaultMessage="View ships and set predictions here" />
           </Typography>
-        </div>
+        </div> */}
         {isAuthenticated && <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.shared", defaultMessage: "Shared" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Shared ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Shared)}>
           <FormattedMessage id="hangar.shared" defaultMessage="Shared" />
           <Typography variant='body2' color='text.secondary'>
