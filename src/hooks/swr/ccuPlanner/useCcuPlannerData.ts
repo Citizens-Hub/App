@@ -17,9 +17,9 @@ interface ShipsResponse {
   };
 }
 
-interface WbHistoryResponse {
-  data: WbHistoryData[];
-}
+// interface WbHistoryResponse {
+//   data: WbHistoryData[];
+// }
 
 interface CurrencyResponse {
   usd: Record<string, number>;
@@ -43,12 +43,12 @@ export default function useCcuPlannerData() {
     isLoading: shipsLoading 
   } = useApi<ShipsResponse>('/api/ships');
 
-  // 使用SWR获取WB历史数据
-  const { 
-    data: wbHistoryData,
-    error: wbHistoryError,
-    isLoading: wbHistoryLoading 
-  } = useApi<WbHistoryResponse>('/api/wbs/history');
+  // // 使用SWR获取WB历史数据
+  // const { 
+  //   data: wbHistoryData,
+  //   error: wbHistoryError,
+  //   isLoading: wbHistoryLoading 
+  // } = useApi<WbHistoryResponse>('/api/wbs/history');
 
   // 使用SWR获取汇率数据
   const { 
@@ -78,14 +78,14 @@ export default function useCcuPlannerData() {
   }, [shipsData]);
 
   // 处理WB历史数据
-  const wbHistory = wbHistoryData?.data || [];
+  const wbHistory: WbHistoryData[] = [];
 
   // 处理汇率数据
   const exchangeRates = exchangeRateData?.usd || {};
 
   // 加载状态和错误处理
-  const loading = ccusLoading || shipsLoading || wbHistoryLoading || exchangeRateLoading;
-  const error = (ccusError || shipsError || wbHistoryError || exchangeRateError) 
+  const loading = ccusLoading || shipsLoading || exchangeRateLoading;
+  const error = (ccusError || shipsError || exchangeRateError) 
     ? 'Failed to load data' : null;
 
   const closeNewsModal = () => {

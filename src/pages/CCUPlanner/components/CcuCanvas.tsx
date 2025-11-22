@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuEdgeData, Ccu, WbHistoryData } from '@/types';
+import { Ship, CcuEdgeData, Ccu, WbHistoryData, PriceHistoryEntity } from '@/types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -45,9 +45,10 @@ interface CcuCanvasProps {
   exchangeRates: {
     [currency: string]: number;
   };
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
-export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: CcuCanvasProps) {
+export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, priceHistoryMap }: CcuCanvasProps) {
   const [alert, setAlert] = useState<{
     open: boolean,
     message: string,
@@ -65,6 +66,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates }: Ccu
       ccus={ccus}
       wbHistory={wbHistory}
       exchangeRates={exchangeRates}
+      priceHistoryMap={priceHistoryMap}
       setAlert={setAlert}
     >
       <CcuCanvasContent />
@@ -659,7 +661,7 @@ function CcuCanvasContent() {
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">
       <div className="min-w-[320px] w-full sm:w-fit sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
-        <ShipSelector ships={ships} ccus={ccus} wbHistory={wbHistory} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
+        <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
       <div className="md:w-full sm:h-full w-full h-full flex-1 relative" ref={reactFlowWrapper}>

@@ -3,11 +3,13 @@ import { LoaderCircle } from 'lucide-react'
 import CcuCanvas from './components/CcuCanvas'
 import { FormattedMessage } from 'react-intl'
 import NewsModal from './components/NewsModal'
-import { useCcuPlannerData } from '@/hooks'
+import { useCcuPlannerData, usePriceHistoryData } from '@/hooks'
 import { useEffect } from 'react'
 
 export default function CCUPlanner() {
   const { ships, ccus, wbHistory, exchangeRates, loading, showNewsModal, closeNewsModal } = useCcuPlannerData()
+
+  const { priceHistoryMap } = usePriceHistoryData();
 
   useEffect(() => {
     const queuedRequests: { from: number, to: number }[] = [];
@@ -125,7 +127,7 @@ export default function CCUPlanner() {
   return (
     <div className="h-[calc(100vh-65px)] w-[calc(100vw-4px)] md:w-full flex flex-col absolute top-[65px] left-0">
       <div className="flex-1 relative w-full h-full">
-        <CcuCanvas ships={ships} ccus={ccus} exchangeRates={exchangeRates} wbHistory={wbHistory} />
+        <CcuCanvas ships={ships} ccus={ccus} exchangeRates={exchangeRates} wbHistory={wbHistory} priceHistoryMap={priceHistoryMap} />
       </div>
 
       <NewsModal open={showNewsModal} onClose={closeNewsModal} />

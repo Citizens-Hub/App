@@ -8,6 +8,7 @@ import { Check, ShoppingCart } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { IconButton } from '@mui/material';
+import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -35,6 +36,7 @@ export default function CcuEdge({
   const { locale } = intl;
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
+  const { priceHistoryMap } = useCcuPlanner();
 
   // Check if the edge belongs to any completed path
   const isCompleted = useMemo(() => {
@@ -126,6 +128,7 @@ export default function CcuEdge({
     importItems: data.importItems,
     currency: selectedCurrency,
     customPrice: data.customPrice,
+    priceHistoryMap: priceHistoryMap,
   });
 
   const ccuAvailable = data.ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;

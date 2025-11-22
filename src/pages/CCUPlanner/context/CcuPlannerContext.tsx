@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, ReactNode } from 'react';
-import { Ship, Ccu, WbHistoryData, HangarItem } from '../../../types';
+import { Ship, Ccu, WbHistoryData, HangarItem, PriceHistoryEntity } from '../../../types';
 import { useSelector } from 'react-redux';
 import { selectHangarItems } from '../../../store/upgradesStore';
 import { selectImportItems } from '../../../store/importStore';
@@ -15,6 +15,7 @@ interface CcuPlannerProviderProps {
   ships: Ship[];
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
   exchangeRates: {
     [currency: string]: number;
   };
@@ -27,12 +28,12 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   ccus,
   wbHistory,
   exchangeRates,
+  priceHistoryMap,
   setAlert
 }) => {
   // Get upgrades and import items from Redux
   const upgrades = useSelector(selectHangarItems);
   const importItems = useSelector(selectImportItems);
-  
   // Initialize services
   const edgeService = useMemo(() => new CcuEdgeService(), []);
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
@@ -75,9 +76,10 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
       ccus,
       wbHistory,
       hangarItems,
-      importItems
+      importItems,
+      priceHistoryMap
     };
-  }, [ccus, wbHistory, hangarItems, importItems]);
+  }, [ccus, wbHistory, hangarItems, importItems, priceHistoryMap]);
   
   // Load completed paths on initialization
   useEffect(() => {
@@ -98,7 +100,8 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
     pathFinderService,
     getServiceData,
     handlePathCompletionChange,
-    showAlert
+    showAlert,
+    priceHistoryMap
   };
   
   return (

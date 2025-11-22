@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem } from '../../../types';
+import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem, PriceHistoryEntity } from '../../../types';
 import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
@@ -11,6 +11,7 @@ export interface ServiceData {
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
   importItems: ImportItem[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
 // Define context type
@@ -21,6 +22,7 @@ export interface CcuPlannerContextType {
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
   importItems: ImportItem[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
   exchangeRates: {
     [currency: string]: number;
   };

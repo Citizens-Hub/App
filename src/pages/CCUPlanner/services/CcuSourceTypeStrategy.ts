@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, HangarItem, ImportItem, Ship, WbHistoryData } from "../../../types";
+import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 
 /**
@@ -7,6 +7,7 @@ import { IntlShape } from "react-intl";
 export interface CalculatePriceOptions {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
   hangarItems: HangarItem[];
   importItems: ImportItem[];
   customPrice?: number;
@@ -391,15 +392,12 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
-    const wbHistory = options?.wbHistory || [];
-    
-    const historical = wbHistory.find(wb => 
-      wb.name.trim().toUpperCase() === targetShip.name.trim().toUpperCase() && 
-      wb.price !== ''
-    );
+    // const wbHistory = options?.wbHistory || [];
+    const priceHistoryMap = options?.priceHistoryMap || {};
+    const historical = priceHistoryMap[targetShip.id]?.history.find(h => h.msrp !== h.baseMsrp);
     
     if (historical) {
-      const historicalPrice = Number(historical.price);
+      const historicalPrice = Number(historical.msrp) / 100;
       const sourceShipPrice = sourceShip.msrp / 100;
       
       return {

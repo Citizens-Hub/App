@@ -31,13 +31,13 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { locale } = intl;
   
   // Get data and services from context
-  const { ccus, wbHistory, hangarItems, importItems, edgeService } = useCcuPlanner();
+  const { ccus, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
   
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
-  const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
+  const historical = priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp)
 
   // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
@@ -270,9 +270,9 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(wb.price / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
-                  {historical && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historical.price) && (
+                  {historical && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historical.msrp) / 100 && (
                     <option value={CcuSourceType.HISTORICAL}>
-                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {Number(historical.price).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historical.price)- Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {(Number(historical.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historical.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
                   {
