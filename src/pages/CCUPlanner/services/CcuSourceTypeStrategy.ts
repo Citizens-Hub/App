@@ -44,7 +44,8 @@ export interface CcuSourceTypeStrategy {
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
     hangarItems: HangarItem[],
-    importItems: ImportItem[]
+    importItems: ImportItem[],
+    priceHistoryMap: Record<number, PriceHistoryEntity>
   ): boolean;
   
   // Get auto-selection priority
@@ -421,13 +422,15 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
     };
   }
   
-  isApplicable(sourceShip: Ship, targetShip: Ship, _ccus: Ccu[], wbHistory: WbHistoryData[]): boolean {
-    const historical = wbHistory.find(wb => 
-      wb.name.trim().toUpperCase() === targetShip.name.trim().toUpperCase() && 
-      wb.price !== ''
-    );
+  isApplicable(sourceShip: Ship, targetShip: Ship, _ccus: Ccu[], _wbHistory: WbHistoryData[], _hangarItems: HangarItem[], _importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity>): boolean {
+    // const historical = wbHistory.find(wb => 
+    //   wb.name.trim().toUpperCase() === targetShip.name.trim().toUpperCase() && 
+    //   wb.price !== ''
+    // );
+
+    const historical = priceHistoryMap[targetShip.id]?.history.find(h => h.msrp !== h.baseMsrp);
     
-    return !!historical && Number(historical.price) > sourceShip.msrp / 100;
+    return !!historical && Number(historical.msrp) / 100 > sourceShip.msrp / 100;
   }
   
   getPriority(): number {

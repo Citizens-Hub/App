@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, Ship, WbHistoryData } from "../../../types";
+import { Ccu, CcuSourceType, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { 
   CcuSourceTypeStrategy, 
   OfficialStrategy,
@@ -93,11 +93,12 @@ export class CcuSourceTypeStrategyFactory {
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
     hangarItems: HangarItem[],
-    importItems: ImportItem[]
+    importItems: ImportItem[],
+    priceHistoryMap: Record<number, PriceHistoryEntity>
   ): CcuSourceTypeStrategy[] {
     return Array.from(this.strategies.values())
       .filter(strategy => 
-        strategy.isApplicable(sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems)
+        strategy.isApplicable(sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems, priceHistoryMap)
       );
   }
   
@@ -110,7 +111,8 @@ export class CcuSourceTypeStrategyFactory {
     ccus: Ccu[], 
     wbHistory: WbHistoryData[], 
     hangarItems: HangarItem[],
-    importItems: ImportItem[]
+    importItems: ImportItem[],
+    priceHistoryMap: Record<number, PriceHistoryEntity>
   ): CcuSourceTypeStrategy {
     // Get all applicable strategies
     const applicableStrategies = this.getApplicableStrategies(
@@ -119,7 +121,8 @@ export class CcuSourceTypeStrategyFactory {
       ccus, 
       wbHistory, 
       hangarItems,
-      importItems
+      importItems,
+      priceHistoryMap
     );
     
     if (applicableStrategies.length === 0) {

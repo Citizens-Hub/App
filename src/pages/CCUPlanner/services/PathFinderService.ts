@@ -1,5 +1,5 @@
 import { Edge, Node } from 'reactflow';
-import { Ccu, CcuEdgeData, CcuSourceType, ImportItem, Ship, WbHistoryData } from '../../../types';
+import { Ccu, CcuEdgeData, CcuSourceType, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from '../../../types';
 import { CcuSourceTypeStrategyFactory, HangarItem } from './CcuSourceTypeFactory';
 
 interface PathNode {
@@ -94,7 +94,7 @@ export class PathFinderService {
   /**
    * Get price and currency based on different source types
    */
-  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[] }): { usdPrice: number; tpPrice: number; isUsedUp?: boolean } {
+  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity> }): { usdPrice: number; tpPrice: number; isUsedUp?: boolean } {
     if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
 
     const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
@@ -114,7 +114,8 @@ export class PathFinderService {
       ccus: data.ccus,
       wbHistory: data.wbHistory,
       hangarItems: data.hangarItems,
-      importItems: data.importItems
+      importItems: data.importItems,
+      priceHistoryMap: data.priceHistoryMap
     }) as { price: number; currency: string; isUsedUp?: boolean };
     
     // 根据货币类型分配价格
@@ -159,7 +160,7 @@ export class PathFinderService {
     allPaths: string[][] = [],
     currentUsdCost = 0,
     currentThirdPartyCost = 0,
-    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[] }
+    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity> }
   ): string[][] {
     currentPath.push(startNode.id);
     visited.add(startNode.id);
@@ -186,7 +187,8 @@ export class PathFinderService {
             ccus: data.ccus,
             wbHistory: data.wbHistory,
             hangarItems: data.hangarItems,
-            importItems: data.importItems
+            importItems: data.importItems,
+            priceHistoryMap: data.priceHistoryMap
           });
 
           // 跳过使用已用完CCU的边，除非该边属于已完成的路径
@@ -240,7 +242,7 @@ export class PathFinderService {
     edges: Edge<CcuEdgeData>[],
     nodes: Node[],
     startShipPrices: Record<string, number | string>,
-    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[] }
+    data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity> }
   ): CompletePath[] {
     return pathIds.map(pathId => {
       const pathNodes: PathNode[] = pathId.map(id => {
@@ -282,7 +284,8 @@ export class PathFinderService {
             ccus: data.ccus,
             wbHistory: data.wbHistory,
             hangarItems: data.hangarItems,
-            importItems: data.importItems
+            importItems: data.importItems,
+            priceHistoryMap: data.priceHistoryMap
           });
           totalUsdPrice += usdPrice;
           totalThirdPartyPrice += tpPrice;

@@ -1,4 +1,4 @@
-import { Ccu, CcuEdgeData, CcuSourceType, Ship, WbHistoryData } from "../../../types";
+import { Ccu, CcuEdgeData, CcuSourceType, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { CcuSourceTypeStrategyFactory, HangarItem, ImportItem } from "./CcuSourceTypeFactory";
 
 export interface CcuEdgeCreationOptions {
@@ -8,6 +8,7 @@ export interface CcuEdgeCreationOptions {
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
   importItems: ImportItem[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
 /**
@@ -24,7 +25,7 @@ export class CcuEdgeService {
    * Create new CCU Edge
    */
   public createEdgeData(options: CcuEdgeCreationOptions): CcuEdgeData {
-    const { sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems } = options;
+    const { sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = options;
     
     const priceDifference = targetShip.msrp - sourceShip.msrp;
     
@@ -34,14 +35,16 @@ export class CcuEdgeService {
       ccus, 
       wbHistory, 
       hangarItems,
-      importItems
+      importItems,
+      priceHistoryMap
     );
     
     const priceInfo = strategy.calculatePrice(sourceShip, targetShip, { 
       ccus, 
       wbHistory, 
       hangarItems,
-      importItems
+      importItems,
+      priceHistoryMap
     });
     
     const edgeData: CcuEdgeData = {
@@ -52,7 +55,8 @@ export class CcuEdgeService {
       ccus,
       wbHistory,
       hangarItems,
-      importItems
+      importItems,
+      priceHistoryMap
     };
 
     edgeData.customPrice = priceInfo.price;

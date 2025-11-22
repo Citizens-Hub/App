@@ -158,6 +158,7 @@ export interface CcuEdgeData {
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
   importItems: ImportItem[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
 export interface WbHistoryData {
