@@ -22,6 +22,7 @@ export class ImportExportService {
           ccus: [],
           wbHistory: [],
           hangarItems: [],
+          priceHistoryMap: {},
           ship: {
             id: node.data.ship.id,
             name: node.data.ship.name
@@ -51,6 +52,7 @@ export class ImportExportService {
           ccus: [],
           wbHistory: [],
           hangarItems: [],
+          priceHistoryMap: {},
           sourceShip: {
             id: edge.data?.sourceShip?.id,
             name: edge.data?.sourceShip?.name
@@ -91,6 +93,7 @@ export class ImportExportService {
           ccus: [],
           wbHistory: [],
           hangarItems: [],
+          priceHistoryMap: {},
           ship: {
             id: node.data.ship.id,
             name: node.data.ship.name
@@ -120,6 +123,7 @@ export class ImportExportService {
           ccus: [],
           wbHistory: [],
           hangarItems: [],
+          priceHistoryMap: {},
           sourceShip: {
             id: edge.data?.sourceShip?.id,
             name: edge.data?.sourceShip?.name
