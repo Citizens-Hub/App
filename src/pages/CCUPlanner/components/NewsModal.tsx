@@ -1,26 +1,95 @@
-import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
-import { Close } from '@mui/icons-material';
-import { FormattedMessage, useIntl } from 'react-intl';
-import DiscordIcon from '@/icons/DiscordIcon';
-import { Link } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Typography, Box, CircularProgress, Tabs, Tab, Dialog } from '@mui/material';
+import MarkdownPreview from '@uiw/react-markdown-preview';
+import { useLocale } from '@/contexts/LocaleContext';
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`privacy-tabpanel-${index}`}
+      aria-labelledby={`privacy-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ pt: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `privacy-tab-${index}`,
+    'aria-controls': `privacy-tabpanel-${index}`,
+  };
+}
 interface NewsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
-  const { locale } = useIntl()
+  const { locale } = useLocale();
+  const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
+  const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(locale === 'zh-CN' ? 0 : 1);
 
-  const handleClose = () => {
-    onClose();
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
   };
+
+  useEffect(() => {
+    const fetchChangelogs = async () => {
+      try {
+        setLoading(true);
+
+        // Get Chinese changelog
+        const chineseResponse = await fetch('/docs/news.md');
+        if (!chineseResponse.ok) {
+          throw new Error(`Unable to fetch Chinese news: ${chineseResponse.status}`);
+        }
+        const chineseText = await chineseResponse.text();
+        setChineseMarkdown(chineseText);
+
+        // Get English changelog
+        const englishResponse = await fetch('/docs/news.en.md');
+        if (!englishResponse.ok) {
+          throw new Error(`Unable to fetch English news: ${englishResponse.status}`);
+        }
+        const englishText = await englishResponse.text();
+        setEnglishMarkdown(englishText);
+
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching guide:', err);
+        setError((err as Error).message || 'Error fetching guide');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChangelogs();
+  }, []); 
 
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
-      maxWidth="md"
+      onClose={onClose}
+      maxWidth="lg"
       fullWidth
       slotProps={{
         paper: {
@@ -31,75 +100,57 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
         }
       }}
     >
-      <DialogTitle sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        pb: 1
-      }}>
-        <Typography variant="h5" component="p" fontWeight="bold">
-          <FormattedMessage id="newsModal.title" defaultMessage="Hello" />
-        </Typography>
-        <IconButton onClick={handleClose} size="large">
-          <Close />
-        </IconButton>
-      </DialogTitle>
+      <div className='w-full h-full overflow-auto'>
+        <Box sx={{ mt: 4, maxWidth: '1200px', margin: '0 auto' }}>
+          {loading && (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress />
+            </Box>
+          )}
 
-      <DialogContent>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.welcome" defaultMessage="Welcome to the Star Citizen Upgrade Planner" />
-          </Typography>
-          <Typography component="p">
-            <FormattedMessage id="newsModal.developmentStage" defaultMessage="This tool is still in the development stage, if you find any bugs, please contact me" />
-          </Typography>
-          <Typography component="p">
-            <FormattedMessage id="newsModal.dataSource" defaultMessage="The data of this tool is collected manually, if there are any omissions, please contact me to modify" />
-          </Typography>
-          <Typography component="p">
-            <FormattedMessage id="newsModal.contact" defaultMessage="" />
-          </Typography>
-        </Box>
-
-        {locale === "en" &&
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Join our Discord server to get the latest news and updates:
+          {error && (
+            <Typography color="error">
+              {error}
             </Typography>
-            <Link to="https://discord.gg/AEuRtb5Vy8" target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
-              <DiscordIcon />
-              https://discord.gg/AEuRtb5Vy8
-            </Link>
-          </Box>
-        }
+          )}
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            <FormattedMessage id="newsModal.newFeature" defaultMessage="New feature" />
-          </Typography>
-          <Typography component="p">
-            <FormattedMessage id="newsModal.newFeatureDescription" defaultMessage="You can now set the priority of CCU sources used by default when creating connections in the {settings}" values={{
-              settings: <Link to="/app-settings"><FormattedMessage id="newsModal.settings" defaultMessage="App Settings" /></Link>
-            }} />
-          </Typography>
-          <img
-            src="/imgs/new-feature.png"
-            alt="New feature"
-            className="w-full h-auto"
-          />
-        </Box>
+          {!loading && !error && (
+            <Box>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={tabValue} onChange={handleTabChange} centered>
+                  <Tab label="中文" {...a11yProps(0)} />
+                  <Tab label="English" {...a11yProps(1)} />
+                </Tabs>
+              </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleClose}
-            size="large"
-          >
-            <FormattedMessage id="newsModal.understood" defaultMessage="Got it" />
-          </Button>
+              <TabPanel value={tabValue} index={0}>
+                <Box sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 1,
+                  p: 3,
+                  textAlign: 'left',
+                  margin: '0 auto'
+                }}>
+                  <MarkdownPreview source={chineseMarkdown} />
+                </Box>
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={1}>
+                <Box sx={{
+                  backgroundColor: 'background.paper',
+                  borderRadius: 1,
+                  p: 3,
+                  textAlign: 'left',
+                  margin: '0 auto'
+                }}
+                >
+                  <MarkdownPreview source={englishMarkdown} />
+                </Box>
+              </TabPanel>
+            </Box>
+          )}
         </Box>
-      </DialogContent>
+      </div>
     </Dialog>
   );
 } 
