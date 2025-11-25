@@ -41,7 +41,7 @@ export class PathBuilderService {
     // Create a mapping of ships to actual prices
     const shipActualPrices = new Map<string, number>();
     uniqueShips.forEach(ship => {
-      shipActualPrices.set(ship.id.toString(), this._getShipPrice(ship, ccus, wbHistory, stepShips[1]));
+      shipActualPrices.set(ship.id.toString(), this._getShipPrice(ship, ccus, wbHistory, stepShips[1], priceHistoryMap));
     });
     
     // Sort ships by actual price
@@ -96,7 +96,7 @@ export class PathBuilderService {
   /**
    * Get ship price (considering discounts)
    */
-  private _getShipPrice(ship: Ship, ccus: Ccu[], wbHistory: WbHistoryData[], targetShips: Ship[]): number {
+  private _getShipPrice(ship: Ship, ccus: Ccu[], _wbHistory: WbHistoryData[], targetShips: Ship[], priceHistoryMap: Record<number, PriceHistoryEntity>): number {
     // First check if it is a historical or WB named ship
     let checkedShipName = ship.name;
 
@@ -109,14 +109,16 @@ export class PathBuilderService {
       checkedShipName = matchingTargetShip.name;
     }
 
-    const actualShipName = checkedShipName.replace('-wb', '').replace('-historical', '');
+    // const actualShipName = checkedShipName.replace('-wb', '').replace('-historical', '');
 
     if (checkedShipName.endsWith('-wb')) {
       return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
     } else if (checkedShipName.endsWith('-historical')) {
-      const historicalPrice = Number(wbHistory.find(wb =>
-        wb.name.toUpperCase() === actualShipName.toUpperCase() ||
-        wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
+      const historicalPrice = priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp)?.msrp
+
+      // const historicalPrice = Number(wbHistory.find(wb =>
+      //   wb.name.toUpperCase() === actualShipName.toUpperCase() ||
+      //   wb.name.toUpperCase() === ship.name.trim().toUpperCase())?.price) * 100;
 
       return historicalPrice || ship.msrp;
     }
@@ -237,7 +239,7 @@ export class PathBuilderService {
     wbHistory: WbHistoryData[],
     priceHistoryMap: Record<number, PriceHistoryEntity>,
     hangarItems: HangarItem[],
-    importItems: ImportItem[],
+    _importItems: ImportItem[],
     _shipActualPrices: Map<string, number>,
     newEdges: Edge<CcuEdgeData>[]
   ): void {
@@ -246,7 +248,7 @@ export class PathBuilderService {
         for (let i = index - 1; i >= 0; i--) {
           const sourceShips = levelShips[i].filter(ship => {
             const originShip = stepShips[1].find(s => s.id === ship.data.ship.id);
-            const targetShipCost = this._getShipPrice(targetShip.data.ship, ccus, wbHistory, stepShips[1]);
+            const targetShipCost = this._getShipPrice(targetShip.data.ship, ccus, wbHistory, stepShips[1], priceHistoryMap);
 
             const exactMatchCCU = (hangarItems.some(upgrade => 
               upgrade.fromShip?.toUpperCase() === ship.data.ship.name.trim().toUpperCase() && 
@@ -284,11 +286,11 @@ export class PathBuilderService {
                 sourceShip: sourceShip.data.ship,
                 targetShip: targetShip.data.ship,
                 sourceType: CcuSourceType.OFFICIAL,
-                ccus,
-                wbHistory,
-                hangarItems,
-                importItems,
-                priceHistoryMap
+                // ccus,
+                // wbHistory,
+                // hangarItems,
+                // importItems,
+                // priceHistoryMap
               };
 
               if (hangarCcu) {

@@ -52,11 +52,11 @@ export class CcuEdgeService {
       sourceShip,
       targetShip,
       sourceType: strategy.getTypeId(),
-      ccus,
-      wbHistory,
-      hangarItems,
-      importItems,
-      priceHistoryMap
+      // ccus,
+      // wbHistory,
+      // hangarItems,
+      // importItems,
+      // priceHistoryMap
     };
 
     edgeData.customPrice = priceInfo.price;

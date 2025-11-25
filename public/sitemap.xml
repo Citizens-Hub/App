@@ -2,1549 +2,1567 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://citizenshub.app/</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/ccu-planner</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/hangar</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/store-preview</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/privacy</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/changelog</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/login</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/register</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/aurora-es</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/aurora-lx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/aurora-mr</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/aurora-cl</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/aurora-ln</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/300i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/315p</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/325a</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/350r</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-hornet-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-s-hornet-ghost-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-r-hornet-tracker-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-m-super-hornet-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/freelancer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/m50</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/caterpillar</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/scythe</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/idris-m</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/idris-p</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/freelancer-dur</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/freelancer-max</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/freelancer-mis</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/khartu-al</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/merchantman</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7a-hornet-mk-ii</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hull-c</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/constellation-andromeda</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/constellation-taurus</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/constellation-aquila</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/constellation-phoenix</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/reclaimer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/890-jump</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutlass-black</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutlass-red</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutlass-blue</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/redeemer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/gladius</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/herald</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/carrack</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/javelin</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/gladiator</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-alpha</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-beta</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-gamma</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-delta</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-omega</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/orion</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vanguard-warden</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hull-a</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hull-b</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hull-d</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hull-e</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/starfarer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/starfarer-gemini</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/reliant-kore</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/genesis</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/p-52-merlin</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/glaive</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vanguard-harbinger</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vanguard-sentinel</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/endeavor</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/sabre</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/retaliator</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/avenger-stalker</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/avenger-warlock</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/avenger-titan</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/crucible</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/p-72-archimedes</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/reliant-mako</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/reliant-sen</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/reliant-tana</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/blade</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/prospector</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/buccaneer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/dragonfly-yellowjacket</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/dragonfly-black</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mpuv-personnel</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mpuv-cargo</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/terrapin</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/polaris</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/prowler</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/sabre-comet</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/gladius-valiant</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-hornet-wildfire-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/85x</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/avenger-titan-renegade</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/caterpillar-pirate-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/razor</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vanguard-hoplite</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hurricane</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/defender</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/eclipse</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nox</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nox-kue</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone-tr</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone-rc</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone-rn</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone-aa</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ursa</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/600i-touring</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/600i-explorer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/x1</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/x1-velocity</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/x1-force</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/sabre-raven</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/pioneer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hawk</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hammerhead</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nova</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vulcan</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/constellation-phoenix-emerald</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/razor-ex</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/razor-lx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/100i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/125a</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/135c</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/c2-hercules</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/m2-hercules</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/a2-hercules</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/vulture</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/apollo-triage</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/apollo-medivac</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mercury</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/valkyrie</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/kraken</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/valkyrie-liberator-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mustang-alpha-vindicator</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/arrow</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/santokyi</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/kraken-privateer</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/srv</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-m-super-hornet-heartseeker-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/corsair</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ursa-fortuna</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ranger-rc</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ranger-tr</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ranger-cv</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ballista</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/anvil-ballista-snowblind</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/anvil-ballista-dunestalker</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nautilus</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nautilus-solstice-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/gladius-pirate-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mantis</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/c8-pisces</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/c8x-pisces-expedition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://citizenshub.app/price-history/cutlass-black-best-in-show-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <loc>https://citizenshub.app/price-history/cutlass-black-best-in-show-edition-2949</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://citizenshub.app/price-history/caterpillar-best-in-show-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <loc>https://citizenshub.app/price-history/caterpillar-best-in-show-edition-2949</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hammerhead-best-in-show-edition-2949</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://citizenshub.app/price-history/reclaimer-best-in-show-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <loc>https://citizenshub.app/price-history/reclaimer-best-in-show-edition-2949</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ares-inferno</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ares-ion</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mole</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/argo-mole-carbon-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/argo-mole-talus-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/carrack-wc8x</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/carrack-expedition-wc8x</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/carrack-expedition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/p-72-archimedes-emerald</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/g12</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/g12r</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/g12a</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/talon</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/talon-shrike</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/roc</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ptv</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/nomad</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/perseus</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cyclone-mt</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/roc-ds</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/scorpius</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/railen</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/400i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/liberator</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/spartan</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/raft</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/odyssey</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutlass-steel</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/hoverquad</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/expanse</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mule</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/legionnaire</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/centurion</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/c1-spirit</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/a1-spirit</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/e1-spirit</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/stv</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/c8r-pisces</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutter</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/scorpius-antares</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/galaxy</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/lynx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/fury</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/fury-mx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/storm</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/fury-lx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/zeus-mk-ii-es</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/zeus-mk-ii-mr</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/zeus-mk-ii-cl</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutter-scout</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/arrastra</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f8c-lightning</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f8c-lightning-executive-edition</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/storm-aa</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/syulen</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/cutter-rambler</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/sabre-firebird</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mpuv-tractor</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7a-hornet-mk-i</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-hornet-mk-ii</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/pulse</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/pulse-lx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ursa-medivac</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ironclad</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/ironclad-assault</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/sabre-peregrine</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/atls</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/starlancer-max</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/starlancer-tac</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/intrepid</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/csv-sm</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/paladin</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/terrapin-medic</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-r-hornet-tracker-mk-ii</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/f7c-s-hornet-ghost-mk-ii</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/guardian</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/guardian-qi</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/fortune</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://citizenshub.app/price-history/f7c-s-hornet-ghost-mk-ii-copy</loc>
-    <lastmod>2025-11-22</lastmod>
+    <loc>https://citizenshub.app/price-history/f7c-m-super-hornet-mk-ii</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/golem</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/atls-geo</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/mtc</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/guardian-mx</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/asgard</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/prowler-utility</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/meteor</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/l-21-wolf</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/stinger</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/shiv</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://citizenshub.app/price-history/l-22-alpha-wolf</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/price-history/salvation</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://citizenshub.app/price-history/clipper</loc>
+    <lastmod>2025-11-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://citizenshub.app/price-history/golem-ox</loc>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/about-sub-store</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/new-feature-ship-price-history</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/new-feature-price-history-zh</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/ship-upgrades-101-how-to-get-the-ship-you-want-at-the-lowest-price</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/what-is-a-ccu-in-star-citizen</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://citizenshub.app/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path-zh</loc>
-    <lastmod>2025-11-22</lastmod>
+    <lastmod>2025-11-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

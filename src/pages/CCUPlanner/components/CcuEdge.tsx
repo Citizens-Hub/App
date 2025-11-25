@@ -36,7 +36,7 @@ export default function CcuEdge({
   const { locale } = intl;
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
-  const { priceHistoryMap } = useCcuPlanner();
+  const { priceHistoryMap, ccus, wbHistory, hangarItems, importItems } = useCcuPlanner();
 
   // Check if the edge belongs to any completed path
   const isCompleted = useMemo(() => {
@@ -122,16 +122,16 @@ export default function CcuEdge({
   const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
 
   const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
-    ccus: data.ccus,
-    wbHistory: data.wbHistory,
-    hangarItems: data.hangarItems,
-    importItems: data.importItems,
+    ccus,
+    wbHistory,
+    hangarItems,
+    importItems,
     currency: selectedCurrency,
     customPrice: data.customPrice,
     priceHistoryMap: priceHistoryMap,
   });
 
-  const ccuAvailable = data.ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;
+  const ccuAvailable = ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;
 
   return (
     <>
@@ -169,7 +169,7 @@ export default function CcuEdge({
             {
               [CcuSourceType.AVAILABLE_WB, CcuSourceType.OFFICIAL].includes(sourceType) && ccuAvailable && (
                 <IconButton size="small" onClick={() => {
-                  const sku = data.ccus.find(c => c.id === data.targetShip?.id)?.skus
+                  const sku = ccus.find(c => c.id === data.targetShip?.id)?.skus
                     .filter(s => s.price <= (data.targetShip?.msrp || 0))
                     .sort((a, b) => a.price - b.price)[0];
                   if (sku && data.sourceShip?.id && data.targetShip?.id) {
