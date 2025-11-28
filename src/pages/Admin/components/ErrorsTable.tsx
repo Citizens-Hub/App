@@ -141,17 +141,16 @@ export default function ErrorsTable() {
                 </TableCell>
                 <TableCell className="text-nowrap">
                   <div className="flex items-center gap-2">
-                    {Object.values(ErrorTypes).includes(item.errorType as ErrorTypes) ? <Bug className="w-4 h-4 text-red-400" /> : <ShieldQuestion className="w-4 h-4 text-yellow-400" />}
                     {(() => {
                       switch (item.errorType) {
                         case ErrorTypes.BUYBACK_CCU_PARSING_ERROR:
-                          return "回购解析错误"
+                          return <><Bug className="w-4 h-4 text-yellow-400" /> "回购解析错误"</>
                         case ErrorTypes.RENDER_ERROR:
-                          return "渲染错误"
+                          return <><Bug className="w-4 h-4 text-red-400" /> "渲染错误"</>
                         case ErrorTypes.CCU_PARSING_ERROR:
-                          return "CCU解析错误"
+                          return <><Bug className="w-4 h-4 text-yellow-400" /> "CCU解析错误"</>
                         default:
-                          return item.errorType
+                          return <><ShieldQuestion className="w-4 h-4 text-red-400" /> item.errorType</>
                       }
                     })()}
                   </div>
