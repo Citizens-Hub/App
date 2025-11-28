@@ -45,6 +45,7 @@ const logError = (error: Error, info: ErrorInfo) => {
   reportError({
     errorType: 'Render Error',
     errorMessage: String(error),
+    appVersion: __BUILD_TIME__,
     callStack: info.componentStack || undefined
   })
 };

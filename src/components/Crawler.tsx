@@ -131,6 +131,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           content,
           error: String(error),
         }),
+        appVersion: __BUILD_TIME__
       });
       return false;
     }
@@ -275,6 +276,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             toSku,
             li: li.outerHTML,
           }),
+          appVersion: __BUILD_TIME__
         });
         return;
       }
