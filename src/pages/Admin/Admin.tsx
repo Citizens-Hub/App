@@ -2,9 +2,11 @@ import { Typography } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import ErrorsTable from './components/ErrorsTable';
+import BiTable from './components/BiTable';
 
 enum Page {
   Errors = 'errors',
+  Bi = "bi"
 }
 
 export default function Admin() {
@@ -19,10 +21,17 @@ export default function Admin() {
             <FormattedMessage id="admin.erroesDescription" defaultMessage="View all catched errors" />
           </Typography>
         </div>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Bi ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Bi)}>
+          <FormattedMessage id="admin.bi" defaultMessage="Catched Errors" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="admin.biDescription" defaultMessage="View all catched errors" />
+          </Typography>
+        </div>
       </div>
 
-      <div className='p-4 w-full h-[calc(100vh-128px-65px)] overflow-y-auto sm:mt-28'>
+      <div className='p-4 w-full h-[calc(100vh-65px)] overflow-y-auto'>
         {currentPage === Page.Errors && <ErrorsTable />}
+        {currentPage === Page.Bi && <BiTable />}
       </div>
     </div>
   );

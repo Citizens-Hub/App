@@ -556,5 +556,10 @@
   "crawler.sync": "同步机库",
   "crawler.loginRequired": "请在 https://robertsspaceindustries.com/en/ 登录以同步您的机库数据",
   "crawler.unknownItem": "未知物品",
-  "crawler.unknownBundle": "未知礼包"
+  "crawler.unknownBundle": "未知礼包",
+  "admin.noErrors": "暂无新错误",
+  "admin.errors": "错误日志",
+  "admin.erroesDescription": "Bi 回报错误日志",
+  "admin.bi": "数据埋点",
+  "admin.biDescription": "埋点回报数据"
 }
