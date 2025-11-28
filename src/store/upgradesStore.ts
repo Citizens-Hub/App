@@ -277,3 +277,5 @@ export const {
   removePredict,
   setCcuSourceTypePriority 
 } = upgradesSlice.actions;
+
+export default upgradesSlice.reducer

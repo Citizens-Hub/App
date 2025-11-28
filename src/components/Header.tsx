@@ -15,6 +15,7 @@ import { RootState } from "../store/";
 import { logout } from "../store/userStore";
 import HeaderAd from "./HeaderAd";
 import { UserRole } from "@/types";
+// import { addHistory, handleUnload, selectHistories } from "@/store/biStore";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -38,6 +39,27 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const intl = useIntl();
   const { locale } = intl;
   const pathname = useLocation().pathname;
+
+  // const leaveListener = useCallback(() => {
+  //   console.log("unload>>>>")
+  //   dispatch(handleUnload())
+  // }, [dispatch])
+
+  // useEffect(() => {
+  //   window.addEventListener("beforeunload", leaveListener)
+    
+  //   return () => window.removeEventListener("beforeunload", leaveListener)
+  // }, [])
+
+  // const biItems = useSelector(selectHistories);
+
+  // useEffect(() => {
+  //   dispatch(addHistory({ page: pathname }))
+  // }, [dispatch, pathname])
+
+  // useEffect(() => {
+  //   console.log(biItems)
+  // }, [biItems])
 
   // 抽取的导航项查找函数
   const findNavItemByPath = (path: string) => {

@@ -1,14 +1,16 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { upgradesSlice } from "./upgradesStore";
-import { userSlice } from "./userStore";
+import upgradesReducer from "./upgradesStore";
+import userReducer from "./userStore";
 import shareReducer from "./shareStore";
 import importReducer from "./importStore";
 import cartReducer from "./cartStore";
+// import biReducer from "./biStore";
 
 export const store = configureStore({
   reducer: {
-    user: userSlice.reducer,
-    upgrades: upgradesSlice.reducer,
+    user: userReducer,
+    upgrades: upgradesReducer,
+    // bi: biReducer,
     share: shareReducer,
     import: importReducer,
     cart: cartReducer,

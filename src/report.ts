@@ -11,16 +11,25 @@ export const reportError = (error: {
 };
 
 export enum BiSlots {
-  VIEW_SESSION,
-  VERSION_UPDATE,
-  CRAWLER_USE,
+  VIEW_SESSION = "VS",
+  VERSION_UPDATE = "VU",
+  CRAWLER_USE = "CU", // 🆗
   // ccu planner
-  IMPORT_ROUTE,
-  EXPORT_ROUTE,
-  PLANNER_USE,
-  ADD_RSI_CART,
+  IMPORT_ROUTE = "IR", // 🆗
+  EXPORT_ROUTE = "ER", // 🆗
+  PLANNER_USE = "PU", // 🆗
+  ADD_RSI_CART = "ARC", // 🆗
+  VIEW_GUIDE = "VG", // 🆗
   // hangar
-  NAVIGATE_RSI_HANGAR
+  NAVIGATE_RSI_HANGAR = "NRH" // 🆗
+}
+
+export const getDeviceTag = () => {
+  let deviceTag = localStorage.getItem("deviceTag")
+  if (deviceTag) return deviceTag
+  deviceTag = crypto.randomUUID();
+  localStorage.setItem("deviceTag", deviceTag)
+  return deviceTag
 }
 
 export const reportBi = <T>(info: {
@@ -29,6 +38,9 @@ export const reportBi = <T>(info: {
 }) => {
   fetch(`${import.meta.env.VITE_PUBLIC_BI_ENDPOINT}/api/bi/info`, {
     method: "POST",
-    body: JSON.stringify(info),
+    body: JSON.stringify({
+      ...info,
+      deviceTag: getDeviceTag()
+    }),
   });
 };

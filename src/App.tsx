@@ -10,8 +10,6 @@ import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 import Verify from './pages/Verify/Verify'
-// import { BiSlots, reportBi } from './report'
-// import { useErrorBoundary } from 'react-error-boundary'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -72,25 +70,8 @@ function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, al
   return children;
 }
 
-// export interface SessionData {
-//   entryTime: string,
-//   leaveTime: string,
-//   pageHistories: string[],
-// }
-
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
-
-  // const leaveListener = () => {
-  //   reportBi<SessionData>({
-  //     slot: BiSlots.VIEW_SESSION,
-  //     data: {}
-  //   })
-  // }
-
-  // useEffect(() => {
-
-  // }, [])
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem('darkMode');

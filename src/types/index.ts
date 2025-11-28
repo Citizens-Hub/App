@@ -468,3 +468,9 @@ export enum ErrorTypes {
   RENDER_ERROR = "Render Error",
   CCU_PARSING_ERROR = "CCU_PARSING_ERROR"
 }
+
+export interface SessionHistory {
+  page: string,
+  open: string,
+  close: string
+}

@@ -37,6 +37,7 @@ import pathFinderService, { CompletePath } from '../services/PathFinderService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
+import { BiSlots, reportBi } from '@/report';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -383,6 +384,13 @@ function CcuCanvasContent() {
         })
       );
 
+      reportBi<{
+        success: boolean,
+      }>({
+        slot: BiSlots.IMPORT_ROUTE,
+        data: {success: true}
+      })
+
       return true;
     } catch (error) {
       console.error('Error importing JSON file:', error);
@@ -393,6 +401,14 @@ function CcuCanvasContent() {
         ),
         'error'
       );
+
+      reportBi<{
+        success: boolean,
+        error: string
+      }>({
+        slot: BiSlots.IMPORT_ROUTE,
+        data: {success: false, error: (error as Error).message}
+      })
       return false;
     }
   }, [importExportService, ships, hangarItems, wbHistory, ccus, setNodes, setEdges, refreshEdgesOnPathCompletion, reactFlowInstance, intl, showAlert]);
@@ -537,6 +553,11 @@ function CcuCanvasContent() {
 
     // Use ImportExportService to export data
     importExportService.exportToJsonFile(flowData);
+
+    reportBi<null>({
+      slot: BiSlots.EXPORT_ROUTE,
+      data: null
+    })
   }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
   useEffect(() => {
@@ -619,6 +640,11 @@ function CcuCanvasContent() {
   // Handle path builder
   const handleOpenPathBuilder = useCallback(() => {
     setPathBuilderOpen(true);
+
+    reportBi<null>({
+      slot: BiSlots.PLANNER_USE,
+      data: null
+    })
   }, []);
 
   const handleClosePathBuilder = useCallback(() => {
@@ -705,6 +731,10 @@ function CcuCanvasContent() {
                 onOpenPathBuilder={handleOpenPathBuilder}
                 onOpenGuide={() => {
                   // setGuideOpen(true)
+                  reportBi<null>({
+                    slot: BiSlots.VIEW_GUIDE,
+                    data: null
+                  })
                   navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale === 'zh-CN' ? '-zh' : ''))
                 }}
               />

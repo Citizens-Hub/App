@@ -6,7 +6,7 @@ import { store } from '@/store'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from "react-error-boundary";
-import { reportError } from '@/report'
+import { BiSlots, reportBi, reportError } from '@/report'
 import { ErrorInfo } from 'react'
 
 // Check if error is a dynamic import module failure
@@ -56,6 +56,10 @@ createRoot(document.getElementById('root')!).render(
       // Check if this is a dynamic import error
       if (isDynamicImportError(error)) {
         // Auto reload for dynamic import errors immediately
+        reportBi<null>({
+          slot: BiSlots.VERSION_UPDATE,
+          data: null
+        })
         handleDynamicImportError();
         // Return minimal UI while reloading
         return (

@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { IconButton } from '@mui/material';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import { BiSlots, reportBi } from '@/report';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -196,54 +197,19 @@ export default function CcuEdge({
                         to: sku.id
                       }
                     }, "*")
-                    // window.postMessage({
-                    //   type: "ccuPlannerAppIntegrationRequest",
-                    //   message: {
-                    //     type: "httpRequest",
-                    //     request: {
-                    //       url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-                    //       data: null,
-                    //       responseType: "json",
-                    //       method: "post"
-                    //     },
-                    //     requestId: "cart-set-auth-token"
-                    //   }
-                    // }, "*");
-
-                    // window.postMessage({
-                    //   type: "ccuPlannerAppIntegrationRequest",
-                    //   message: {
-                    //     type: "httpRequest",
-                    //     request: {
-                    //       url: "https://robertsspaceindustries.com/api/ship-upgrades/setContextToken",
-                    //       data: {},
-                    //       responseType: "json",
-                    //       method: "post"
-                    //     },
-                    //     requestId: "cart-set-context-token"
-                    //   }
-                    // }, "*");
-
-                    // window.postMessage({
-                    //   type: 'ccuPlannerAppIntegrationRequest',
-                    //   message: {
-                    //     type: "httpRequest",
-                    //     request: {
-                    //       "url": "https://robertsspaceindustries.com/pledge-store/api/upgrade/graphql",
-                    //       "responseType": "json",
-                    //       "method": "post",
-                    //       "data": [{
-                    //         "operationName": "addToCart",
-                    //         "variables": {
-                    //           "from": data.sourceShip.id,
-                    //           "to": sku.id
-                    //         },
-                    //         "query": "mutation addToCart($from: Int!, $to: Int!) {\n  addToCart(from: $from, to: $to) {\n    jwt\n  }\n}\n"
-                    //       }]
-                    //     },
-                    //     requestId: "init-add-to-cart"
-                    //   }
-                    // }, '*');
+                    
+                    reportBi<{
+                      sku: number,
+                      targetShip: number,
+                      sourceShip: number
+                    }>({
+                      slot: BiSlots.ADD_RSI_CART,
+                      data: {
+                        sku: sku.id,
+                        targetShip: data.targetShip.id,
+                        sourceShip: data.sourceShip.id
+                      }
+                    })
                   }
                 }}>
                   <ShoppingCart className="w-3 h-3 text-white" />

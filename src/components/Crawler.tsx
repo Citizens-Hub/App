@@ -3,7 +3,7 @@ import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBu
 import { useDispatch } from "react-redux";
 // import { Refresh } from "@mui/icons-material";
 import { Button, LinearProgress, Snackbar, Alert } from "@mui/material";
-import { reportError } from "../report";
+import { BiSlots, reportBi, reportError } from "../report";
 import { Ship } from "../types";
 import { FormattedMessage, useIntl } from "react-intl";
 
@@ -36,6 +36,11 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const totalRequestsRef = useRef(0);
+  const totalCCUsRef = useRef(0);
+  const totalBuybacksRef = useRef(0);
+  const totalBundlesRef = useRef(0)
+  const totalShipsRef = useRef(0);
+  const beginTime = useRef(0)
   const completedRequestsRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [notification, setNotification] = useState<{
@@ -161,6 +166,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           pageId: id,
         }));
 
+        totalCCUsRef.current++
+
         return;
       }
 
@@ -220,6 +227,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           pageId: id,
         }))
 
+        totalBundlesRef.current++
+
         return;
       }
 
@@ -235,6 +244,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           belongsTo: userRef.current?.id,
           pageId: id,
         }))
+
+        totalShipsRef.current++
 
         return;
       }
@@ -297,6 +308,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           belongsTo: userRef.current?.id,
           pageId: id,
         }));
+
+        totalBuybacksRef.current++
       }
     });
   }, [dispatch, ships, tryResolveCCU]);
@@ -516,9 +529,32 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         setProgress(completedRequestsRef.current / totalRequestsRef.current * 100);
         if (completedRequestsRef.current >= totalRequestsRef.current) {
           setTimeout(() => {
+            reportBi<{
+              requests: number,
+              ccus: number,
+              buybacks: number,
+              bundles: number,
+              ships: number,
+              timeCost: number
+            }>({
+              slot: BiSlots.CRAWLER_USE,
+              data: {
+                requests: totalRequestsRef.current,
+                ccus: totalCCUsRef.current,
+                buybacks: totalBuybacksRef.current,
+                bundles: totalBundlesRef.current,
+                ships: totalShipsRef.current,
+                timeCost: new Date().getTime() - beginTime.current
+              }
+            })
+
             setProgress(0);
             completedRequestsRef.current = 0;
             totalRequestsRef.current = 0;
+            totalBundlesRef.current = 0
+            totalBuybacksRef.current = 0
+            totalCCUsRef.current = 0
+            totalShipsRef.current = 0
             setIsRefreshing(false);
           }, 500);
         }
@@ -549,6 +585,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         setProgress(0);
         totalRequestsRef.current = 0;
         completedRequestsRef.current = 0;
+        beginTime.current = new Date().getTime()
 
         requestQueueRef.current = [];
         activeRequestsRef.current.clear();
