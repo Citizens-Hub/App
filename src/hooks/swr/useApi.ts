@@ -20,7 +20,7 @@ interface UserProfile {
  */
 export function useApi<T>(path: string | null, options?: SWRConfiguration) {
   const fullUrl = path ? `${API_BASE_URL}${path}` : null;
-  
+
   return useSWR<T>(
     fullUrl, 
     fetcher, 
