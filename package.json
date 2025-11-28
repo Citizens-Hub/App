@@ -7,7 +7,7 @@
     "dev": "vite --host",
     "generate:sitemap": "tsx scripts/generate-sitemap.ts",
     "prebuild": "tsx scripts/generate-sitemap.ts",
-    "build": "tsc -b && vite build && tsx scripts/bundle-sourcemap-json.ts && tsx scripts/upload-sourcemap.ts && tsx scripts/clean-sourcemaps.ts",
+    "build": "tsc -b && vite build",
     "bundle:sourcemap": "tsx scripts/bundle-sourcemap-json.ts",
     "upload:sourcemap": "tsx scripts/upload-sourcemap.ts",
     "clean:sourcemap": "tsx scripts/clean-sourcemaps.ts",
