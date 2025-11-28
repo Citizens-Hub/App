@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 import Verify from './pages/Verify/Verify'
-import { BiSlots, reportBi } from './report'
+// import { BiSlots, reportBi } from './report'
 // import { useErrorBoundary } from 'react-error-boundary'
 
 // 懒加载路由组件

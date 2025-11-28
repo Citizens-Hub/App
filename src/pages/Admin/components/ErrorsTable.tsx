@@ -122,7 +122,7 @@ export default function ErrorsTable() {
               <TableCell>
                 错误信息
               </TableCell>
-              <TableCell align="right">
+              <TableCell align="center">
                 堆栈
               </TableCell>
             </TableRow>
@@ -161,7 +161,7 @@ export default function ErrorsTable() {
                     item.errorMessage
                   }
                 </TableCell>
-                <TableCell align="right">
+                <TableCell>
                   <Button
                     disabled={!item.callStack}
                     onClick={() => {
