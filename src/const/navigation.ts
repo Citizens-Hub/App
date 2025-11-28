@@ -69,11 +69,6 @@ export const navigation = [
     hidden: true,
   },
   {
-    name: "navigation.admin",
-    path: "/admin",
-    hidden: true,
-  },
-  {
     name: "navigation.hangarShare",
     path: "/share/hangar/:userId",
     hidden: true,
@@ -106,5 +101,10 @@ export const navigation = [
     name: "navigation.blog",
     path: "/blog/create",
     hidden: true,
-  }
+  },
+  {
+    name: "navigation.admin",
+    path: "/admin",
+    requireAdmin: true,
+  },
 ];

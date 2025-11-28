@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/";
 import { logout } from "../store/userStore";
 import HeaderAd from "./HeaderAd";
+import { UserRole } from "@/types";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -269,7 +270,11 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               </IconButton>
             </div>
             <div className="flex flex-col gap-3">
-              {navigation.filter(item => !item.hidden).map((item) => (
+              {navigation.filter(item => {
+                if (item.hidden) return false
+                if (item.requireAdmin) return user.role === UserRole.Admin
+                return true
+              }).map((item) => (
                 <Link
                   key={item.name}
                   href={item.path}
