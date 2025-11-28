@@ -8,6 +8,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from "react-error-boundary";
 import { BiSlots, reportBi, reportError } from '@/report'
 import { ErrorInfo } from 'react'
+import { RawSourceMap, SourceMapConsumer } from "source-map-js";
 
 // Check if error is a dynamic import module failure
 const isDynamicImportError = (error: Error | unknown): boolean => {
@@ -38,9 +39,59 @@ window.addEventListener('error', (event) => {
   }
 });
 
-const logError = (error: Error, info: ErrorInfo) => {
+const sourcemapCache: Record<string, unknown> = {};
+
+async function fetchSourceMap(file: string): Promise<unknown> {
+  const mapUrl = `/assets/${file}.map`; // 直接拼接 .map
+  if (sourcemapCache[mapUrl]) return sourcemapCache[mapUrl];
+
+  try {
+    const res = await fetch(mapUrl);
+    if (!res.ok) return null;
+    const map = await res.json();
+    sourcemapCache[mapUrl] = map;
+    return map;
+  } catch {
+    return null;
+  }
+}
+
+export const parseCallStack = async (callStack: string) => {
+  async function mapLine(line: string): Promise<string> {
+    // 匹配文件名:行:列
+    const m = line.match(/(?:http[s]?:\/\/[^ ]+\/)?([^/\s]+\.js):(\d+):(\d+)/);
+    if (!m) return line;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, file, lineStr, colStr] = m;
+    const ln = +lineStr;
+    const col = +colStr;
+
+    const map = await fetchSourceMap(file);
+    if (!map) return line;
+
+    const consumer = await new SourceMapConsumer(map as RawSourceMap);
+    const orig = consumer.originalPositionFor({ line: ln, column: col });
+
+    console.log(orig)
+
+    if (!orig.source) return line;
+
+    return `at ${orig.name}(${orig.source}:${orig.line}:${orig.column})`
+  }
+
+  const lines = callStack.split("\n");
+  const mappedLines = await Promise.all(lines.map(mapLine));
+  return mappedLines.join("\n");
+};
+
+const logError = async (error: Error, info: ErrorInfo) => {
   // Do something with the error, e.g. log to an external API
   if (isDynamicImportError(error)) return;
+
+  // const parsedCallstack = await parseCallStack(info.componentStack || "")
+
+  // console.log("parsedCallstack>>>>>>>>>>>", parsedCallstack)
 
   reportError({
     errorType: 'Render Error',
