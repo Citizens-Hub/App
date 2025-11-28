@@ -10,7 +10,7 @@ enum Page {
   MyOrders = 'myOrders',
 }
 
-export default function Hangar() {
+export default function Reseller() {
   const [currentPage, setCurrentPage] = useState<Page>(Page.MyOrders);
   const { ships, loading } = useHangarData();
 

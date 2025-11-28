@@ -30,7 +30,7 @@ const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
-const Reseller = lazy(() => import('./pages/Reseller/Hangar'));
+const Reseller = lazy(() => import('./pages/Reseller/Reseller'));
 const ResellerOrderDetail = lazy(() => import('./pages/Reseller/OrderDetail'));
 const BlogList = lazy(() => import('./pages/Blog/BlogList'));
 const BlogPostDetail = lazy(() => import('./pages/Blog/BlogPostDetail'));
@@ -45,7 +45,7 @@ const LoadingFallback = () => (
 
 function TestButton() {
   const { showBoundary } = useErrorBoundary();
-  
+
   return (
     <div className='fixed top-24 right-8 w-fit bg-white opacity-50 z-50 text-left p-4 select-none border'>
       <Button
