@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
-import { Check, ShoppingCart } from 'lucide-react';
+import { BadgeDollarSign, Check, ShoppingCart } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { IconButton } from '@mui/material';
@@ -144,7 +144,7 @@ export default function CcuEdge({
       />
       <EdgeLabelRenderer>
         {
-          (price === 0 && data.sourceType !== CcuSourceType.HANGER) ? <div
+          (price === 0 && data.targetShip?.msrp !== 0) ? <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
@@ -163,6 +163,14 @@ export default function CcuEdge({
             }}
             className={`${labelBgColor} text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1`}
           >
+            {
+              data.targetShip?.msrp && 
+              data.sourceShip?.msrp && 
+              price * 100 < data.targetShip.msrp - data.sourceShip.msrp && 
+              <div className='absolute bottom-8 left-[50%] -translate-x-[50%] dark:text-amber-300 text-amber-500 text-nowrap flex items-center gap-1 '>
+                <BadgeDollarSign className='w-3 h-3' /> Save ${(data.targetShip.msrp - data.sourceShip.msrp) / 100 - price}
+              </div>
+            }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
             {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
             +{price.toLocaleString(locale, { style: 'currency', currency })}
@@ -193,7 +201,7 @@ export default function CcuEdge({
                     //     requestId: "cart-set-auth-token"
                     //   }
                     // }, "*");
-            
+
                     // window.postMessage({
                     //   type: "ccuPlannerAppIntegrationRequest",
                     //   message: {
@@ -207,7 +215,7 @@ export default function CcuEdge({
                     //     requestId: "cart-set-context-token"
                     //   }
                     // }, "*");
-                    
+
                     // window.postMessage({
                     //   type: 'ccuPlannerAppIntegrationRequest',
                     //   message: {
