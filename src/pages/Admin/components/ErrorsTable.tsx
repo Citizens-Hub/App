@@ -2,6 +2,8 @@ import { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Typography, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Button, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import { useCatchedErrors } from "@/hooks/swr/admin/useCatchedErrors";
+import { ErrorTypes } from "@/types";
+import { Bug, ShieldQuestion } from "lucide-react";
 
 const ColoredStack = ({ stack }: { stack: string }) => {
   const fragments: { text: string; type: string }[] = [];
@@ -128,7 +130,7 @@ export default function ErrorsTable() {
           <TableBody>
             {list.map(item => (
               <TableRow key={item.id} hover>
-                <TableCell>
+                <TableCell className="text-nowrap">
                   {new Date(item.createdAt).toLocaleDateString(intl.locale, {
                     year: 'numeric',
                     month: 'short',
@@ -137,10 +139,22 @@ export default function ErrorsTable() {
                     minute: '2-digit',
                   })}
                 </TableCell>
-                <TableCell>
-                  {
-                    item.errorType
-                  }
+                <TableCell className="text-nowrap">
+                  <div className="flex items-center gap-2">
+                    {Object.values(ErrorTypes).includes(item.errorType as ErrorTypes) ? <Bug className="w-4 h-4 text-red-400" /> : <ShieldQuestion className="w-4 h-4 text-yellow-400" />}
+                    {(() => {
+                      switch (item.errorType) {
+                        case ErrorTypes.BUYBACK_CCU_PARSING_ERROR:
+                          return "回购解析错误"
+                        case ErrorTypes.RENDER_ERROR:
+                          return "渲染错误"
+                        case ErrorTypes.CCU_PARSING_ERROR:
+                          return "CCU解析错误"
+                        default:
+                          return item.errorType
+                      }
+                    })()}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {

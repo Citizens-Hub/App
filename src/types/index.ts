@@ -462,3 +462,9 @@ export interface DeleteBlogCommentResponse {
   success: boolean;
   message?: string;
 }
+
+export enum ErrorTypes {
+  BUYBACK_CCU_PARSING_ERROR = "BUYBACK_CCU_PARSING_ERROR",
+  RENDER_ERROR = "Render Error",
+  CCU_PARSING_ERROR = "CCU_PARSING_ERROR"
+}

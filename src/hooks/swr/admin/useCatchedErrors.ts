@@ -1,9 +1,10 @@
+import { ErrorTypes } from '@/types';
 import { useAuthApi } from '../useApi';
 
 export interface CatchedError {
   id: number
   createdAt: string
-  errorType: string
+  errorType: ErrorTypes | string
   errorMessage: string
   callStack?: string
 }
