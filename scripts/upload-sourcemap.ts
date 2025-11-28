@@ -17,16 +17,14 @@ console.log("✔ Version:", version);
 
 // 上传 manifest.json
 execSync(
-  `pnpx wrangler r2 object put citizenshub-sourcemaps/${version}/manifest.json --file=${MANIFEST_PATH}`,
+  `pnpx wrangler r2 object put citizenshub-sourcemaps/${version}/manifest.json --file=${MANIFEST_PATH} --remote`,
   { stdio: "inherit" }
 );
 
 // 上传 sourcemaps
 execSync(
-  `pnpx wrangler r2 object put citizenshub-sourcemaps/${version}/sourcemaps.json --file=${path.join(DIST, "sourcemaps.json")}`,
+  `pnpx wrangler r2 object put citizenshub-sourcemaps/${version}/sourcemaps.json --file=${path.join(DIST, "sourcemaps.json")} --remote`,
   { stdio: "inherit" }
 );
 
 console.log("🎉 All sourcemaps uploaded for version", version);
-
-
