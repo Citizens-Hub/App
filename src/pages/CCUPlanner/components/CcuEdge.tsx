@@ -152,9 +152,9 @@ export default function CcuEdge({
             }}
             className="bg-red-500 text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1"
           >
-            !{isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
+            ! {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
             {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
-            +{price.toLocaleString(locale, { style: 'currency', currency })}
+            {/* +{price.toLocaleString(locale, { style: 'currency', currency })} */}
           </div> : <div
             style={{
               position: 'absolute',
@@ -168,12 +168,20 @@ export default function CcuEdge({
               data.sourceShip?.msrp && 
               price * 100 < data.targetShip.msrp - data.sourceShip.msrp && 
               <div className='absolute bottom-8 left-[50%] -translate-x-[50%] dark:text-amber-300 text-amber-500 text-nowrap flex items-center gap-1 '>
-                <BadgeDollarSign className='w-3 h-3' /> Save ${(data.targetShip.msrp - data.sourceShip.msrp) / 100 - price}
+                <BadgeDollarSign className='w-3 h-3' /> Save {Math.floor(((data.targetShip.msrp - data.sourceShip.msrp) / 100 - price) / ((data.targetShip.msrp - data.sourceShip.msrp) / 100) * 100)}% (-${(data.targetShip.msrp - data.sourceShip.msrp) / 100 - price})
               </div>
             }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
             {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
             +{price.toLocaleString(locale, { style: 'currency', currency })}
+            {/* {
+              data.targetShip?.msrp && 
+              data.sourceShip?.msrp && 
+              price * 100 < data.targetShip.msrp - data.sourceShip.msrp && 
+              <div className='text-gray-300 text-nowrap flex items-center gap-1 line-through'>
+                {(data.targetShip.msrp - data.sourceShip.msrp) / 100}
+              </div>
+            } */}
             {
               [CcuSourceType.AVAILABLE_WB, CcuSourceType.OFFICIAL].includes(sourceType) && ccuAvailable && (
                 <IconButton size="small" onClick={() => {
