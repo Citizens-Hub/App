@@ -74,9 +74,9 @@ export async function parseJsStack(stack: string): Promise<string> {
       const consumer = new SourceMapConsumer(map)
       const orig = consumer.originalPositionFor({ line: ln, column: col })
 
-      if (!orig.source || orig.source.includes('node_modules')) return line
+      if (!orig.source) return line
 
-      return `    at ${orig.name || '(anonymous)'} (${orig.source}:${orig.line}:${orig.column})`
+      return `    at ${orig.name || 'anonymous'} (${orig.source}:${orig.line}:${orig.column})`
     })
   )
 

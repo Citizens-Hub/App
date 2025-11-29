@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { Button, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from '@/components/Header'
@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 import Verify from './pages/Verify/Verify'
+import { useErrorBoundary } from 'react-error-boundary'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -42,22 +43,22 @@ const LoadingFallback = () => (
   </div>
 );
 
-// function TestButton() {
-//   const { showBoundary } = useErrorBoundary();
+export function TestButton() {
+  const { showBoundary } = useErrorBoundary();
 
-//   return (
-//     <div className='fixed top-24 right-8 w-fit bg-white opacity-50 z-50 text-left p-4 select-none border'>
-//       <Button
-//         id="testBtn"
-//         onClick={() => {
-//           showBoundary(new Error("手动触发 react-error-boundary 错误"));
-//         }}
-//       >
-//         Throw Error
-//       </Button>
-//     </div>
-//   );
-// }
+  return (
+    <div className='fixed top-24 right-8 w-fit bg-white opacity-50 z-50 text-left p-4 select-none border'>
+      <Button
+        id="testBtn"
+        onClick={() => {
+          showBoundary(new Error("手动触发 react-error-boundary 错误"));
+        }}
+      >
+        Throw Error
+      </Button>
+    </div>
+  );
+}
 
 function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: UserRole[] }) {
   const { pathname } = useLocation();
