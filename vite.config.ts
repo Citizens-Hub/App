@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
-import fs from "fs";
 
 // https://vite.dev/config/
 export default defineConfig(() => {
@@ -17,15 +16,6 @@ export default defineConfig(() => {
       tailwindcss(),
       react(),
       visualizer(),
-      {
-        name: "write-build-version",
-        apply: "build",
-        closeBundle() {
-          const file = path.resolve("dist/build-version.txt");
-          fs.writeFileSync(file, buildTime, "utf8");
-          console.log(" build-version.txt written:", buildTime);
-        },
-      }
     ],
     build: {
       sourcemap: true,
