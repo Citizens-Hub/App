@@ -32,21 +32,25 @@ window.addEventListener('error', (event) => {
   }
 })
 
-const sourcemapCache: Record<string, RawSourceMap> = {}
+const sourcemapCache: Record<string, Promise<RawSourceMap | null> | null> = {}
 
 async function fetchSourceMap(file: string): Promise<RawSourceMap | null> {
   const mapUrl = `/assets/${file}.map`
+
   if (sourcemapCache[mapUrl]) return sourcemapCache[mapUrl]
 
-  try {
-    const res = await fetch(mapUrl)
-    if (!res.ok) return null
-    const json = await res.json()
-    sourcemapCache[mapUrl] = json
-    return json
-  } catch {
-    return null
-  }
+  const p = (async () => {
+    try {
+      const res = await fetch(mapUrl, { cache: "force-cache" })
+      if (!res.ok) return null
+      return await res.json()
+    } catch {
+      return null
+    }
+  })()
+
+  sourcemapCache[mapUrl] = p
+  return p
 }
 
 const STACK_LINE_RE =
@@ -67,7 +71,7 @@ export async function parseJsStack(stack: string): Promise<string> {
       const map = await fetchSourceMap(file)
       if (!map) return line
 
-      const consumer = await new SourceMapConsumer(map)
+      const consumer = new SourceMapConsumer(map)
       const orig = consumer.originalPositionFor({ line: ln, column: col })
 
       if (!orig.source || orig.source.includes('node_modules')) return line
