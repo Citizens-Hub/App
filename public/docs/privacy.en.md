@@ -10,6 +10,10 @@ Our App only collects information necessary for its functionality:
 - Information about your Star Citizen hangar contents
 - Preferences and settings
 
+The above data will not be transmitted or saved to our servers.
+
+We will collect anonymous usage data for analysis of feature usage.
+
 ## How We Use Your Information
 
 We use the information we collect to:
