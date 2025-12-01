@@ -728,7 +728,7 @@ export default function RouteInfoPanel({
                               <div className="flex mb-1 gap-2 justify-between w-full">
                                 <div className='flex gap-4'>
                                   <img
-                                    src={pathEdge.sourceNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                    src={pathEdge.sourceNode.data?.ship?.medias?.productThumbMediumAndSmall || pathEdge.sourceNode.data?.ship?.medias?.slideShow}
                                     alt={pathEdge.sourceNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />
