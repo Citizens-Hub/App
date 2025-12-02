@@ -174,7 +174,7 @@ export default function CcuEdge({
             }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
             {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
-            +{price.toLocaleString(locale, { style: 'currency', currency })}
+            <span>+{price.toLocaleString(locale, { style: 'currency', currency })}</span>
             {/* {
               data.targetShip?.msrp && 
               data.sourceShip?.msrp && 
