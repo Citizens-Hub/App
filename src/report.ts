@@ -7,7 +7,10 @@ export const reportError = (error: {
 }) => {
   fetch(`${import.meta.env.VITE_PUBLIC_BI_ENDPOINT}/api/bi/error`, {
     method: "POST",
-    body: JSON.stringify(error),
+    body: JSON.stringify({
+      ...error,
+      href: window.location.href
+    }),
   });
 };
 
