@@ -144,13 +144,13 @@ export default function ErrorsTable() {
                     {(() => {
                       switch (item.errorType) {
                         case ErrorTypes.BUYBACK_CCU_PARSING_ERROR:
-                          return <><Bug className="w-4 h-4 text-yellow-400" /> "回购解析错误"</>
+                          return <><Bug className="w-4 h-4 text-yellow-400" /> 回购解析错误</>
                         case ErrorTypes.RENDER_ERROR:
-                          return <><Bug className="w-4 h-4 text-red-400" /> "渲染错误"</>
+                          return <><Bug className="w-4 h-4 text-red-400" /> 渲染错误</>
                         case ErrorTypes.CCU_PARSING_ERROR:
-                          return <><Bug className="w-4 h-4 text-yellow-400" /> "CCU解析错误"</>
+                          return <><Bug className="w-4 h-4 text-yellow-400" /> CCU解析错误</>
                         default:
-                          return <><ShieldQuestion className="w-4 h-4 text-red-400" /> item.errorType</>
+                          return <><ShieldQuestion className="w-4 h-4 text-red-400" /> 未知错误：{item.errorType}</>
                       }
                     })()}
                   </div>
