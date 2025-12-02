@@ -114,7 +114,7 @@ export class PathBuilderService {
     if (checkedShipName.endsWith('-wb')) {
       return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
     } else if (checkedShipName.endsWith('-historical')) {
-      const historicalPrice = priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp)?.msrp
+      const historicalPrice = priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp)?.msrp
 
       // const historicalPrice = Number(wbHistory.find(wb =>
       //   wb.name.toUpperCase() === actualShipName.toUpperCase() ||

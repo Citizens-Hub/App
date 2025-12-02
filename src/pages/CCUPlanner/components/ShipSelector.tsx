@@ -160,7 +160,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd }: 
                   <div className="flex items-center gap-2">
                     {
                       ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) ? <div className="text-xs text-white bg-orange-400 rounded-sm px-1">WB</div> :
-                        priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp) && showHistoryWB && <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
+                        priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp) && showHistoryWB && <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
                     }
                     {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{ship.flyableStatus}</div>}
                     <h3 className="font-medium">{ship.name}</h3>
@@ -174,13 +174,13 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd }: 
                     {ship.manufacturer.name}
                   </div>
                   <div className="text-sm text-blue-400 font-bold flex items-center gap-2">
-                    <span className={ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) || (priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp) && showHistoryWB) ? 'text-xs text-gray-400 line-through' : ''}>{(ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                    <span className={ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) || (priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp) && showHistoryWB) ? 'text-xs text-gray-400 line-through' : ''}>{(ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                     {
                       ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) ?
                         <span>{(Number(ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp)?.price) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                         :
-                        priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp) && showHistoryWB &&
-                        <span>{((Number(priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp)?.msrp) / 100)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                        priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp) && showHistoryWB &&
+                        <span>{((Number(priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp)?.msrp) / 100)).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                     }
                   </div>
                 </div>

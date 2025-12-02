@@ -37,7 +37,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
-  const historical = priceHistoryMap[ship.id]?.history.find(h => h.msrp !== h.baseMsrp)
+  const historical = priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp)
 
   // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
