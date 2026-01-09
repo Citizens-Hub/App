@@ -38,6 +38,7 @@ import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
+import { generateShareImage } from '../utils/imageGenerator';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -560,6 +561,42 @@ function CcuCanvasContent() {
     })
   }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
+  const handleGenerateShareImage = useCallback(async () => {
+    if (!reactFlowInstance || !nodes.length) return;
+
+    try {
+      const imageDataUrl = await generateShareImage({
+        nodes,
+        edges,
+        reactFlowInstance,
+      });
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = imageDataUrl;
+      link.download = `ccu-planner-${new Date().toISOString().slice(0, 10)}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showAlert(
+        intl.formatMessage({
+          id: 'ccuPlanner.success.imageGenerated',
+          defaultMessage: 'Share image generated successfully!'
+        })
+      );
+    } catch (error) {
+      console.error('Error generating share image:', error);
+      showAlert(
+        intl.formatMessage(
+          { id: 'ccuPlanner.error.imageGenerationFailed', defaultMessage: 'Failed to generate image: {errorMessage}' },
+          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.unknown', defaultMessage: 'Unknown error' }) }
+        ),
+        'error'
+      );
+    }
+  }, [reactFlowInstance, nodes, edges, intl, showAlert]);
+
   useEffect(() => {
     // Use ImportExportService to load data
     if (reactFlowInstance) {
@@ -728,6 +765,7 @@ function CcuCanvasContent() {
                 onSave={handleSave}
                 onExport={handleExport}
                 onImport={handleImport}
+                onGenerateShareImage={handleGenerateShareImage}
                 onOpenPathBuilder={handleOpenPathBuilder}
                 onOpenGuide={() => {
                   // setGuideOpen(true)

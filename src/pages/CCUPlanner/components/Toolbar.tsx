@@ -1,5 +1,5 @@
 import { Button } from '@mui/material';
-import { Trash2, Download, Save, Upload, Route, HelpCircle } from 'lucide-react';
+import { Trash2, Download, Save, Upload, Route, HelpCircle, Image } from 'lucide-react';
 import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -10,10 +10,11 @@ interface ToolbarProps {
   onImport: () => void;
   onOpenPathBuilder?: () => void;
   onOpenGuide?: () => void;
+  onGenerateShareImage?: () => void;
   nodes?: Node[];
 }
 
-export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, onOpenGuide, nodes = [] }: ToolbarProps) {
+export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPathBuilder, onOpenGuide, onGenerateShareImage, nodes = [] }: ToolbarProps) {
   const hasContent = nodes.length > 0;
   const intl = useIntl();
   
@@ -90,6 +91,26 @@ export default function Toolbar({ onClear, onSave, onExport, onImport, onOpenPat
           <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </span>
       </Button>
+
+      {onGenerateShareImage && (
+        <Button
+          variant="outlined"
+          onClick={onGenerateShareImage}
+          disabled={!hasContent}
+          title={intl.formatMessage({ id: "toolbar.generateShareImage", defaultMessage: "Generate Share Image" })}
+          aria-label={intl.formatMessage({ id: "toolbar.generateShareImage", defaultMessage: "Generate Share Image" })}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Image size={16} />
+          <span className="xl:block hidden">
+            <FormattedMessage id="toolbar.generateShareImage" defaultMessage="Share Image" />
+          </span>
+        </Button>
+      )}
       
       {onOpenPathBuilder && (
         <Button
