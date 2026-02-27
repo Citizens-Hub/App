@@ -37,7 +37,13 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
-  const historical = priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp)
+  const history = priceHistoryMap[ship.id]?.history || [];
+  const historicalWb = history
+    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && entry.edition?.toLowerCase().includes('warbond'))
+    .sort((a, b) => a.msrp! - b.msrp!)[0];
+  const priceIncrease = history
+    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && !entry.edition?.toLowerCase().includes('warbond'))
+    .sort((a, b) => a.msrp! - b.msrp!)[0];
 
   // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
@@ -270,9 +276,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                       {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(wb.price / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
-                  {historical && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historical.msrp) / 100 && (
+                  {historicalWb && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historicalWb.msrp) / 100 && (
                     <option value={CcuSourceType.HISTORICAL}>
-                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" })}: {(Number(historical.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historical.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical WB" })}: {(Number(historicalWb.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historicalWb.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                    </option>
+                  )}
+                  {priceIncrease && priceIncrease.msrp! < ship.msrp && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(priceIncrease.msrp) / 100 && (
+                    <option value={CcuSourceType.PRICE_INCREASE}>
+                      {intl.formatMessage({ id: "shipNode.priceIncrease", defaultMessage: "Price Increase" })}: {(Number(priceIncrease.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(priceIncrease.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
                     </option>
                   )}
                   {

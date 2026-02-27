@@ -1,244 +1,165 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Button } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Ship, HangarItem } from '@/types';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import { AutoPathBuildRequest } from '../services/PathBuilderService';
 
 interface PathBuilderProps {
   open: boolean;
   onClose: () => void;
-  onCreatePath: (stepShips: Ship[][]) => void;
+  onCreatePath: (request: AutoPathBuildRequest) => void;
+}
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateRangeToTs(startDate: string, endDate: string): { startTs: number; endTs: number } | null {
+  const startTs = new Date(`${startDate}T00:00:00`).getTime();
+  const endTs = new Date(`${endDate}T23:59:59`).getTime();
+
+  if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+    return null;
+  }
+
+  return { startTs, endTs };
 }
 
 export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
-  const { ships, ccus, wbHistory, hangarItems } = useCcuPlanner();
-  const [stepShips, setLayerShips] = useState<Ship[][]>([]);
-  const [currentStep, setCurrentStep] = useState<number>(0);
-  const [filteredShips, setFilteredShips] = useState<Ship[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCcus, setSelectedCcus] = useState<HangarItem[]>([]);
-  const [filteredCcus, setFilteredCcus] = useState<HangarItem[]>([]);
-  const [ccuSearchTerm, setCcuSearchTerm] = useState('');
+  const { ships, priceHistoryMap, showAlert } = useCcuPlanner();
 
-  // Whether there are available CCUs
-  const hasCcus = hangarItems?.some(item => item.type === 'ccu');
+  const [startShipId, setStartShipId] = useState<number | ''>('');
+  const [targetShipId, setTargetShipId] = useState<number | ''>('');
+  const [rangeStartDate, setRangeStartDate] = useState('');
+  const [rangeEndDate, setRangeEndDate] = useState('');
+  const [includeWarbond, setIncludeWarbond] = useState(true);
+  const [includePriceIncrease, setIncludePriceIncrease] = useState(true);
+  const [ignoreTargetAvailability, setIgnoreTargetAvailability] = useState(true);
+  const [preferHangarCcu, setPreferHangarCcu] = useState(true);
+
+  const selectableShips = useMemo(
+    () => ships.filter(ship => ship.msrp > 0).sort((a, b) => a.msrp - b.msrp),
+    [ships]
+  );
+
+  const startShip = useMemo(
+    () => selectableShips.find(ship => ship.id === startShipId),
+    [selectableShips, startShipId]
+  );
+
+  const targetShipOptions = useMemo(() => {
+    if (!startShip) {
+      return selectableShips;
+    }
+
+    return selectableShips.filter(ship => ship.msrp > startShip.msrp);
+  }, [selectableShips, startShip]);
 
   useEffect(() => {
-    if (open) {
-      setLayerShips([]);
-      setCurrentStep(0);
-      setSearchTerm('');
-      setCcuSearchTerm('');
-      setSelectedCcus([]);
-    }
+    if (!open) return;
+
+    const now = new Date();
+    const defaultStart = new Date(now);
+    defaultStart.setFullYear(now.getFullYear() - 1);
+
+    setStartShipId('');
+    setTargetShipId('');
+    setRangeStartDate(toDateInputValue(defaultStart));
+    setRangeEndDate(toDateInputValue(now));
+    setIncludeWarbond(true);
+    setIncludePriceIncrease(true);
+    setIgnoreTargetAvailability(true);
+    setPreferHangarCcu(true);
   }, [open]);
 
-  // Filter CCUs from user's hangar
   useEffect(() => {
-    if (!hangarItems) return;
-
-    let filtered = hangarItems.filter(item => item.type === 'ccu');
-
-    if (ccuSearchTerm) {
-      filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(ccuSearchTerm.toLowerCase()) ||
-        (item.fromShip?.toLowerCase().includes(ccuSearchTerm.toLowerCase())) ||
-        (item.toShip?.toLowerCase().includes(ccuSearchTerm.toLowerCase()))
-      );
+    if (!startShip) {
+      return;
     }
 
-    setFilteredCcus(filtered);
-  }, [hangarItems, ccuSearchTerm]);
-
-  const getCurrentLayerValue = useCallback(() => {
-    if (currentStep > 0 && stepShips[currentStep - 1] && stepShips[currentStep - 1].length > 0) {
-      return stepShips[currentStep - 1][0].msrp;
-    }
-    return 0;
-  }, [currentStep, stepShips]);
-
-  useEffect(() => {
-    let filtered = ships.filter(ship => ship.msrp > 0);
-
-    if (searchTerm) {
-      filtered = filtered.filter(ship =>
-        ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ship.manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ship.type.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    const target = selectableShips.find(ship => ship.id === targetShipId);
+    if (target && target.msrp > startShip.msrp) {
+      return;
     }
 
-    // Check if it's the last step (selecting ships)
-    const isLastStep = hasCcus ? currentStep === 2 : currentStep === 1;
-
-    if (isLastStep) {
-      const prevStepMsrpMin = stepShips[0].reduce((min, ship) => Math.min(min, ship.msrp), Infinity);
-      filtered = filtered.filter(ship => {
-        if (stepShips[0].find(s => s.id === ship.id)) {
-          return false;
-        }
-        return ship.msrp > prevStepMsrpMin
-      });
-
-      // If there are selected CCUs, add their source and target ships to the selected ships
-      if (selectedCcus.length > 0) {
-        selectedCcus.forEach(ccu => {
-          // Find the source and target ships for the CCU
-          const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
-          const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
-
-          // If the corresponding ships are found, remove them from the filtered list
-          if (fromShip) {
-            filtered = filtered.filter(ship => ship.id !== fromShip.id);
-          }
-          if (toShip) {
-            filtered = filtered.filter(ship => ship.id !== toShip.id);
-          }
-        });
-      }
-    }
-
-    filtered = [...filtered].sort((a, b) => a.msrp - b.msrp);
-
-    setFilteredShips(filtered);
-  }, [ships, currentStep, stepShips, searchTerm, getCurrentLayerValue, selectedCcus, hasCcus]);
-
-  const updateSelectedPath = () => {
-    const newSelectedShips: Ship[] = [];
-    stepShips.forEach(layer => {
-      if (layer && layer.length > 0) {
-        newSelectedShips.push(layer[0]);
-      }
-    });
-  };
-
-  const nextStep = () => {
-    // If entering the last step from CCU selection step, automatically add CCU's source and target ships
-    if (hasCcus && currentStep === 1 && selectedCcus.length > 0) {
-      const ccuShips: Ship[] = [];
-
-      selectedCcus.forEach(ccu => {
-        // Find the source and target ships for the CCU
-        const fromShip = ships.find(ship => ship.name.toLowerCase() === ccu.fromShip?.toLowerCase());
-        const toShip = ships.find(ship => ship.name.toLowerCase() === ccu.toShip?.toLowerCase());
-
-        // If the corresponding ships are found, add them to the selected ships
-        if (fromShip) {
-          ccuShips.push(fromShip);
-        }
-        if (toShip) {
-          ccuShips.push(toShip);
-        }
-      });
-
-      if (ccuShips.length > 0) {
-        setLayerShips(prev => {
-          const newLayerShips = [...prev];
-          newLayerShips[1] = ccuShips;
-          return newLayerShips;
-        });
-      }
-    }
-
-    setCurrentStep(currentStep + 1);
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
+    setTargetShipId('');
+  }, [startShip, targetShipId, selectableShips]);
 
   const handleCreatePath = () => {
-    onCreatePath(stepShips);
-    onClose();
-  };
+    if (!startShipId || !targetShipId) {
+      showAlert(
+        intl.formatMessage({
+          id: 'pathBuilder.error.selectShip',
+          defaultMessage: 'Please select both starting ship and target ship.'
+        }),
+        'warning'
+      );
+      return;
+    }
 
-  const removeShipFromLayer = (layerIndex: number, shipIndex: number) => {
-    setLayerShips(prev => {
-      const newLayerShips = [...prev];
-      if (newLayerShips[layerIndex]) {
-        newLayerShips[layerIndex] = [
-          ...newLayerShips[layerIndex].slice(0, shipIndex),
-          ...newLayerShips[layerIndex].slice(shipIndex + 1)
-        ];
+    if (!includeWarbond && !includePriceIncrease) {
+      showAlert(
+        intl.formatMessage({
+          id: 'pathBuilder.error.optionRequired',
+          defaultMessage: 'Please select at least one historical option.'
+        }),
+        'warning'
+      );
+      return;
+    }
 
-        // If there are no ships in this layer, clear this layer and subsequent layers
-        if (newLayerShips[layerIndex].length === 0) {
-          newLayerShips.splice(layerIndex);
-        }
-      }
-      return newLayerShips;
-    });
-    updateSelectedPath();
-  };
+    const range = parseDateRangeToTs(rangeStartDate, rangeEndDate);
+    if (!range || range.startTs > range.endTs) {
+      showAlert(
+        intl.formatMessage({
+          id: 'pathBuilder.error.invalidDateRange',
+          defaultMessage: 'Please enter a valid date range.'
+        }),
+        'warning'
+      );
+      return;
+    }
 
-  // Remove all versions of a ship
-  const removeAllShipVersions = (shipId: number, shipName: string) => {
-    setLayerShips(prev => {
-      const newLayerShips = [...prev];
-      const step = Math.min(currentStep, 1);
-      if (newLayerShips[step]) {
-        newLayerShips[step] = newLayerShips[step].filter(s =>
-          !(s.id === shipId || s.name === `${shipName}-wb` || s.name === `${shipName}-historical`)
+    const request: AutoPathBuildRequest = {
+      startShipId,
+      targetShipId,
+      rangeStartTs: range.startTs,
+      rangeEndTs: range.endTs,
+      includeWarbond,
+      includePriceIncrease,
+      ignoreTargetAvailability,
+      preferHangarCcu
+    };
+
+    if (!ignoreTargetAvailability) {
+      const targetHistory = priceHistoryMap[targetShipId]?.history || [];
+      const hasValidSkuInRange = targetHistory.some(entry =>
+        entry.change === '+' &&
+        typeof entry.msrp === 'number' &&
+        typeof entry.sku === 'number' &&
+        entry.ts >= range.startTs &&
+        entry.ts <= range.endTs
+      );
+
+      if (!hasValidSkuInRange) {
+        showAlert(
+          intl.formatMessage({
+            id: 'pathBuilder.error.targetUnavailableInRange',
+            defaultMessage: 'The target ship has no valid SKU in the selected date range. Enable "Ignore target availability" to continue.'
+          }),
+          'warning'
         );
-
-        // If there are no ships in this layer, clear this layer
-        if (newLayerShips[step].length === 0) {
-          newLayerShips.splice(step);
-        }
-      }
-      return newLayerShips;
-    });
-  };
-
-  // Select or deselect CCU
-  const toggleCcu = (ccu: HangarItem) => {
-    setSelectedCcus(prev => {
-      const isSelected = prev.some(item => item.id === ccu.id);
-      if (isSelected) {
-        return prev.filter(item => item.id !== ccu.id);
-      } else {
-        return [...prev, ccu];
-      }
-    });
-  };
-
-  // Check if a ship is part of a CCU
-  const isShipPartOfCcu = (shipName: string) => {
-    return selectedCcus.some(
-      ccu => ccu.fromShip?.toLowerCase() === shipName.toLowerCase() ||
-        ccu.toShip?.toLowerCase() === shipName.toLowerCase()
-    );
-  };
-
-  // Render step title
-  const renderStepTitle = () => {
-    if (hasCcus) {
-      // Three-step process when CCU is available
-      switch (currentStep) {
-        case 0:
-          return <FormattedMessage id="pathBuilder.step1" defaultMessage="选择你的起始船只" />;
-        case 1:
-          return <FormattedMessage id="pathBuilder.step2Ccu" defaultMessage="从你的机库中选择CCU" />;
-        case 2:
-          return <FormattedMessage id="pathBuilder.step3" defaultMessage="选择需要包含在路径中的所有船只" />;
-        default:
-          return null;
-      }
-    } else {
-      // Two-step process when no CCU is available
-      switch (currentStep) {
-        case 0:
-          return <FormattedMessage id="pathBuilder.step1" defaultMessage="选择你的起始船只" />;
-        case 1:
-          return <FormattedMessage id="pathBuilder.step3" defaultMessage="选择需要包含在路径中的所有船只" />;
-        default:
-          return null;
+        return;
       }
     }
+
+    onCreatePath(request);
+    onClose();
   };
 
   return (
@@ -247,285 +168,163 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      sx={{
-        paperProps: {
-          sx: {
-            maxHeight: 'calc(100vh - 100px)',
-          }
-        }
-      }}
     >
       <DialogTitle className="flex justify-between items-center border-b border-gray-200">
         <div>
           <FormattedMessage id="pathBuilder.title" defaultMessage="Path Builder" />
         </div>
-        <IconButton onClick={onClose} size="small" aria-label={intl.formatMessage({ id: "pathBuilder.close", defaultMessage: "Close" })}>
+        <IconButton onClick={onClose} size="small" aria-label={intl.formatMessage({ id: 'pathBuilder.close', defaultMessage: 'Close' })}>
           <Close />
         </IconButton>
       </DialogTitle>
 
       <DialogContent className="p-0">
-        <div className="flex flex-col">
-          <div className="border-b border-gray-200 p-4 flex items-center justify-between">
-            <div className="text-lg font-medium text-center">
-              {renderStepTitle()}
+        <div className="flex flex-col gap-4 p-4">
+          <div className="text-sm text-gray-500">
+            <FormattedMessage
+              id="pathBuilder.autoHint"
+              defaultMessage="Automatically generate a CCU path graph from your starting ship to your target ship using historical opportunities in the selected time range."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="auto-start-ship" className="text-sm font-medium">
+                <FormattedMessage id="pathBuilder.startShip" defaultMessage="Starting Ship" />
+              </label>
+              <select
+                id="auto-start-ship"
+                value={startShipId}
+                onChange={(e) => setStartShipId(e.target.value ? Number(e.target.value) : '')}
+                className="border border-gray-300 rounded-md px-3 py-2 bg-white dark:bg-[#121212]"
+              >
+                <option value="">
+                  {intl.formatMessage({ id: 'pathBuilder.selectStartShip', defaultMessage: 'Select starting ship' })}
+                </option>
+                {selectableShips.map(ship => (
+                  <option key={ship.id} value={ship.id}>
+                    {ship.name} ({(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor="auto-target-ship" className="text-sm font-medium">
+                <FormattedMessage id="pathBuilder.targetShip" defaultMessage="Target Ship" />
+              </label>
+              <select
+                id="auto-target-ship"
+                value={targetShipId}
+                onChange={(e) => setTargetShipId(e.target.value ? Number(e.target.value) : '')}
+                className="border border-gray-300 rounded-md px-3 py-2 bg-white dark:bg-[#121212]"
+              >
+                <option value="">
+                  {intl.formatMessage({ id: 'pathBuilder.selectTargetShip', defaultMessage: 'Select target ship' })}
+                </option>
+                {targetShipOptions.map(ship => (
+                  <option key={ship.id} value={ship.id}>
+                    {ship.name} ({(ship.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {(currentStep === 0 || (hasCcus && currentStep === 2) || (!hasCcus && currentStep === 1)) ? (
-            // Ship selection step
-            <>
-              <div className="p-4 border-b border-gray-200">
-                <input
-                  type="text"
-                  placeholder={intl.formatMessage({ id: 'pathBuilder.searchPlaceholder', defaultMessage: 'Search ship...' })}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border border-gray-500 rounded-md px-3 py-2 w-full"
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="auto-range-start" className="text-sm font-medium">
+                <FormattedMessage id="pathBuilder.rangeStart" defaultMessage="Start Date" />
+              </label>
+              <input
+                id="auto-range-start"
+                type="date"
+                value={rangeStartDate}
+                onChange={(e) => setRangeStartDate(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 bg-white dark:bg-[#121212]"
+              />
+            </div>
 
-              <div className="flex-1">
-                <div className="h-[calc(100vh-400px)] overflow-auto flex flex-col justify-start">
-                  {filteredShips.map((ship) => {
-                    const skus = ccus.find(c => c.id === ship.id)?.skus
-                    const wb = skus?.find(sku => sku.price !== ship.msrp)
-                    const historical = wbHistory?.find(wb => wb.name.trim().toUpperCase() === ship.name.trim().toUpperCase() && wb.price !== '')
-
-                    const step = Math.min(currentStep, 1)
-
-                    const isSelected = stepShips[step]?.some(s =>
-                      s.id === ship.id &&
-                      s.name === ship.name
-                    );
-                    const isWbSelected = stepShips[step]?.some(s => s.name === `${ship.name}-wb`);
-                    const isHistoricalSelected = stepShips[step]?.some(s => s.name === `${ship.name}-historical`);
-
-                    // Check if the ship is part of a CCU (shown in the last step)
-                    const isPartOfCcu = hasCcus && currentStep === 2 && isShipPartOfCcu(ship.name);
-                    const isDisabled = isPartOfCcu; // If it's part of a CCU, disable it
-
-                    return <div key={ship.id} className="flex items-center justify-between">
-                      <div
-                        onClick={() => {
-                          if (isDisabled) return;
-
-                          if (isSelected) {
-                            // If the normal version is already selected, deselect it
-                            const shipIndex = stepShips[step]?.findIndex(s =>
-                              s.id === ship.id && s.name === ship.name
-                            ) || 0;
-                            removeShipFromLayer(step, shipIndex);
-                          } else {
-                            // If selecting the normal version, first remove all versions, then add the normal version
-                            removeAllShipVersions(ship.id, ship.name);
-                            setLayerShips(prev => {
-                              const newLayerShips = [...prev];
-                              newLayerShips[step] = [...(prev[step] || []), ship];
-                              return newLayerShips;
-                            });
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={isSelected ? intl.formatMessage({ id: "pathBuilder.deselectShip", defaultMessage: "Deselect {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectShip", defaultMessage: "Select {shipName}" }, { shipName: ship.name })}
-                        className={`p-2 h-fit cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 w-full 
-                          ${isSelected ? 'bg-amber-100 dark:bg-gray-900' : ''} 
-                          ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-                          ${isPartOfCcu ? 'bg-blue-50 dark:bg-blue-900' : ''}
-                        `}
-                      >
-                        <div className="flex items-center text-left">
-                          <img
-                            src={ship.medias.productThumbMediumAndSmall}
-                            alt={ship.name}
-                            className="w-16 h-16 object-cover mr-2"
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium">{ship.name}</h3>
-                              {ship.flyableStatus !== 'Flyable' && (
-                                <div className="text-xs text-white bg-sky-400 rounded-sm px-1">{ship.flyableStatus}</div>
-                              )}
-                              {isPartOfCcu && (
-                                <div className="text-xs text-white bg-blue-500 rounded-sm px-1">
-                                  <FormattedMessage id="pathBuilder.ccuPart" defaultMessage="CCU部分" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-400">{ship.manufacturer.name}</div>
-                            <div className="text-sm text-blue-400 font-bold">
-                              {(ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {
-                        (hasCcus ? currentStep === 2 : currentStep === 1) && (!isDisabled) && (<>
-                          {
-                            wb && <div
-                              role="button"
-                              tabIndex={0}
-                              aria-label={isWbSelected ? intl.formatMessage({ id: "pathBuilder.deselectWarbound", defaultMessage: "Deselect warbound version of {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectWarbound", defaultMessage: "Select warbound version of {shipName}" }, { shipName: ship.name })}
-                              className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isWbSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
-                              onClick={() => {
-                                if (isWbSelected) {
-                                  // If the Warbound version is already selected, deselect it
-                                  removeShipFromLayer(step, stepShips[step]?.findIndex(s => s.name === `${ship.name}-wb`) || 0);
-                                } else {
-                                  // If selecting the Warbound version, first remove all versions, then add the Warbound version
-                                  removeAllShipVersions(ship.id, ship.name);
-                                  const wbShip = {
-                                    ...ship,
-                                    name: `${ship.name}-wb`,
-                                  };
-                                  setLayerShips(prev => {
-                                    const newLayerShips = [...prev];
-                                    newLayerShips[step] = [...(prev[step] || []), wbShip];
-                                    return newLayerShips;
-                                  });
-                                }
-                              }}>
-                              <div className="text-lg text-blue-400 font-bold text-center">
-                                {(wb.price / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                              </div>
-                              <div className="text-xs text-gray-400 text-center">
-                                <FormattedMessage id="pathBuilder.warbound" defaultMessage="Warbound" />
-                              </div>
-                            </div>
-                          }
-                          {
-                            historical && <div
-                              role="button"
-                              tabIndex={0}
-                              aria-label={isHistoricalSelected ? intl.formatMessage({ id: "pathBuilder.deselectHistorical", defaultMessage: "Deselect historical version of {shipName}" }, { shipName: ship.name }) : intl.formatMessage({ id: "pathBuilder.selectHistorical", defaultMessage: "Select historical version of {shipName}" }, { shipName: ship.name })}
-                              className={`flex flex-col items-center justify-center px-2 ml-2 h-full hover:bg-amber-100 dark:hover:bg-gray-900 cursor-pointer ${isHistoricalSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
-                              onClick={() => {
-                                if (isHistoricalSelected) {
-                                  // If the Historical version is already selected, deselect it
-                                  removeShipFromLayer(step, stepShips[step]?.findIndex(s => s.name === `${ship.name}-historical`) || 0);
-                                } else {
-                                  // If selecting the Historical version, first remove all versions, then add the Historical version
-                                  removeAllShipVersions(ship.id, ship.name);
-                                  const historicalShip = {
-                                    ...ship,
-                                    name: `${ship.name}-historical`,
-                                  };
-                                  setLayerShips(prev => {
-                                    const newLayerShips = [...prev];
-                                    newLayerShips[step] = [...(prev[step] || []), historicalShip];
-                                    return newLayerShips;
-                                  });
-                                }
-                              }}
-                            >
-                              <div className="text-lg text-blue-400 font-bold text-center">
-                                {parseFloat(historical.price).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                              </div>
-                              <div className="text-xs text-gray-400 text-center">
-                                <FormattedMessage id="pathBuilder.historicalWb" defaultMessage="Historical" />
-                              </div>
-                            </div>
-                          }
-                        </>)
-                      }
-                    </div>
-                  })}
-                </div>
-              </div>
-            </>
-          ) : (
-            // CCU selection step
-            <>
-              <div className="p-4 border-b border-gray-200">
-                <input
-                  type="text"
-                  placeholder={intl.formatMessage({ id: 'pathBuilder.searchCcuPlaceholder', defaultMessage: 'Search CCU...' })}
-                  value={ccuSearchTerm}
-                  onChange={(e) => setCcuSearchTerm(e.target.value)}
-                  className="border border-gray-500 rounded-md px-3 py-2 w-full"
-                />
-              </div>
-
-              <div className="flex-1">
-                <div className="h-[calc(100vh-600px)] overflow-auto flex flex-col justify-start">
-                  {filteredCcus.length > 0 ? filteredCcus.map((ccu) => {
-                    const isSelected = selectedCcus.some(item => item.id === ccu.id);
-
-                    return (
-                      <div
-                        key={ccu.id}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={isSelected ? intl.formatMessage({ id: "pathBuilder.deselectCcu", defaultMessage: "Deselect CCU {ccuName}" }, { ccuName: ccu.name }) : intl.formatMessage({ id: "pathBuilder.selectCcu", defaultMessage: "Select CCU {ccuName}" }, { ccuName: ccu.name })}
-                        className={`p-3 border-b border-gray-200 cursor-pointer hover:bg-amber-100 dark:hover:bg-gray-900 ${isSelected ? 'bg-amber-100 dark:bg-gray-900' : ''}`}
-                        onClick={() => toggleCcu(ccu)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium">{ccu.name}</div>
-                            <div className="text-sm text-gray-500">
-                              {ccu.fromShip} ➔ {ccu.toShip}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }) : (
-                    <div className="p-4 text-center text-gray-500">
-                      <FormattedMessage id="pathBuilder.noCcus" defaultMessage="No CCUs found" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Bottom action bar */}
-          <div className="border-t border-gray-200 p-4 flex justify-end gap-2">
-            <Button onClick={() => {
-              if (currentStep === 0) {
-                onClose();
-              } else {
-                prevStep();
-              }
-            }} variant="outlined" aria-label={currentStep === 0 ? intl.formatMessage({ id: "pathBuilder.cancel", defaultMessage: "Cancel" }) : intl.formatMessage({ id: "pathBuilder.prevStep", defaultMessage: "Previous step" })}>
-              {
-                currentStep === 0 ? (
-                  <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
-                ) : (
-                  <FormattedMessage id="pathBuilder.prevStep" defaultMessage="Previous step" />
-                )
-              }
-            </Button>
-            {
-              (hasCcus ? currentStep < 2 : currentStep < 1) ? (
-                <Button
-                  onClick={nextStep}
-                  variant="contained"
-                  disabled={
-                    currentStep === 1
-                      ? false
-                      : !(stepShips[currentStep]?.length > 0)  // In other steps, require selected ships
-                  }
-                  color="primary"
-                  aria-label={intl.formatMessage({ id: "pathBuilder.nextStep", defaultMessage: "Next step" })}
-                >
-                  <FormattedMessage id="pathBuilder.nextStep" defaultMessage="Next step" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleCreatePath}
-                  variant="contained"
-                  disabled={!(stepShips[1]?.length > 0)}
-                  color="primary"
-                  aria-label={intl.formatMessage({ id: "pathBuilder.createPath", defaultMessage: "Create path" })}
-                >
-                  <FormattedMessage id="pathBuilder.createPath" defaultMessage="Create path" />
-                </Button>
-              )
-            }
+            <div className="flex flex-col gap-2">
+              <label htmlFor="auto-range-end" className="text-sm font-medium">
+                <FormattedMessage id="pathBuilder.rangeEnd" defaultMessage="End Date" />
+              </label>
+              <input
+                id="auto-range-end"
+                type="date"
+                value={rangeEndDate}
+                onChange={(e) => setRangeEndDate(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 bg-white dark:bg-[#121212]"
+              />
+            </div>
           </div>
+
+          <div className="flex flex-col gap-2 border border-gray-200 rounded-md p-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeWarbond}
+                onChange={(e) => setIncludeWarbond(e.target.checked)}
+              />
+              <span className="text-sm">
+                <FormattedMessage
+                  id="pathBuilder.option.warbond"
+                  defaultMessage="Use Warbond CCUs sold in this period"
+                />
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePriceIncrease}
+                onChange={(e) => setIncludePriceIncrease(e.target.checked)}
+              />
+              <span className="text-sm">
+                <FormattedMessage
+                  id="pathBuilder.option.priceIncrease"
+                  defaultMessage="Use price-increase CCUs (historical standard SKU price lower than current SKU price)"
+                />
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ignoreTargetAvailability}
+                onChange={(e) => setIgnoreTargetAvailability(e.target.checked)}
+              />
+              <span className="text-sm">
+                <FormattedMessage
+                  id="pathBuilder.option.ignoreTargetAvailability"
+                  defaultMessage="Ignore target ship availability (recommended)"
+                />
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={preferHangarCcu}
+                onChange={(e) => setPreferHangarCcu(e.target.checked)}
+              />
+              <span className="text-sm">
+                <FormattedMessage
+                  id="pathBuilder.option.preferHangar"
+                  defaultMessage="Prefer hangar CCUs when possible"
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 p-4 flex justify-end gap-2">
+          <Button onClick={onClose} variant="outlined">
+            <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={handleCreatePath} variant="contained" color="primary">
+            <FormattedMessage id="pathBuilder.createPath" defaultMessage="Create path" />
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,29 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 
+function isWarbondEdition(edition?: string): boolean {
+  if (!edition) return false;
+  const lowerEdition = edition.toLowerCase();
+  return lowerEdition.includes('warbond') || lowerEdition.includes('-wb') || lowerEdition.includes(' wb');
+}
+
+function isStandardEdition(edition?: string): boolean {
+  if (!edition) return true;
+  if (isWarbondEdition(edition)) return false;
+  return edition.toLowerCase().includes('standard');
+}
+
+function findLowestHistoricalPrice(
+  history: PriceHistoryEntity['history'] | undefined,
+  matcher: (edition?: string) => boolean
+): number | undefined {
+  if (!history?.length) return undefined;
+  return history
+    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && matcher(entry.edition))
+    .map(entry => entry.msrp as number)
+    .sort((a, b) => a - b)[0];
+}
+
 /**
  * Strategy calculate price options interface
  */
@@ -102,6 +125,14 @@ export class AvailableWbStrategy implements CcuSourceTypeStrategy {
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
+    if (options?.customPrice !== undefined) {
+      return {
+        price: options.customPrice,
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
     const ccus = options?.ccus || [];
     const targetCcu = ccus.find(c => c.id === targetShip.id);
     const wbSku = targetCcu?.skus.find(sku => sku.price !== targetShip.msrp && sku.available);
@@ -389,20 +420,28 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   }
   
   getDisplayName(intl: IntlShape): string {
-    return intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical" });
+    return intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical WB" });
   }
   
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
+    if (options?.customPrice !== undefined) {
+      return {
+        price: options.customPrice,
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
     // const wbHistory = options?.wbHistory || [];
     const priceHistoryMap = options?.priceHistoryMap || {};
-    const historical = priceHistoryMap[targetShip.id]?.history.find(h => h.msrp !== h.baseMsrp);
+    const historicalPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isWarbondEdition);
     
-    if (historical) {
-      const historicalPrice = Number(historical.msrp) / 100;
+    if (historicalPrice) {
+      const historicalPriceUsd = Number(historicalPrice) / 100;
       const sourceShipPrice = sourceShip.msrp / 100;
       
       return {
-        price: Math.max(0, historicalPrice - sourceShipPrice),
+        price: Math.max(0, historicalPriceUsd - sourceShipPrice),
         currency: 'USD',
         isUsedUp: false
       };
@@ -423,18 +462,78 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   }
   
   isApplicable(sourceShip: Ship, targetShip: Ship, _ccus: Ccu[], _wbHistory: WbHistoryData[], _hangarItems: HangarItem[], _importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity>): boolean {
-    // const historical = wbHistory.find(wb => 
-    //   wb.name.trim().toUpperCase() === targetShip.name.trim().toUpperCase() && 
-    //   wb.price !== ''
-    // );
-
-    const historical = priceHistoryMap[targetShip.id]?.history.find(h => h.msrp !== h.baseMsrp);
-    
-    return !!historical && Number(historical.msrp) / 100 > sourceShip.msrp / 100;
+    const historicalPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isWarbondEdition);
+    return !!historicalPrice && Number(historicalPrice) / 100 > sourceShip.msrp / 100;
   }
   
   getPriority(): number {
     return 40; // Higher priority
+  }
+}
+
+/**
+ * Price-increase CCU strategy
+ */
+export class PriceIncreaseStrategy implements CcuSourceTypeStrategy {
+  getTypeId(): CcuSourceType {
+    return CcuSourceType.PRICE_INCREASE;
+  }
+
+  getDisplayName(intl: IntlShape): string {
+    return intl.formatMessage({ id: "shipNode.priceIncrease", defaultMessage: "Price Increase" });
+  }
+
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
+    if (options?.customPrice !== undefined) {
+      return {
+        price: options.customPrice,
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
+    const priceHistoryMap = options?.priceHistoryMap || {};
+    const standardPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isStandardEdition);
+
+    if (standardPrice && standardPrice < targetShip.msrp) {
+      const standardPriceUsd = standardPrice / 100;
+      const sourceShipPrice = sourceShip.msrp / 100;
+      return {
+        price: Math.max(0, standardPriceUsd - sourceShipPrice),
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
+    return {
+      price: (targetShip.msrp - sourceShip.msrp) / 100,
+      currency: 'USD',
+      isUsedUp: false
+    };
+  }
+
+  getEdgeStyle(): { edgeColor: string; bgColor: string; } {
+    return {
+      edgeColor: 'stroke-fuchsia-500',
+      bgColor: 'bg-fuchsia-600'
+    };
+  }
+
+  isApplicable(
+    sourceShip: Ship,
+    targetShip: Ship,
+    _ccus: Ccu[],
+    _wbHistory: WbHistoryData[],
+    _hangarItems: HangarItem[],
+    _importItems: ImportItem[],
+    priceHistoryMap: Record<number, PriceHistoryEntity>
+  ): boolean {
+    const standardPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isStandardEdition);
+    return !!standardPrice && standardPrice < targetShip.msrp && sourceShip.msrp < standardPrice;
+  }
+
+  getPriority(): number {
+    return 35;
   }
 }
 

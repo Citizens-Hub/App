@@ -38,6 +38,7 @@ import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
+import { AutoPathBuildRequest } from '../services/PathBuilderService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -651,24 +652,32 @@ function CcuCanvasContent() {
     setPathBuilderOpen(false);
   }, []);
 
-  // Create path from path builder
-  const handleCreatePath = useCallback((stepShips: Ship[][]) => {
-    // Use PathBuilderService to create path
-    const { nodes: newNodes, edges: newEdges } = pathBuilderService.createPath({
-      stepShips,
+  // Create auto path from path builder
+  const handleCreatePath = useCallback((request: AutoPathBuildRequest) => {
+    const { nodes: newNodes, edges: newEdges } = pathBuilderService.createAutoPath({
+      request,
       ships,
       ...getServiceData()
     });
 
-    // Update chart
+    if (newNodes.length === 0) {
+      showAlert(
+        intl.formatMessage({
+          id: 'pathBuilder.error.noPath',
+          defaultMessage: 'No valid path could be generated with the selected settings.'
+        }),
+        'warning'
+      );
+      return;
+    }
+
     setNodes(nodes => [...nodes, ...newNodes]);
     setEdges(edges => [...edges, ...newEdges]);
 
-    // If instance exists, adjust view to show all nodes
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [pathBuilderService, ships, getServiceData, setNodes, setEdges, reactFlowInstance]);
+  }, [pathBuilderService, ships, getServiceData, setNodes, setEdges, reactFlowInstance, showAlert, intl]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({
