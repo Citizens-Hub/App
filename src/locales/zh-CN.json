@@ -78,6 +78,7 @@
   "pathBuilder.reviewSummary": "当前路径：{steps, number} 步，总计 {cost}",
   "pathBuilder.reviewSavings": "直升成本为 {directCost}，当前路径可节省 {savings}。",
   "pathBuilder.excludeCcu": "排除CCU",
+  "pathBuilder.excludeSku": "排除SKU",
   "pathBuilder.noRouteAfterExclusion": "在当前排除条件下无可用路径。请恢复一个或多个 CCU 后继续。",
   "pathBuilder.excludedTitle": "已排除",
   "pathBuilder.noExcluded": "当前没有已排除的条目",
