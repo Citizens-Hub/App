@@ -145,6 +145,7 @@ export enum CcuSourceType {
   OFFICIAL_WB = "官方WB",
   THIRD_PARTY = "第三方",
   HISTORICAL = "历史",
+  PRICE_INCREASE = "涨价",
   SUBSCRIPTION = "订阅"
 }
 

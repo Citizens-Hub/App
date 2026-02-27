@@ -77,6 +77,36 @@ const getDefaultCurrency = () => {
   return 'USD';
 }
 
+const defaultCcuSourceTypePriority: CcuSourceType[] = [
+  CcuSourceType.HANGER,
+  CcuSourceType.HISTORICAL,
+  CcuSourceType.PRICE_INCREASE,
+  CcuSourceType.SUBSCRIPTION,
+  CcuSourceType.AVAILABLE_WB,
+  CcuSourceType.THIRD_PARTY,
+  CcuSourceType.OFFICIAL_WB,
+  CcuSourceType.OFFICIAL,
+];
+
+const normalizeCcuSourceTypePriority = (priority: CcuSourceType[] | undefined): CcuSourceType[] => {
+  if (!priority?.length) return defaultCcuSourceTypePriority;
+
+  const normalized: CcuSourceType[] = [];
+  priority.forEach(type => {
+    if (!normalized.includes(type) && defaultCcuSourceTypePriority.includes(type)) {
+      normalized.push(type);
+    }
+  });
+
+  defaultCcuSourceTypePriority.forEach(type => {
+    if (!normalized.includes(type)) {
+      normalized.push(type);
+    }
+  });
+
+  return normalized;
+}
+
 const getInitialState = (): {
   items: HangarItems,
   imported: Imported,
@@ -90,18 +120,7 @@ const getInitialState = (): {
 
   if (localState && JSON.parse(localState).version === version) {
     const state =  JSON.parse(localState);
-
-    if (!state.ccuSourceTypePriority?.length || state.ccuSourceTypePriority?.length < 7) {
-      state.ccuSourceTypePriority = [
-        CcuSourceType.HANGER,
-        CcuSourceType.HISTORICAL,
-        CcuSourceType.SUBSCRIPTION,
-        CcuSourceType.AVAILABLE_WB,
-        CcuSourceType.THIRD_PARTY,
-        CcuSourceType.OFFICIAL_WB,
-        CcuSourceType.OFFICIAL,
-      ];
-    }
+    state.ccuSourceTypePriority = normalizeCcuSourceTypePriority(state.ccuSourceTypePriority);
 
     return {
       ...state,
@@ -111,15 +130,7 @@ const getInitialState = (): {
         predicts: state.items.predicts || { },
       },
       imported: state.imported || {},
-      ccuSourceTypePriority: state.ccuSourceTypePriority || [
-        CcuSourceType.HANGER,
-        CcuSourceType.HISTORICAL,
-        CcuSourceType.SUBSCRIPTION,
-        CcuSourceType.AVAILABLE_WB,
-        CcuSourceType.THIRD_PARTY,
-        CcuSourceType.OFFICIAL_WB,
-        CcuSourceType.OFFICIAL,
-      ],
+      ccuSourceTypePriority: normalizeCcuSourceTypePriority(state.ccuSourceTypePriority),
     };
   }
 
@@ -134,15 +145,7 @@ const getInitialState = (): {
     users: [],
     selectedUser: -1,
     currency: getDefaultCurrency(),
-    ccuSourceTypePriority: [
-      CcuSourceType.HANGER,
-      CcuSourceType.AVAILABLE_WB,
-      CcuSourceType.HISTORICAL,
-      CcuSourceType.SUBSCRIPTION,
-      CcuSourceType.OFFICIAL,
-      CcuSourceType.OFFICIAL_WB,
-      CcuSourceType.THIRD_PARTY,
-    ],
+    ccuSourceTypePriority: defaultCcuSourceTypePriority,
     version,
   };
 };
