@@ -7,6 +7,7 @@ import { CcuEdgeData, CcuSourceType, CcuValidityWindow, Ship } from '../../../ty
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { AutoPathBuildRequest } from '../services/PathBuilderService';
+import PriceHistoryChart from '../../../components/PriceHistoryChart';
 
 interface AutoPathNodeData {
   ship: Ship;
@@ -1161,12 +1162,12 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         />
                       </div>
 
-                      <div className="flex-1 min-h-0 overflow-auto pr-1 flex flex-col gap-2">
+                      <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
                         {reviewRoute.edges.map((item, index) => (
                           <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
-                            <div className="flex flex-col 2xl:flex-row gap-3">
-                              <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full max-w-[360px] h-[140px] 2xl:w-[320px] 2xl:h-[150px] shrink-0" />
-                              <div className="flex-1 min-w-0 flex flex-col gap-2">
+                            <div className="grid grid-cols-1 xl:grid-cols-[300px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
+                              <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[150px] xl:w-[300px] xl:h-[150px] shrink-0" />
+                              <div className="min-w-0 flex flex-col gap-2">
                                 <div className="text-sm font-semibold">
                                   {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
                                 </div>
@@ -1190,7 +1191,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     </div>
                                     <div className="flex flex-col gap-1">
                                       {item.validityWindows.map((window, windowIndex) => (
-                                        <div key={`${item.key}-${window.sku}-${window.startTs}-${windowIndex}`} className="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                        <div key={`${item.key}-${window.sku}-${window.startTs}-${windowIndex}`} className="flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 3xl:flex-row 3xl:items-center 3xl:justify-between">
                                           <span>
                                             {intl.formatMessage(
                                               { id: 'pathBuilder.validityRange', defaultMessage: '{sku}: {start} - {end}' },
@@ -1207,6 +1208,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                             size="small"
                                             variant="text"
                                             color="warning"
+                                            className="!px-1.5 !min-w-0 whitespace-nowrap"
                                             disabled={isCalculating || excludedSkuIdSet.has(window.sku)}
                                             onClick={() => handleExcludeSku(window.sku)}
                                           >
@@ -1234,6 +1236,39 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     />
                                   </Button>
                                 </div>
+                              </div>
+
+                              <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117] p-3 flex-1">
+                                <div className="text-xs text-gray-500 mb-2">
+                                  <FormattedMessage
+                                    id="pathBuilder.stepPriceHistoryTitle"
+                                    defaultMessage="{ship} price history"
+                                    values={{ ship: item.targetShip.name }}
+                                  />
+                                </div>
+
+                                {priceHistoryMap[item.targetShip.id]?.history?.length ? (
+                                  <div className="h-[340px]">
+                                    <PriceHistoryChart
+                                      history={priceHistoryMap[item.targetShip.id]?.history || null}
+                                      currentMsrp={item.targetShip.msrp}
+                                      shipName={item.targetShip.name}
+                                      showTitle={false}
+                                      legendAlign="start"
+                                      legendPosition="left"
+                                      showSkuMetaInTooltip
+                                      className="h-full"
+                                      panelClassName="h-full flex flex-col bg-transparent pb-3 pl-3 pr-2"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="h-[220px] border border-dashed border-gray-300 dark:border-gray-600 text-xs text-gray-500 flex items-center justify-center">
+                                    <FormattedMessage
+                                      id="pathBuilder.stepPriceHistoryEmpty"
+                                      defaultMessage="No price history data."
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
