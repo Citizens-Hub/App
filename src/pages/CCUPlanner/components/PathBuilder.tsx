@@ -1165,9 +1165,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
                         {reviewRoute.edges.map((item, index) => (
                           <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
-                            <div className="grid grid-cols-1 xl:grid-cols-[300px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
-                              <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[150px] xl:w-[300px] xl:h-[150px] shrink-0" />
-                              <div className="min-w-0 flex flex-col gap-2">
+                            <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
+                              <div className='flex flex-col gap-4'>
                                 <div className="text-sm font-semibold">
                                   {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
                                 </div>
@@ -1180,7 +1179,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     {formatUsd(item.cost)}
                                   </span>
                                 </div>
-
+                                <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
+                              </div>
+                              <div className="min-w-0 flex flex-col gap-2">
                                 {!!item.validityWindows?.length && (
                                   <div className="pt-1">
                                     <div className="text-xs text-gray-500 mb-1">
@@ -1206,8 +1207,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                           </span>
                                           <Button
                                             size="small"
-                                            variant="text"
-                                            color="warning"
+                                            variant="outlined"
+                                            color="error"
                                             className="!px-1.5 !min-w-0 whitespace-nowrap"
                                             disabled={isCalculating || excludedSkuIdSet.has(window.sku)}
                                             onClick={() => handleExcludeSku(window.sku)}
