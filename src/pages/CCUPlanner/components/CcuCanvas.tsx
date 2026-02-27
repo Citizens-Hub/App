@@ -29,7 +29,7 @@ import { Alert, Dialog, DialogContent, DialogTitle, IconButton, Snackbar, useMed
 import { selectHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
-import PathBuilder from './PathBuilder';
+import PathBuilder, { ReviewedPathBuildResult } from './PathBuilder';
 import UserSelector from '@/components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
@@ -38,7 +38,6 @@ import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
-import { AutoPathBuildRequest } from '../services/PathBuilderService';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -117,7 +116,6 @@ function CcuCanvasContent() {
     wbHistory,
     hangarItems,
     edgeService,
-    pathBuilderService,
     importExportService,
     handlePathCompletionChange,
     showAlert,
@@ -652,15 +650,11 @@ function CcuCanvasContent() {
     setPathBuilderOpen(false);
   }, []);
 
-  // Create auto path from path builder
-  const handleCreatePath = useCallback((request: AutoPathBuildRequest) => {
-    const { nodes: newNodes, edges: newEdges } = pathBuilderService.createAutoPath({
-      request,
-      ships,
-      ...getServiceData()
-    });
+  // Add reviewed path from path builder
+  const handleCreatePath = useCallback((result: ReviewedPathBuildResult) => {
+    const { nodes: reviewedNodes, edges: reviewedEdges } = result;
 
-    if (newNodes.length === 0) {
+    if (reviewedNodes.length === 0 || reviewedEdges.length === 0) {
       showAlert(
         intl.formatMessage({
           id: 'pathBuilder.error.noPath',
@@ -671,13 +665,13 @@ function CcuCanvasContent() {
       return;
     }
 
-    setNodes(nodes => [...nodes, ...newNodes]);
-    setEdges(edges => [...edges, ...newEdges]);
+    setNodes(nodes => [...nodes, ...reviewedNodes]);
+    setEdges(edges => [...edges, ...reviewedEdges]);
 
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [pathBuilderService, ships, getServiceData, setNodes, setEdges, reactFlowInstance, showAlert, intl]);
+  }, [setNodes, setEdges, reactFlowInstance, showAlert, intl]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({
