@@ -155,11 +155,18 @@ export interface CcuEdgeData {
   targetShip?: Ship;
   sourceType?: CcuSourceType;
   customPrice?: number;
+  validityWindows?: CcuValidityWindow[];
   // ccus: Ccu[];
   // wbHistory: WbHistoryData[];
   // hangarItems: HangarItem[];
   // importItems: ImportItem[];
   // priceHistoryMap: Record<number, PriceHistoryEntity>;
+}
+
+export interface CcuValidityWindow {
+  sku: number;
+  startTs: number;
+  endTs: number | null;
 }
 
 export interface WbHistoryData {

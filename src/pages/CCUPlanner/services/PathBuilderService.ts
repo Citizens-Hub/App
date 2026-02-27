@@ -1,4 +1,4 @@
-import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem, PriceHistoryEntity } from '../../../types';
+import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem, PriceHistoryEntity, CcuValidityWindow } from '../../../types';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 import { Node, Edge } from 'reactflow';
 
@@ -18,6 +18,7 @@ interface ShipNodeData {
 interface SpecialShipPricing {
   priceCents: number;
   sourceType: CcuSourceType;
+  validityWindows?: CcuValidityWindow[];
 }
 
 interface PathLayoutOptions {
@@ -41,6 +42,9 @@ export interface AutoPathBuildRequest {
   includePriceIncrease: boolean;
   ignoreTargetAvailability: boolean;
   preferHangarCcu: boolean;
+  excludedCcuKeys?: string[];
+  excludedSkuIds?: number[];
+  requiredHangarCcuKeys?: string[];
 }
 
 export class PathBuilderService {
@@ -159,10 +163,18 @@ export class PathBuilderService {
           .filter(price => price < ship.msrp)
           .forEach(price => {
             const wbShip = { ...ship, name: `${ship.name}__auto_wb_${price}` };
+            const validityWindows = this._collectSkuValidityWindowsForPrice({
+              history,
+              rangeStartTs: request.rangeStartTs,
+              rangeEndTs: request.rangeEndTs,
+              priceCents: price,
+              predicate: (entry) => this._isDiscountPriceEntry(entry)
+            });
             variantTargets.push(wbShip);
             specialPricingMap[this._getShipVariantKey(wbShip)] = {
               priceCents: price,
-              sourceType: CcuSourceType.HISTORICAL
+              sourceType: CcuSourceType.HISTORICAL,
+              validityWindows
             };
           });
       }
@@ -179,10 +191,18 @@ export class PathBuilderService {
           .filter(price => price < ship.msrp)
           .forEach(price => {
             const historicalShip = { ...ship, name: `${ship.name}__auto_pi_${price}` };
+            const validityWindows = this._collectSkuValidityWindowsForPrice({
+              history,
+              rangeStartTs: request.rangeStartTs,
+              rangeEndTs: request.rangeEndTs,
+              priceCents: price,
+              predicate: (entry) => this._isStandardOrNormalPriceEntry(entry)
+            });
             variantTargets.push(historicalShip);
             specialPricingMap[this._getShipVariantKey(historicalShip)] = {
               priceCents: price,
-              sourceType: CcuSourceType.PRICE_INCREASE
+              sourceType: CcuSourceType.PRICE_INCREASE,
+              validityWindows
             };
           });
       }
@@ -204,13 +224,145 @@ export class PathBuilderService {
       }
     });
 
+    const excludedKeySet = new Set(request.excludedCcuKeys || []);
+    const ccuFilteredEdges = excludedKeySet.size > 0
+      ? generated.edges.filter(edge => !excludedKeySet.has(this._getAutoPathEdgeKey(edge)))
+      : generated.edges;
+
+    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
+    const skuFilteredEdges = this._filterEdgesByExcludedSkus(ccuFilteredEdges, excludedSkuIdSet);
+
+    const requiredHangarSet = new Set((request.requiredHangarCcuKeys || []).map(key => key.trim().toUpperCase()));
+    if (requiredHangarSet.size > 0) {
+      return this._keepReachablePaths({
+        nodes: generated.nodes,
+        edges: skuFilteredEdges,
+        startShipId: request.startShipId,
+        targetShipId: request.targetShipId
+      });
+    }
+
     return this._keepOnlySavingPaths({
       nodes: generated.nodes,
-      edges: generated.edges,
+      edges: skuFilteredEdges,
       startShipId: request.startShipId,
       targetShipId: request.targetShipId,
       directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
     });
+  }
+
+  private _getAutoPathEdgeKey(edge: Edge<CcuEdgeData>): string {
+    const sourceId = edge.data?.sourceShip?.id || edge.source;
+    const targetId = edge.data?.targetShip?.id || edge.target;
+    const sourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
+    const cost = this._getEdgeCost(edge).toFixed(2);
+    return `${sourceId}->${targetId}|${sourceType}|${cost}`;
+  }
+
+  private _filterEdgesByExcludedSkus(edges: Edge<CcuEdgeData>[], excludedSkuIdSet: Set<number>): Edge<CcuEdgeData>[] {
+    if (excludedSkuIdSet.size === 0) {
+      return edges;
+    }
+
+    return edges.flatMap(edge => {
+      const windows = edge.data?.validityWindows;
+      if (!windows?.length) {
+        return [edge];
+      }
+
+      const filteredWindows = windows.filter(window => !excludedSkuIdSet.has(window.sku));
+      if (!filteredWindows.length) {
+        return [];
+      }
+
+      if (filteredWindows.length === windows.length) {
+        return [edge];
+      }
+
+      return [{
+        ...edge,
+        data: {
+          ...edge.data!,
+          validityWindows: filteredWindows
+        }
+      }];
+    });
+  }
+
+  private _keepReachablePaths(params: {
+    nodes: Node<ShipNodeData>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+  }): { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] } {
+    const { nodes, edges, startShipId, targetShipId } = params;
+    if (!nodes.length || !edges.length) {
+      return { nodes: [], edges: [] };
+    }
+
+    const startNodes = nodes.filter(node => node.data.ship.id === startShipId);
+    const targetNodeIds = new Set(nodes.filter(node => node.data.ship.id === targetShipId).map(node => node.id));
+    if (!startNodes.length || !targetNodeIds.size) {
+      return { nodes: [], edges: [] };
+    }
+
+    const nextFromStart = new Map<string, string[]>();
+    const prevToTarget = new Map<string, string[]>();
+    edges.forEach(edge => {
+      const out = nextFromStart.get(edge.source) || [];
+      out.push(edge.target);
+      nextFromStart.set(edge.source, out);
+
+      const back = prevToTarget.get(edge.target) || [];
+      back.push(edge.source);
+      prevToTarget.set(edge.target, back);
+    });
+
+    const reachableFromStart = new Set<string>();
+    const startQueue = startNodes.map(node => node.id);
+    while (startQueue.length > 0) {
+      const current = startQueue.shift()!;
+      if (reachableFromStart.has(current)) continue;
+      reachableFromStart.add(current);
+      (nextFromStart.get(current) || []).forEach(next => {
+        if (!reachableFromStart.has(next)) {
+          startQueue.push(next);
+        }
+      });
+    }
+
+    const canReachTarget = new Set<string>();
+    const targetQueue = Array.from(targetNodeIds);
+    while (targetQueue.length > 0) {
+      const current = targetQueue.shift()!;
+      if (canReachTarget.has(current)) continue;
+      canReachTarget.add(current);
+      (prevToTarget.get(current) || []).forEach(prev => {
+        if (!canReachTarget.has(prev)) {
+          targetQueue.push(prev);
+        }
+      });
+    }
+
+    const keptNodeIds = new Set<string>();
+    nodes.forEach(node => {
+      if (reachableFromStart.has(node.id) && canReachTarget.has(node.id)) {
+        keptNodeIds.add(node.id);
+      }
+    });
+
+    const keptEdges = edges.filter(edge =>
+      keptNodeIds.has(edge.source) && keptNodeIds.has(edge.target)
+    );
+    if (!keptEdges.length) {
+      return { nodes: [], edges: [] };
+    }
+
+    const keptNodes = nodes.filter(node => keptNodeIds.has(node.id));
+    return {
+      nodes: this._normalizeHorizontalLayoutByDepth(keptNodes, keptEdges, startShipId),
+      edges: keptEdges
+    };
   }
 
   private _getUniqueShips(ships: Ship[]): Ship[] {
@@ -295,6 +447,74 @@ export class PathBuilderService {
       .map(entry => entry.msrp as number);
 
     return [...new Set(prices)].sort((a, b) => a - b);
+  }
+
+  private _collectSkuValidityWindowsForPrice(params: {
+    history: PriceHistoryEntity['history'];
+    rangeStartTs: number;
+    rangeEndTs: number;
+    priceCents: number;
+    predicate: (entry: PriceHistoryEntity['history'][number]) => boolean;
+  }): CcuValidityWindow[] {
+    const { history, rangeStartTs, rangeEndTs, priceCents, predicate } = params;
+    const openBySku = new Map<number, number>();
+    const windows: CcuValidityWindow[] = [];
+
+    const pushWindow = (sku: number, startTs: number, endTs: number | null) => {
+      const clippedStartTs = Math.max(startTs, rangeStartTs);
+      const rawEndTs = endTs === null ? rangeEndTs : Math.min(endTs, rangeEndTs);
+      if (clippedStartTs > rawEndTs) {
+        return;
+      }
+
+      windows.push({
+        sku,
+        startTs: clippedStartTs,
+        endTs: endTs === null ? null : rawEndTs
+      });
+    };
+
+    const sortedHistory = [...history]
+      .filter(entry => entry.ts <= rangeEndTs)
+      .sort((a, b) => a.ts - b.ts);
+
+    sortedHistory.forEach(entry => {
+      if (typeof entry.sku !== 'number') {
+        return;
+      }
+
+      if (entry.change === '+') {
+        if (!predicate(entry) || typeof entry.msrp !== 'number' || entry.msrp !== priceCents) {
+          return;
+        }
+
+        if (!openBySku.has(entry.sku)) {
+          openBySku.set(entry.sku, entry.ts);
+        }
+        return;
+      }
+
+      if (entry.change === '-') {
+        const openTs = openBySku.get(entry.sku);
+        if (openTs === undefined) {
+          return;
+        }
+
+        pushWindow(entry.sku, openTs, entry.ts);
+        openBySku.delete(entry.sku);
+      }
+    });
+
+    openBySku.forEach((startTs, sku) => {
+      pushWindow(sku, startTs, null);
+    });
+
+    return windows.sort((a, b) => {
+      if (a.startTs !== b.startTs) {
+        return a.startTs - b.startTs;
+      }
+      return a.sku - b.sku;
+    });
   }
 
   private _isWbVariantName(shipName: string): boolean {
@@ -515,6 +735,9 @@ export class PathBuilderService {
                   }
                   edgeData.sourceType = specialPricing.sourceType;
                   edgeData.customPrice = Math.max(0, actualPrice);
+                  if (specialPricing.validityWindows?.length) {
+                    edgeData.validityWindows = specialPricing.validityWindows;
+                  }
                 } else if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
                   const historicalPrice = priceHistoryMap[targetShipNode.data.ship.id]?.history
                     .filter(entry => entry.change === '+' && this._isStandardOrNormalPriceEntry(entry))
