@@ -51,6 +51,11 @@ interface HangarCcuOption {
   label: string;
 }
 
+interface GroupedSkuValidityWindow {
+  sku: number;
+  windows: CcuValidityWindow[];
+}
+
 function normalizeShipName(name: string): string {
   return name.trim().toUpperCase();
 }
@@ -207,6 +212,54 @@ function getHangarRequirementKeyFromEdge(edge: Edge<CcuEdgeData>): string | null
     return null;
   }
   return buildHangarCcuKey(sourceName, targetName);
+}
+
+function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): GroupedSkuValidityWindow[] {
+  if (!validityWindows?.length) {
+    return [];
+  }
+
+  const groupedBySku = new Map<number, CcuValidityWindow[]>();
+  validityWindows.forEach(window => {
+    if (typeof window.sku !== 'number') {
+      return;
+    }
+    const list = groupedBySku.get(window.sku) || [];
+    list.push(window);
+    groupedBySku.set(window.sku, list);
+  });
+
+  const mergeWindowEnd = (leftEnd: number | null, rightEnd: number | null): number | null => {
+    if (leftEnd === null || rightEnd === null) {
+      return null;
+    }
+    return Math.max(leftEnd, rightEnd);
+  };
+
+  return Array.from(groupedBySku.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([sku, windows]) => {
+      const sortedWindows = [...windows].sort((a, b) => a.startTs - b.startTs);
+      const mergedWindows: CcuValidityWindow[] = [];
+
+      sortedWindows.forEach(window => {
+        const previousWindow = mergedWindows[mergedWindows.length - 1];
+        if (!previousWindow) {
+          mergedWindows.push({ ...window });
+          return;
+        }
+
+        const previousEnd = previousWindow.endTs;
+        if (previousEnd === null || window.startTs <= previousEnd) {
+          previousWindow.endTs = mergeWindowEnd(previousEnd, window.endTs);
+          return;
+        }
+
+        mergedWindows.push({ ...window });
+      });
+
+      return { sku, windows: mergedWindows };
+    });
 }
 
 function findBestRoute(params: {
@@ -402,6 +455,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [generatedResult, setGeneratedResult] = useState<ReviewedPathBuildResult | null>(null);
   const [excludedCcus, setExcludedCcus] = useState<ExcludedCcu[]>([]);
   const [excludedSkuIds, setExcludedSkuIds] = useState<number[]>([]);
+  const [hoveredSkuContext, setHoveredSkuContext] = useState<{ stepKey: string; sku: number } | null>(null);
   const [requiredHangarCcuKeys, setRequiredHangarCcuKeys] = useState<string[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const calculateTaskRef = useRef(0);
@@ -530,9 +584,14 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setGeneratedResult(null);
     setExcludedCcus([]);
     setExcludedSkuIds([]);
+    setHoveredSkuContext(null);
     setRequiredHangarCcuKeys([]);
     setIsCalculating(false);
   }, [open]);
+
+  useEffect(() => {
+    setHoveredSkuContext(null);
+  }, [reviewRoute]);
 
   useEffect(() => {
     if (!startShip) {
@@ -1036,16 +1095,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
                   <div className="border border-gray-200 dark:border-gray-800 p-3">
                     <div className="text-sm font-medium">
-                      <FormattedMessage
-                        id="pathBuilder.requiredHangarTitle"
-                        defaultMessage="Required hangar CCUs"
-                      />
+                      <FormattedMessage id="pathBuilder.requiredHangarTitle" defaultMessage="Required hangar CCUs" />
                     </div>
                     <div className="text-xs text-gray-500 mt-1 mb-2">
-                      <FormattedMessage
-                        id="pathBuilder.requiredHangarHint"
-                        defaultMessage="These hangar CCUs must appear in the generated route."
-                      />
+                      <FormattedMessage id="pathBuilder.requiredHangarHint" defaultMessage="These hangar CCUs must appear in the generated route." />
                     </div>
                     <Autocomplete
                       multiple
@@ -1163,7 +1216,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
 
                       <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
-                        {reviewRoute.edges.map((item, index) => (
+                        {reviewRoute.edges.map((item, index) => {
+                          const stepKey = `${item.key}-${index}`;
+                          const groupedValidityWindows = groupValidityWindowsBySku(item.validityWindows);
+
+                          return (
                           <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
                             <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
                               <div className='flex flex-col gap-4'>
@@ -1182,7 +1239,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                 <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
                               </div>
                               <div className="min-w-0 flex flex-col gap-2">
-                                {!!item.validityWindows?.length && (
+                                {groupedValidityWindows.length > 0 && (
                                   <div className="pt-1">
                                     <div className="text-xs text-gray-500 mb-1">
                                       <FormattedMessage
@@ -1191,39 +1248,57 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                       />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                      {item.validityWindows.map((window, windowIndex) => (
-                                        <div key={`${item.key}-${window.sku}-${window.startTs}-${windowIndex}`} className="flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 3xl:flex-row 3xl:items-center 3xl:justify-between">
-                                          <span>
-                                            {intl.formatMessage(
-                                              { id: 'pathBuilder.validityRange', defaultMessage: '{sku}: {start} - {end}' },
-                                              {
-                                                sku: window.sku,
-                                                start: formatDate(window.startTs),
-                                                end: window.endTs === null
-                                                  ? intl.formatMessage({ id: 'pathBuilder.validityUntilNow', defaultMessage: 'Now' })
-                                                  : formatDate(window.endTs)
-                                              }
-                                            )}
-                                          </span>
+                                      {groupedValidityWindows.map((skuGroup, groupIndex) => {
+                                        const isHovered = hoveredSkuContext?.stepKey === stepKey && hoveredSkuContext.sku === skuGroup.sku;
+
+                                        return (
+                                        <div
+                                          key={`${item.key}-${skuGroup.sku}-${groupIndex}`}
+                                          className={`flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 p-1 3xl:flex-row 3xl:items-center 3xl:justify-between ${isHovered ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+                                          onMouseEnter={() => setHoveredSkuContext({ stepKey, sku: skuGroup.sku })}
+                                          onMouseLeave={() => {
+                                            setHoveredSkuContext(prev =>
+                                              prev?.stepKey === stepKey && prev.sku === skuGroup.sku ? null : prev
+                                            );
+                                          }}
+                                        >
+                                          <div className="flex flex-col gap-1">
+                                            <span className="font-medium text-gray-700 dark:text-gray-200">
+                                              {intl.formatMessage({ id: 'pathBuilder.skuChipLabel', defaultMessage: 'SKU {sku}' }, { sku: skuGroup.sku })}
+                                            </span>
+                                            {skuGroup.windows.map((window, windowIndex) => (
+                                              <span key={`${item.key}-${skuGroup.sku}-${window.startTs}-${windowIndex}`}>
+                                                {intl.formatMessage(
+                                                  { id: 'pathBuilder.validityPeriod', defaultMessage: '{start} - {end}' },
+                                                  {
+                                                    start: formatDate(window.startTs),
+                                                    end: window.endTs === null
+                                                      ? intl.formatMessage({ id: 'pathBuilder.validityUntilNow', defaultMessage: 'Now' })
+                                                      : formatDate(window.endTs)
+                                                  }
+                                                )}
+                                              </span>
+                                            ))}
+                                          </div>
                                           <Button
                                             size="small"
                                             variant="outlined"
                                             color="error"
                                             className="!px-1.5 !min-w-0 whitespace-nowrap"
-                                            disabled={isCalculating || excludedSkuIdSet.has(window.sku)}
-                                            onClick={() => handleExcludeSku(window.sku)}
+                                            disabled={isCalculating || excludedSkuIdSet.has(skuGroup.sku)}
+                                            onClick={() => handleExcludeSku(skuGroup.sku)}
                                           >
-                                            {excludedSkuIdSet.has(window.sku)
+                                            {excludedSkuIdSet.has(skuGroup.sku)
                                               ? intl.formatMessage({ id: 'pathBuilder.excludedSku', defaultMessage: 'Excluded' })
                                               : intl.formatMessage({ id: 'pathBuilder.excludeSku', defaultMessage: 'Exclude SKU' })}
                                           </Button>
                                         </div>
-                                      ))}
+                                      )})}
                                     </div>
                                   </div>
                                 )}
 
-                                <div>
+                                <div className='p-1'>
                                   <Button
                                     size="small"
                                     variant="outlined"
@@ -1254,6 +1329,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                       history={priceHistoryMap[item.targetShip.id]?.history || null}
                                       currentMsrp={item.targetShip.msrp}
                                       shipName={item.targetShip.name}
+                                      highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
                                       showTitle={false}
                                       legendAlign="start"
                                       legendPosition="left"
@@ -1273,7 +1349,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                     </>
                   ) : (

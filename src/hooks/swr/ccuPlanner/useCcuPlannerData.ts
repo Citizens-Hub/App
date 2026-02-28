@@ -59,7 +59,7 @@ export default function useCcuPlannerData() {
 
   // 版本检查
   useEffect(() => {
-    const currentVersion = '1.0.3';
+    const currentVersion = '1.0.4';
     const lastVisitVersion = localStorage.getItem('ccuPlannerLastVisit');
     
     if (!lastVisitVersion || lastVisitVersion !== currentVersion) {

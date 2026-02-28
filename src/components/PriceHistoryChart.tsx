@@ -35,6 +35,7 @@ interface PriceHistoryChartProps {
   history: PriceHistoryEntity['history'] | null;
   currentMsrp: number;
   shipName: string;
+  highlightedSkuId?: number | null;
   showRealTimeScaleToggle?: boolean;
   showTitle?: boolean;
   legendPosition?: 'top' | 'left';
@@ -49,6 +50,7 @@ export default function PriceHistoryChart({
   history,
   currentMsrp,
   shipName,
+  highlightedSkuId = null,
   showRealTimeScaleToggle = true,
   showTitle = true,
   legendAlign = 'center',
@@ -104,8 +106,27 @@ export default function PriceHistoryChart({
     return `Warbond (Sku:${skuId})`;
   }, [shipName]);
 
+  const extractSkuIdFromEdition = useCallback((editionLabel: string): number | null => {
+    const match = editionLabel.match(/Sku:\s*(\d+)/i);
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const parsedSku = Number(match[1]);
+    return Number.isFinite(parsedSku) ? parsedSku : null;
+  }, []);
+
+  const withAlpha = useCallback((rgbColor: string, alpha: number): string => {
+    const matchedRgb = rgbColor.match(/rgb\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/i);
+    if (!matchedRgb) {
+      return rgbColor;
+    }
+
+    return `rgba(${matchedRgb[1]}, ${matchedRgb[2]}, ${matchedRgb[3]}, ${alpha})`;
+  }, []);
+
   // Generate distinct colors for editions
-  const getEditionColor = (_edition: string, index: number): string => {
+  const getEditionColor = useCallback((_edition: string, index: number): string => {
     const standardColors = [
       'rgb(37, 99, 235)',     // blue-600 (deeper blue)
       // 'rgb(96, 165, 250)',    // blue-400 (lighter blue)
@@ -125,7 +146,7 @@ export default function PriceHistoryChart({
     }
 
     return warbondColors[index % warbondColors.length];
-  };
+  }, []);
 
   // Filter and sort history entries that have price data
   // Interface for edition period
@@ -256,15 +277,26 @@ export default function PriceHistoryChart({
       data: Array<number | null> | Array<{ x: number; y: number | null }>;
       borderColor: string;
       backgroundColor: string;
+      borderWidth: number;
       fill: boolean;
       tension: number;
       pointRadius: number | Array<number>;
       pointHoverRadius: number | Array<number>;
       spanGaps: boolean;
+      order: number;
     }> = [];
 
     editionArray.forEach((edition, index) => {
       const periods = editionPeriods.get(edition)!;
+      const editionSkuId = extractSkuIdFromEdition(edition);
+      const hasHighlightedSku = typeof highlightedSkuId === 'number';
+      const isHighlightedDataset = hasHighlightedSku && editionSkuId === highlightedSkuId;
+      const isDimmedDataset = hasHighlightedSku && !isHighlightedDataset;
+      const baseColor = getEditionColor(edition, index);
+      const borderColor = isDimmedDataset ? withAlpha(baseColor, 0.2) : baseColor;
+      const fillColor = isHighlightedDataset
+        ? withAlpha(baseColor, 0.2)
+        : (isDimmedDataset ? withAlpha(baseColor, 0.03) : withAlpha(baseColor, 0.1));
 
       if (useRealTimeScale) {
         // Time scale mode: use {x: timestamp, y: price} format
@@ -333,13 +365,15 @@ export default function PriceHistoryChart({
         datasets.push({
           label: edition,
           data,
-          borderColor: getEditionColor(getEditionName(edition, 0), index),
-          backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderColor,
+          backgroundColor: fillColor,
+          borderWidth: isHighlightedDataset ? 3 : 2,
           fill: true,
           tension: 0,
           pointRadius: pointRadius,
           pointHoverRadius: pointHoverRadius,
-          spanGaps: false // Don't connect across null values
+          spanGaps: false, // Don't connect across null values
+          order: isHighlightedDataset ? 0 : 1
         });
       } else {
         // Category scale mode: use array format
@@ -408,13 +442,15 @@ export default function PriceHistoryChart({
         datasets.push({
           label: edition,
           data,
-          borderColor: getEditionColor(getEditionName(edition, 0), index),
-          backgroundColor: getEditionColor(edition, index).replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderColor,
+          backgroundColor: fillColor,
+          borderWidth: isHighlightedDataset ? 3 : 2,
           fill: true,
           tension: 0,
           pointRadius: pointRadius,
           pointHoverRadius: pointHoverRadius,
-          spanGaps: false // Don't connect across null values
+          spanGaps: false, // Don't connect across null values
+          order: isHighlightedDataset ? 0 : 1
         });
       }
     });
@@ -423,7 +459,7 @@ export default function PriceHistoryChart({
       labels: useRealTimeScale ? undefined : labels,
       datasets
     };
-  }, [getEditionName, history, intl.locale, useRealTimeScale]);
+  }, [extractSkuIdFromEdition, getEditionName, getEditionColor, highlightedSkuId, history, intl.locale, useRealTimeScale, withAlpha]);
 
   // Helper function to find period info for a data point
   const findPeriodForDataPoint = useCallback((

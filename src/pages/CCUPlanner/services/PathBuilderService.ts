@@ -21,6 +21,14 @@ interface SpecialShipPricing {
   validityWindows?: CcuValidityWindow[];
 }
 
+interface SourceSkuPriceConstraintParams {
+  sourceShipId: number;
+  sourceShipMsrp: number;
+  targetPriceCents: number;
+  targetValidityWindows: CcuValidityWindow[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
+}
+
 interface PathLayoutOptions {
   startPosition?: { x: number; y: number };
   levelSpacing?: number;
@@ -517,6 +525,41 @@ export class PathBuilderService {
     });
   }
 
+  private _filterTargetValidityWindowsBySourceSkuPrice(params: SourceSkuPriceConstraintParams): CcuValidityWindow[] {
+    const {
+      sourceShipId,
+      sourceShipMsrp,
+      targetPriceCents,
+      targetValidityWindows,
+      priceHistoryMap
+    } = params;
+
+    const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
+    const hasHistoryData = sourceHistory.length > 0;
+
+    return targetValidityWindows.filter(targetWindow => {
+      const targetWindowEndTs = targetWindow.endTs ?? Number.POSITIVE_INFINITY;
+      const hasCheaperSourceSkuBeforeTarget = sourceHistory.some(entry =>
+        entry.change === '+' &&
+        typeof entry.sku === 'number' &&
+        typeof entry.msrp === 'number' &&
+        entry.msrp < targetPriceCents &&
+        entry.ts <= targetWindowEndTs
+      );
+
+      if (hasCheaperSourceSkuBeforeTarget) {
+        return true;
+      }
+
+      // Fallback for ships lacking historical records: use current MSRP as availability baseline.
+      if (!hasHistoryData && sourceShipMsrp < targetPriceCents) {
+        return true;
+      }
+
+      return false;
+    });
+  }
+
   private _isWbVariantName(shipName: string): boolean {
     return shipName.endsWith('-wb') || /__auto_wb_\d+$/.test(shipName);
   }
@@ -733,9 +776,30 @@ export class PathBuilderService {
                   if (actualPrice <= 0) {
                     return;
                   }
+
+                  if (
+                    (specialPricing.sourceType === CcuSourceType.HISTORICAL ||
+                      specialPricing.sourceType === CcuSourceType.PRICE_INCREASE) &&
+                    specialPricing.validityWindows?.length
+                  ) {
+                    const constrainedWindows = this._filterTargetValidityWindowsBySourceSkuPrice({
+                      sourceShipId: sourceShipNode.data.ship.id,
+                      sourceShipMsrp: sourceShipNode.data.ship.msrp,
+                      targetPriceCents: specialPricing.priceCents,
+                      targetValidityWindows: specialPricing.validityWindows,
+                      priceHistoryMap
+                    });
+
+                    if (!constrainedWindows.length) {
+                      return;
+                    }
+
+                    edgeData.validityWindows = constrainedWindows;
+                  }
+
                   edgeData.sourceType = specialPricing.sourceType;
                   edgeData.customPrice = Math.max(0, actualPrice);
-                  if (specialPricing.validityWindows?.length) {
+                  if (specialPricing.validityWindows?.length && !edgeData.validityWindows) {
                     edgeData.validityWindows = specialPricing.validityWindows;
                   }
                 } else if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
