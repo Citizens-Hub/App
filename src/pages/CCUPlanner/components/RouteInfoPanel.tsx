@@ -10,7 +10,7 @@ import { CompletePath } from '../services/PathFinderService';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import pathFinderWasmService from '../services/PathFinderWasmService';
+import pathFinderCWasmService from '../services/PathFinderCWasmService';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -29,14 +29,17 @@ interface RouteInfoPanelProps {
 }
 
 interface PathFinderPerfStats {
-  mode: 'js' | 'wasm';
+  mode: 'js' | 'c-wasm';
   jsElapsedMs?: number;
   jsPathCount?: number;
-  wasmElapsedMs?: number;
-  wasmPathCount?: number;
-  mismatchCount?: number;
+  cWasmElapsedMs?: number;
+  cWasmPathCount?: number;
+  mismatchWithJs?: {
+    cWasmOnly: number;
+    jsOnly: number;
+  };
   consistency?: 'match' | 'mismatch' | 'unavailable';
-  speedupRatio?: number;
+  cWasmSpeedupRatio?: number;
 }
 
 if (!String.prototype.getNodeShipId) {
@@ -162,14 +165,14 @@ export default function RouteInfoPanel({
         const serviceData = getServiceData();
 
         const runJs = !useWasmPathFinder || effectiveCompare;
-        const runWasm = useWasmPathFinder || effectiveCompare;
+        const runCWasm = useWasmPathFinder || effectiveCompare;
 
         let jsPathIds: string[][] = [];
-        let wasmPathIds: string[][] = [];
+        let cWasmPathIds: string[][] = [];
         let jsElapsedMs: number | undefined;
-        let wasmElapsedMs: number | undefined;
+        let cWasmElapsedMs: number | undefined;
         let jsCompleted = false;
-        let wasmCompleted = false;
+        let cWasmCompleted = false;
 
         if (runJs) {
           pathFinderService.resetNodeBestCost();
@@ -205,9 +208,9 @@ export default function RouteInfoPanel({
           jsCompleted = true;
         }
 
-        if (runWasm) {
+        if (runCWasm) {
           try {
-            const wasmResult = await pathFinderWasmService.findAllPaths({
+            const cWasmResult = await pathFinderCWasmService.findAllPaths({
               startNodes,
               endNodeId: selectedNode.id,
               edges,
@@ -218,18 +221,18 @@ export default function RouteInfoPanel({
               startShipPrices,
               data: serviceData
             });
-            wasmPathIds = wasmResult.paths;
-            wasmElapsedMs = wasmResult.elapsedMs;
-            wasmCompleted = true;
-          } catch (wasmError) {
-            console.error('Go WASM path finder failed:', wasmError);
+            cWasmPathIds = cWasmResult.paths;
+            cWasmElapsedMs = cWasmResult.elapsedMs;
+            cWasmCompleted = true;
+          } catch (cWasmError) {
+            console.error('C WASM path finder failed:', cWasmError);
             if (useWasmPathFinder) {
-              throw wasmError;
+              throw cWasmError;
             }
           }
         }
 
-        const selectedPathIds = useWasmPathFinder ? wasmPathIds : jsPathIds;
+        const selectedPathIds = useWasmPathFinder ? cWasmPathIds : jsPathIds;
         const generatedPaths = pathFinderService.buildCompletePaths(selectedPathIds, edges, nodes, startShipPrices, serviceData);
         const mergedPaths = [...generatedPaths];
 
@@ -247,49 +250,54 @@ export default function RouteInfoPanel({
 
         if (cancelled) return;
 
-        let mismatchCount = 0;
+        let mismatchWithJs: PathFinderPerfStats['mismatchWithJs'];
         let mismatchMessage: string | null = null;
         let consistency: PathFinderPerfStats['consistency'] = 'unavailable';
         if (effectiveCompare) {
-          if (jsCompleted && wasmCompleted) {
+          if (jsCompleted && cWasmCompleted) {
             const toPathKey = (pathIds: string[]) => pathIds.join('>');
             const jsSet = new Set(jsPathIds.map(toPathKey));
-            const wasmSet = new Set(wasmPathIds.map(toPathKey));
-            const jsOnly = Array.from(jsSet).filter(key => !wasmSet.has(key));
-            const wasmOnly = Array.from(wasmSet).filter(key => !jsSet.has(key));
-            mismatchCount = jsOnly.length + wasmOnly.length;
+            const cWasmSet = new Set(cWasmPathIds.map(toPathKey));
+
+            const jsOnly = Array.from(jsSet).filter(key => !cWasmSet.has(key));
+            const cWasmOnly = Array.from(cWasmSet).filter(key => !jsSet.has(key));
+
+            mismatchWithJs = {
+              cWasmOnly: cWasmOnly.length,
+              jsOnly: jsOnly.length
+            };
+
+            const mismatchCount = jsOnly.length + cWasmOnly.length;
             consistency = mismatchCount === 0 ? 'match' : 'mismatch';
 
             if (mismatchCount > 0) {
-              const sampleJsOnly = jsOnly.slice(0, 2);
-              const sampleWasmOnly = wasmOnly.slice(0, 2);
-              mismatchMessage = `Path mismatch detected (JS-only: ${jsOnly.length}, WASM-only: ${wasmOnly.length})`;
+              mismatchMessage = `Path mismatch detected (JS-only: ${jsOnly.length}, C-WASM-only: ${cWasmOnly.length})`;
               console.warn('Path finder mismatch details', {
                 jsOnlyCount: jsOnly.length,
-                wasmOnlyCount: wasmOnly.length,
-                sampleJsOnly,
-                sampleWasmOnly
+                cWasmOnlyCount: cWasmOnly.length,
+                sampleJsOnly: jsOnly.slice(0, 2),
+                sampleCWasmOnly: cWasmOnly.slice(0, 2)
               });
             }
           } else {
-            mismatchMessage = 'Path compare unavailable because one engine failed.';
+            mismatchMessage = 'Path compare unavailable because one or more engines failed.';
           }
         }
 
-        const speedupRatio = jsElapsedMs && wasmElapsedMs && wasmElapsedMs > 0
-          ? jsElapsedMs / wasmElapsedMs
+        const cWasmSpeedupRatio = jsElapsedMs && cWasmElapsedMs && cWasmElapsedMs > 0
+          ? jsElapsedMs / cWasmElapsedMs
           : undefined;
 
         setCompletePaths(mergedPaths);
         setPathFinderPerfStats({
-          mode: useWasmPathFinder ? 'wasm' : 'js',
+          mode: useWasmPathFinder ? 'c-wasm' : 'js',
           jsElapsedMs,
           jsPathCount: jsPathIds.length,
-          wasmElapsedMs,
-          wasmPathCount: wasmPathIds.length,
-          mismatchCount,
+          cWasmElapsedMs,
+          cWasmPathCount: cWasmPathIds.length,
+          mismatchWithJs,
           consistency,
-          speedupRatio
+          cWasmSpeedupRatio
         });
         setPathFinderMismatchMessage(mismatchMessage);
 
@@ -298,10 +306,10 @@ export default function RouteInfoPanel({
             consistency,
             jsElapsedMs,
             jsPathCount: jsPathIds.length,
-            wasmElapsedMs,
-            wasmPathCount: wasmPathIds.length,
-            speedupRatio,
-            diff: jsPathIds.length - wasmPathIds.length
+            cWasmElapsedMs,
+            cWasmPathCount: cWasmPathIds.length,
+            cWasmSpeedupRatio,
+            mismatchWithJs
           });
         }
       } catch (error) {
@@ -642,7 +650,7 @@ export default function RouteInfoPanel({
           {isDevMode && (
             <div className="flex items-center justify-between gap-2">
               <label htmlFor="comparePathFinderPerf" className="text-sm text-gray-600 dark:text-gray-400">
-                <FormattedMessage id="routeInfoPanel.comparePathFinderPerf" defaultMessage="Compare JS + WASM (Dev)" />
+                <FormattedMessage id="routeInfoPanel.comparePathFinderPerf" defaultMessage="Compare JS + C-WASM (Dev)" />
               </label>
               <Switch
                 id="comparePathFinderPerf"
@@ -657,8 +665,12 @@ export default function RouteInfoPanel({
           {pathFinderPerfStats && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {!isDevMode || !comparePathFinderPerf
-                ? `${pathFinderPerfStats.mode.toUpperCase()} ${((pathFinderPerfStats.mode === 'wasm' ? pathFinderPerfStats.wasmElapsedMs : pathFinderPerfStats.jsElapsedMs) || 0).toFixed(2)}ms (${(pathFinderPerfStats.mode === 'wasm' ? pathFinderPerfStats.wasmPathCount : pathFinderPerfStats.jsPathCount) || 0} paths)`
-                : `Consistency: ${pathFinderPerfStats.consistency === 'match' ? 'MATCH' : pathFinderPerfStats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${pathFinderPerfStats.jsElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.jsPathCount || 0}) | WASM ${pathFinderPerfStats.wasmElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.wasmPathCount || 0})${pathFinderPerfStats.speedupRatio ? ` | Speedup ${pathFinderPerfStats.speedupRatio.toFixed(2)}x` : ''}`}
+                ? `${pathFinderPerfStats.mode === 'c-wasm' ? 'C-WASM' : 'JS'} ${((pathFinderPerfStats.mode === 'c-wasm'
+                    ? pathFinderPerfStats.cWasmElapsedMs
+                    : pathFinderPerfStats.jsElapsedMs) ?? 0).toFixed(2)}ms (${(pathFinderPerfStats.mode === 'c-wasm'
+                    ? pathFinderPerfStats.cWasmPathCount
+                    : pathFinderPerfStats.jsPathCount) ?? 0} paths)`
+                : `Consistency: ${pathFinderPerfStats.consistency === 'match' ? 'MATCH' : pathFinderPerfStats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${pathFinderPerfStats.jsElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.jsPathCount || 0}) | C-WASM ${pathFinderPerfStats.cWasmElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.cWasmPathCount || 0})${pathFinderPerfStats.cWasmSpeedupRatio ? ` (${pathFinderPerfStats.cWasmSpeedupRatio.toFixed(2)}x)` : ''}`}
             </div>
           )}
           {isCalculatingPaths && (
