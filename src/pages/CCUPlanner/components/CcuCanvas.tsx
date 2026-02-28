@@ -95,8 +95,8 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, price
 
 // Move main functionality to this child component
 function CcuCanvasContent() {
-  const AUTO_SAVE_IDLE_MS = 4000;
-  const AUTO_SAVE_BOOTSTRAP_DELAY_MS = 600;
+  const AUTO_SAVE_IDLE_MS = 500;
+  const AUTO_SAVE_BOOTSTRAP_DELAY_MS = 500;
   const navigate = useNavigate();
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -112,6 +112,8 @@ function CcuCanvasContent() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
 
   // Use data from context
   const {
@@ -516,19 +518,33 @@ function CcuCanvasContent() {
       startShipPrices
     };
 
-    importExportService.saveToLocalStorage(flowData);
+    try {
+      if (mode === 'auto') {
+        setAutoSaveStatus('saving');
+      }
 
-    showAlert(
-      intl.formatMessage(mode === 'auto'
-        ? {
-          id: 'ccuPlanner.success.autoSaved',
-          defaultMessage: 'CCU upgrade path auto-saved!'
-        }
-        : {
-          id: 'ccuPlanner.success.saved',
-          defaultMessage: 'CCU upgrade path saved successfully!'
-        })
-    );
+      importExportService.saveToLocalStorage(flowData);
+      setAutoSaveStatus('saved');
+      setLastAutoSavedAt(Date.now());
+
+      if (mode === 'manual') {
+        showAlert(
+          intl.formatMessage({
+            id: 'ccuPlanner.success.saved',
+            defaultMessage: 'CCU upgrade path saved successfully!'
+          })
+        );
+      }
+    } catch (error) {
+      setAutoSaveStatus('error');
+      showAlert(
+        intl.formatMessage(
+          { id: 'ccuPlanner.error.saveFailed', defaultMessage: 'Save failed: {errorMessage}' },
+          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.unknown', defaultMessage: 'Unknown error' }) }
+        ),
+        'error'
+      );
+    }
   }, [nodes, edges, startShipPrices, importExportService, showAlert, intl]);
 
   const handleClear = useCallback(() => {
@@ -536,6 +552,8 @@ function CcuCanvasContent() {
     setNodes([]);
     setEdges([]);
     setStartShipPrices({});
+    setAutoSaveStatus('idle');
+    setLastAutoSavedAt(null);
 
     // Clean up completed path states
     pathFinderService.clearCompletedPaths();
@@ -585,6 +603,7 @@ function CcuCanvasContent() {
     if (reactFlowInstance) {
       setAutoSaveEnabled(false);
       clearAutoSaveTimer();
+      setAutoSaveStatus('idle');
 
       const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
       if (savedData) {
@@ -607,13 +626,14 @@ function CcuCanvasContent() {
     if (!autoSaveEnabled || !nodes.length) return;
 
     clearAutoSaveTimer();
+    setAutoSaveStatus('pending');
     autoSaveTimeoutRef.current = window.setTimeout(() => {
       saveFlowData('auto');
       autoSaveTimeoutRef.current = null;
     }, AUTO_SAVE_IDLE_MS);
 
     return clearAutoSaveTimer;
-  }, [autoSaveEnabled, nodes.length, saveFlowData, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
+  }, [autoSaveEnabled, nodes, edges, startShipPrices, saveFlowData, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
 
   useEffect(() => {
     return () => {
@@ -777,6 +797,8 @@ function CcuCanvasContent() {
             <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
               <Toolbar
                 nodes={nodes}
+                saveStatus={autoSaveStatus}
+                lastSavedAt={lastAutoSavedAt}
                 onClear={handleClear}
                 onSave={handleSave}
                 onExport={handleExport}

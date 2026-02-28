@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Drawer, IconButton, Link, Menu, MenuItem } from "@mui/material";
+import { Avatar, Box, Button, Drawer, IconButton, Link, Menu, MenuItem, Tooltip } from "@mui/material";
 import { FormattedMessage, useIntl } from "react-intl";
 import DiscordIcon from "../icons/DiscordIcon";
 import GithubIcon from "../icons/GithubIcon";
@@ -7,6 +7,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { useEffect, useState } from "react";
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { MenuIcon } from "lucide-react";
 import { navigation } from "../const/navigation";
 import { useLocation, useNavigate } from "react-router";
@@ -15,6 +16,8 @@ import { RootState } from "../store/";
 import { logout } from "../store/userStore";
 import HeaderAd from "./HeaderAd";
 import { UserRole } from "@/types";
+import { useApi } from "@/hooks/swr/useApi";
+import ExchangeRateCalculator from "./ExchangeRateCalculator";
 // import { addHistory, handleUnload, selectHistories } from "@/store/biStore";
 
 interface HeaderProps {
@@ -34,11 +37,17 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  // const { currency } = useSelector((state: RootState) => state.upgrades);
+  const { currency } = useSelector((state: RootState) => state.upgrades);
   const { user } = useSelector((state: RootState) => state.user);
   const intl = useIntl();
   const { locale } = intl;
   const pathname = useLocation().pathname;
+  const { data: exchangeRateData } = useApi<{ usd: Record<string, number> }>('/api/currency');
+  const exchangeRate = exchangeRateData?.usd?.[currency.toLowerCase()] || 0;
+  const isExchangeCalculatorPage = pathname.startsWith('/ccu-planner')
+    || pathname.startsWith('/price-history')
+    || pathname.startsWith('/hangar');
+  const showExchangeCalculator = currency !== 'USD' && isExchangeCalculatorPage;
 
   // const leaveListener = useCallback(() => {
   //   console.log("unload>>>>")
@@ -174,6 +183,24 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           </Button>)
         } */}
         <LanguageSwitcher />
+        {showExchangeCalculator && (
+          <ExchangeRateCalculator
+            currency={currency}
+            exchangeRate={exchangeRate}
+            trigger={
+              <Tooltip title={intl.formatMessage({ id: 'exchangeCalculator.tooltip', defaultMessage: 'Open exchange rate calculator' })}>
+                <IconButton
+                  color="inherit"
+                  sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+                  className="text-gray-800 dark:text-white"
+                  aria-label={intl.formatMessage({ id: 'exchangeCalculator.tooltip', defaultMessage: 'Open exchange rate calculator' })}
+                >
+                  <SwapHorizIcon />
+                </IconButton>
+              </Tooltip>
+            }
+          />
+        )}
         {/* <Button
           color="inherit"
           size="small"
