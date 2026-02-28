@@ -84,8 +84,8 @@ export const navigation = [
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
-    name: "navigation.reseller",
-    path: "/reseller/graphql-export",
+    name: "navigation.graphql",
+    path: "/graphql-export",
     hidden: true,
   },
   {

@@ -215,6 +215,8 @@
   "navigation.orders": "订单",
   "navigation.checkout": "结账",
   "navigation.priceHistory": "价格历史",
+  "navigation.reseller": "经销商",
+  "navigation.graphql": "Graphql导出",
   "app.menu": "菜单",
   "checkout.loginRequired": "需要登录",
   "checkout.loginMessage": "您需要登录才能继续购买。",

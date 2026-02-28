@@ -31,7 +31,7 @@ export default function Reseller() {
             <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />
           </Typography>
         </div>
-        <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/reseller/graphql-export')}>
+        <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/graphql-export')}>
           GraphQL 导出
           <Typography variant='body2' color='text.secondary'>
             通过浏览器扩展请求 RSI GraphQL 并下载 JSON
