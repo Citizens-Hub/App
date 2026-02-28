@@ -5,7 +5,14 @@ import { useAuthApi } from '../useApi';
 interface WarbondSubscriptionStatus {
   success: boolean;
   data: {
-    wbNotificationEnabled: boolean;
+    wbNotificationEnabled?: boolean;
+    wbChanges?: boolean;
+    standardSkuShipIds?: number[];
+    settings?: {
+      wbChanges?: boolean;
+      standardSkuShipIds?: number[];
+      wbNotificationEnabled?: boolean;
+    };
   };
 }
 
@@ -22,13 +29,23 @@ export default function useWarbondSubscription() {
     user.token ? '/api/wb-subscription/status' : null
   );
 
-  const isEnabled = subscriptionResponse?.data?.wbNotificationEnabled ?? false;
+  const settings = subscriptionResponse?.data?.settings;
+  const isEnabled = settings?.wbChanges
+    ?? subscriptionResponse?.data?.wbChanges
+    ?? subscriptionResponse?.data?.wbNotificationEnabled
+    ?? settings?.wbNotificationEnabled
+    ?? false;
+
+  const standardSkuShipIdsRaw = settings?.standardSkuShipIds ?? subscriptionResponse?.data?.standardSkuShipIds;
+  const standardSkuShipIds = Array.isArray(standardSkuShipIdsRaw)
+    ? standardSkuShipIdsRaw.filter((id): id is number => typeof id === 'number')
+    : [];
 
   return {
     isEnabled,
+    standardSkuShipIds,
     loading: subscriptionLoading,
     error: subscriptionError,
     mutate: mutateSubscription
   };
 }
-

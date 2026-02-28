@@ -11,7 +11,7 @@ import {
   useTheme,
   IconButton
 } from '@mui/material';
-import { Search, InfoOutlined, ArrowBack, Timeline, BarChart } from '@mui/icons-material';
+import { Search, InfoOutlined, ArrowBack, Timeline, BarChart, NotificationsActive, NotificationsNone } from '@mui/icons-material';
 import { Helmet } from 'react-helmet';
 import { useShipsData, usePriceHistoryData, useWatchlistData, useWarbondSubscription, useUserSession } from '@/hooks';
 import { PriceHistoryEntity } from '@/types';
@@ -54,7 +54,7 @@ export default function PriceHistory() {
   const { isInWatchlist } = useWatchlistData();
 
   // Fetch subscription status
-  const { isEnabled: isSubscribed, mutate: mutateSubscription } = useWarbondSubscription();
+  const { isEnabled: isSubscribed, standardSkuShipIds, mutate: mutateSubscription } = useWarbondSubscription();
   const { data: userSession } = useUserSession();
   const { user } = useSelector((state: RootState) => state.user);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -73,6 +73,7 @@ export default function PriceHistory() {
 
   const loading = shipsLoading || priceHistoryLoading;
   const error = shipsError || priceHistoryError;
+  const standardSkuShipIdSet = useMemo(() => new Set(standardSkuShipIds), [standardSkuShipIds]);
 
   // Filter ships based on search term
   const filteredShips = useMemo(() => {
@@ -179,44 +180,65 @@ export default function PriceHistory() {
   };
 
   // Handle subscription toggle
-  const handleToggleSubscription = async () => {
-    if (!isLoggedIn || !isEmailVerified) return;
-
+  const updateSubscriptionSettings = async ({
+    wbChanges,
+    nextStandardSkuShipIds,
+    successMessage,
+    failedMessage,
+  }: {
+    wbChanges: boolean;
+    nextStandardSkuShipIds: number[];
+    successMessage: string;
+    failedMessage: string;
+  }) => {
     setSubscriptionLoading(true);
-    const isEnabling = !isSubscribed;
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wb-subscription/${isEnabling ? 'enable' : 'disable'}`,
+        `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/wb-subscription/settings`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${user.token}`,
           },
+          body: JSON.stringify({
+            wbChanges,
+            standardSkuShipIds: nextStandardSkuShipIds,
+          }),
         }
       );
 
       const data = await response.json();
 
       if (response.ok && data.success) {
+        await mutateSubscription((current) => {
+          if (!current?.data) return current;
+
+          return {
+            ...current,
+            data: {
+              ...current.data,
+              wbNotificationEnabled: wbChanges,
+              wbChanges,
+              standardSkuShipIds: nextStandardSkuShipIds,
+              settings: {
+                ...(current.data.settings || {}),
+                wbChanges,
+                standardSkuShipIds: nextStandardSkuShipIds,
+              },
+            },
+          };
+        }, { revalidate: false });
         await mutateSubscription();
         setSubscriptionSnackbar({
           open: true,
-          message: intl.formatMessage(
-            {
-              id: isEnabling ? 'warbondSubscription.enableSuccess' : 'warbondSubscription.disableSuccess',
-              defaultMessage: isEnabling ? 'Warbond subscription enabled' : 'Warbond subscription disabled',
-            }
-          ),
+          message: successMessage,
           severity: 'success',
         });
       } else {
         setSubscriptionSnackbar({
           open: true,
-          message: data.message || intl.formatMessage({
-            id: isEnabling ? 'warbondSubscription.enableFailed' : 'warbondSubscription.disableFailed',
-            defaultMessage: isEnabling ? 'Failed to enable subscription' : 'Failed to disable subscription',
-          }),
+          message: data.message || failedMessage,
           severity: 'error',
         });
       }
@@ -233,6 +255,60 @@ export default function PriceHistory() {
     } finally {
       setSubscriptionLoading(false);
     }
+  };
+
+  const handleToggleSubscription = async () => {
+    if (!isLoggedIn || !isEmailVerified) return;
+
+    const isEnabling = !isSubscribed;
+    await updateSubscriptionSettings({
+      wbChanges: isEnabling,
+      nextStandardSkuShipIds: standardSkuShipIds,
+      successMessage: intl.formatMessage({
+        id: isEnabling ? 'warbondSubscription.enableSuccess' : 'warbondSubscription.disableSuccess',
+        defaultMessage: isEnabling ? 'Warbond subscription enabled' : 'Warbond subscription disabled',
+      }),
+      failedMessage: intl.formatMessage({
+        id: isEnabling ? 'warbondSubscription.enableFailed' : 'warbondSubscription.disableFailed',
+        defaultMessage: isEnabling ? 'Failed to enable subscription' : 'Failed to disable subscription',
+      }),
+    });
+  };
+
+  const handleToggleStandardSkuReminder = async (shipId: number, shipName: string) => {
+    if (!isLoggedIn || !isEmailVerified) return;
+
+    const isEnabledForShip = standardSkuShipIdSet.has(shipId);
+    const nextStandardSkuShipIds = isEnabledForShip
+      ? standardSkuShipIds.filter((id) => id !== shipId)
+      : Array.from(new Set([...standardSkuShipIds, shipId])).sort((a, b) => a - b);
+
+    await updateSubscriptionSettings({
+      wbChanges: isSubscribed,
+      nextStandardSkuShipIds,
+      successMessage: intl.formatMessage(
+        {
+          id: isEnabledForShip
+            ? 'warbondSubscription.standardSku.disableSuccess'
+            : 'warbondSubscription.standardSku.enableSuccess',
+          defaultMessage: isEnabledForShip
+            ? 'Disabled standard SKU listing reminder for {shipName}'
+            : 'Enabled standard SKU listing reminder for {shipName}',
+        },
+        { shipName }
+      ),
+      failedMessage: intl.formatMessage(
+        {
+          id: isEnabledForShip
+            ? 'warbondSubscription.standardSku.disableFailed'
+            : 'warbondSubscription.standardSku.enableFailed',
+          defaultMessage: isEnabledForShip
+            ? 'Failed to disable standard SKU listing reminder for {shipName}'
+            : 'Failed to enable standard SKU listing reminder for {shipName}',
+        },
+        { shipName }
+      ),
+    });
   };
 
   if (loading) {
@@ -469,12 +545,20 @@ export default function PriceHistory() {
                   <InfoOutlined sx={{ fontSize: 14, cursor: 'help' }} />
                 </Tooltip>
               </label>
+              <Typography variant="caption" className="text-gray-500 dark:text-gray-400 mt-2 text-left block">
+                <FormattedMessage
+                  id="warbondSubscription.standardSku.selectedCount"
+                  defaultMessage="Standard SKU reminder ships: {count}"
+                  values={{ count: standardSkuShipIds.length }}
+                />
+              </Typography>
             </Box>
           </div>
 
           <div className='flex-1 overflow-y-auto' role="list" aria-label={intl.formatMessage({ id: "priceHistory.shipList", defaultMessage: "Ship list" })}>
             {filteredShips.map((ship) => {
               const wbPrice = getWbPrice(ship.id);
+              const isStandardSkuReminderEnabled = standardSkuShipIdSet.has(ship.id);
               // const hasCcu = hasCcuAvailable(ship.id);
 
               return (
@@ -530,11 +614,56 @@ export default function PriceHistory() {
                       </Typography>
                     )} */}
                       </div>
-                      <AddToWatchlistButton
-                        shipId={ship.id}
-                        shipName={ship.name}
-                        size="small"
-                      />
+                      <div className='flex items-center gap-1'>
+                        <Tooltip
+                          arrow
+                          title={intl.formatMessage(
+                            {
+                              id: isStandardSkuReminderEnabled
+                                ? 'warbondSubscription.standardSku.disable'
+                                : 'warbondSubscription.standardSku.enable',
+                              defaultMessage: isStandardSkuReminderEnabled
+                                ? 'Disable standard SKU listing reminder for {shipName}'
+                                : 'Enable standard SKU listing reminder for {shipName}',
+                            },
+                            { shipName: ship.name }
+                          )}
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              color={isStandardSkuReminderEnabled ? 'primary' : 'default'}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleToggleStandardSkuReminder(ship.id, ship.name);
+                              }}
+                              disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
+                              aria-label={intl.formatMessage(
+                                {
+                                  id: isStandardSkuReminderEnabled
+                                    ? 'warbondSubscription.standardSku.disable'
+                                    : 'warbondSubscription.standardSku.enable',
+                                  defaultMessage: isStandardSkuReminderEnabled
+                                    ? 'Disable standard SKU listing reminder for {shipName}'
+                                    : 'Enable standard SKU listing reminder for {shipName}',
+                                },
+                                { shipName: ship.name }
+                              )}
+                            >
+                              {isStandardSkuReminderEnabled ? (
+                                <NotificationsActive fontSize="small" />
+                              ) : (
+                                <NotificationsNone fontSize="small" />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <AddToWatchlistButton
+                          shipId={ship.id}
+                          shipName={ship.name}
+                          size="small"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
