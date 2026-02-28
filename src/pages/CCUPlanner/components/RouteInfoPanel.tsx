@@ -10,6 +10,7 @@ import { CompletePath } from '../services/PathFinderService';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import pathFinderWasmService from '../services/PathFinderWasmService';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -25,6 +26,17 @@ interface RouteInfoPanelProps {
   onStartShipPriceChange: (nodeId: string, price: number | string) => void;
   onPathCompletionChange?: () => void;
   onSelectedPathChange?: (path: CompletePath | null) => void;
+}
+
+interface PathFinderPerfStats {
+  mode: 'js' | 'wasm';
+  jsElapsedMs?: number;
+  jsPathCount?: number;
+  wasmElapsedMs?: number;
+  wasmPathCount?: number;
+  mismatchCount?: number;
+  consistency?: 'match' | 'mismatch' | 'unavailable';
+  speedupRatio?: number;
 }
 
 if (!String.prototype.getNodeShipId) {
@@ -50,10 +62,23 @@ export default function RouteInfoPanel({
     pathFinderService,
     getServiceData
   } = useCcuPlanner();
+  const isDevMode = import.meta.env.DEV;
 
   const [conciergeValue, setConciergeValue] = useState(localStorage.getItem('conciergeValue') || "0.1");
   const [pruneOpt, setPruneOpt] = useState(localStorage.getItem('pruneOpt') === 'true');
   const [sortByNewInvestment, setSortByNewInvestment] = useState(localStorage.getItem('sortByNewInvestment') === 'true');
+  const [useWasmPathFinder, setUseWasmPathFinder] = useState(() => {
+    const stored = localStorage.getItem('useWasmPathFinder');
+    return stored === null ? true : stored === 'true';
+  });
+  const [comparePathFinderPerf, setComparePathFinderPerf] = useState(() => {
+    if (!import.meta.env.DEV) return false;
+    return localStorage.getItem('comparePathFinderPerf') === 'true';
+  });
+  const [isCalculatingPaths, setIsCalculatingPaths] = useState(false);
+  const [completePaths, setCompletePaths] = useState<CompletePath[]>([]);
+  const [pathFinderPerfStats, setPathFinderPerfStats] = useState<PathFinderPerfStats | null>(null);
+  const [pathFinderMismatchMessage, setPathFinderMismatchMessage] = useState<string | null>(null);
   const [_currentPage, setCurrentPage] = useState(0);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
@@ -101,89 +126,217 @@ export default function RouteInfoPanel({
     onStartShipPriceChange(nodeId, price);
   };
 
-  const completePaths = useMemo(() => {
-    if (!selectedNode) return [];
+  useEffect(() => {
+    let cancelled = false;
 
-    try {
-      console.log('Starting path calculation:', {
-        selectedNodeId: selectedNode.id,
-        edgesCount: edges.length,
-        nodesCount: nodes.length
-      });
+    const calculatePaths = async () => {
+      const effectiveCompare = isDevMode && comparePathFinderPerf;
 
-      pathFinderService.resetNodeBestCost();
-
-      // 获取所有已完成的路径，找出匹配当前目标节点的路径
-      const allCompletedPaths = pathFinderService.getCompletedPaths();
-      const relevantCompletedPaths = allCompletedPaths.filter(cp => 
-        cp.ship.id === selectedNode.data.ship.id
-      );
-      
-      // 将已完成路径转换为CompletePath格式
-      const completedPaths = relevantCompletedPaths.map(cp => cp.path);
-      
-      // 如果找到了已完成路径，确保它们被包含在结果中
-      if (completedPaths.length > 0) {
-        console.log(`Found ${completedPaths.length} completed paths to the target node`);
+      if (!selectedNode) {
+        setCompletePaths([]);
+        setPathFinderPerfStats(null);
+        setPathFinderMismatchMessage(null);
+        setIsCalculatingPaths(false);
+        return;
       }
 
-      const startNodes = pathFinderService.findStartNodes(edges, nodes);
-      console.log('Found start nodes:', startNodes.map(n => n.id));
+      setIsCalculatingPaths(true);
 
-      const allPathIds: string[][] = [];
+      try {
+        console.log('Starting path calculation:', {
+          selectedNodeId: selectedNode.id,
+          edgesCount: edges.length,
+          nodesCount: nodes.length,
+          useWasmPathFinder,
+          comparePathFinderPerf: effectiveCompare
+        });
 
-      startNodes.forEach(startNode => {
-        try {
-          const startPrice = startShipPrices[startNode.id] || 0;
-          const paths = pathFinderService.findAllPaths(
-            startNode,
-            selectedNode.id,
-            edges,
-            nodes,
-            exchangeRate,
-            conciergeValue,
-            pruneOpt,
-            new Set(),
-            [],
-            [],
-            Number(startPrice),
-            0,
-            getServiceData()
-          );
-          console.log(`Found ${paths.length} paths from node ${startNode.id}`);
-          allPathIds.push(...paths);
-        } catch (error) {
-          console.error(`Error processing start node ${startNode.id}:`, error);
-        }
-      });
-
-      const generatedPaths = pathFinderService.buildCompletePaths(allPathIds, edges, nodes, startShipPrices, getServiceData());
-
-      // 合并生成的路径和已完成的路径
-      const mergedPaths = [...generatedPaths];
-      
-      // 添加所有已完成的路径，确保它们会被展示
-      completedPaths.forEach(completedPath => {
-        // 检查是否已存在于生成的路径中
-        const existsInGenerated = mergedPaths.some(path => 
-          path.startNodeId === completedPath.startNodeId && 
-          path.path.length === completedPath.path.length &&
-          path.path[path.path.length - 1].ship.id === completedPath.path[completedPath.path.length - 1].ship.id
+        // 获取所有已完成的路径，找出匹配当前目标节点的路径
+        const allCompletedPaths = pathFinderService.getCompletedPaths();
+        const relevantCompletedPaths = allCompletedPaths.filter(cp =>
+          cp.ship.id === selectedNode.data.ship.id
         );
-        
-        // 如果不存在，添加到合并的路径中
-        if (!existsInGenerated) {
-          mergedPaths.push(completedPath);
-        }
-      });
+        const completedPaths = relevantCompletedPaths.map(cp => cp.path);
 
-      console.log('Final number of complete paths:', mergedPaths.length);
-      return mergedPaths;
-    } catch (error) {
-      console.error('Error during path calculation:', error);
-      return [];
-    }
-  }, [selectedNode, edges, nodes, pathFinderService, startShipPrices, getServiceData, exchangeRate, conciergeValue, pruneOpt]);
+        const startNodes = pathFinderService.findStartNodes(edges, nodes);
+        const serviceData = getServiceData();
+
+        const runJs = !useWasmPathFinder || effectiveCompare;
+        const runWasm = useWasmPathFinder || effectiveCompare;
+
+        let jsPathIds: string[][] = [];
+        let wasmPathIds: string[][] = [];
+        let jsElapsedMs: number | undefined;
+        let wasmElapsedMs: number | undefined;
+        let jsCompleted = false;
+        let wasmCompleted = false;
+
+        if (runJs) {
+          pathFinderService.resetNodeBestCost();
+          const jsStartedAt = performance.now();
+          const allPathIds: string[][] = [];
+
+          startNodes.forEach(startNode => {
+            try {
+              const startPrice = Number(startShipPrices[startNode.id] || 0);
+              const paths = pathFinderService.findAllPaths(
+                startNode,
+                selectedNode.id,
+                edges,
+                nodes,
+                exchangeRate,
+                conciergeValue,
+                pruneOpt,
+                new Set(),
+                [],
+                [],
+                startPrice,
+                0,
+                serviceData
+              );
+              allPathIds.push(...paths);
+            } catch (error) {
+              console.error(`Error processing start node ${startNode.id}:`, error);
+            }
+          });
+
+          jsPathIds = allPathIds;
+          jsElapsedMs = performance.now() - jsStartedAt;
+          jsCompleted = true;
+        }
+
+        if (runWasm) {
+          try {
+            const wasmResult = await pathFinderWasmService.findAllPaths({
+              startNodes,
+              endNodeId: selectedNode.id,
+              edges,
+              nodes,
+              exchangeRate,
+              conciergeValue,
+              pruneOpt,
+              startShipPrices,
+              data: serviceData
+            });
+            wasmPathIds = wasmResult.paths;
+            wasmElapsedMs = wasmResult.elapsedMs;
+            wasmCompleted = true;
+          } catch (wasmError) {
+            console.error('Go WASM path finder failed:', wasmError);
+            if (useWasmPathFinder) {
+              throw wasmError;
+            }
+          }
+        }
+
+        const selectedPathIds = useWasmPathFinder ? wasmPathIds : jsPathIds;
+        const generatedPaths = pathFinderService.buildCompletePaths(selectedPathIds, edges, nodes, startShipPrices, serviceData);
+        const mergedPaths = [...generatedPaths];
+
+        completedPaths.forEach(completedPath => {
+          const existsInGenerated = mergedPaths.some(path =>
+            path.startNodeId === completedPath.startNodeId &&
+            path.path.length === completedPath.path.length &&
+            path.path[path.path.length - 1].ship.id === completedPath.path[completedPath.path.length - 1].ship.id
+          );
+
+          if (!existsInGenerated) {
+            mergedPaths.push(completedPath);
+          }
+        });
+
+        if (cancelled) return;
+
+        let mismatchCount = 0;
+        let mismatchMessage: string | null = null;
+        let consistency: PathFinderPerfStats['consistency'] = 'unavailable';
+        if (effectiveCompare) {
+          if (jsCompleted && wasmCompleted) {
+            const toPathKey = (pathIds: string[]) => pathIds.join('>');
+            const jsSet = new Set(jsPathIds.map(toPathKey));
+            const wasmSet = new Set(wasmPathIds.map(toPathKey));
+            const jsOnly = Array.from(jsSet).filter(key => !wasmSet.has(key));
+            const wasmOnly = Array.from(wasmSet).filter(key => !jsSet.has(key));
+            mismatchCount = jsOnly.length + wasmOnly.length;
+            consistency = mismatchCount === 0 ? 'match' : 'mismatch';
+
+            if (mismatchCount > 0) {
+              const sampleJsOnly = jsOnly.slice(0, 2);
+              const sampleWasmOnly = wasmOnly.slice(0, 2);
+              mismatchMessage = `Path mismatch detected (JS-only: ${jsOnly.length}, WASM-only: ${wasmOnly.length})`;
+              console.warn('Path finder mismatch details', {
+                jsOnlyCount: jsOnly.length,
+                wasmOnlyCount: wasmOnly.length,
+                sampleJsOnly,
+                sampleWasmOnly
+              });
+            }
+          } else {
+            mismatchMessage = 'Path compare unavailable because one engine failed.';
+          }
+        }
+
+        const speedupRatio = jsElapsedMs && wasmElapsedMs && wasmElapsedMs > 0
+          ? jsElapsedMs / wasmElapsedMs
+          : undefined;
+
+        setCompletePaths(mergedPaths);
+        setPathFinderPerfStats({
+          mode: useWasmPathFinder ? 'wasm' : 'js',
+          jsElapsedMs,
+          jsPathCount: jsPathIds.length,
+          wasmElapsedMs,
+          wasmPathCount: wasmPathIds.length,
+          mismatchCount,
+          consistency,
+          speedupRatio
+        });
+        setPathFinderMismatchMessage(mismatchMessage);
+
+        if (effectiveCompare) {
+          console.log('Path finder benchmark', {
+            consistency,
+            jsElapsedMs,
+            jsPathCount: jsPathIds.length,
+            wasmElapsedMs,
+            wasmPathCount: wasmPathIds.length,
+            speedupRatio,
+            diff: jsPathIds.length - wasmPathIds.length
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error during path calculation:', error);
+          setCompletePaths([]);
+          setPathFinderPerfStats(null);
+          setPathFinderMismatchMessage(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCalculatingPaths(false);
+        }
+      }
+    };
+
+    void calculatePaths();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedNode,
+    edges,
+    nodes,
+    pathFinderService,
+    startShipPrices,
+    getServiceData,
+    exchangeRate,
+    conciergeValue,
+    pruneOpt,
+    useWasmPathFinder,
+    comparePathFinderPerf,
+    isDevMode
+  ]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };
@@ -473,6 +626,51 @@ export default function RouteInfoPanel({
               }}
             />
           </div>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="useWasmPathFinder" className="text-sm text-gray-600 dark:text-gray-400">
+              <FormattedMessage id="routeInfoPanel.useWasmPathFinder" defaultMessage="Use WASM Path Finder" />
+            </label>
+            <Switch
+              id="useWasmPathFinder"
+              checked={useWasmPathFinder}
+              onChange={(e) => {
+                setUseWasmPathFinder(e.target.checked);
+                localStorage.setItem('useWasmPathFinder', e.target.checked.toString());
+              }}
+            />
+          </div>
+          {isDevMode && (
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="comparePathFinderPerf" className="text-sm text-gray-600 dark:text-gray-400">
+                <FormattedMessage id="routeInfoPanel.comparePathFinderPerf" defaultMessage="Compare JS + WASM (Dev)" />
+              </label>
+              <Switch
+                id="comparePathFinderPerf"
+                checked={comparePathFinderPerf}
+                onChange={(e) => {
+                  setComparePathFinderPerf(e.target.checked);
+                  localStorage.setItem('comparePathFinderPerf', e.target.checked.toString());
+                }}
+              />
+            </div>
+          )}
+          {pathFinderPerfStats && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {!isDevMode || !comparePathFinderPerf
+                ? `${pathFinderPerfStats.mode.toUpperCase()} ${((pathFinderPerfStats.mode === 'wasm' ? pathFinderPerfStats.wasmElapsedMs : pathFinderPerfStats.jsElapsedMs) || 0).toFixed(2)}ms (${(pathFinderPerfStats.mode === 'wasm' ? pathFinderPerfStats.wasmPathCount : pathFinderPerfStats.jsPathCount) || 0} paths)`
+                : `Consistency: ${pathFinderPerfStats.consistency === 'match' ? 'MATCH' : pathFinderPerfStats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${pathFinderPerfStats.jsElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.jsPathCount || 0}) | WASM ${pathFinderPerfStats.wasmElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.wasmPathCount || 0})${pathFinderPerfStats.speedupRatio ? ` | Speedup ${pathFinderPerfStats.speedupRatio.toFixed(2)}x` : ''}`}
+            </div>
+          )}
+          {isCalculatingPaths && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              <FormattedMessage id="routeInfoPanel.calculatingPaths" defaultMessage="Calculating paths..." />
+            </div>
+          )}
+          {pathFinderMismatchMessage && (
+            <div className="text-xs text-amber-600 dark:text-amber-400">
+              {pathFinderMismatchMessage}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <label htmlFor="conciergeValue" className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <FormattedMessage id="routeInfoPanel.conciergeValue" defaultMessage="Concierge Value" />

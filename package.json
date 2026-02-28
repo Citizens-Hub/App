@@ -7,6 +7,7 @@
     "dev": "vite --host",
     "generate:sitemap": "tsx scripts/generate-sitemap.ts",
     "prebuild": "tsx scripts/generate-sitemap.ts",
+    "build:ccu-wasm": "bash scripts/build-ccu-pathfinder-wasm.sh",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
