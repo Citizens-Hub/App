@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider, Alert } from '@mui/material';
@@ -42,6 +42,8 @@ interface PathFinderPerfStats {
   cWasmSpeedupRatio?: number;
 }
 
+const PATH_CALC_THROTTLE_MS = 120;
+
 if (!String.prototype.getNodeShipId) {
   String.prototype.getNodeShipId = function () {
     return this.split('-')[1];
@@ -83,6 +85,7 @@ export default function RouteInfoPanel({
   const [pathFinderPerfStats, setPathFinderPerfStats] = useState<PathFinderPerfStats | null>(null);
   const [pathFinderMismatchMessage, setPathFinderMismatchMessage] = useState<string | null>(null);
   const [_currentPage, setCurrentPage] = useState(0);
+  const lastPathCalcAtRef = useRef(0);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const exchangeRate = exchangeRates[currency.toLowerCase()];
   const intl = useIntl();
@@ -326,25 +329,25 @@ export default function RouteInfoPanel({
       }
     };
 
-    void calculatePaths();
+    const shouldBypassThrottle = completePaths.length === 0;
+    const elapsedSinceLastRun = performance.now() - lastPathCalcAtRef.current;
+    const throttleDelay = shouldBypassThrottle || elapsedSinceLastRun >= PATH_CALC_THROTTLE_MS
+      ? 20
+      : PATH_CALC_THROTTLE_MS - elapsedSinceLastRun;
+
+    const throttleTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      lastPathCalcAtRef.current = performance.now();
+      void calculatePaths();
+    }, throttleDelay);
 
     return () => {
       cancelled = true;
+      if (throttleTimer !== undefined) {
+        window.clearTimeout(throttleTimer);
+      }
     };
-  }, [
-    selectedNode,
-    edges,
-    nodes,
-    pathFinderService,
-    startShipPrices,
-    getServiceData,
-    exchangeRate,
-    conciergeValue,
-    pruneOpt,
-    useWasmPathFinder,
-    comparePathFinderPerf,
-    isDevMode
-  ]);
+  }, [selectedNode, edges, nodes, pathFinderService, startShipPrices, getServiceData, exchangeRate, conciergeValue, pruneOpt, useWasmPathFinder, comparePathFinderPerf, isDevMode, completePaths.length]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };
