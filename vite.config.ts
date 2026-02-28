@@ -18,7 +18,7 @@ export default defineConfig(() => {
       visualizer(),
     ],
     build: {
-      sourcemap: true,
+      sourcemap: false,
       manifest: true,
       rollupOptions: {
         output: {
