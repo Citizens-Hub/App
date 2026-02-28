@@ -4,6 +4,7 @@ import { useState } from 'react';
 import StoreTable from './components/StoreTable';
 import { useHangarData } from '@/hooks';
 import OrdersTable from './components/OrdersTable';
+import { useNavigate } from 'react-router';
 
 enum Page {
   MyStore = 'myStore',
@@ -13,6 +14,7 @@ enum Page {
 export default function Reseller() {
   const [currentPage, setCurrentPage] = useState<Page>(Page.MyOrders);
   const { ships, loading } = useHangarData();
+  const navigate = useNavigate();
 
   return (
     <div className='absolute top-[65px] h-[calc(100vh-65px)] left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
@@ -27,6 +29,12 @@ export default function Reseller() {
           <FormattedMessage id="hangar.myOrders" defaultMessage="My Orders" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />
+          </Typography>
+        </div>
+        <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/reseller/graphql-export')}>
+          GraphQL 导出
+          <Typography variant='body2' color='text.secondary'>
+            通过浏览器扩展请求 RSI GraphQL 并下载 JSON
           </Typography>
         </div>
       </div>

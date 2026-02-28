@@ -32,6 +32,7 @@ const Orders = lazy(() => import('./pages/Orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
 const Reseller = lazy(() => import('./pages/Reseller/Reseller'));
 const ResellerOrderDetail = lazy(() => import('./pages/Reseller/OrderDetail'));
+const ResellerGraphqlExport = lazy(() => import('./pages/Reseller/ResellerGraphqlExport'));
 const BlogList = lazy(() => import('./pages/Blog/BlogList'));
 const BlogPostDetail = lazy(() => import('./pages/Blog/BlogPostDetail'));
 const BlogPostForm = lazy(() => import('./pages/Blog/BlogPostForm'));
@@ -174,6 +175,8 @@ function App() {
 
               <Route path="/reseller" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Reseller /></RequireAuth>} />
               <Route path="/reseller/orders/:orderId" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Suspense fallback={<LoadingFallback />}><ResellerOrderDetail /></Suspense></RequireAuth>} />
+              
+              <Route path="/graphql-export" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><ResellerGraphqlExport /></RequireAuth>} />
 
               <Route
                 path="/guide"
