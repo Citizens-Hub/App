@@ -29,6 +29,7 @@
   "ccuPlanner.error.importFailed": "インポートに失敗しました: {errorMessage}",
   "ccuPlanner.error.invalidJson": "無効なJSON形式です",
   "ccuPlanner.success.saved": "CCUアップグレードパスが保存されました！",
+  "ccuPlanner.success.autoSaved": "CCUアップグレードパスを自動保存しました",
   "ccuPlanner.availableShips": "利用可能な船",
   "ccuPlanner.searchPlaceholder": "船を検索...",
   "ccuPlanner.myHangar": "マイハンガー",

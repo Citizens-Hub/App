@@ -95,10 +95,13 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, price
 
 // Move main functionality to this child component
 function CcuCanvasContent() {
+  const AUTO_SAVE_IDLE_MS = 4000;
+  const AUTO_SAVE_BOOTSTRAP_DELAY_MS = 600;
   const navigate = useNavigate();
   const intl = useIntl();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoSaveTimeoutRef = useRef<number | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -108,6 +111,7 @@ function CcuCanvasContent() {
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
 
   // Use data from context
   const {
@@ -124,6 +128,13 @@ function CcuCanvasContent() {
 
   // Get upgrade items from Redux
   const upgrades = useSelector(selectHangarItems);
+
+  const clearAutoSaveTimer = useCallback(() => {
+    if (autoSaveTimeoutRef.current) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+  }, []);
 
   // Handle path completion status change, refresh edge styles
   const refreshEdgesOnPathCompletion = useCallback((showAlert: boolean = true) => {
@@ -496,7 +507,32 @@ function CcuCanvasContent() {
     event.dataTransfer.effectAllowed = 'move';
   };
 
+  const saveFlowData = useCallback((mode: 'manual' | 'auto' = 'manual') => {
+    if (!nodes.length) return;
+
+    const flowData = {
+      nodes,
+      edges,
+      startShipPrices
+    };
+
+    importExportService.saveToLocalStorage(flowData);
+
+    showAlert(
+      intl.formatMessage(mode === 'auto'
+        ? {
+          id: 'ccuPlanner.success.autoSaved',
+          defaultMessage: 'CCU upgrade path auto-saved!'
+        }
+        : {
+          id: 'ccuPlanner.success.saved',
+          defaultMessage: 'CCU upgrade path saved successfully!'
+        })
+    );
+  }, [nodes, edges, startShipPrices, importExportService, showAlert, intl]);
+
   const handleClear = useCallback(() => {
+    clearAutoSaveTimer();
     setNodes([]);
     setEdges([]);
     setStartShipPrices({});
@@ -517,27 +553,12 @@ function CcuCanvasContent() {
         defaultMessage: 'Canvas cleared successfully!'
       })
     );
-  }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert]);
+  }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert, clearAutoSaveTimer]);
 
   const handleSave = useCallback(() => {
-    if (!nodes.length) return;
-
-    const flowData = {
-      nodes,
-      edges,
-      startShipPrices
-    };
-
-    // Use ImportExportService to save data
-    importExportService.saveToLocalStorage(flowData);
-
-    showAlert(
-      intl.formatMessage({
-        id: 'ccuPlanner.success.saved',
-        defaultMessage: 'CCU upgrade path saved successfully!'
-      })
-    );
-  }, [nodes, edges, startShipPrices, intl, importExportService, showAlert]);
+    clearAutoSaveTimer();
+    saveFlowData('manual');
+  }, [clearAutoSaveTimer, saveFlowData]);
 
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
@@ -562,14 +583,43 @@ function CcuCanvasContent() {
   useEffect(() => {
     // Use ImportExportService to load data
     if (reactFlowInstance) {
+      setAutoSaveEnabled(false);
+      clearAutoSaveTimer();
+
       const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
       if (savedData) {
         setNodes(savedData.nodes);
         setEdges(savedData.edges);
         setStartShipPrices(savedData.startShipPrices);
       }
+
+      const enableAutoSaveTimer = window.setTimeout(() => {
+        setAutoSaveEnabled(true);
+      }, AUTO_SAVE_BOOTSTRAP_DELAY_MS);
+
+      return () => {
+        window.clearTimeout(enableAutoSaveTimer);
+      };
     }
-  }, [reactFlowInstance, setNodes, setEdges, importExportService, ships, wbHistory, ccus, hangarItems]);
+  }, [reactFlowInstance, setNodes, setEdges, importExportService, ships, wbHistory, ccus, hangarItems, clearAutoSaveTimer, AUTO_SAVE_BOOTSTRAP_DELAY_MS]);
+
+  useEffect(() => {
+    if (!autoSaveEnabled || !nodes.length) return;
+
+    clearAutoSaveTimer();
+    autoSaveTimeoutRef.current = window.setTimeout(() => {
+      saveFlowData('auto');
+      autoSaveTimeoutRef.current = null;
+    }, AUTO_SAVE_IDLE_MS);
+
+    return clearAutoSaveTimer;
+  }, [autoSaveEnabled, nodes.length, saveFlowData, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
+
+  useEffect(() => {
+    return () => {
+      clearAutoSaveTimer();
+    };
+  }, [clearAutoSaveTimer]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);

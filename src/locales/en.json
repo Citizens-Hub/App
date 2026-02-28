@@ -29,6 +29,7 @@
   "ccuPlanner.error.importFailed": "Import failed: {errorMessage}",
   "ccuPlanner.error.invalidJson": "Invalid JSON format",
   "ccuPlanner.success.saved": "CCU upgrade path saved!",
+  "ccuPlanner.success.autoSaved": "CCU upgrade path auto-saved!",
   "ccuPlanner.availableShips": "Available Ships",
   "ccuPlanner.searchPlaceholder": "Search ships...",
   "ccuPlanner.myHangar": "My Hangar",

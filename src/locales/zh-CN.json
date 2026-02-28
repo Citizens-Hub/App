@@ -29,6 +29,7 @@
   "ccuPlanner.error.importFailed": "导入失败: {errorMessage}",
   "ccuPlanner.error.invalidJson": "无效的JSON格式",
   "ccuPlanner.success.saved": "CCU 升级路径已保存！",
+  "ccuPlanner.success.autoSaved": "已自动保存 CCU 升级路径",
   "ccuPlanner.availableShips": "可用舰船",
   "ccuPlanner.searchPlaceholder": "搜索舰船...",
   "ccuPlanner.myHangar": "我的机库",
