@@ -42,9 +42,9 @@ interface PathBuildOptions {
   preferHangarCcu?: boolean;
 }
 
-type PathGraphResult = { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] };
+export type PathGraphResult = { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] };
 
-interface AutoPathSessionData {
+export interface AutoPathSessionData {
   ships: Ship[];
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
@@ -56,9 +56,16 @@ interface AutoPathSessionData {
 interface AutoPathBaseGraphCache {
   key: string;
   data: AutoPathSessionData;
-  startShip: Ship;
-  targetShip: Ship;
   graph: PathGraphResult;
+}
+
+export type AutoPathBaseGraphOptions = Pick<
+  AutoPathBuildRequest,
+  'rangeStartTs' | 'rangeEndTs' | 'includeWarbond' | 'includePriceIncrease' | 'preferHangarCcu'
+>;
+
+export interface AutoPathSessionInitOptions {
+  warmupWasm?: boolean;
 }
 
 interface AutoPathExclusionResult {
@@ -135,7 +142,7 @@ export class PathBuilderService {
   private _autoPathSessionData: AutoPathSessionData | null = null;
   private _autoPathBaseGraphCache: AutoPathBaseGraphCache | null = null;
 
-  async initializeAutoPathSession(params: AutoPathSessionData): Promise<void> {
+  async initializeAutoPathSession(params: AutoPathSessionData, options?: AutoPathSessionInitOptions): Promise<void> {
     const { ships, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = params;
     const hasSameSessionData = this._autoPathSessionData
       && this._autoPathSessionData.ships === ships
@@ -158,12 +165,68 @@ export class PathBuilderService {
       this._autoPathBaseGraphCache = null;
     }
 
-    await pathBuilderCWasmService.warmup();
+    if (options?.warmupWasm !== false) {
+      await pathBuilderCWasmService.warmup();
+    }
   }
 
   resetAutoPathSession(): void {
     this._autoPathSessionData = null;
     this._autoPathBaseGraphCache = null;
+  }
+
+  getAutoPathSessionData(): AutoPathSessionData | null {
+    return this._autoPathSessionData;
+  }
+
+  clearAutoPathBaseGraphCache(): void {
+    this._autoPathBaseGraphCache = null;
+  }
+
+  buildAutoPathBaseGraphSnapshot(params: {
+    options: AutoPathBaseGraphOptions;
+    data?: AutoPathSessionData;
+  }): { key: string; graph: PathGraphResult } | null {
+    const data = params.data || this._autoPathSessionData;
+    if (!data) {
+      return null;
+    }
+
+    const graph = this._getOrCreateAutoPathBaseGraph({
+      options: params.options,
+      data
+    });
+    if (!graph) {
+      return null;
+    }
+
+    return {
+      key: this._buildAutoPathBaseGraphCacheKey(params.options),
+      graph
+    };
+  }
+
+  hydrateAutoPathBaseGraphCache(params: {
+    key: string;
+    graph: PathGraphResult;
+    data?: AutoPathSessionData;
+  }): void {
+    const data = params.data || this._autoPathSessionData;
+    if (!data) {
+      return;
+    }
+
+    this._autoPathBaseGraphCache = {
+      key: params.key,
+      data,
+      graph: params.graph
+    };
+  }
+
+  async prebuildAutoPathBaseGraph(options: AutoPathBaseGraphOptions): Promise<void> {
+    void this.buildAutoPathBaseGraphSnapshot({
+      options
+    });
   }
 
   createPath(params: {
@@ -249,21 +312,30 @@ export class PathBuilderService {
       return { nodes: [], edges: [] };
     }
 
-    const baseGraphResult = this._getOrCreateAutoPathBaseGraph({
-      request,
-      data: autoPathData
-    });
-    if (!baseGraphResult) {
+    const startShip = autoPathData.ships.find(ship => ship.id === request.startShipId);
+    const targetShip = autoPathData.ships.find(ship => ship.id === request.targetShipId);
+    if (!startShip || !targetShip || startShip.msrp <= 0 || targetShip.msrp <= 0 || startShip.msrp >= targetShip.msrp) {
       return { nodes: [], edges: [] };
     }
 
-    const { generated, startShip, targetShip } = baseGraphResult;
+    const targetHistory = autoPathData.priceHistoryMap[targetShip.id]?.history || [];
+    if (!request.ignoreTargetAvailability && !this._hasValidSkuInRange(targetHistory, request.rangeStartTs, request.rangeEndTs)) {
+      return { nodes: [], edges: [] };
+    }
+
+    const generated = this._getOrCreateAutoPathBaseGraph({
+      options: this._toAutoPathBaseGraphOptions(request),
+      data: autoPathData
+    });
+    if (!generated) {
+      return { nodes: [], edges: [] };
+    }
+
     const filteredResult = await this._runAutoPathFilters({
       generated,
-      startShip,
-      targetShip,
       request,
-      executionOptions
+      executionOptions,
+      directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
     });
 
     const totalElapsedMs = performance.now() - startedAt;
@@ -296,18 +368,19 @@ export class PathBuilderService {
   }): Promise<AutoPathBuildResult> {
     const startedAt = performance.now();
     const cache = this._autoPathBaseGraphCache;
-    if (!cache) {
+    const sessionData = this._autoPathSessionData;
+    if (!cache || !sessionData) {
       return { nodes: [], edges: [] };
     }
 
-    if (cache.startShip.id !== params.startShipId || cache.targetShip.id !== params.targetShipId) {
+    const startShip = sessionData.ships.find(ship => ship.id === params.startShipId);
+    const targetShip = sessionData.ships.find(ship => ship.id === params.targetShipId);
+    if (!startShip || !targetShip || startShip.msrp <= 0 || targetShip.msrp <= 0 || startShip.msrp >= targetShip.msrp) {
       return { nodes: [], edges: [] };
     }
 
     const filteredResult = await this._runAutoPathFilters({
       generated: cache.graph,
-      startShip: cache.startShip,
-      targetShip: cache.targetShip,
       request: {
         startShipId: params.startShipId,
         targetShipId: params.targetShipId,
@@ -315,7 +388,8 @@ export class PathBuilderService {
         excludedSkuIds: params.excludedSkuIds,
         requiredHangarCcuKeys: params.requiredHangarCcuKeys
       },
-      executionOptions: params.executionOptions
+      executionOptions: params.executionOptions,
+      directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
     });
 
     if (!filteredResult.perfStats) {
@@ -340,12 +414,11 @@ export class PathBuilderService {
 
   private async _runAutoPathFilters(params: {
     generated: PathGraphResult;
-    startShip: Ship;
-    targetShip: Ship;
     request: AutoPathFilterRequest;
     executionOptions?: AutoPathExecutionOptions;
+    directUpgradeCost: number;
   }): Promise<AutoPathBuildResult> {
-    const { generated, startShip, targetShip, request, executionOptions } = params;
+    const { generated, request, executionOptions, directUpgradeCost } = params;
     const excludedKeySet = new Set(request.excludedCcuKeys || []);
     const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
     const exclusionResult = this._applyAutoPathExclusions({
@@ -387,14 +460,14 @@ export class PathBuilderService {
         edges: exclusionResult.filteredEdges,
         startShipId: request.startShipId,
         targetShipId: request.targetShipId,
-        directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
+        directUpgradeCost
       }),
       runCWasm: () => this._keepOnlySavingPathsWithWasm({
         nodes: generated.nodes,
         edges: generated.edges,
         startShipId: request.startShipId,
         targetShipId: request.targetShipId,
-        directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100,
+        directUpgradeCost,
         edgeActiveMask: exclusionResult.edgeActiveMask,
         excludedSkuIdSet
       })
@@ -430,29 +503,35 @@ export class PathBuilderService {
     return this._autoPathSessionData;
   }
 
-  private _buildAutoPathBaseGraphCacheKey(request: AutoPathBuildRequest): string {
+  private _toAutoPathBaseGraphOptions(request: Pick<
+    AutoPathBuildRequest,
+    'rangeStartTs' | 'rangeEndTs' | 'includeWarbond' | 'includePriceIncrease' | 'preferHangarCcu'
+  >): AutoPathBaseGraphOptions {
+    return {
+      rangeStartTs: request.rangeStartTs,
+      rangeEndTs: request.rangeEndTs,
+      includeWarbond: request.includeWarbond,
+      includePriceIncrease: request.includePriceIncrease,
+      preferHangarCcu: request.preferHangarCcu
+    };
+  }
+
+  private _buildAutoPathBaseGraphCacheKey(options: AutoPathBaseGraphOptions): string {
     return [
-      request.startShipId,
-      request.targetShipId,
-      request.rangeStartTs,
-      request.rangeEndTs,
-      request.includeWarbond ? 1 : 0,
-      request.includePriceIncrease ? 1 : 0,
-      request.ignoreTargetAvailability ? 1 : 0,
-      request.preferHangarCcu ? 1 : 0
+      options.rangeStartTs,
+      options.rangeEndTs,
+      options.includeWarbond ? 1 : 0,
+      options.includePriceIncrease ? 1 : 0,
+      options.preferHangarCcu ? 1 : 0
     ].join('|');
   }
 
   private _getOrCreateAutoPathBaseGraph(params: {
-    request: AutoPathBuildRequest;
+    options: AutoPathBaseGraphOptions;
     data: AutoPathSessionData;
-  }): {
-    generated: PathGraphResult;
-    startShip: Ship;
-    targetShip: Ship;
-  } | null {
-    const { request, data } = params;
-    const cacheKey = this._buildAutoPathBaseGraphCacheKey(request);
+  }): PathGraphResult | null {
+    const { options, data } = params;
+    const cacheKey = this._buildAutoPathBaseGraphCacheKey(options);
     if (
       this._autoPathBaseGraphCache &&
       this._autoPathBaseGraphCache.key === cacheKey &&
@@ -463,45 +542,30 @@ export class PathBuilderService {
       this._autoPathBaseGraphCache.data.importItems === data.importItems &&
       this._autoPathBaseGraphCache.data.priceHistoryMap === data.priceHistoryMap
     ) {
-      return {
-        generated: this._autoPathBaseGraphCache.graph,
-        startShip: this._autoPathBaseGraphCache.startShip,
-        targetShip: this._autoPathBaseGraphCache.targetShip
-      };
+      return this._autoPathBaseGraphCache.graph;
     }
 
     const { ships, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = data;
-    const startShip = ships.find(ship => ship.id === request.startShipId);
-    const targetShip = ships.find(ship => ship.id === request.targetShipId);
-    if (!startShip || !targetShip || startShip.msrp <= 0 || targetShip.msrp <= 0 || startShip.msrp >= targetShip.msrp) {
-      return null;
-    }
-
-    const targetHistory = priceHistoryMap[targetShip.id]?.history || [];
-    if (!request.ignoreTargetAvailability && !this._hasValidSkuInRange(targetHistory, request.rangeStartTs, request.rangeEndTs)) {
-      return null;
-    }
-
-    const candidateShips = ships
-      .filter(ship => ship.msrp > 0 && ship.msrp >= startShip.msrp && ship.msrp <= targetShip.msrp)
+    const globalShips = ships
+      .filter(ship => ship.msrp > 0)
       .sort((a, b) => a.msrp - b.msrp);
-
-    if (!candidateShips.some(ship => ship.id === targetShip.id)) {
-      candidateShips.push(targetShip);
+    if (globalShips.length < 2) {
+      return null;
     }
 
-    const baseTargets = candidateShips.filter(ship => ship.id !== startShip.id);
+    const baseStartShip = globalShips[0];
+    const baseTargets = globalShips.filter(ship => ship.id !== baseStartShip.id);
     const specialPricingMap: Record<string, SpecialShipPricing> = {};
     const variantTargets: Ship[] = [];
 
     baseTargets.forEach(ship => {
       const history = priceHistoryMap[ship.id]?.history || [];
 
-      if (request.includeWarbond) {
+      if (options.includeWarbond) {
         const warbondPrices = this._findHistoryPriceOptionsInRange(
           history,
-          request.rangeStartTs,
-          request.rangeEndTs,
+          options.rangeStartTs,
+          options.rangeEndTs,
           (entry) => this._isDiscountPriceEntry(entry)
         );
 
@@ -511,8 +575,8 @@ export class PathBuilderService {
             const wbShip = { ...ship, name: `${ship.name}__auto_wb_${price}` };
             const validityWindows = this._collectSkuValidityWindowsForPrice({
               history,
-              rangeStartTs: request.rangeStartTs,
-              rangeEndTs: request.rangeEndTs,
+              rangeStartTs: options.rangeStartTs,
+              rangeEndTs: options.rangeEndTs,
               priceCents: price,
               predicate: (entry) => this._isDiscountPriceEntry(entry)
             });
@@ -525,11 +589,11 @@ export class PathBuilderService {
           });
       }
 
-      if (request.includePriceIncrease) {
+      if (options.includePriceIncrease) {
         const standardPrices = this._findHistoryPriceOptionsInRange(
           history,
-          request.rangeStartTs,
-          request.rangeEndTs,
+          options.rangeStartTs,
+          options.rangeEndTs,
           (entry) => this._isStandardOrNormalPriceEntry(entry)
         );
 
@@ -539,8 +603,8 @@ export class PathBuilderService {
             const historicalShip = { ...ship, name: `${ship.name}__auto_pi_${price}` };
             const validityWindows = this._collectSkuValidityWindowsForPrice({
               history,
-              rangeStartTs: request.rangeStartTs,
-              rangeEndTs: request.rangeEndTs,
+              rangeStartTs: options.rangeStartTs,
+              rangeEndTs: options.rangeEndTs,
               priceCents: price,
               predicate: (entry) => this._isStandardOrNormalPriceEntry(entry)
             });
@@ -554,7 +618,7 @@ export class PathBuilderService {
       }
     });
 
-    const stepShips: Ship[][] = [[startShip], [...baseTargets, ...variantTargets]];
+    const stepShips: Ship[][] = [[baseStartShip], [...baseTargets, ...variantTargets]];
     const generated = this.createPath({
       stepShips,
       ccus,
@@ -565,23 +629,17 @@ export class PathBuilderService {
       specialPricingMap,
       options: {
         exhaustiveEdgeSearch: true,
-        preferHangarCcu: request.preferHangarCcu
+        preferHangarCcu: options.preferHangarCcu
       }
     });
 
     this._autoPathBaseGraphCache = {
       key: cacheKey,
       data,
-      startShip,
-      targetShip,
       graph: generated
     };
 
-    return {
-      generated,
-      startShip,
-      targetShip
-    };
+    return generated;
   }
 
   private _applyAutoPathExclusions(params: {

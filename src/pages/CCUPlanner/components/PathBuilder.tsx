@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
@@ -6,7 +6,14 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { CcuEdgeData, CcuSourceType, CcuValidityWindow, Ship } from '../../../types';
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import { AutoPathBuildRequest, AutoPathBuildPerfStats, AutoPathReviewEdge } from '../services/PathBuilderService';
+import {
+  AutoPathBaseGraphOptions,
+  AutoPathBuildRequest,
+  AutoPathBuildPerfStats,
+  AutoPathReviewEdge,
+  AutoPathSessionData,
+  PathGraphResult
+} from '../services/PathBuilderService';
 import PriceHistoryChart from '../../../components/PriceHistoryChart';
 
 interface AutoPathNodeData {
@@ -43,6 +50,28 @@ interface GroupedSkuValidityWindow {
   sku: number;
   windows: CcuValidityWindow[];
 }
+
+interface BaseGraphPrebuildWorkerRequest {
+  type: 'prebuild';
+  requestId: number;
+  sessionData: AutoPathSessionData;
+  options: AutoPathBaseGraphOptions;
+}
+
+interface BaseGraphPrebuildWorkerSuccess {
+  type: 'success';
+  requestId: number;
+  key: string;
+  graph: PathGraphResult;
+}
+
+interface BaseGraphPrebuildWorkerError {
+  type: 'error';
+  requestId: number;
+  error: string;
+}
+
+type BaseGraphPrebuildWorkerMessage = BaseGraphPrebuildWorkerSuccess | BaseGraphPrebuildWorkerError;
 
 function normalizeShipName(name: string): string {
   return name.trim().toUpperCase();
@@ -264,6 +293,16 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [reviewStepPerfStats, setReviewStepPerfStats] = useState<AutoPathBuildPerfStats | null>(null);
   const [reviewStepMismatchMessage, setReviewStepMismatchMessage] = useState<string | null>(null);
   const calculateTaskRef = useRef(0);
+  const baseGraphPrebuildWorkerRef = useRef<Worker | null>(null);
+  const baseGraphPrebuildTaskRef = useRef(0);
+
+  const terminateBaseGraphPrebuildWorker = useCallback(() => {
+    if (!baseGraphPrebuildWorkerRef.current) {
+      return;
+    }
+    baseGraphPrebuildWorkerRef.current.terminate();
+    baseGraphPrebuildWorkerRef.current = null;
+  }, []);
 
   const selectableShips = useMemo(
     () => ships.filter(ship => ship.msrp > 0).sort((a, b) => a.msrp - b.msrp),
@@ -349,6 +388,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   useEffect(() => {
     if (!open) {
       calculateTaskRef.current = Date.now() + Math.random();
+      baseGraphPrebuildTaskRef.current = Date.now() + Math.random();
+      terminateBaseGraphPrebuildWorker();
       setIsCalculating(false);
       return;
     }
@@ -378,7 +419,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setReviewRoute(null);
     setReviewStepPerfStats(null);
     setReviewStepMismatchMessage(null);
-  }, [open]);
+  }, [open, terminateBaseGraphPrebuildWorker]);
 
   useEffect(() => {
     if (!open) {
@@ -393,6 +434,91 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       console.warn('[PathBuilder] failed to initialize auto-path session', error);
     });
   }, [open, ships, getServiceData, pathBuilderService]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    terminateBaseGraphPrebuildWorker();
+    pathBuilderService.clearAutoPathBaseGraphCache();
+
+    const range = parseDateRangeToTs(rangeStartDate, rangeEndDate);
+    if (!range) {
+      return;
+    }
+
+    const serviceData = getServiceData();
+    const sessionData: AutoPathSessionData = {
+      ships,
+      ...serviceData
+    };
+    const options: AutoPathBaseGraphOptions = {
+      rangeStartTs: range.startTs,
+      rangeEndTs: range.endTs,
+      includeWarbond,
+      includePriceIncrease,
+      preferHangarCcu
+    };
+    const requestId = Date.now() + Math.random();
+    baseGraphPrebuildTaskRef.current = requestId;
+
+    const worker = new Worker(new URL('../workers/pathBuilderBaseGraph.worker.ts', import.meta.url), {
+      type: 'module'
+    });
+    baseGraphPrebuildWorkerRef.current = worker;
+
+    worker.onmessage = (event: MessageEvent<BaseGraphPrebuildWorkerMessage>) => {
+      const message = event.data;
+      if (message.requestId !== requestId || baseGraphPrebuildTaskRef.current !== requestId) {
+        return;
+      }
+
+      if (message.type === 'success') {
+        const activeSessionData = pathBuilderService.getAutoPathSessionData();
+        if (activeSessionData) {
+          pathBuilderService.hydrateAutoPathBaseGraphCache({
+            key: message.key,
+            graph: message.graph,
+            data: activeSessionData
+          });
+        }
+      } else {
+        console.warn('[PathBuilder] failed to prebuild global base graph in worker', message.error);
+      }
+
+      if (baseGraphPrebuildWorkerRef.current === worker) {
+        worker.terminate();
+        baseGraphPrebuildWorkerRef.current = null;
+      }
+    };
+
+    worker.onerror = (error) => {
+      if (baseGraphPrebuildTaskRef.current !== requestId) {
+        return;
+      }
+      console.warn('[PathBuilder] worker error while prebuilding global base graph', error);
+      if (baseGraphPrebuildWorkerRef.current === worker) {
+        worker.terminate();
+        baseGraphPrebuildWorkerRef.current = null;
+      }
+    };
+
+    const payload: BaseGraphPrebuildWorkerRequest = {
+      type: 'prebuild',
+      requestId,
+      sessionData,
+      options
+    };
+    worker.postMessage(payload);
+
+    return () => {
+      if (baseGraphPrebuildWorkerRef.current === worker) {
+        worker.terminate();
+        baseGraphPrebuildWorkerRef.current = null;
+      }
+    };
+  }, [open, rangeStartDate, rangeEndDate, includeWarbond, includePriceIncrease, preferHangarCcu, ships, getServiceData, pathBuilderService, terminateBaseGraphPrebuildWorker]);
 
   useEffect(() => {
     setHoveredSkuContext(null);
