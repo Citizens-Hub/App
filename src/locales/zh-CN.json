@@ -600,5 +600,9 @@
   "admin.errors": "错误日志",
   "admin.erroesDescription": "Bi 回报错误日志",
   "admin.bi": "数据埋点",
-  "admin.biDescription": "埋点回报数据"
+  "admin.biDescription": "埋点回报数据",
+  "pathBuilder.requiredHangarTitle": "包含机库CCU",
+  "pathBuilder.requiredHangarHint": "强制使用这些CCU",
+  "pathBuilder.selectRequiredHangar": "选择包含机库CCU",
+  "pathBuilder.noHangarCcu": "无可用CCU"
 }
