@@ -665,7 +665,7 @@ export default function RouteInfoPanel({
               />
             </div>
           )}
-          {pathFinderPerfStats && (
+          {isDevMode && pathFinderPerfStats && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {!isDevMode || !comparePathFinderPerf
                 ? `${pathFinderPerfStats.mode === 'c-wasm' ? 'C-WASM' : 'JS'} ${((pathFinderPerfStats.mode === 'c-wasm'

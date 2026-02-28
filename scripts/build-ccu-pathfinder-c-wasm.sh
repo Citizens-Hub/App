@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$ROOT_DIR/public/wasm"
-C_MAIN="$ROOT_DIR/wasm/ccu_pathfinder_c/main.c"
+PATHFINDER_C_MAIN="$ROOT_DIR/wasm/ccu_pathfinder_c/main.c"
+PATHBUILDER_C_MAIN="$ROOT_DIR/wasm/ccu_pathbuilder_c/main.c"
 
 if ! command -v emcc >/dev/null 2>&1; then
   echo "emcc is required to build the C WASM pathfinder." >&2
@@ -19,7 +20,7 @@ mkdir -p "$EM_CACHE"
 
 mkdir -p "$OUT_DIR"
 
-emcc "$C_MAIN" \
+emcc "$PATHFINDER_C_MAIN" \
   -O3 \
   -s WASM=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
@@ -30,5 +31,17 @@ emcc "$C_MAIN" \
   -s EXPORTED_FUNCTIONS='["_ccuReset","_ccuSetConfig","_ccuAddNode","_ccuAddEdge","_ccuAddStart","_ccuFindAllPathsC","_ccuFreeCString"]' \
   -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \
   -o "$OUT_DIR/ccu-pathfinder-c.js"
+
+emcc "$PATHBUILDER_C_MAIN" \
+  -O3 \
+  -s WASM=1 \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s MODULARIZE=1 \
+  -s EXPORT_ES6=0 \
+  -s ENVIRONMENT=web \
+  -s EXPORT_NAME=createCcuPathbuilderCModule \
+  -s EXPORTED_FUNCTIONS='["_pbReset","_pbAddNode","_pbAddNodeBatch","_pbAddEdgeByIndex","_pbAddEdgeBatch","_pbAddEdge","_pbSetEdgeReviewBitsBatch","_pbSetEdgeActiveMaskBatch","_pbRun","_pbFreeCString"]' \
+  -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \
+  -o "$OUT_DIR/ccu-pathbuilder-c.js"
 
 echo "C WASM artifacts written to $OUT_DIR"

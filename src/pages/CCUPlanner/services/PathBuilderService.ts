@@ -1,6 +1,7 @@
 import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem, PriceHistoryEntity, CcuValidityWindow } from '../../../types';
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 import { Node, Edge } from 'reactflow';
+import pathBuilderCWasmService from './PathBuilderCWasmService';
 
 type ShipVariant = 'base' | 'wb' | 'historical';
 
@@ -41,6 +42,81 @@ interface PathBuildOptions {
   preferHangarCcu?: boolean;
 }
 
+type PathGraphResult = { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] };
+
+interface AutoPathSessionData {
+  ships: Ship[];
+  ccus: Ccu[];
+  wbHistory: WbHistoryData[];
+  hangarItems: HangarItem[];
+  importItems: ImportItem[];
+  priceHistoryMap: Record<number, PriceHistoryEntity>;
+}
+
+interface AutoPathBaseGraphCache {
+  key: string;
+  data: AutoPathSessionData;
+  startShip: Ship;
+  targetShip: Ship;
+  graph: PathGraphResult;
+}
+
+interface AutoPathExclusionResult {
+  filteredEdges: Edge<CcuEdgeData>[];
+  edgeActiveMask: Uint8Array;
+}
+
+type AutoPathFilterRequest = Pick<
+  AutoPathBuildRequest,
+  'startShipId' | 'targetShipId' | 'excludedCcuKeys' | 'excludedSkuIds' | 'requiredHangarCcuKeys'
+>;
+
+export interface AutoPathExecutionOptions {
+  useWasmPathBuilder?: boolean;
+  comparePathBuilderPerf?: boolean;
+}
+
+export interface AutoPathBuildPerfStats {
+  mode: 'js' | 'c-wasm';
+  jsElapsedMs?: number;
+  cWasmElapsedMs?: number;
+  preprocessElapsedMs?: number;
+  totalElapsedMs?: number;
+  consistency?: 'match' | 'mismatch' | 'unavailable';
+  mismatchWithJs?: {
+    cWasmOnly: number;
+    jsOnly: number;
+  };
+  cWasmSpeedupRatio?: number;
+}
+
+export interface AutoPathBuildResult extends PathGraphResult {
+  perfStats?: AutoPathBuildPerfStats;
+  mismatchMessage?: string | null;
+}
+
+export interface AutoPathReviewEdge {
+  edge: Edge<CcuEdgeData>;
+  sourceShip: Ship;
+  targetShip: Ship;
+  cost: number;
+  key: string;
+  sourceType: CcuSourceType;
+  validityWindows?: CcuValidityWindow[];
+}
+
+export interface AutoPathReviewRoute {
+  nodeIds: string[];
+  edges: AutoPathReviewEdge[];
+  totalCost: number;
+}
+
+export interface AutoPathReviewResult {
+  route: AutoPathReviewRoute | null;
+  perfStats?: AutoPathBuildPerfStats;
+  mismatchMessage?: string | null;
+}
+
 export interface AutoPathBuildRequest {
   startShipId: number;
   targetShipId: number;
@@ -56,6 +132,40 @@ export interface AutoPathBuildRequest {
 }
 
 export class PathBuilderService {
+  private _autoPathSessionData: AutoPathSessionData | null = null;
+  private _autoPathBaseGraphCache: AutoPathBaseGraphCache | null = null;
+
+  async initializeAutoPathSession(params: AutoPathSessionData): Promise<void> {
+    const { ships, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = params;
+    const hasSameSessionData = this._autoPathSessionData
+      && this._autoPathSessionData.ships === ships
+      && this._autoPathSessionData.ccus === ccus
+      && this._autoPathSessionData.wbHistory === wbHistory
+      && this._autoPathSessionData.hangarItems === hangarItems
+      && this._autoPathSessionData.importItems === importItems
+      && this._autoPathSessionData.priceHistoryMap === priceHistoryMap;
+
+    this._autoPathSessionData = {
+      ships,
+      ccus,
+      wbHistory,
+      hangarItems,
+      importItems,
+      priceHistoryMap
+    };
+
+    if (!hasSameSessionData) {
+      this._autoPathBaseGraphCache = null;
+    }
+
+    await pathBuilderCWasmService.warmup();
+  }
+
+  resetAutoPathSession(): void {
+    this._autoPathSessionData = null;
+    this._autoPathBaseGraphCache = null;
+  }
+
   createPath(params: {
     stepShips: Ship[][];
     ccus: Ccu[];
@@ -66,7 +176,7 @@ export class PathBuilderService {
     specialPricingMap?: Record<string, SpecialShipPricing>;
     layout?: PathLayoutOptions;
     options?: PathBuildOptions;
-  }): { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] } {
+  }): PathGraphResult {
     const { stepShips, ccus, wbHistory, hangarItems, importItems, priceHistoryMap, specialPricingMap, layout, options } = params;
     if (stepShips.length < 2) return { nodes: [], edges: [] };
 
@@ -122,26 +232,254 @@ export class PathBuilderService {
     return { nodes: newNodes, edges: newEdges };
   }
 
-  createAutoPath(params: {
+  async createAutoPath(params: {
     request: AutoPathBuildRequest;
-    ships: Ship[];
-    ccus: Ccu[];
-    wbHistory: WbHistoryData[];
-    hangarItems: HangarItem[];
-    importItems: ImportItem[];
-    priceHistoryMap: Record<number, PriceHistoryEntity>;
-  }): { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] } {
-    const { request, ships, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = params;
+    executionOptions?: AutoPathExecutionOptions;
+    ships?: Ship[];
+    ccus?: Ccu[];
+    wbHistory?: WbHistoryData[];
+    hangarItems?: HangarItem[];
+    importItems?: ImportItem[];
+    priceHistoryMap?: Record<number, PriceHistoryEntity>;
+  }): Promise<AutoPathBuildResult> {
+    const startedAt = performance.now();
+    const { request, executionOptions } = params;
+    const autoPathData = this._resolveAutoPathData(params);
+    if (!autoPathData) {
+      return { nodes: [], edges: [] };
+    }
+
+    const baseGraphResult = this._getOrCreateAutoPathBaseGraph({
+      request,
+      data: autoPathData
+    });
+    if (!baseGraphResult) {
+      return { nodes: [], edges: [] };
+    }
+
+    const { generated, startShip, targetShip } = baseGraphResult;
+    const filteredResult = await this._runAutoPathFilters({
+      generated,
+      startShip,
+      targetShip,
+      request,
+      executionOptions
+    });
+
+    const totalElapsedMs = performance.now() - startedAt;
+    if (!filteredResult.perfStats) {
+      return filteredResult;
+    }
+
+    const filterElapsedMs = filteredResult.perfStats.mode === 'c-wasm'
+      ? filteredResult.perfStats.cWasmElapsedMs
+      : filteredResult.perfStats.jsElapsedMs;
+    const preprocessElapsedMs = Math.max(0, totalElapsedMs - (filterElapsedMs || 0));
+
+    return {
+      ...filteredResult,
+      perfStats: {
+        ...filteredResult.perfStats,
+        preprocessElapsedMs,
+        totalElapsedMs
+      }
+    };
+  }
+
+  async rebuildAutoPathFromCache(params: {
+    startShipId: number;
+    targetShipId: number;
+    excludedCcuKeys?: string[];
+    excludedSkuIds?: number[];
+    requiredHangarCcuKeys?: string[];
+    executionOptions?: AutoPathExecutionOptions;
+  }): Promise<AutoPathBuildResult> {
+    const startedAt = performance.now();
+    const cache = this._autoPathBaseGraphCache;
+    if (!cache) {
+      return { nodes: [], edges: [] };
+    }
+
+    if (cache.startShip.id !== params.startShipId || cache.targetShip.id !== params.targetShipId) {
+      return { nodes: [], edges: [] };
+    }
+
+    const filteredResult = await this._runAutoPathFilters({
+      generated: cache.graph,
+      startShip: cache.startShip,
+      targetShip: cache.targetShip,
+      request: {
+        startShipId: params.startShipId,
+        targetShipId: params.targetShipId,
+        excludedCcuKeys: params.excludedCcuKeys,
+        excludedSkuIds: params.excludedSkuIds,
+        requiredHangarCcuKeys: params.requiredHangarCcuKeys
+      },
+      executionOptions: params.executionOptions
+    });
+
+    if (!filteredResult.perfStats) {
+      return filteredResult;
+    }
+
+    const filterElapsedMs = filteredResult.perfStats.mode === 'c-wasm'
+      ? filteredResult.perfStats.cWasmElapsedMs
+      : filteredResult.perfStats.jsElapsedMs;
+    const totalElapsedMs = performance.now() - startedAt;
+    const preprocessElapsedMs = Math.max(0, totalElapsedMs - (filterElapsedMs || 0));
+
+    return {
+      ...filteredResult,
+      perfStats: {
+        ...filteredResult.perfStats,
+        preprocessElapsedMs,
+        totalElapsedMs
+      }
+    };
+  }
+
+  private async _runAutoPathFilters(params: {
+    generated: PathGraphResult;
+    startShip: Ship;
+    targetShip: Ship;
+    request: AutoPathFilterRequest;
+    executionOptions?: AutoPathExecutionOptions;
+  }): Promise<AutoPathBuildResult> {
+    const { generated, startShip, targetShip, request, executionOptions } = params;
+    const excludedKeySet = new Set(request.excludedCcuKeys || []);
+    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
+    const exclusionResult = this._applyAutoPathExclusions({
+      edges: generated.edges,
+      excludedCcuKeySet: excludedKeySet,
+      excludedSkuIdSet
+    });
+
+    const requiredHangarSet = new Set((request.requiredHangarCcuKeys || []).map(key => key.trim().toUpperCase()));
+    const useWasmPathBuilder = executionOptions?.useWasmPathBuilder !== false;
+    const comparePathBuilderPerf = import.meta.env.DEV && executionOptions?.comparePathBuilderPerf === true;
+
+    if (requiredHangarSet.size > 0) {
+      return this._runPathFilterWithExecution({
+        useWasmPathBuilder,
+        comparePathBuilderPerf,
+        runJs: () => this._keepReachablePaths({
+          nodes: generated.nodes,
+          edges: exclusionResult.filteredEdges,
+          startShipId: request.startShipId,
+          targetShipId: request.targetShipId
+        }),
+        runCWasm: () => this._keepReachablePathsWithWasm({
+          nodes: generated.nodes,
+          edges: generated.edges,
+          startShipId: request.startShipId,
+          targetShipId: request.targetShipId,
+          edgeActiveMask: exclusionResult.edgeActiveMask,
+          excludedSkuIdSet
+        })
+      });
+    }
+
+    return this._runPathFilterWithExecution({
+      useWasmPathBuilder,
+      comparePathBuilderPerf,
+      runJs: () => this._keepOnlySavingPaths({
+        nodes: generated.nodes,
+        edges: exclusionResult.filteredEdges,
+        startShipId: request.startShipId,
+        targetShipId: request.targetShipId,
+        directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
+      }),
+      runCWasm: () => this._keepOnlySavingPathsWithWasm({
+        nodes: generated.nodes,
+        edges: generated.edges,
+        startShipId: request.startShipId,
+        targetShipId: request.targetShipId,
+        directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100,
+        edgeActiveMask: exclusionResult.edgeActiveMask,
+        excludedSkuIdSet
+      })
+    });
+  }
+
+  private _resolveAutoPathData(params: {
+    ships?: Ship[];
+    ccus?: Ccu[];
+    wbHistory?: WbHistoryData[];
+    hangarItems?: HangarItem[];
+    importItems?: ImportItem[];
+    priceHistoryMap?: Record<number, PriceHistoryEntity>;
+  }): AutoPathSessionData | null {
+    if (
+      params.ships &&
+      params.ccus &&
+      params.wbHistory &&
+      params.hangarItems &&
+      params.importItems &&
+      params.priceHistoryMap
+    ) {
+      return {
+        ships: params.ships,
+        ccus: params.ccus,
+        wbHistory: params.wbHistory,
+        hangarItems: params.hangarItems,
+        importItems: params.importItems,
+        priceHistoryMap: params.priceHistoryMap
+      };
+    }
+
+    return this._autoPathSessionData;
+  }
+
+  private _buildAutoPathBaseGraphCacheKey(request: AutoPathBuildRequest): string {
+    return [
+      request.startShipId,
+      request.targetShipId,
+      request.rangeStartTs,
+      request.rangeEndTs,
+      request.includeWarbond ? 1 : 0,
+      request.includePriceIncrease ? 1 : 0,
+      request.ignoreTargetAvailability ? 1 : 0,
+      request.preferHangarCcu ? 1 : 0
+    ].join('|');
+  }
+
+  private _getOrCreateAutoPathBaseGraph(params: {
+    request: AutoPathBuildRequest;
+    data: AutoPathSessionData;
+  }): {
+    generated: PathGraphResult;
+    startShip: Ship;
+    targetShip: Ship;
+  } | null {
+    const { request, data } = params;
+    const cacheKey = this._buildAutoPathBaseGraphCacheKey(request);
+    if (
+      this._autoPathBaseGraphCache &&
+      this._autoPathBaseGraphCache.key === cacheKey &&
+      this._autoPathBaseGraphCache.data.ships === data.ships &&
+      this._autoPathBaseGraphCache.data.ccus === data.ccus &&
+      this._autoPathBaseGraphCache.data.wbHistory === data.wbHistory &&
+      this._autoPathBaseGraphCache.data.hangarItems === data.hangarItems &&
+      this._autoPathBaseGraphCache.data.importItems === data.importItems &&
+      this._autoPathBaseGraphCache.data.priceHistoryMap === data.priceHistoryMap
+    ) {
+      return {
+        generated: this._autoPathBaseGraphCache.graph,
+        startShip: this._autoPathBaseGraphCache.startShip,
+        targetShip: this._autoPathBaseGraphCache.targetShip
+      };
+    }
+
+    const { ships, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = data;
     const startShip = ships.find(ship => ship.id === request.startShipId);
     const targetShip = ships.find(ship => ship.id === request.targetShipId);
-
     if (!startShip || !targetShip || startShip.msrp <= 0 || targetShip.msrp <= 0 || startShip.msrp >= targetShip.msrp) {
-      return { nodes: [], edges: [] };
+      return null;
     }
 
     const targetHistory = priceHistoryMap[targetShip.id]?.history || [];
     if (!request.ignoreTargetAvailability && !this._hasValidSkuInRange(targetHistory, request.rangeStartTs, request.rangeEndTs)) {
-      return { nodes: [], edges: [] };
+      return null;
     }
 
     const candidateShips = ships
@@ -217,7 +555,6 @@ export class PathBuilderService {
     });
 
     const stepShips: Ship[][] = [[startShip], [...baseTargets, ...variantTargets]];
-
     const generated = this.createPath({
       stepShips,
       ccus,
@@ -232,31 +569,670 @@ export class PathBuilderService {
       }
     });
 
-    const excludedKeySet = new Set(request.excludedCcuKeys || []);
-    const ccuFilteredEdges = excludedKeySet.size > 0
-      ? generated.edges.filter(edge => !excludedKeySet.has(this._getAutoPathEdgeKey(edge)))
-      : generated.edges;
+    this._autoPathBaseGraphCache = {
+      key: cacheKey,
+      data,
+      startShip,
+      targetShip,
+      graph: generated
+    };
 
-    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
-    const skuFilteredEdges = this._filterEdgesByExcludedSkus(ccuFilteredEdges, excludedSkuIdSet);
+    return {
+      generated,
+      startShip,
+      targetShip
+    };
+  }
 
-    const requiredHangarSet = new Set((request.requiredHangarCcuKeys || []).map(key => key.trim().toUpperCase()));
-    if (requiredHangarSet.size > 0) {
-      return this._keepReachablePaths({
-        nodes: generated.nodes,
-        edges: skuFilteredEdges,
-        startShipId: request.startShipId,
-        targetShipId: request.targetShipId
+  private _applyAutoPathExclusions(params: {
+    edges: Edge<CcuEdgeData>[];
+    excludedCcuKeySet: Set<string>;
+    excludedSkuIdSet: Set<number>;
+  }): AutoPathExclusionResult {
+    const { edges, excludedCcuKeySet, excludedSkuIdSet } = params;
+    const edgeActiveMask = new Uint8Array(edges.length);
+    if (edges.length === 0) {
+      return { filteredEdges: [], edgeActiveMask };
+    }
+
+    if (excludedCcuKeySet.size === 0 && excludedSkuIdSet.size === 0) {
+      edgeActiveMask.fill(1);
+      return {
+        filteredEdges: edges,
+        edgeActiveMask
+      };
+    }
+
+    const filteredEdges: Edge<CcuEdgeData>[] = [];
+    edges.forEach((edge, edgeIndex) => {
+      if (excludedCcuKeySet.has(this._getAutoPathEdgeKey(edge))) {
+        edgeActiveMask[edgeIndex] = 0;
+        return;
+      }
+
+      const filteredEdge = this._filterEdgeByExcludedSkus(edge, excludedSkuIdSet);
+      if (!filteredEdge) {
+        edgeActiveMask[edgeIndex] = 0;
+        return;
+      }
+
+      edgeActiveMask[edgeIndex] = 1;
+      filteredEdges.push(filteredEdge);
+    });
+
+    return {
+      filteredEdges,
+      edgeActiveMask
+    };
+  }
+
+  findBestReviewRoute(params: {
+    nodes: Node<{ ship: Ship; [key: string]: unknown }>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    requiredHangarCcuKeys: Set<string>;
+  }): AutoPathReviewRoute | null {
+    return this._findBestReviewRouteJs(params);
+  }
+
+  async findBestReviewRouteWithExecution(params: {
+    nodes: Node<{ ship: Ship; [key: string]: unknown }>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    requiredHangarCcuKeys: Set<string>;
+    executionOptions?: AutoPathExecutionOptions;
+  }): Promise<AutoPathReviewResult> {
+    const startedAt = performance.now();
+    const {
+      nodes,
+      edges,
+      startShipId,
+      targetShipId,
+      requiredHangarCcuKeys,
+      executionOptions
+    } = params;
+
+    const useWasmPathBuilder = executionOptions?.useWasmPathBuilder !== false;
+    const comparePathBuilderPerf = import.meta.env.DEV && executionOptions?.comparePathBuilderPerf === true;
+    const runJsEngine = !useWasmPathBuilder || comparePathBuilderPerf;
+    const runCWasmEngine = useWasmPathBuilder || comparePathBuilderPerf;
+    const preloadGraphPromise = runCWasmEngine
+      ? pathBuilderCWasmService.preloadGraph({ nodes, edges }).catch(error => {
+        this._warnWasmConsistency('C WASM review graph preload failed', error);
+      })
+      : null;
+
+    let jsRoute: AutoPathReviewRoute | null = null;
+    let cWasmRoute: AutoPathReviewRoute | null = null;
+    let jsElapsedMs: number | undefined;
+    let cWasmElapsedMs: number | undefined;
+
+    if (runJsEngine) {
+      const jsStartedAt = performance.now();
+      jsRoute = this._findBestReviewRouteJs({
+        nodes,
+        edges,
+        startShipId,
+        targetShipId,
+        requiredHangarCcuKeys
+      });
+      jsElapsedMs = performance.now() - jsStartedAt;
+    }
+
+    if (runCWasmEngine) {
+      try {
+        if (preloadGraphPromise) {
+          await preloadGraphPromise;
+        }
+        const cWasmStartedAt = performance.now();
+        cWasmRoute = await this._findBestReviewRouteWithWasm({
+          nodes,
+          edges,
+          startShipId,
+          targetShipId,
+          requiredHangarCcuKeys
+        });
+        cWasmElapsedMs = performance.now() - cWasmStartedAt;
+      } catch (error) {
+        this._warnWasmConsistency('C WASM review route builder failed', error);
+      }
+    }
+
+    if (jsElapsedMs === undefined && cWasmElapsedMs === undefined) {
+      const jsStartedAt = performance.now();
+      jsRoute = this._findBestReviewRouteJs({
+        nodes,
+        edges,
+        startShipId,
+        targetShipId,
+        requiredHangarCcuKeys
+      });
+      jsElapsedMs = performance.now() - jsStartedAt;
+    }
+
+    const selectedRoute = useWasmPathBuilder
+      ? (cWasmRoute ?? jsRoute)
+      : (jsRoute ?? cWasmRoute);
+
+    let mismatchWithJs: AutoPathBuildPerfStats['mismatchWithJs'];
+    let mismatchMessage: string | null = null;
+    let consistency: AutoPathBuildPerfStats['consistency'] = 'unavailable';
+
+    if (comparePathBuilderPerf) {
+      if (jsElapsedMs !== undefined && cWasmElapsedMs !== undefined) {
+        const isMatch = this._isReviewRouteConsistent(jsRoute, cWasmRoute);
+        consistency = isMatch ? 'match' : 'mismatch';
+        mismatchWithJs = this._getReviewRouteMismatch({
+          jsRoute,
+          cWasmRoute
+        });
+
+        if (!isMatch) {
+          mismatchMessage = `Review route mismatch detected (JS-only edges: ${mismatchWithJs.jsOnly}, C-WASM-only edges: ${mismatchWithJs.cWasmOnly})`;
+          this._warnWasmConsistency('Review route mismatch detected', mismatchWithJs);
+        }
+      } else {
+        consistency = 'unavailable';
+        mismatchMessage = 'Review route compare unavailable because one or more engines failed.';
+      }
+    }
+
+    const cWasmSpeedupRatio = jsElapsedMs && cWasmElapsedMs && cWasmElapsedMs > 0
+      ? jsElapsedMs / cWasmElapsedMs
+      : undefined;
+
+    return {
+      route: selectedRoute ?? null,
+      perfStats: {
+        mode: useWasmPathBuilder ? 'c-wasm' : 'js',
+        jsElapsedMs,
+        cWasmElapsedMs,
+        totalElapsedMs: performance.now() - startedAt,
+        consistency,
+        mismatchWithJs,
+        cWasmSpeedupRatio
+      },
+      mismatchMessage: comparePathBuilderPerf ? mismatchMessage : null
+    };
+  }
+
+  private _findBestReviewRouteJs(params: {
+    nodes: Node<{ ship: Ship; [key: string]: unknown }>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    requiredHangarCcuKeys: Set<string>;
+  }): AutoPathReviewRoute | null {
+    const { nodes, edges, startShipId, targetShipId, requiredHangarCcuKeys } = params;
+
+    if (!nodes.length || !edges.length) {
+      return null;
+    }
+
+    const nodeMap = new Map<string, Node<{ ship: Ship; [key: string]: unknown }>>();
+    const outgoingMap = new Map<string, Edge<CcuEdgeData>[]>();
+
+    nodes.forEach(node => {
+      nodeMap.set(node.id, node);
+    });
+
+    edges.forEach(edge => {
+      const list = outgoingMap.get(edge.source) || [];
+      list.push(edge);
+      outgoingMap.set(edge.source, list);
+    });
+
+    const startNodeIds = nodes
+      .filter(node => node.data?.ship?.id === startShipId)
+      .map(node => node.id);
+
+    const targetNodeIds = new Set(
+      nodes
+        .filter(node => node.data?.ship?.id === targetShipId)
+        .map(node => node.id)
+    );
+
+    if (!startNodeIds.length || !targetNodeIds.size) {
+      return null;
+    }
+
+    const requiredKeyList = Array.from(requiredHangarCcuKeys);
+    const requiredBitByKey = new Map<string, bigint>();
+    requiredKeyList.forEach((key, idx) => {
+      requiredBitByKey.set(key, 1n << BigInt(idx));
+    });
+    const allRequiredMask = requiredKeyList.length > 0
+      ? (1n << BigInt(requiredKeyList.length)) - 1n
+      : 0n;
+
+    const stateKey = (nodeId: string, mask: bigint) => `${nodeId}|${mask.toString()}`;
+    const dist = new Map<string, number>();
+    const prevState = new Map<string, { prevNodeId: string; prevMask: bigint; edge: Edge<CcuEdgeData> }>();
+    const queue: Array<{ nodeId: string; mask: bigint; cost: number }> = [];
+
+    startNodeIds.forEach(nodeId => {
+      dist.set(stateKey(nodeId, 0n), 0);
+      queue.push({ nodeId, mask: 0n, cost: 0 });
+    });
+
+    while (queue.length > 0) {
+      queue.sort((a, b) => a.cost - b.cost);
+      const current = queue.shift()!;
+      const currentStateKey = stateKey(current.nodeId, current.mask);
+      const knownCost = dist.get(currentStateKey);
+      if (knownCost === undefined || current.cost > knownCost + 1e-6) {
+        continue;
+      }
+
+      if (targetNodeIds.has(current.nodeId) && current.mask === allRequiredMask) {
+        break;
+      }
+
+      const outgoingEdges = outgoingMap.get(current.nodeId) || [];
+      outgoingEdges.forEach(edge => {
+        const edgeCost = this._getEdgeCost(edge);
+        if (!Number.isFinite(edgeCost) || edgeCost < 0) {
+          return;
+        }
+
+        const hangarKey = this._getHangarRequirementKeyFromEdge(edge);
+        const requiredBit = hangarKey ? (requiredBitByKey.get(hangarKey) || 0n) : 0n;
+        const nextMask = current.mask | requiredBit;
+        const candidateCost = current.cost + edgeCost;
+        const nextStateKey = stateKey(edge.target, nextMask);
+        const currentTargetCost = dist.get(nextStateKey) ?? Number.POSITIVE_INFINITY;
+
+        if (candidateCost < currentTargetCost - 1e-6) {
+          dist.set(nextStateKey, candidateCost);
+          prevState.set(nextStateKey, { prevNodeId: current.nodeId, prevMask: current.mask, edge });
+          queue.push({ nodeId: edge.target, mask: nextMask, cost: candidateCost });
+        }
       });
     }
 
-    return this._keepOnlySavingPaths({
-      nodes: generated.nodes,
-      edges: skuFilteredEdges,
-      startShipId: request.startShipId,
-      targetShipId: request.targetShipId,
-      directUpgradeCost: (targetShip.msrp - startShip.msrp) / 100
+    let bestTargetId = '';
+    let bestCost = Number.POSITIVE_INFINITY;
+    let bestMask = allRequiredMask;
+
+    targetNodeIds.forEach(targetNodeId => {
+      const targetCost = dist.get(stateKey(targetNodeId, allRequiredMask)) ?? Number.POSITIVE_INFINITY;
+      if (targetCost < bestCost) {
+        bestCost = targetCost;
+        bestTargetId = targetNodeId;
+        bestMask = allRequiredMask;
+      }
     });
+
+    if (!bestTargetId || !Number.isFinite(bestCost)) {
+      return null;
+    }
+
+    const startNodeIdSet = new Set(startNodeIds);
+    const pathEdges: AutoPathReviewEdge[] = [];
+    const backtrackVisited = new Set<string>();
+    let cursorNodeId = bestTargetId;
+    let cursorMask = bestMask;
+
+    while (!(startNodeIdSet.has(cursorNodeId) && cursorMask === 0n)) {
+      const cursorStateKey = stateKey(cursorNodeId, cursorMask);
+      if (backtrackVisited.has(cursorStateKey)) {
+        return null;
+      }
+      backtrackVisited.add(cursorStateKey);
+
+      const prevInfo = prevState.get(cursorStateKey);
+      if (!prevInfo) {
+        return null;
+      }
+
+      const edge = prevInfo.edge;
+      const sourceNode = nodeMap.get(edge.source);
+      const targetNode = nodeMap.get(edge.target);
+      const sourceShip = edge.data?.sourceShip || sourceNode?.data?.ship;
+      const targetShip = edge.data?.targetShip || targetNode?.data?.ship;
+
+      if (!sourceShip || !targetShip) {
+        return null;
+      }
+
+      pathEdges.push({
+        edge,
+        sourceShip,
+        targetShip,
+        cost: this._getEdgeCost(edge),
+        key: this._getAutoPathEdgeKey(edge),
+        sourceType: edge.data?.sourceType || CcuSourceType.OFFICIAL,
+        validityWindows: edge.data?.validityWindows
+      });
+
+      cursorNodeId = prevInfo.prevNodeId;
+      cursorMask = prevInfo.prevMask;
+    }
+
+    pathEdges.reverse();
+
+    if (!pathEdges.length) {
+      return null;
+    }
+
+    const nodeIds = [pathEdges[0].edge.source, ...pathEdges.map(item => item.edge.target)];
+    const totalCost = pathEdges.reduce((sum, item) => sum + item.cost, 0);
+
+    return {
+      nodeIds,
+      edges: pathEdges,
+      totalCost
+    };
+  }
+
+  private async _findBestReviewRouteWithWasm(params: {
+    nodes: Node<{ ship: Ship; [key: string]: unknown }>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    requiredHangarCcuKeys: Set<string>;
+  }): Promise<AutoPathReviewRoute | null> {
+    const { nodes, edges, startShipId, targetShipId, requiredHangarCcuKeys } = params;
+
+    if (!nodes.length || !edges.length) {
+      return null;
+    }
+
+    const wasmRoute = await pathBuilderCWasmService.findBestReviewRoute({
+      nodes,
+      edges,
+      startShipId,
+      targetShipId,
+      requiredHangarCcuKeys
+    });
+
+    if (!wasmRoute.routeEdgeIndices.length) {
+      return null;
+    }
+
+    const nodeMap = new Map<string, Node<{ ship: Ship; [key: string]: unknown }>>();
+    nodes.forEach(node => {
+      nodeMap.set(node.id, node);
+    });
+
+    const pathEdges: AutoPathReviewEdge[] = [];
+    for (const edgeIndex of wasmRoute.routeEdgeIndices) {
+      const edge = edges[edgeIndex];
+      if (!edge) {
+        return null;
+      }
+
+      const sourceNode = nodeMap.get(edge.source);
+      const targetNode = nodeMap.get(edge.target);
+      const sourceShip = edge.data?.sourceShip || sourceNode?.data?.ship;
+      const targetShip = edge.data?.targetShip || targetNode?.data?.ship;
+      if (!sourceShip || !targetShip) {
+        return null;
+      }
+
+      pathEdges.push({
+        edge,
+        sourceShip,
+        targetShip,
+        cost: this._getEdgeCost(edge),
+        key: this._getAutoPathEdgeKey(edge),
+        sourceType: edge.data?.sourceType || CcuSourceType.OFFICIAL,
+        validityWindows: edge.data?.validityWindows
+      });
+    }
+
+    if (!pathEdges.length) {
+      return null;
+    }
+
+    const computedTotalCost = pathEdges.reduce((sum, item) => sum + item.cost, 0);
+    const totalCost = Number.isFinite(wasmRoute.totalCost) ? wasmRoute.totalCost : computedTotalCost;
+
+    return {
+      nodeIds: [pathEdges[0].edge.source, ...pathEdges.map(item => item.edge.target)],
+      edges: pathEdges,
+      totalCost
+    };
+  }
+
+  private _isReviewRouteConsistent(left: AutoPathReviewRoute | null, right: AutoPathReviewRoute | null): boolean {
+    if (!left || !right) {
+      return left === right;
+    }
+
+    if (left.edges.length !== right.edges.length) {
+      return false;
+    }
+
+    for (let i = 0; i < left.edges.length; i++) {
+      if (left.edges[i].edge.id !== right.edges[i].edge.id) {
+        return false;
+      }
+    }
+
+    if (Math.abs(left.totalCost - right.totalCost) > 1e-3) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private _getReviewRouteMismatch(params: {
+    jsRoute: AutoPathReviewRoute | null;
+    cWasmRoute: AutoPathReviewRoute | null;
+  }): { jsOnly: number; cWasmOnly: number } {
+    const jsEdgeSet = new Set((params.jsRoute?.edges || []).map(item => item.edge.id));
+    const cWasmEdgeSet = new Set((params.cWasmRoute?.edges || []).map(item => item.edge.id));
+
+    const jsOnlyEdges = Array.from(jsEdgeSet).filter(edgeId => !cWasmEdgeSet.has(edgeId)).length;
+    const cWasmOnlyEdges = Array.from(cWasmEdgeSet).filter(edgeId => !jsEdgeSet.has(edgeId)).length;
+
+    return {
+      jsOnly: jsOnlyEdges,
+      cWasmOnly: cWasmOnlyEdges
+    };
+  }
+
+  private _isPathGraphConsistent(left: PathGraphResult, right: PathGraphResult): boolean {
+    if (left.nodes.length !== right.nodes.length || left.edges.length !== right.edges.length) {
+      return false;
+    }
+
+    const rightNodeMap = new Map(right.nodes.map(node => [node.id, node]));
+    for (const leftNode of left.nodes) {
+      const rightNode = rightNodeMap.get(leftNode.id);
+      if (!rightNode) {
+        return false;
+      }
+
+      const xDiff = Math.abs((leftNode.position?.x || 0) - (rightNode.position?.x || 0));
+      const yDiff = Math.abs((leftNode.position?.y || 0) - (rightNode.position?.y || 0));
+      if (xDiff > 1e-3 || yDiff > 1e-3) {
+        return false;
+      }
+    }
+
+    const leftEdgeIds = new Set(left.edges.map(edge => edge.id));
+    const rightEdgeIds = new Set(right.edges.map(edge => edge.id));
+    if (leftEdgeIds.size !== rightEdgeIds.size) {
+      return false;
+    }
+
+    for (const edgeId of leftEdgeIds) {
+      if (!rightEdgeIds.has(edgeId)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private _getPathGraphMismatch(params: {
+    jsResult: PathGraphResult;
+    cWasmResult: PathGraphResult;
+  }): { jsOnly: number; cWasmOnly: number } {
+    const toEdgeKey = (edge: Edge<CcuEdgeData>) => edge.id;
+    const jsEdgeSet = new Set(params.jsResult.edges.map(toEdgeKey));
+    const cWasmEdgeSet = new Set(params.cWasmResult.edges.map(toEdgeKey));
+
+    const jsOnlyEdges = Array.from(jsEdgeSet).filter(edgeId => !cWasmEdgeSet.has(edgeId)).length;
+    const cWasmOnlyEdges = Array.from(cWasmEdgeSet).filter(edgeId => !jsEdgeSet.has(edgeId)).length;
+
+    return {
+      jsOnly: jsOnlyEdges,
+      cWasmOnly: cWasmOnlyEdges
+    };
+  }
+
+  private _warnWasmConsistency(message: string, detail?: unknown): void {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    
+    console.warn(`[PathBuilderService][WASM] ${message}`, detail);
+  }
+
+  private async _runPathFilterWithExecution(params: {
+    useWasmPathBuilder: boolean;
+    comparePathBuilderPerf: boolean;
+    runJs: () => PathGraphResult;
+    runCWasm: () => Promise<PathGraphResult>;
+  }): Promise<AutoPathBuildResult> {
+    const { useWasmPathBuilder, comparePathBuilderPerf, runJs, runCWasm } = params;
+    const runJsEngine = !useWasmPathBuilder || comparePathBuilderPerf;
+    const runCWasmEngine = useWasmPathBuilder || comparePathBuilderPerf;
+
+    let jsResult: PathGraphResult | null = null;
+    let cWasmResult: PathGraphResult | null = null;
+    let jsElapsedMs: number | undefined;
+    let cWasmElapsedMs: number | undefined;
+    let cWasmError: unknown = null;
+
+    if (runJsEngine) {
+      const jsStartedAt = performance.now();
+      jsResult = runJs();
+      jsElapsedMs = performance.now() - jsStartedAt;
+    }
+
+    if (runCWasmEngine) {
+      try {
+        const cWasmStartedAt = performance.now();
+        cWasmResult = await runCWasm();
+        cWasmElapsedMs = performance.now() - cWasmStartedAt;
+      } catch (error) {
+        cWasmError = error;
+        this._warnWasmConsistency('C WASM path builder filter failed', error);
+      }
+    }
+
+    if (!cWasmResult && !jsResult) {
+      const jsStartedAt = performance.now();
+      jsResult = runJs();
+      jsElapsedMs = performance.now() - jsStartedAt;
+    }
+
+    const selectedResult = useWasmPathBuilder
+      ? (cWasmResult || jsResult)
+      : (jsResult || cWasmResult);
+
+    if (!selectedResult) {
+      return {
+        nodes: [],
+        edges: [],
+        perfStats: {
+          mode: useWasmPathBuilder ? 'c-wasm' : 'js',
+          jsElapsedMs,
+          cWasmElapsedMs,
+          consistency: 'unavailable'
+        },
+        mismatchMessage: cWasmError ? 'Path builder compare unavailable because one or more engines failed.' : null
+      };
+    }
+
+    let mismatchWithJs: AutoPathBuildPerfStats['mismatchWithJs'];
+    let mismatchMessage: string | null = null;
+    let consistency: AutoPathBuildPerfStats['consistency'] = 'unavailable';
+
+    if (comparePathBuilderPerf) {
+      if (jsResult && cWasmResult) {
+        const isMatch = this._isPathGraphConsistent(jsResult, cWasmResult);
+        consistency = isMatch ? 'match' : 'mismatch';
+        mismatchWithJs = this._getPathGraphMismatch({ jsResult, cWasmResult });
+
+        if (!isMatch) {
+          mismatchMessage = `Path mismatch detected (JS-only edges: ${mismatchWithJs.jsOnly}, C-WASM-only edges: ${mismatchWithJs.cWasmOnly})`;
+          this._warnWasmConsistency('Path builder mismatch detected', mismatchWithJs);
+        }
+      } else {
+        consistency = 'unavailable';
+        mismatchMessage = 'Path builder compare unavailable because one or more engines failed.';
+      }
+    }
+
+    const cWasmSpeedupRatio = jsElapsedMs && cWasmElapsedMs && cWasmElapsedMs > 0
+      ? jsElapsedMs / cWasmElapsedMs
+      : undefined;
+
+    return {
+      ...selectedResult,
+      perfStats: {
+        mode: useWasmPathBuilder ? 'c-wasm' : 'js',
+        jsElapsedMs,
+        cWasmElapsedMs,
+        consistency,
+        mismatchWithJs,
+        cWasmSpeedupRatio
+      },
+      mismatchMessage
+    };
+  }
+
+  private async _keepReachablePathsWithWasm(params: {
+    nodes: Node<ShipNodeData>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    edgeActiveMask?: Uint8Array;
+    excludedSkuIdSet: Set<number>;
+  }): Promise<PathGraphResult> {
+    const wasmResult = await pathBuilderCWasmService.filterReachable({
+      nodes: params.nodes,
+      edges: params.edges,
+      startShipId: params.startShipId,
+      targetShipId: params.targetShipId,
+      edgeActiveMask: params.edgeActiveMask
+    });
+
+    return {
+      nodes: wasmResult.nodes as Node<ShipNodeData>[],
+      edges: this._filterEdgesByExcludedSkus(wasmResult.edges, params.excludedSkuIdSet)
+    };
+  }
+
+  private async _keepOnlySavingPathsWithWasm(params: {
+    nodes: Node<ShipNodeData>[];
+    edges: Edge<CcuEdgeData>[];
+    startShipId: number;
+    targetShipId: number;
+    directUpgradeCost: number;
+    edgeActiveMask?: Uint8Array;
+    excludedSkuIdSet: Set<number>;
+  }): Promise<PathGraphResult> {
+    const wasmResult = await pathBuilderCWasmService.filterSaving({
+      nodes: params.nodes,
+      edges: params.edges,
+      startShipId: params.startShipId,
+      targetShipId: params.targetShipId,
+      directUpgradeCost: params.directUpgradeCost,
+      edgeActiveMask: params.edgeActiveMask
+    });
+
+    return {
+      nodes: wasmResult.nodes as Node<ShipNodeData>[],
+      edges: this._filterEdgesByExcludedSkus(wasmResult.edges, params.excludedSkuIdSet)
+    };
   }
 
   private _getAutoPathEdgeKey(edge: Edge<CcuEdgeData>): string {
@@ -267,33 +1243,50 @@ export class PathBuilderService {
     return `${sourceId}->${targetId}|${sourceType}|${cost}`;
   }
 
-  private _filterEdgesByExcludedSkus(edges: Edge<CcuEdgeData>[], excludedSkuIdSet: Set<number>): Edge<CcuEdgeData>[] {
+  private _getHangarRequirementKeyFromEdge(edge: Edge<CcuEdgeData>): string | null {
+    if (edge.data?.sourceType !== CcuSourceType.HANGER) {
+      return null;
+    }
+    const sourceName = edge.data?.sourceShip?.name;
+    const targetName = edge.data?.targetShip?.name;
+    if (!sourceName || !targetName) {
+      return null;
+    }
+    return `${sourceName.trim().toUpperCase()}->${targetName.trim().toUpperCase()}`;
+  }
+
+  private _filterEdgeByExcludedSkus(edge: Edge<CcuEdgeData>, excludedSkuIdSet: Set<number>): Edge<CcuEdgeData> | null {
     if (excludedSkuIdSet.size === 0) {
-      return edges;
+      return edge;
     }
 
+    const windows = edge.data?.validityWindows;
+    if (!windows?.length) {
+      return edge;
+    }
+
+    const filteredWindows = windows.filter(window => !excludedSkuIdSet.has(window.sku));
+    if (!filteredWindows.length) {
+      return null;
+    }
+
+    if (filteredWindows.length === windows.length) {
+      return edge;
+    }
+
+    return {
+      ...edge,
+      data: {
+        ...edge.data!,
+        validityWindows: filteredWindows
+      }
+    };
+  }
+
+  private _filterEdgesByExcludedSkus(edges: Edge<CcuEdgeData>[], excludedSkuIdSet: Set<number>): Edge<CcuEdgeData>[] {
     return edges.flatMap(edge => {
-      const windows = edge.data?.validityWindows;
-      if (!windows?.length) {
-        return [edge];
-      }
-
-      const filteredWindows = windows.filter(window => !excludedSkuIdSet.has(window.sku));
-      if (!filteredWindows.length) {
-        return [];
-      }
-
-      if (filteredWindows.length === windows.length) {
-        return [edge];
-      }
-
-      return [{
-        ...edge,
-        data: {
-          ...edge.data!,
-          validityWindows: filteredWindows
-        }
-      }];
+      const filtered = this._filterEdgeByExcludedSkus(edge, excludedSkuIdSet);
+      return filtered ? [filtered] : [];
     });
   }
 

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CcuEdgeData, CcuSourceType, CcuValidityWindow, Ship } from '../../../types';
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import { AutoPathBuildRequest } from '../services/PathBuilderService';
+import { AutoPathBuildRequest, AutoPathBuildPerfStats, AutoPathReviewEdge } from '../services/PathBuilderService';
 import PriceHistoryChart from '../../../components/PriceHistoryChart';
 
 interface AutoPathNodeData {
@@ -17,6 +17,8 @@ interface AutoPathNodeData {
 export interface ReviewedPathBuildResult {
   nodes: Node<AutoPathNodeData>[];
   edges: Edge<CcuEdgeData>[];
+  perfStats?: AutoPathBuildPerfStats;
+  mismatchMessage?: string | null;
 }
 
 interface PathBuilderProps {
@@ -25,21 +27,7 @@ interface PathBuilderProps {
   onCreatePath: (result: ReviewedPathBuildResult) => void;
 }
 
-interface ReviewPathEdge {
-  edge: Edge<CcuEdgeData>;
-  sourceShip: Ship;
-  targetShip: Ship;
-  cost: number;
-  key: string;
-  sourceType: CcuSourceType;
-  validityWindows?: CcuValidityWindow[];
-}
-
-interface ReviewPath {
-  nodeIds: string[];
-  edges: ReviewPathEdge[];
-  totalCost: number;
-}
+type ReviewPathEdge = AutoPathReviewEdge;
 
 interface ExcludedCcu {
   key: string;
@@ -62,6 +50,10 @@ function normalizeShipName(name: string): string {
 
 function buildHangarCcuKey(fromShipName: string, toShipName: string): string {
   return `${normalizeShipName(fromShipName)}->${normalizeShipName(toShipName)}`;
+}
+
+function buildRequiredHangarKeySet(keys: string[]): Set<string> {
+  return new Set(keys.map(key => key.trim().toUpperCase()));
 }
 
 function getShipImageUrl(ship?: Ship | null): string {
@@ -182,38 +174,6 @@ function parseDateRangeToTs(startDate: string, endDate: string): { startTs: numb
   return { startTs, endTs };
 }
 
-function getEdgeCost(edge: Edge<CcuEdgeData>): number {
-  if (!edge.data) return Number.POSITIVE_INFINITY;
-
-  if (typeof edge.data.customPrice === 'number') {
-    return edge.data.customPrice;
-  }
-
-  const sourcePrice = edge.data.sourceShip?.msrp || 0;
-  const targetPrice = edge.data.targetShip?.msrp || 0;
-  return (targetPrice - sourcePrice) / 100;
-}
-
-function getEdgeKey(edge: Edge<CcuEdgeData>): string {
-  const sourceId = edge.data?.sourceShip?.id || edge.source;
-  const targetId = edge.data?.targetShip?.id || edge.target;
-  const sourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
-  const cost = getEdgeCost(edge).toFixed(2);
-  return `${sourceId}->${targetId}|${sourceType}|${cost}`;
-}
-
-function getHangarRequirementKeyFromEdge(edge: Edge<CcuEdgeData>): string | null {
-  if (edge.data?.sourceType !== CcuSourceType.HANGER) {
-    return null;
-  }
-  const sourceName = edge.data?.sourceShip?.name;
-  const targetName = edge.data?.targetShip?.name;
-  if (!sourceName || !targetName) {
-    return null;
-  }
-  return buildHangarCcuKey(sourceName, targetName);
-}
-
 function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): GroupedSkuValidityWindow[] {
   if (!validityWindows?.length) {
     return [];
@@ -262,177 +222,9 @@ function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): Group
     });
 }
 
-function findBestRoute(params: {
-  nodes: Node<AutoPathNodeData>[];
-  edges: Edge<CcuEdgeData>[];
-  startShipId: number;
-  targetShipId: number;
-  requiredHangarCcuKeys: Set<string>;
-}): ReviewPath | null {
-  const { nodes, edges, startShipId, targetShipId, requiredHangarCcuKeys } = params;
-
-  if (!nodes.length || !edges.length) {
-    return null;
-  }
-
-  const nodeMap = new Map<string, Node<AutoPathNodeData>>();
-  const outgoingMap = new Map<string, Edge<CcuEdgeData>[]>();
-
-  nodes.forEach(node => {
-    nodeMap.set(node.id, node);
-  });
-
-  edges.forEach(edge => {
-    const list = outgoingMap.get(edge.source) || [];
-    list.push(edge);
-    outgoingMap.set(edge.source, list);
-  });
-
-  const startNodeIds = nodes
-    .filter(node => node.data?.ship?.id === startShipId)
-    .map(node => node.id);
-
-  const targetNodeIds = new Set(
-    nodes
-      .filter(node => node.data?.ship?.id === targetShipId)
-      .map(node => node.id)
-  );
-
-  if (!startNodeIds.length || !targetNodeIds.size) {
-    return null;
-  }
-
-  const requiredKeyList = Array.from(requiredHangarCcuKeys);
-  const requiredBitByKey = new Map<string, bigint>();
-  requiredKeyList.forEach((key, idx) => {
-    requiredBitByKey.set(key, 1n << BigInt(idx));
-  });
-  const allRequiredMask = requiredKeyList.length > 0
-    ? (1n << BigInt(requiredKeyList.length)) - 1n
-    : 0n;
-
-  const stateKey = (nodeId: string, mask: bigint) => `${nodeId}|${mask.toString()}`;
-  const dist = new Map<string, number>();
-  const prevState = new Map<string, { prevNodeId: string; prevMask: bigint; edge: Edge<CcuEdgeData> }>();
-  const queue: Array<{ nodeId: string; mask: bigint; cost: number }> = [];
-
-  startNodeIds.forEach(nodeId => {
-    dist.set(stateKey(nodeId, 0n), 0);
-    queue.push({ nodeId, mask: 0n, cost: 0 });
-  });
-
-  while (queue.length > 0) {
-    queue.sort((a, b) => a.cost - b.cost);
-    const current = queue.shift()!;
-    const currentStateKey = stateKey(current.nodeId, current.mask);
-    const knownCost = dist.get(currentStateKey);
-    if (knownCost === undefined || current.cost > knownCost + 1e-6) {
-      continue;
-    }
-
-    if (targetNodeIds.has(current.nodeId) && current.mask === allRequiredMask) {
-      break;
-    }
-
-    const outgoingEdges = outgoingMap.get(current.nodeId) || [];
-    outgoingEdges.forEach(edge => {
-      const edgeCost = getEdgeCost(edge);
-      if (!Number.isFinite(edgeCost) || edgeCost < 0) {
-        return;
-      }
-
-      const hangarKey = getHangarRequirementKeyFromEdge(edge);
-      const requiredBit = hangarKey ? (requiredBitByKey.get(hangarKey) || 0n) : 0n;
-      const nextMask = current.mask | requiredBit;
-      const candidateCost = current.cost + edgeCost;
-      const nextStateKey = stateKey(edge.target, nextMask);
-      const currentTargetCost = dist.get(nextStateKey) ?? Number.POSITIVE_INFINITY;
-
-      if (candidateCost < currentTargetCost - 1e-6) {
-        dist.set(nextStateKey, candidateCost);
-        prevState.set(nextStateKey, { prevNodeId: current.nodeId, prevMask: current.mask, edge });
-        queue.push({ nodeId: edge.target, mask: nextMask, cost: candidateCost });
-      }
-    });
-  }
-
-  let bestTargetId = '';
-  let bestCost = Number.POSITIVE_INFINITY;
-  let bestMask = allRequiredMask;
-
-  targetNodeIds.forEach(targetNodeId => {
-    const targetCost = dist.get(stateKey(targetNodeId, allRequiredMask)) ?? Number.POSITIVE_INFINITY;
-    if (targetCost < bestCost) {
-      bestCost = targetCost;
-      bestTargetId = targetNodeId;
-      bestMask = allRequiredMask;
-    }
-  });
-
-  if (!bestTargetId || !Number.isFinite(bestCost)) {
-    return null;
-  }
-
-  const startNodeIdSet = new Set(startNodeIds);
-  const pathEdges: ReviewPathEdge[] = [];
-  const backtrackVisited = new Set<string>();
-  let cursorNodeId = bestTargetId;
-  let cursorMask = bestMask;
-
-  while (!(startNodeIdSet.has(cursorNodeId) && cursorMask === 0n)) {
-    const cursorStateKey = stateKey(cursorNodeId, cursorMask);
-    if (backtrackVisited.has(cursorStateKey)) {
-      return null;
-    }
-    backtrackVisited.add(cursorStateKey);
-
-    const prevInfo = prevState.get(cursorStateKey);
-    if (!prevInfo) {
-      return null;
-    }
-
-    const edge = prevInfo.edge;
-    const sourceNode = nodeMap.get(edge.source);
-    const targetNode = nodeMap.get(edge.target);
-    const sourceShip = edge.data?.sourceShip || sourceNode?.data?.ship;
-    const targetShip = edge.data?.targetShip || targetNode?.data?.ship;
-
-    if (!sourceShip || !targetShip) {
-      return null;
-    }
-
-    pathEdges.push({
-      edge,
-      sourceShip,
-      targetShip,
-      cost: getEdgeCost(edge),
-      key: getEdgeKey(edge),
-      sourceType: edge.data?.sourceType || CcuSourceType.OFFICIAL,
-      validityWindows: edge.data?.validityWindows
-    });
-
-    cursorNodeId = prevInfo.prevNodeId;
-    cursorMask = prevInfo.prevMask;
-  }
-
-  pathEdges.reverse();
-
-  if (!pathEdges.length) {
-    return null;
-  }
-
-  const nodeIds = [pathEdges[0].edge.source, ...pathEdges.map(item => item.edge.target)];
-  const totalCost = pathEdges.reduce((sum, item) => sum + item.cost, 0);
-
-  return {
-    nodeIds,
-    edges: pathEdges,
-    totalCost
-  };
-}
-
 export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
+  const isDevMode = import.meta.env.DEV;
   const {
     ships,
     hangarItems,
@@ -458,6 +250,19 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [hoveredSkuContext, setHoveredSkuContext] = useState<{ stepKey: string; sku: number } | null>(null);
   const [requiredHangarCcuKeys, setRequiredHangarCcuKeys] = useState<string[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [useWasmPathBuilder, setUseWasmPathBuilder] = useState(() => {
+    const stored = localStorage.getItem('useWasmPathBuilder');
+    return stored === null ? true : stored === 'true';
+  });
+  const [comparePathBuilderPerf, setComparePathBuilderPerf] = useState(() => {
+    if (!import.meta.env.DEV) return false;
+    return localStorage.getItem('comparePathBuilderPerf') === 'true';
+  });
+  const [buildStepPerfStats, setBuildStepPerfStats] = useState<AutoPathBuildPerfStats | null>(null);
+  const [buildStepMismatchMessage, setBuildStepMismatchMessage] = useState<string | null>(null);
+  const [reviewRoute, setReviewRoute] = useState<{ nodeIds: string[]; edges: ReviewPathEdge[]; totalCost: number } | null>(null);
+  const [reviewStepPerfStats, setReviewStepPerfStats] = useState<AutoPathBuildPerfStats | null>(null);
+  const [reviewStepMismatchMessage, setReviewStepMismatchMessage] = useState<string | null>(null);
   const calculateTaskRef = useRef(0);
 
   const selectableShips = useMemo(
@@ -513,29 +318,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     return requiredHangarOptions.filter(option => requiredKeySet.has(option.key));
   }, [requiredHangarOptions, requiredHangarCcuKeys]);
 
-  const requiredHangarKeySet = useMemo(
-    () => new Set(requiredHangarCcuKeys),
-    [requiredHangarCcuKeys]
-  );
-
   const excludedSkuIdSet = useMemo(
     () => new Set(excludedSkuIds),
     [excludedSkuIds]
   );
-
-  const reviewRoute = useMemo(() => {
-    if (!generatedResult || !reviewRequest) {
-      return null;
-    }
-
-    return findBestRoute({
-      nodes: generatedResult.nodes,
-      edges: generatedResult.edges,
-      startShipId: reviewRequest.startShipId,
-      targetShipId: reviewRequest.targetShipId,
-      requiredHangarCcuKeys: requiredHangarKeySet
-    });
-  }, [generatedResult, reviewRequest, requiredHangarKeySet]);
 
   const directUpgradeCost = useMemo(() => {
     if (!reviewRequest) return 0;
@@ -587,7 +373,26 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setHoveredSkuContext(null);
     setRequiredHangarCcuKeys([]);
     setIsCalculating(false);
+    setBuildStepPerfStats(null);
+    setBuildStepMismatchMessage(null);
+    setReviewRoute(null);
+    setReviewStepPerfStats(null);
+    setReviewStepMismatchMessage(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const serviceData = getServiceData();
+    void pathBuilderService.initializeAutoPathSession({
+      ships,
+      ...serviceData
+    }).catch(error => {
+      console.warn('[PathBuilder] failed to initialize auto-path session', error);
+    });
+  }, [open, ships, getServiceData, pathBuilderService]);
 
   useEffect(() => {
     setHoveredSkuContext(null);
@@ -621,6 +426,27 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       month: '2-digit',
       day: '2-digit'
     });
+  };
+
+  const formatPathBuilderPerfLog = (stats: AutoPathBuildPerfStats | null): string | null => {
+    if (!stats) {
+      return null;
+    }
+
+    const totalSegment = stats.totalElapsedMs !== undefined
+      ? ` | Total ${stats.totalElapsedMs.toFixed(2)}ms`
+      : '';
+
+    const preprocessSegment = stats.preprocessElapsedMs !== undefined
+      ? ` | Pre ${stats.preprocessElapsedMs.toFixed(2)}ms`
+      : '';
+
+    if (!comparePathBuilderPerf) {
+      const elapsedMs = stats.mode === 'c-wasm' ? stats.cWasmElapsedMs : stats.jsElapsedMs;
+      return `${stats.mode === 'c-wasm' ? 'C-WASM' : 'JS'} ${(elapsedMs ?? 0).toFixed(2)}ms${preprocessSegment}${totalSegment}`;
+    }
+
+    return `Consistency: ${stats.consistency === 'match' ? 'MATCH' : stats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${stats.jsElapsedMs?.toFixed(2) || '0.00'}ms | C-WASM ${stats.cWasmElapsedMs?.toFixed(2) || '0.00'}ms${stats.cWasmSpeedupRatio ? ` (${stats.cWasmSpeedupRatio.toFixed(2)}x)` : ''}${preprocessSegment}${totalSegment}`;
   };
 
   const getCcuTypeLabel = (sourceType: CcuSourceType): string => {
@@ -719,48 +545,93 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     nextExcludedCcus: ExcludedCcu[],
     nextExcludedSkuIds: number[],
     nextRequiredHangarCcuKeys: string[],
-    options?: { showNoPathAlert?: boolean; moveToReview?: boolean }
+    options?: { showNoPathAlert?: boolean; moveToReview?: boolean; perfStep?: 'build' | 'review' }
   ) => {
     const taskId = Date.now() + Math.random();
     calculateTaskRef.current = taskId;
     setIsCalculating(true);
 
     await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const executionOptions = {
+        useWasmPathBuilder,
+        comparePathBuilderPerf
+      };
+      const generated = options?.perfStep === 'review'
+        ? await pathBuilderService.rebuildAutoPathFromCache({
+          startShipId: request.startShipId,
+          targetShipId: request.targetShipId,
+          excludedCcuKeys: nextExcludedCcus.map(item => item.key),
+          excludedSkuIds: nextExcludedSkuIds,
+          requiredHangarCcuKeys: nextRequiredHangarCcuKeys,
+          executionOptions
+        })
+        : await pathBuilderService.createAutoPath({
+          request: {
+            ...request,
+            excludedCcuKeys: nextExcludedCcus.map(item => item.key),
+            excludedSkuIds: nextExcludedSkuIds,
+            requiredHangarCcuKeys: nextRequiredHangarCcuKeys
+          },
+          executionOptions
+        });
 
-    const generated = pathBuilderService.createAutoPath({
-      request: {
-        ...request,
-        excludedCcuKeys: nextExcludedCcus.map(item => item.key),
-        excludedSkuIds: nextExcludedSkuIds,
-        requiredHangarCcuKeys: nextRequiredHangarCcuKeys
-      },
-      ships,
-      ...getServiceData()
-    });
+      if (calculateTaskRef.current !== taskId) {
+        return;
+      }
 
-    if (calculateTaskRef.current !== taskId) {
-      return;
+      setReviewRequest(request);
+      setGeneratedResult(generated);
+
+      const nextReviewRoute = pathBuilderService.findBestReviewRoute({
+        nodes: generated.nodes,
+        edges: generated.edges,
+        startShipId: request.startShipId,
+        targetShipId: request.targetShipId,
+        requiredHangarCcuKeys: buildRequiredHangarKeySet(nextRequiredHangarCcuKeys)
+      });
+      setReviewRoute(nextReviewRoute);
+
+      if (options?.perfStep === 'build') {
+        setBuildStepPerfStats(generated.perfStats || null);
+        setBuildStepMismatchMessage(generated.mismatchMessage || null);
+        setReviewStepPerfStats(null);
+        setReviewStepMismatchMessage(null);
+      } else if (options?.perfStep === 'review') {
+        setReviewStepPerfStats(generated.perfStats || null);
+        setReviewStepMismatchMessage(generated.mismatchMessage || null);
+      }
+
+      const hasRoute = Boolean(nextReviewRoute);
+      if (options?.moveToReview && hasRoute) {
+        setStep('review');
+      }
+
+      if (!hasRoute && options?.showNoPathAlert) {
+        showAlert(
+          intl.formatMessage({
+            id: 'pathBuilder.error.noPath',
+            defaultMessage: 'No valid path could be generated with the selected settings.'
+          }),
+          'warning'
+        );
+      }
+    } catch (error) {
+      if (calculateTaskRef.current !== taskId) {
+        return;
+      }
+      console.warn('[PathBuilder][Review] failed to recalculate route', error);
+      setGeneratedResult(null);
+      setReviewRoute(null);
+      if (options?.perfStep === 'review') {
+        setReviewStepPerfStats(null);
+        setReviewStepMismatchMessage('Review route rebuild failed.');
+      }
+    } finally {
+      if (calculateTaskRef.current === taskId) {
+        setIsCalculating(false);
+      }
     }
-
-    setReviewRequest(request);
-    setGeneratedResult(generated);
-
-    const hasRoute = generated.nodes.length > 0 && generated.edges.length > 0;
-    if (options?.moveToReview && hasRoute) {
-      setStep('review');
-    }
-
-    if (!hasRoute && options?.showNoPathAlert) {
-      showAlert(
-        intl.formatMessage({
-          id: 'pathBuilder.error.noPath',
-          defaultMessage: 'No valid path could be generated with the selected settings.'
-        }),
-        'warning'
-      );
-    }
-
-    setIsCalculating(false);
   };
 
   const handleGenerateForReview = async () => {
@@ -775,7 +646,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setExcludedSkuIds(nextExcludedSkuIds);
     await calculateRoute(request, nextExcludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys, {
       showNoPathAlert: true,
-      moveToReview: true
+      moveToReview: true,
+      perfStep: 'build'
     });
   };
 
@@ -791,7 +663,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     const label = `${edge.sourceShip.name} -> ${edge.targetShip.name} (${edge.sourceType}, ${formatUsd(edge.cost)})`;
     const nextExcludedCcus = [...excludedCcus, { key: edge.key, label }];
     setExcludedCcus(nextExcludedCcus);
-    void calculateRoute(reviewRequest, nextExcludedCcus, excludedSkuIds, requiredHangarCcuKeys);
+    void calculateRoute(reviewRequest, nextExcludedCcus, excludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
   };
 
   const handleIncludeCcuAgain = (key: string) => {
@@ -801,7 +673,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
     const nextExcludedCcus = excludedCcus.filter(item => item.key !== key);
     setExcludedCcus(nextExcludedCcus);
-    void calculateRoute(reviewRequest, nextExcludedCcus, excludedSkuIds, requiredHangarCcuKeys);
+    void calculateRoute(reviewRequest, nextExcludedCcus, excludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
   };
 
   const handleExcludeSku = (skuId: number) => {
@@ -815,7 +687,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
     const nextExcludedSkuIds = [...excludedSkuIds, skuId];
     setExcludedSkuIds(nextExcludedSkuIds);
-    void calculateRoute(reviewRequest, excludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys);
+    void calculateRoute(reviewRequest, excludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
   };
 
   const handleIncludeSkuAgain = (skuId: number) => {
@@ -825,7 +697,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
     const nextExcludedSkuIds = excludedSkuIds.filter(id => id !== skuId);
     setExcludedSkuIds(nextExcludedSkuIds);
-    void calculateRoute(reviewRequest, excludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys);
+    void calculateRoute(reviewRequest, excludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
   };
 
   const handleConfirmRoute = () => {
@@ -905,8 +777,12 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         isOptionEqualToValue={(option, value) => option.id === value.id}
                         getOptionLabel={(option) => option.name}
                         noOptionsText={intl.formatMessage({ id: 'pathBuilder.noShips', defaultMessage: 'No ships found' })}
-                        ListboxProps={{ style: { maxHeight: 320 } }}
-                        slotProps={{ popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } } }}
+                        slotProps={{
+                          listbox: {
+                            style: { maxHeight: 320 }
+                          },
+                          popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } }
+                        }}
                         renderOption={(props, option) => (
                           <li {...props}>
                             <div className="flex items-center gap-3 w-full py-1">
@@ -959,8 +835,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         isOptionEqualToValue={(option, value) => option.id === value.id}
                         getOptionLabel={(option) => option.name}
                         noOptionsText={intl.formatMessage({ id: 'pathBuilder.noShips', defaultMessage: 'No ships found' })}
-                        ListboxProps={{ style: { maxHeight: 320 } }}
-                        slotProps={{ popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } } }}
+                        slotProps={{
+                          listbox: { style: { maxHeight: 320 } },
+                          popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } }
+                        }}
                         renderOption={(props, option) => (
                           <li {...props}>
                             <div className="flex items-center gap-3 w-full py-1">
@@ -1091,6 +969,62 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         />
                       </span>
                     </label>
+
+                    <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between gap-2">
+                        <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
+                          <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
+                        </label>
+                        <Switch
+                          id="useWasmPathBuilder"
+                          checked={useWasmPathBuilder}
+                          onChange={(e) => {
+                            setUseWasmPathBuilder(e.target.checked);
+                            localStorage.setItem('useWasmPathBuilder', e.target.checked.toString());
+                          }}
+                        />
+                      </div>
+
+                      {isDevMode && (
+                        <div className="flex items-center justify-between gap-2">
+                          <label htmlFor="comparePathBuilderPerf" className="text-sm text-gray-600 dark:text-gray-400">
+                            <FormattedMessage id="pathBuilder.comparePathBuilderPerf" defaultMessage="Compare JS + C-WASM (Dev)" />
+                          </label>
+                          <Switch
+                            id="comparePathBuilderPerf"
+                            checked={comparePathBuilderPerf}
+                            onChange={(e) => {
+                              setComparePathBuilderPerf(e.target.checked);
+                              localStorage.setItem('comparePathBuilderPerf', e.target.checked.toString());
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {isDevMode && buildStepPerfStats && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Step 1 (Build): {formatPathBuilderPerfLog(buildStepPerfStats)}
+                        </div>
+                      )}
+
+                      {isDevMode && reviewStepPerfStats && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Step 2 (Review): {formatPathBuilderPerfLog(reviewStepPerfStats)}
+                        </div>
+                      )}
+
+                      {isDevMode && buildStepMismatchMessage && (
+                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Step 1 (Build): {buildStepMismatchMessage}
+                        </div>
+                      )}
+
+                      {isDevMode && reviewStepMismatchMessage && (
+                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Step 2 (Review): {reviewStepMismatchMessage}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="border border-gray-200 dark:border-gray-800 p-3">
@@ -1160,6 +1094,23 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 />
               </div>
 
+              {isDevMode && (buildStepPerfStats || reviewStepPerfStats) && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] p-2">
+                  {buildStepPerfStats && (
+                    <div>Step 1 (Build): {formatPathBuilderPerfLog(buildStepPerfStats)}</div>
+                  )}
+                  {reviewStepPerfStats && (
+                    <div>Step 2 (Review): {formatPathBuilderPerfLog(reviewStepPerfStats)}</div>
+                  )}
+                  {buildStepMismatchMessage && (
+                    <div className="text-amber-600 dark:text-amber-400">Step 1 (Build): {buildStepMismatchMessage}</div>
+                  )}
+                  {reviewStepMismatchMessage && (
+                    <div className="text-amber-600 dark:text-amber-400">Step 2 (Review): {reviewStepMismatchMessage}</div>
+                  )}
+                </div>
+              )}
+
               {reviewStartShip && reviewTargetShip && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] p-3">
@@ -1221,135 +1172,137 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           const groupedValidityWindows = groupValidityWindowsBySku(item.validityWindows);
 
                           return (
-                          <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
-                            <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
-                              <div className='flex flex-col gap-4'>
-                                <div className="text-sm font-semibold">
-                                  {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
+                            <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
+                              <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
+                                <div className='flex flex-col gap-4'>
+                                  <div className="text-sm font-semibold">
+                                    {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-xs px-2 py-[2px] ${getCcuTypeStyle(item.sourceType)}`}>
+                                      {getCcuTypeLabel(item.sourceType)}
+                                    </span>
+                                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 px-2 py-[2px]">
+                                      {formatUsd(item.cost)}
+                                    </span>
+                                  </div>
+                                  <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
+                                </div>
+                                <div className="min-w-0 flex flex-col gap-2">
+                                  {groupedValidityWindows.length > 0 && (
+                                    <div className="pt-1">
+                                      <div className="text-xs text-gray-500 mb-1">
+                                        <FormattedMessage
+                                          id="pathBuilder.skuValidityTitle"
+                                          defaultMessage="SKU validity"
+                                        />
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        {groupedValidityWindows.map((skuGroup, groupIndex) => {
+                                          const isHovered = hoveredSkuContext?.stepKey === stepKey && hoveredSkuContext.sku === skuGroup.sku;
+
+                                          return (
+                                            <div
+                                              key={`${item.key}-${skuGroup.sku}-${groupIndex}`}
+                                              className={`flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 p-1 3xl:flex-row 3xl:items-center 3xl:justify-between ${isHovered ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+                                              onMouseEnter={() => setHoveredSkuContext({ stepKey, sku: skuGroup.sku })}
+                                              onMouseLeave={() => {
+                                                setHoveredSkuContext(prev =>
+                                                  prev?.stepKey === stepKey && prev.sku === skuGroup.sku ? null : prev
+                                                );
+                                              }}
+                                            >
+                                              <div className="flex flex-col gap-1">
+                                                <span className="font-medium text-gray-700 dark:text-gray-200">
+                                                  {intl.formatMessage({ id: 'pathBuilder.skuChipLabel', defaultMessage: 'SKU {sku}' }, { sku: skuGroup.sku })}
+                                                </span>
+                                                {skuGroup.windows.map((window, windowIndex) => (
+                                                  <span key={`${item.key}-${skuGroup.sku}-${window.startTs}-${windowIndex}`}>
+                                                    {intl.formatMessage(
+                                                      { id: 'pathBuilder.validityPeriod', defaultMessage: '{start} - {end}' },
+                                                      {
+                                                        start: formatDate(window.startTs),
+                                                        end: window.endTs === null
+                                                          ? intl.formatMessage({ id: 'pathBuilder.validityUntilNow', defaultMessage: 'Now' })
+                                                          : formatDate(window.endTs)
+                                                      }
+                                                    )}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                              <Button
+                                                size="small"
+                                                variant="outlined"
+                                                color="error"
+                                                className="!px-1.5 !min-w-0 whitespace-nowrap"
+                                                disabled={isCalculating || excludedSkuIdSet.has(skuGroup.sku)}
+                                                onClick={() => handleExcludeSku(skuGroup.sku)}
+                                              >
+                                                {excludedSkuIdSet.has(skuGroup.sku)
+                                                  ? intl.formatMessage({ id: 'pathBuilder.excludedSku', defaultMessage: 'Excluded' })
+                                                  : intl.formatMessage({ id: 'pathBuilder.excludeSku', defaultMessage: 'Exclude SKU' })}
+                                              </Button>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className='p-1'>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="warning"
+                                      disabled={isCalculating}
+                                      onClick={() => handleExcludeCcu(item)}
+                                    >
+                                      <FormattedMessage
+                                        id="pathBuilder.excludeCcu"
+                                        defaultMessage="Do not use this CCU"
+                                      />
+                                    </Button>
+                                  </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`text-xs px-2 py-[2px] ${getCcuTypeStyle(item.sourceType)}`}>
-                                    {getCcuTypeLabel(item.sourceType)}
-                                  </span>
-                                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 px-2 py-[2px]">
-                                    {formatUsd(item.cost)}
-                                  </span>
-                                </div>
-                                <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
-                              </div>
-                              <div className="min-w-0 flex flex-col gap-2">
-                                {groupedValidityWindows.length > 0 && (
-                                  <div className="pt-1">
-                                    <div className="text-xs text-gray-500 mb-1">
-                                      <FormattedMessage
-                                        id="pathBuilder.skuValidityTitle"
-                                        defaultMessage="SKU validity"
+                                <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117] p-3 flex-1">
+                                  <div className="text-xs text-gray-500 mb-2">
+                                    <FormattedMessage
+                                      id="pathBuilder.stepPriceHistoryTitle"
+                                      defaultMessage="{ship} price history"
+                                      values={{ ship: item.targetShip.name }}
+                                    />
+                                  </div>
+
+                                  {priceHistoryMap[item.targetShip.id]?.history?.length ? (
+                                    <div className="h-[340px]">
+                                      <PriceHistoryChart
+                                        history={priceHistoryMap[item.targetShip.id]?.history || null}
+                                        currentMsrp={item.targetShip.msrp}
+                                        shipName={item.targetShip.name}
+                                        highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
+                                        showTitle={false}
+                                        legendAlign="start"
+                                        legendPosition="left"
+                                        showSkuMetaInTooltip
+                                        className="h-full"
+                                        panelClassName="h-full flex flex-col bg-transparent pb-3 pl-3 pr-2"
                                       />
                                     </div>
-                                    <div className="flex flex-col gap-1">
-                                      {groupedValidityWindows.map((skuGroup, groupIndex) => {
-                                        const isHovered = hoveredSkuContext?.stepKey === stepKey && hoveredSkuContext.sku === skuGroup.sku;
-
-                                        return (
-                                        <div
-                                          key={`${item.key}-${skuGroup.sku}-${groupIndex}`}
-                                          className={`flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 p-1 3xl:flex-row 3xl:items-center 3xl:justify-between ${isHovered ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
-                                          onMouseEnter={() => setHoveredSkuContext({ stepKey, sku: skuGroup.sku })}
-                                          onMouseLeave={() => {
-                                            setHoveredSkuContext(prev =>
-                                              prev?.stepKey === stepKey && prev.sku === skuGroup.sku ? null : prev
-                                            );
-                                          }}
-                                        >
-                                          <div className="flex flex-col gap-1">
-                                            <span className="font-medium text-gray-700 dark:text-gray-200">
-                                              {intl.formatMessage({ id: 'pathBuilder.skuChipLabel', defaultMessage: 'SKU {sku}' }, { sku: skuGroup.sku })}
-                                            </span>
-                                            {skuGroup.windows.map((window, windowIndex) => (
-                                              <span key={`${item.key}-${skuGroup.sku}-${window.startTs}-${windowIndex}`}>
-                                                {intl.formatMessage(
-                                                  { id: 'pathBuilder.validityPeriod', defaultMessage: '{start} - {end}' },
-                                                  {
-                                                    start: formatDate(window.startTs),
-                                                    end: window.endTs === null
-                                                      ? intl.formatMessage({ id: 'pathBuilder.validityUntilNow', defaultMessage: 'Now' })
-                                                      : formatDate(window.endTs)
-                                                  }
-                                                )}
-                                              </span>
-                                            ))}
-                                          </div>
-                                          <Button
-                                            size="small"
-                                            variant="outlined"
-                                            color="error"
-                                            className="!px-1.5 !min-w-0 whitespace-nowrap"
-                                            disabled={isCalculating || excludedSkuIdSet.has(skuGroup.sku)}
-                                            onClick={() => handleExcludeSku(skuGroup.sku)}
-                                          >
-                                            {excludedSkuIdSet.has(skuGroup.sku)
-                                              ? intl.formatMessage({ id: 'pathBuilder.excludedSku', defaultMessage: 'Excluded' })
-                                              : intl.formatMessage({ id: 'pathBuilder.excludeSku', defaultMessage: 'Exclude SKU' })}
-                                          </Button>
-                                        </div>
-                                      )})}
+                                  ) : (
+                                    <div className="h-[220px] border border-dashed border-gray-300 dark:border-gray-600 text-xs text-gray-500 flex items-center justify-center">
+                                      <FormattedMessage
+                                        id="pathBuilder.stepPriceHistoryEmpty"
+                                        defaultMessage="No price history data."
+                                      />
                                     </div>
-                                  </div>
-                                )}
-
-                                <div className='p-1'>
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    color="warning"
-                                    disabled={isCalculating}
-                                    onClick={() => handleExcludeCcu(item)}
-                                  >
-                                    <FormattedMessage
-                                      id="pathBuilder.excludeCcu"
-                                      defaultMessage="Do not use this CCU"
-                                    />
-                                  </Button>
+                                  )}
                                 </div>
-                              </div>
-
-                              <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117] p-3 flex-1">
-                                <div className="text-xs text-gray-500 mb-2">
-                                  <FormattedMessage
-                                    id="pathBuilder.stepPriceHistoryTitle"
-                                    defaultMessage="{ship} price history"
-                                    values={{ ship: item.targetShip.name }}
-                                  />
-                                </div>
-
-                                {priceHistoryMap[item.targetShip.id]?.history?.length ? (
-                                  <div className="h-[340px]">
-                                    <PriceHistoryChart
-                                      history={priceHistoryMap[item.targetShip.id]?.history || null}
-                                      currentMsrp={item.targetShip.msrp}
-                                      shipName={item.targetShip.name}
-                                      highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
-                                      showTitle={false}
-                                      legendAlign="start"
-                                      legendPosition="left"
-                                      showSkuMetaInTooltip
-                                      className="h-full"
-                                      panelClassName="h-full flex flex-col bg-transparent pb-3 pl-3 pr-2"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="h-[220px] border border-dashed border-gray-300 dark:border-gray-600 text-xs text-gray-500 flex items-center justify-center">
-                                    <FormattedMessage
-                                      id="pathBuilder.stepPriceHistoryEmpty"
-                                      defaultMessage="No price history data."
-                                    />
-                                  </div>
-                                )}
                               </div>
                             </div>
-                          </div>
-                        )})}
+                          )
+                        })}
                       </div>
                     </>
                   ) : (
@@ -1379,9 +1332,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           />
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {excludedSkuIds.map(skuId => (
+                          {excludedSkuIds.map((skuId, skuIndex) => (
                             <Chip
-                              key={`excluded-sku-${skuId}`}
+                              key={`excluded-sku-${skuId}-${skuIndex}`}
                               label={intl.formatMessage({ id: 'pathBuilder.skuChipLabel', defaultMessage: 'SKU {sku}' }, { sku: skuId })}
                               disabled={isCalculating}
                               onDelete={() => handleIncludeSkuAgain(skuId)}
@@ -1443,7 +1396,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   const nextExcludedSkuIds: number[] = [];
                   setExcludedCcus(nextExcludedCcus);
                   setExcludedSkuIds(nextExcludedSkuIds);
-                  void calculateRoute(reviewRequest, nextExcludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys);
+                  void calculateRoute(reviewRequest, nextExcludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
                 }}
                 variant="outlined"
                 disabled={(excludedCcus.length === 0 && excludedSkuIds.length === 0) || isCalculating}
