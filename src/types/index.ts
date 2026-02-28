@@ -357,6 +357,8 @@ export interface PriceHistoryEntity {
 export interface PriceHistoryData {
   entities: Record<string, PriceHistoryEntity>;
   updatedAt: string;
+  encrypted?: boolean;
+  payload?: string;
 }
 
 export interface WatchlistItem {

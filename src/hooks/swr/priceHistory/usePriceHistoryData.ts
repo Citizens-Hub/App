@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PriceHistoryData } from '@/types';
 import { useApi } from '@/hooks';
+import { decryptCcuHistoryPayload, type EncryptedCcuHistoryPayload } from '@eduarte/chc';
+import wasmUrl from '@eduarte/chc/chc.wasm?url';
+import wasmExecUrl from '@eduarte/chc/wasm_exec.js?url';
 
 /**
  * Hook to fetch and manage price history data
@@ -13,14 +16,66 @@ export default function usePriceHistoryData() {
     isLoading: loading
   } = useApi<PriceHistoryData>('/api/ccus/history');
 
+  const [resolvedPriceHistoryData, setResolvedPriceHistoryData] = useState<PriceHistoryData | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [decryptError, setDecryptError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolvePriceHistoryData = async () => {
+      if (!priceHistoryData) {
+        setResolvedPriceHistoryData(null);
+        setDecryptError(null);
+        setIsDecrypting(false);
+        return;
+      }
+
+      if (!priceHistoryData.encrypted) {
+        setResolvedPriceHistoryData(priceHistoryData);
+        setDecryptError(null);
+        setIsDecrypting(false);
+        return;
+      }
+
+      try {
+        setIsDecrypting(true);
+        setDecryptError(null);
+        const payload = priceHistoryData as unknown as EncryptedCcuHistoryPayload;
+        const history = await decryptCcuHistoryPayload<PriceHistoryData>(payload, {
+          wasmUrl: wasmUrl,
+          wasmExecUrl: wasmExecUrl
+        });
+
+        if (cancelled) return;
+        setResolvedPriceHistoryData(history);
+      } catch (decryptErr) {
+        if (cancelled) return;
+        console.error('Failed to decrypt price history payload', decryptErr);
+        setResolvedPriceHistoryData(null);
+        setDecryptError('Failed to decrypt price history data');
+      } finally {
+        if (!cancelled) {
+          setIsDecrypting(false);
+        }
+      }
+    };
+
+    void resolvePriceHistoryData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [priceHistoryData]);
+
   // Process and cache price history data
   const { priceHistoryMap } = useMemo(() => {
-    if (!priceHistoryData || !priceHistoryData.entities) {
+    if (!resolvedPriceHistoryData || !resolvedPriceHistoryData.entities) {
       return { priceHistoryMap: {} };
     }
 
     // The data structure has entities directly
-    const entities = priceHistoryData.entities;
+    const entities = resolvedPriceHistoryData.entities;
     
     // Create ID to PriceHistoryEntity mapping
     const mapping: Record<number, PriceHistoryData['entities'][string]> = {};
@@ -31,7 +86,7 @@ export default function usePriceHistoryData() {
     return { 
       priceHistoryMap: mapping
     };
-  }, [priceHistoryData]);
+  }, [resolvedPriceHistoryData]);
 
   /**
    * Get price history by ship ID
@@ -42,9 +97,9 @@ export default function usePriceHistoryData() {
 
   return { 
     priceHistoryMap,
-    loading, 
-    error: error ? 'Failed to load price history data' : null, 
+    loading: loading || isDecrypting, 
+    error: error ? 'Failed to load price history data' : decryptError, 
     getPriceHistoryById,
-    updatedAt: priceHistoryData?.updatedAt
+    updatedAt: resolvedPriceHistoryData?.updatedAt
   };
 }
