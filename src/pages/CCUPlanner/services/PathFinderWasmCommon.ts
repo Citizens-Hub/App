@@ -84,7 +84,7 @@ export function toFiniteNumber(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function buildWasmRequest(params: WasmPathFinderParams): WasmRequest {
+export function buildWasmGraphRequest(params: Pick<WasmPathFinderParams, 'nodes' | 'edges' | 'data'>): Pick<WasmRequest, 'nodes' | 'edges'> {
   const nodeMap = new Map<string, WasmNode>();
 
   params.nodes.forEach(node => {
@@ -93,14 +93,6 @@ export function buildWasmRequest(params: WasmPathFinderParams): WasmRequest {
       shipId: extractShipIdFromNodeId(node.id)
     });
   });
-
-  const starts: WasmStart[] = params.startNodes
-    .filter(node => nodeMap.has(node.id))
-    .map(node => ({
-      nodeId: node.id,
-      usdCost: toFiniteNumber(params.startShipPrices[node.id], 0),
-      tpCost: 0
-    }));
 
   const edges: WasmEdge[] = [];
   params.edges.forEach(edge => {
@@ -124,8 +116,35 @@ export function buildWasmRequest(params: WasmPathFinderParams): WasmRequest {
 
   return {
     nodes: Array.from(nodeMap.values()),
-    edges,
-    starts,
+    edges
+  };
+}
+
+export function buildWasmStarts(params: Pick<WasmPathFinderParams, 'startNodes' | 'startShipPrices'>, nodeIdSet: Set<string>): WasmStart[] {
+  return params.startNodes
+    .filter(node => nodeIdSet.has(node.id))
+    .map(node => ({
+      nodeId: node.id,
+      usdCost: toFiniteNumber(params.startShipPrices[node.id], 0),
+      tpCost: 0
+    }));
+}
+
+export function buildWasmRequest(params: WasmPathFinderParams): WasmRequest {
+  const graph = buildWasmGraphRequest({
+    nodes: params.nodes,
+    edges: params.edges,
+    data: params.data
+  });
+  const nodeIdSet = new Set(graph.nodes.map(node => node.id));
+
+  return {
+    nodes: graph.nodes,
+    edges: graph.edges,
+    starts: buildWasmStarts({
+      startNodes: params.startNodes,
+      startShipPrices: params.startShipPrices
+    }, nodeIdSet),
     endShipId: extractShipIdFromNodeId(params.endNodeId),
     exchangeRate: toFiniteNumber(params.exchangeRate, 1),
     conciergeValue: toFiniteNumber(params.conciergeValue, 0),

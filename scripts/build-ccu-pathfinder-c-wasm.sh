@@ -26,7 +26,7 @@ emcc "$PATHFINDER_C_MAIN" \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s MODULARIZE=1 \
   -s EXPORT_ES6=0 \
-  -s ENVIRONMENT=web \
+  -s ENVIRONMENT=web,worker \
   -s EXPORT_NAME=createCcuPathfinderCModule \
   -s EXPORTED_FUNCTIONS='["_ccuReset","_ccuSetConfig","_ccuAddNode","_ccuAddEdge","_ccuAddStart","_ccuClearStarts","_ccuFindAllPathsC","_ccuFreeCString"]' \
   -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \

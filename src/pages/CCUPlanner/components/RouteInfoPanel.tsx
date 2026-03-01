@@ -133,7 +133,15 @@ export default function RouteInfoPanel({
     let cancelled = false;
 
     const preloadWasmBaseGraph = async () => {
+      const shouldUseCWasm = useWasmPathFinder || (isDevMode && comparePathFinderPerf);
+      if (!shouldUseCWasm) {
+        return;
+      }
+
       try {
+        await pathFinderCWasmService.warmup();
+        if (cancelled) return;
+
         await pathFinderCWasmService.preloadBaseGraph({
           edges,
           nodes,
@@ -151,7 +159,7 @@ export default function RouteInfoPanel({
     return () => {
       cancelled = true;
     };
-  }, [edges, getServiceData, nodes]);
+  }, [edges, getServiceData, nodes, useWasmPathFinder, isDevMode, comparePathFinderPerf]);
 
   const selectedShipId = selectedNode?.data?.ship?.id;
 
@@ -170,6 +178,10 @@ export default function RouteInfoPanel({
       }
 
       setIsCalculatingPaths(true);
+      await new Promise<void>(resolve => {
+        window.setTimeout(resolve, 0);
+      });
+      if (cancelled) return;
 
       try {
         // console.log('Starting path calculation:', {

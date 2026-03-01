@@ -1,109 +1,13 @@
 import {
+  PathFinderServiceData,
   WasmPathFinderParams,
   WasmPathFinderResult,
   WasmRequest,
-  WasmResponse,
-  buildWasmRequest,
+  buildWasmGraphRequest,
+  buildWasmStarts,
+  extractShipIdFromNodeId,
   toFiniteNumber
 } from './PathFinderWasmCommon';
-
-interface CPathFinderModule {
-  ccall: (
-    ident: string,
-    returnType: string | null,
-    argTypes: string[],
-    args: unknown[]
-  ) => unknown;
-  UTF8ToString: (ptr: number) => string;
-}
-
-declare global {
-  interface Window {
-    createCcuPathfinderCModule?: (options?: {
-      locateFile?: (path: string) => string;
-    }) => Promise<CPathFinderModule>;
-  }
-}
-
-const C_WASM_JS_URL = '/wasm/ccu-pathfinder-c.js';
-const C_WASM_URL = '/wasm/ccu-pathfinder-c.wasm';
-const INIT_TIMEOUT_MS = 5000;
-
-let cWasmInitPromise: Promise<CPathFinderModule> | null = null;
-
-function loadScriptOnce(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existingScript = document.querySelector(`script[data-c-wasm-url="${url}"]`) as HTMLScriptElement | null;
-    if (existingScript) {
-      if (existingScript.dataset.loaded === 'true') {
-        resolve();
-        return;
-      }
-      existingScript.addEventListener('load', () => resolve(), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error(`Failed to load script: ${url}`)), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = url;
-    script.async = true;
-    script.dataset.cWasmUrl = url;
-    script.onload = () => {
-      script.dataset.loaded = 'true';
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error(`Failed to load script: ${url}`));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-async function waitForModuleFactory(): Promise<void> {
-  const start = performance.now();
-  while (typeof window.createCcuPathfinderCModule !== 'function') {
-    if (performance.now() - start > INIT_TIMEOUT_MS) {
-      throw new Error('Timeout waiting for C WASM module factory');
-    }
-    await new Promise<void>(resolve => {
-      window.setTimeout(resolve, 16);
-    });
-  }
-}
-
-async function initCWasmRuntime(): Promise<CPathFinderModule> {
-  if (typeof window === 'undefined') {
-    throw new Error('C WASM path finder requires browser runtime');
-  }
-
-  if (typeof window.createCcuPathfinderCModule !== 'function') {
-    await loadScriptOnce(C_WASM_JS_URL);
-    await waitForModuleFactory();
-  }
-
-  if (typeof window.createCcuPathfinderCModule !== 'function') {
-    throw new Error('C WASM module factory is unavailable');
-  }
-
-  return window.createCcuPathfinderCModule({
-    locateFile: (path: string) => {
-      if (path.endsWith('.wasm')) {
-        return C_WASM_URL;
-      }
-      return path;
-    }
-  });
-}
-
-function ensureCWasmInitialized(): Promise<CPathFinderModule> {
-  if (!cWasmInitPromise) {
-    cWasmInitPromise = initCWasmRuntime().catch(error => {
-      cWasmInitPromise = null;
-      throw error;
-    });
-  }
-  return cWasmInitPromise;
-}
 
 interface WasmBaseGraphParams {
   edges: WasmPathFinderParams['edges'];
@@ -111,152 +15,227 @@ interface WasmBaseGraphParams {
   data: WasmPathFinderParams['data'];
 }
 
+interface PathFinderWorkerWarmupRequest {
+  type: 'warmup';
+  requestId: number;
+}
+
+interface PathFinderWorkerPreloadRequest {
+  type: 'preloadGraph';
+  requestId: number;
+  request: Pick<WasmRequest, 'nodes' | 'edges'>;
+}
+
+interface PathFinderWorkerFindPathsRequest {
+  type: 'findPaths';
+  requestId: number;
+  request: WasmRequest;
+}
+
+type PathFinderWorkerRequest =
+  | PathFinderWorkerWarmupRequest
+  | PathFinderWorkerPreloadRequest
+  | PathFinderWorkerFindPathsRequest;
+
+interface PathFinderWorkerSuccess {
+  type: 'success';
+  requestId: number;
+  result?: WasmPathFinderResult;
+}
+
+interface PathFinderWorkerError {
+  type: 'error';
+  requestId: number;
+  error: string;
+}
+
+type PathFinderWorkerResponse = PathFinderWorkerSuccess | PathFinderWorkerError;
+
+const PATH_FINDER_WORKER_URL = '/workers/pathFinderCWasm.worker.js';
+
 class PathFinderCWasmService {
-  private queued: Promise<void> = Promise.resolve();
+  private worker: Worker | null = null;
 
-  private loadedGraphSignature: string | null = null;
+  private nextRequestId = 1;
 
-  private clearStartsSupported: boolean | null = null;
+  private pendingRequests = new Map<number, {
+    resolve: (value: unknown) => void;
+    reject: (reason?: unknown) => void;
+  }>();
 
-  private enqueue<T>(task: () => Promise<T>): Promise<T> {
-    const nextTask = this.queued.then(task, task);
-    this.queued = nextTask.then(() => undefined, () => undefined);
-    return nextTask;
+  private cachedGraph: {
+    nodesRef: WasmPathFinderParams['nodes'];
+    edgesRef: WasmPathFinderParams['edges'];
+    data: PathFinderServiceData;
+    graph: Pick<WasmRequest, 'nodes' | 'edges'>;
+  } | null = null;
+
+  private ensureWorker(): Worker {
+    if (typeof window === 'undefined') {
+      throw new Error('C WASM path finder requires browser runtime');
+    }
+
+    if (this.worker) {
+      return this.worker;
+    }
+
+    const worker = new Worker(PATH_FINDER_WORKER_URL);
+
+    worker.onmessage = (event: MessageEvent<PathFinderWorkerResponse>) => {
+      const message = event.data;
+      const pending = this.pendingRequests.get(message.requestId);
+      if (!pending) {
+        return;
+      }
+
+      this.pendingRequests.delete(message.requestId);
+
+      if (message.type === 'error') {
+        pending.reject(new Error(message.error));
+        return;
+      }
+
+      pending.resolve(message.result);
+    };
+
+    worker.onerror = (event: ErrorEvent) => {
+      console.error('Path finder worker crashed:', event.message || event.error);
+      this.rejectAllPending(new Error(event.message || 'Path finder worker crashed'));
+
+      if (this.worker) {
+        this.worker.terminate();
+        this.worker = null;
+      }
+    };
+
+    this.worker = worker;
+    return worker;
   }
 
-  private buildGraphSignature(request: WasmRequest): string {
-    return JSON.stringify({
-      nodes: request.nodes,
-      edges: request.edges
+  private rejectAllPending(reason: unknown): void {
+    this.pendingRequests.forEach(pending => {
+      pending.reject(reason);
+    });
+    this.pendingRequests.clear();
+  }
+
+  private postToWorker<T>(message: PathFinderWorkerRequest): Promise<T> {
+    const worker = this.ensureWorker();
+
+    return new Promise<T>((resolve, reject) => {
+      this.pendingRequests.set(message.requestId, {
+        resolve: value => resolve(value as T),
+        reject
+      });
+
+      worker.postMessage(message);
     });
   }
 
-  private loadBaseGraph(module: CPathFinderModule, request: WasmRequest): void {
-    module.ccall('ccuReset', null, [], []);
-
-    request.nodes.forEach(node => {
-      module.ccall('ccuAddNode', 'number', ['string', 'string'], [node.id, node.shipId]);
-    });
-
-    request.edges.forEach(edge => {
-      module.ccall(
-        'ccuAddEdge',
-        'number',
-        ['string', 'string', 'string', 'number', 'number', 'number', 'number'],
-        [
-          edge.sourceNodeId,
-          edge.sourceShipId,
-          edge.targetNodeId,
-          edge.usdPrice,
-          edge.tpPrice,
-          edge.isUsedUp ? 1 : 0,
-          edge.allowUsedUpEdge ? 1 : 0
-        ]
-      );
-    });
-  }
-
-  private ensureBaseGraphLoaded(module: CPathFinderModule, request: WasmRequest): void {
-    const graphSignature = this.buildGraphSignature(request);
-    if (this.loadedGraphSignature === graphSignature) {
-      return;
-    }
-
-    this.loadBaseGraph(module, request);
-    this.loadedGraphSignature = graphSignature;
-  }
-
-  private tryClearStarts(module: CPathFinderModule): boolean {
-    if (this.clearStartsSupported === false) {
-      return false;
-    }
-
-    try {
-      module.ccall('ccuClearStarts', null, [], []);
-      this.clearStartsSupported = true;
-      return true;
-    } catch (error) {
-      console.warn('C WASM module does not support ccuClearStarts, falling back to full graph reload.', error);
-      this.clearStartsSupported = false;
-      return false;
-    }
+  private allocRequestId(): number {
+    const requestId = this.nextRequestId;
+    this.nextRequestId += 1;
+    return requestId;
   }
 
   private buildBaseGraphRequest(params: WasmBaseGraphParams): WasmRequest {
-    return buildWasmRequest({
-      startNodes: [],
-      endNodeId: '',
-      edges: params.edges,
+    const graph = this.getOrBuildGraph({
       nodes: params.nodes,
-      exchangeRate: 1,
-      conciergeValue: '0',
-      pruneOpt: false,
-      startShipPrices: {},
+      edges: params.edges,
       data: params.data
+    });
+
+    return {
+      ...graph,
+      starts: [],
+      endShipId: '',
+      exchangeRate: 1,
+      conciergeValue: 0,
+      pruneOpt: false
+    };
+  }
+
+  private isSameServiceData(left: PathFinderServiceData, right: PathFinderServiceData): boolean {
+    return left.ccus === right.ccus
+      && left.wbHistory === right.wbHistory
+      && left.hangarItems === right.hangarItems
+      && left.importItems === right.importItems
+      && left.priceHistoryMap === right.priceHistoryMap;
+  }
+
+  private getOrBuildGraph(params: Pick<WasmPathFinderParams, 'nodes' | 'edges' | 'data'>): Pick<WasmRequest, 'nodes' | 'edges'> {
+    const cache = this.cachedGraph;
+    if (
+      cache
+      && cache.nodesRef === params.nodes
+      && cache.edgesRef === params.edges
+      && this.isSameServiceData(cache.data, params.data)
+    ) {
+      return cache.graph;
+    }
+
+    const graph = buildWasmGraphRequest({
+      nodes: params.nodes,
+      edges: params.edges,
+      data: params.data
+    });
+
+    this.cachedGraph = {
+      nodesRef: params.nodes,
+      edgesRef: params.edges,
+      data: params.data,
+      graph
+    };
+
+    return graph;
+  }
+
+  async warmup(): Promise<void> {
+    const requestId = this.allocRequestId();
+    await this.postToWorker<void>({
+      type: 'warmup',
+      requestId
     });
   }
 
   async preloadBaseGraph(params: WasmBaseGraphParams): Promise<void> {
     const request = this.buildBaseGraphRequest(params);
-    await this.enqueue(async () => {
-      const module = await ensureCWasmInitialized();
-      this.ensureBaseGraphLoaded(module, request);
+    const requestId = this.allocRequestId();
+
+    await this.postToWorker<void>({
+      type: 'preloadGraph',
+      requestId,
+      request: {
+        nodes: request.nodes,
+        edges: request.edges
+      }
     });
   }
 
   async findAllPaths(params: WasmPathFinderParams): Promise<WasmPathFinderResult> {
-    const request = buildWasmRequest(params);
-    return this.enqueue(async () => {
-      const module = await ensureCWasmInitialized();
+    const graph = this.getOrBuildGraph({
+      nodes: params.nodes,
+      edges: params.edges,
+      data: params.data
+    });
+    const nodeIdSet = new Set(graph.nodes.map(node => node.id));
+    const request = {
+      ...graph,
+      starts: buildWasmStarts({
+        startNodes: params.startNodes,
+        startShipPrices: params.startShipPrices
+      }, nodeIdSet),
+      endShipId: extractShipIdFromNodeId(params.endNodeId),
+      exchangeRate: toFiniteNumber(params.exchangeRate, 1),
+      conciergeValue: toFiniteNumber(params.conciergeValue, 0),
+      pruneOpt: params.pruneOpt
+    } satisfies WasmRequest;
+    const requestId = this.allocRequestId();
 
-      this.ensureBaseGraphLoaded(module, request);
-
-      const startsCleared = this.tryClearStarts(module);
-      if (!startsCleared) {
-        this.loadBaseGraph(module, request);
-        this.loadedGraphSignature = this.buildGraphSignature(request);
-      }
-
-      module.ccall(
-        'ccuSetConfig',
-        null,
-        ['string', 'number', 'number', 'number'],
-        [
-          request.endShipId,
-          request.exchangeRate,
-          request.conciergeValue,
-          request.pruneOpt ? 1 : 0
-        ]
-      );
-
-      request.starts.forEach(start => {
-        module.ccall(
-          'ccuAddStart',
-          'number',
-          ['string', 'number', 'number'],
-          [start.nodeId, start.usdCost, start.tpCost]
-        );
-      });
-
-      const totalCallStart = performance.now();
-      const rawPtr = module.ccall('ccuFindAllPathsC', 'number', [], []) as number;
-      const rawResult = rawPtr > 0 ? module.UTF8ToString(rawPtr) : '{"error":"missing C WASM response"}';
-      if (rawPtr > 0) {
-        module.ccall('ccuFreeCString', null, ['number'], [rawPtr]);
-      }
-      const totalCallMs = performance.now() - totalCallStart;
-
-      const parsed = JSON.parse(rawResult) as WasmResponse;
-      if (parsed.error) {
-        throw new Error(parsed.error);
-      }
-
-      return {
-        paths: parsed.paths || [],
-        elapsedMs: toFiniteNumber(parsed.elapsedMs, totalCallMs),
-        totalCallMs,
-        stats: parsed.stats || { expanded: 0, pruned: 0, returned: 0 }
-      };
+    return this.postToWorker<WasmPathFinderResult>({
+      type: 'findPaths',
+      requestId,
+      request
     });
   }
 }

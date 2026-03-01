@@ -398,7 +398,7 @@ function CcuCanvasContent() {
         success: boolean,
       }>({
         slot: BiSlots.IMPORT_ROUTE,
-        data: {success: true}
+        data: { success: true }
       })
 
       return true;
@@ -417,7 +417,7 @@ function CcuCanvasContent() {
         error: string
       }>({
         slot: BiSlots.IMPORT_ROUTE,
-        data: {success: false, error: (error as Error).message}
+        data: { success: false, error: (error as Error).message }
       })
       return false;
     }
@@ -810,18 +810,16 @@ function CcuCanvasContent() {
             </Panel>
           </ReactFlow>
 
-          {selectedNode && (
-            <RouteInfoPanel
-              selectedNode={selectedNode}
-              edges={edges}
-              nodes={nodes}
-              onClose={closeRouteInfoPanel}
-              startShipPrices={startShipPrices}
-              onStartShipPriceChange={handleStartShipPriceChange}
-              onPathCompletionChange={refreshEdgesOnPathCompletion}
-              onSelectedPathChange={handleSelectedPathChange}
-            />
-          )}
+          <RouteInfoPanel
+            selectedNode={selectedNode}
+            edges={edges}
+            nodes={nodes}
+            onClose={closeRouteInfoPanel}
+            startShipPrices={startShipPrices}
+            onStartShipPriceChange={handleStartShipPriceChange}
+            onPathCompletionChange={refreshEdgesOnPathCompletion}
+            onSelectedPathChange={handleSelectedPathChange}
+          />
         </ReactFlowProvider>
       </div>
 
