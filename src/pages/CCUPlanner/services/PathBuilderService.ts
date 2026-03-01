@@ -40,6 +40,7 @@ interface PathLayoutOptions {
 interface PathBuildOptions {
   exhaustiveEdgeSearch?: boolean;
   preferHangarCcu?: boolean;
+  buildConstraintAwareGraph?: boolean;
 }
 
 export type PathGraphResult = { nodes: Node<ShipNodeData>[]; edges: Edge<CcuEdgeData>[] };
@@ -75,7 +76,16 @@ interface AutoPathExclusionResult {
 
 type AutoPathFilterRequest = Pick<
   AutoPathBuildRequest,
-  'startShipId' | 'targetShipId' | 'excludedCcuKeys' | 'excludedSkuIds' | 'requiredHangarCcuKeys'
+  | 'startShipId'
+  | 'targetShipId'
+  | 'rangeStartTs'
+  | 'rangeEndTs'
+  | 'includeWarbond'
+  | 'includePriceIncrease'
+  | 'preferHangarCcu'
+  | 'excludedCcuKeys'
+  | 'excludedSkuIds'
+  | 'requiredHangarCcuKeys'
 >;
 
 export interface AutoPathExecutionOptions {
@@ -229,6 +239,18 @@ export class PathBuilderService {
     });
   }
 
+  async preloadAutoPathBaseGraphInWasm(): Promise<void> {
+    const graph = this._autoPathBaseGraphCache?.graph;
+    if (!graph) {
+      return;
+    }
+
+    await pathBuilderCWasmService.preloadGraph({
+      nodes: graph.nodes,
+      edges: graph.edges
+    });
+  }
+
   createPath(params: {
     stepShips: Ship[][];
     ccus: Ccu[];
@@ -361,6 +383,11 @@ export class PathBuilderService {
   async rebuildAutoPathFromCache(params: {
     startShipId: number;
     targetShipId: number;
+    rangeStartTs: number;
+    rangeEndTs: number;
+    includeWarbond: boolean;
+    includePriceIncrease: boolean;
+    preferHangarCcu: boolean;
     excludedCcuKeys?: string[];
     excludedSkuIds?: number[];
     requiredHangarCcuKeys?: string[];
@@ -384,6 +411,11 @@ export class PathBuilderService {
       request: {
         startShipId: params.startShipId,
         targetShipId: params.targetShipId,
+        rangeStartTs: params.rangeStartTs,
+        rangeEndTs: params.rangeEndTs,
+        includeWarbond: params.includeWarbond,
+        includePriceIncrease: params.includePriceIncrease,
+        preferHangarCcu: params.preferHangarCcu,
         excludedCcuKeys: params.excludedCcuKeys,
         excludedSkuIds: params.excludedSkuIds,
         requiredHangarCcuKeys: params.requiredHangarCcuKeys
@@ -419,12 +451,9 @@ export class PathBuilderService {
     directUpgradeCost: number;
   }): Promise<AutoPathBuildResult> {
     const { generated, request, executionOptions, directUpgradeCost } = params;
-    const excludedKeySet = new Set(request.excludedCcuKeys || []);
-    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
     const exclusionResult = this._applyAutoPathExclusions({
       edges: generated.edges,
-      excludedCcuKeySet: excludedKeySet,
-      excludedSkuIdSet
+      request
     });
 
     const requiredHangarSet = new Set((request.requiredHangarCcuKeys || []).map(key => key.trim().toUpperCase()));
@@ -443,11 +472,9 @@ export class PathBuilderService {
         }),
         runCWasm: () => this._keepReachablePathsWithWasm({
           nodes: generated.nodes,
-          edges: generated.edges,
+          edges: exclusionResult.filteredEdges,
           startShipId: request.startShipId,
-          targetShipId: request.targetShipId,
-          edgeActiveMask: exclusionResult.edgeActiveMask,
-          excludedSkuIdSet
+          targetShipId: request.targetShipId
         })
       });
     }
@@ -464,12 +491,10 @@ export class PathBuilderService {
       }),
       runCWasm: () => this._keepOnlySavingPathsWithWasm({
         nodes: generated.nodes,
-        edges: generated.edges,
+        edges: exclusionResult.filteredEdges,
         startShipId: request.startShipId,
         targetShipId: request.targetShipId,
-        directUpgradeCost,
-        edgeActiveMask: exclusionResult.edgeActiveMask,
-        excludedSkuIdSet
+        directUpgradeCost
       })
     });
   }
@@ -516,14 +541,40 @@ export class PathBuilderService {
     };
   }
 
-  private _buildAutoPathBaseGraphCacheKey(options: AutoPathBaseGraphOptions): string {
-    return [
-      options.rangeStartTs,
-      options.rangeEndTs,
-      options.includeWarbond ? 1 : 0,
-      options.includePriceIncrease ? 1 : 0,
-      options.preferHangarCcu ? 1 : 0
-    ].join('|');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _buildAutoPathBaseGraphCacheKey(_options: AutoPathBaseGraphOptions): string {
+    return 'global-history-hangar-v1';
+  }
+
+  private _getAutoPathGlobalHistoryRange(priceHistoryMap: Record<number, PriceHistoryEntity>): {
+    startTs: number;
+    endTs: number;
+  } {
+    let minTs = Number.POSITIVE_INFINITY;
+    let maxTs = Number.NEGATIVE_INFINITY;
+
+    Object.values(priceHistoryMap).forEach(entity => {
+      const history = entity?.history || [];
+      history.forEach(entry => {
+        if (typeof entry.ts !== 'number' || !Number.isFinite(entry.ts)) {
+          return;
+        }
+        minTs = Math.min(minTs, entry.ts);
+        maxTs = Math.max(maxTs, entry.ts);
+      });
+    });
+
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs) || minTs > maxTs) {
+      return {
+        startTs: 0,
+        endTs: Number.MAX_SAFE_INTEGER
+      };
+    }
+
+    return {
+      startTs: minTs,
+      endTs: maxTs
+    };
   }
 
   private _getOrCreateAutoPathBaseGraph(params: {
@@ -558,64 +609,61 @@ export class PathBuilderService {
     const specialPricingMap: Record<string, SpecialShipPricing> = {};
     const variantTargets: Ship[] = [];
 
+    const globalHistoryRange = this._getAutoPathGlobalHistoryRange(priceHistoryMap);
     baseTargets.forEach(ship => {
       const history = priceHistoryMap[ship.id]?.history || [];
 
-      if (options.includeWarbond) {
-        const warbondPrices = this._findHistoryPriceOptionsInRange(
-          history,
-          options.rangeStartTs,
-          options.rangeEndTs,
-          (entry) => this._isDiscountPriceEntry(entry)
-        );
+      const warbondPrices = this._findHistoryPriceOptionsInRange(
+        history,
+        globalHistoryRange.startTs,
+        globalHistoryRange.endTs,
+        (entry) => this._isDiscountPriceEntry(entry)
+      );
 
-        warbondPrices
-          .filter(price => price < ship.msrp)
-          .forEach(price => {
-            const wbShip = { ...ship, name: `${ship.name}__auto_wb_${price}` };
-            const validityWindows = this._collectSkuValidityWindowsForPrice({
-              history,
-              rangeStartTs: options.rangeStartTs,
-              rangeEndTs: options.rangeEndTs,
-              priceCents: price,
-              predicate: (entry) => this._isDiscountPriceEntry(entry)
-            });
-            variantTargets.push(wbShip);
-            specialPricingMap[this._getShipVariantKey(wbShip)] = {
-              priceCents: price,
-              sourceType: CcuSourceType.HISTORICAL,
-              validityWindows
-            };
+      warbondPrices
+        .filter(price => price < ship.msrp)
+        .forEach(price => {
+          const wbShip = { ...ship, name: `${ship.name}__auto_wb_${price}` };
+          const validityWindows = this._collectSkuValidityWindowsForPrice({
+            history,
+            rangeStartTs: globalHistoryRange.startTs,
+            rangeEndTs: globalHistoryRange.endTs,
+            priceCents: price,
+            predicate: (entry) => this._isDiscountPriceEntry(entry)
           });
-      }
+          variantTargets.push(wbShip);
+          specialPricingMap[this._getShipVariantKey(wbShip)] = {
+            priceCents: price,
+            sourceType: CcuSourceType.HISTORICAL,
+            validityWindows
+          };
+        });
 
-      if (options.includePriceIncrease) {
-        const standardPrices = this._findHistoryPriceOptionsInRange(
-          history,
-          options.rangeStartTs,
-          options.rangeEndTs,
-          (entry) => this._isStandardOrNormalPriceEntry(entry)
-        );
+      const standardPrices = this._findHistoryPriceOptionsInRange(
+        history,
+        globalHistoryRange.startTs,
+        globalHistoryRange.endTs,
+        (entry) => this._isStandardOrNormalPriceEntry(entry)
+      );
 
-        standardPrices
-          .filter(price => price < ship.msrp)
-          .forEach(price => {
-            const historicalShip = { ...ship, name: `${ship.name}__auto_pi_${price}` };
-            const validityWindows = this._collectSkuValidityWindowsForPrice({
-              history,
-              rangeStartTs: options.rangeStartTs,
-              rangeEndTs: options.rangeEndTs,
-              priceCents: price,
-              predicate: (entry) => this._isStandardOrNormalPriceEntry(entry)
-            });
-            variantTargets.push(historicalShip);
-            specialPricingMap[this._getShipVariantKey(historicalShip)] = {
-              priceCents: price,
-              sourceType: CcuSourceType.PRICE_INCREASE,
-              validityWindows
-            };
+      standardPrices
+        .filter(price => price < ship.msrp)
+        .forEach(price => {
+          const historicalShip = { ...ship, name: `${ship.name}__auto_pi_${price}` };
+          const validityWindows = this._collectSkuValidityWindowsForPrice({
+            history,
+            rangeStartTs: globalHistoryRange.startTs,
+            rangeEndTs: globalHistoryRange.endTs,
+            priceCents: price,
+            predicate: (entry) => this._isStandardOrNormalPriceEntry(entry)
           });
-      }
+          variantTargets.push(historicalShip);
+          specialPricingMap[this._getShipVariantKey(historicalShip)] = {
+            priceCents: price,
+            sourceType: CcuSourceType.PRICE_INCREASE,
+            validityWindows
+          };
+        });
     });
 
     const stepShips: Ship[][] = [[baseStartShip], [...baseTargets, ...variantTargets]];
@@ -629,7 +677,8 @@ export class PathBuilderService {
       specialPricingMap,
       options: {
         exhaustiveEdgeSearch: true,
-        preferHangarCcu: options.preferHangarCcu
+        preferHangarCcu: options.preferHangarCcu,
+        buildConstraintAwareGraph: true
       }
     });
 
@@ -644,31 +693,38 @@ export class PathBuilderService {
 
   private _applyAutoPathExclusions(params: {
     edges: Edge<CcuEdgeData>[];
-    excludedCcuKeySet: Set<string>;
-    excludedSkuIdSet: Set<number>;
+    request: AutoPathFilterRequest;
   }): AutoPathExclusionResult {
-    const { edges, excludedCcuKeySet, excludedSkuIdSet } = params;
+    const { edges, request } = params;
+    const excludedCcuKeySet = new Set(request.excludedCcuKeys || []);
+    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
     const edgeActiveMask = new Uint8Array(edges.length);
     if (edges.length === 0) {
       return { filteredEdges: [], edgeActiveMask };
     }
 
-    if (excludedCcuKeySet.size === 0 && excludedSkuIdSet.size === 0) {
-      edgeActiveMask.fill(1);
-      return {
-        filteredEdges: edges,
-        edgeActiveMask
-      };
-    }
+    const hangarPairKeySet = request.preferHangarCcu
+      ? this._collectHangarEdgePairKeys(edges)
+      : null;
 
     const filteredEdges: Edge<CcuEdgeData>[] = [];
     edges.forEach((edge, edgeIndex) => {
+      if (!this._isEdgeAllowedByRequest(edge, request, hangarPairKeySet)) {
+        edgeActiveMask[edgeIndex] = 0;
+        return;
+      }
+
       if (excludedCcuKeySet.has(this._getAutoPathEdgeKey(edge))) {
         edgeActiveMask[edgeIndex] = 0;
         return;
       }
 
-      const filteredEdge = this._filterEdgeByExcludedSkus(edge, excludedSkuIdSet);
+      const filteredEdge = this._filterEdgeByRequestWindows({
+        edge,
+        rangeStartTs: request.rangeStartTs,
+        rangeEndTs: request.rangeEndTs,
+        excludedSkuIdSet
+      });
       if (!filteredEdge) {
         edgeActiveMask[edgeIndex] = 0;
         return;
@@ -681,6 +737,108 @@ export class PathBuilderService {
     return {
       filteredEdges,
       edgeActiveMask
+    };
+  }
+
+  private _isEdgeAllowedByRequest(
+    edge: Edge<CcuEdgeData>,
+    request: Pick<AutoPathBuildRequest, 'includeWarbond' | 'includePriceIncrease' | 'preferHangarCcu'>,
+    hangarPairKeySet: Set<string> | null
+  ): boolean {
+    const sourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
+    if (sourceType === CcuSourceType.HISTORICAL && !request.includeWarbond) {
+      return false;
+    }
+
+    if (sourceType === CcuSourceType.PRICE_INCREASE && !request.includePriceIncrease) {
+      return false;
+    }
+
+    if (sourceType === CcuSourceType.HANGER) {
+      return request.preferHangarCcu;
+    }
+
+    if (!request.preferHangarCcu || !hangarPairKeySet) {
+      return true;
+    }
+
+    const pairKey = this._getAutoPathPairKey(edge);
+    return !pairKey || !hangarPairKeySet.has(pairKey);
+  }
+
+  private _collectHangarEdgePairKeys(edges: Edge<CcuEdgeData>[]): Set<string> {
+    const pairKeySet = new Set<string>();
+    edges.forEach(edge => {
+      if (edge.data?.sourceType !== CcuSourceType.HANGER) {
+        return;
+      }
+      const pairKey = this._getAutoPathPairKey(edge);
+      if (pairKey) {
+        pairKeySet.add(pairKey);
+      }
+    });
+    return pairKeySet;
+  }
+
+  private _getAutoPathPairKey(edge: Edge<CcuEdgeData>): string | null {
+    const sourceShipId = edge.data?.sourceShip?.id;
+    const targetShipId = edge.data?.targetShip?.id;
+    if (typeof sourceShipId === 'number' && typeof targetShipId === 'number') {
+      return `${sourceShipId}->${targetShipId}`;
+    }
+
+    if (!edge.source || !edge.target) {
+      return null;
+    }
+
+    return `${edge.source}->${edge.target}`;
+  }
+
+  private _filterEdgeByRequestWindows(params: {
+    edge: Edge<CcuEdgeData>;
+    rangeStartTs: number;
+    rangeEndTs: number;
+    excludedSkuIdSet: Set<number>;
+  }): Edge<CcuEdgeData> | null {
+    const { edge, rangeStartTs, rangeEndTs, excludedSkuIdSet } = params;
+    const windows = edge.data?.validityWindows;
+    if (!windows?.length) {
+      return edge;
+    }
+
+    const filteredWindows = windows.flatMap(window => {
+      if (excludedSkuIdSet.has(window.sku)) {
+        return [];
+      }
+
+      const windowEndTs = window.endTs ?? Number.POSITIVE_INFINITY;
+      if (windowEndTs < rangeStartTs || window.startTs > rangeEndTs) {
+        return [];
+      }
+
+      const clippedStartTs = Math.max(window.startTs, rangeStartTs);
+      const clippedEndTs = window.endTs === null ? null : Math.min(window.endTs, rangeEndTs);
+      if (clippedEndTs !== null && clippedStartTs > clippedEndTs) {
+        return [];
+      }
+
+      return [{
+        sku: window.sku,
+        startTs: clippedStartTs,
+        endTs: clippedEndTs
+      }];
+    });
+
+    if (!filteredWindows.length) {
+      return null;
+    }
+
+    return {
+      ...edge,
+      data: {
+        ...edge.data!,
+        validityWindows: filteredWindows
+      }
     };
   }
 
@@ -1252,20 +1410,17 @@ export class PathBuilderService {
     edges: Edge<CcuEdgeData>[];
     startShipId: number;
     targetShipId: number;
-    edgeActiveMask?: Uint8Array;
-    excludedSkuIdSet: Set<number>;
   }): Promise<PathGraphResult> {
     const wasmResult = await pathBuilderCWasmService.filterReachable({
       nodes: params.nodes,
       edges: params.edges,
       startShipId: params.startShipId,
-      targetShipId: params.targetShipId,
-      edgeActiveMask: params.edgeActiveMask
+      targetShipId: params.targetShipId
     });
 
     return {
       nodes: wasmResult.nodes as Node<ShipNodeData>[],
-      edges: this._filterEdgesByExcludedSkus(wasmResult.edges, params.excludedSkuIdSet)
+      edges: wasmResult.edges as Edge<CcuEdgeData>[]
     };
   }
 
@@ -1275,21 +1430,18 @@ export class PathBuilderService {
     startShipId: number;
     targetShipId: number;
     directUpgradeCost: number;
-    edgeActiveMask?: Uint8Array;
-    excludedSkuIdSet: Set<number>;
   }): Promise<PathGraphResult> {
     const wasmResult = await pathBuilderCWasmService.filterSaving({
       nodes: params.nodes,
       edges: params.edges,
       startShipId: params.startShipId,
       targetShipId: params.targetShipId,
-      directUpgradeCost: params.directUpgradeCost,
-      edgeActiveMask: params.edgeActiveMask
+      directUpgradeCost: params.directUpgradeCost
     });
 
     return {
       nodes: wasmResult.nodes as Node<ShipNodeData>[],
-      edges: this._filterEdgesByExcludedSkus(wasmResult.edges, params.excludedSkuIdSet)
+      edges: wasmResult.edges as Edge<CcuEdgeData>[]
     };
   }
 
@@ -1311,41 +1463,6 @@ export class PathBuilderService {
       return null;
     }
     return `${sourceName.trim().toUpperCase()}->${targetName.trim().toUpperCase()}`;
-  }
-
-  private _filterEdgeByExcludedSkus(edge: Edge<CcuEdgeData>, excludedSkuIdSet: Set<number>): Edge<CcuEdgeData> | null {
-    if (excludedSkuIdSet.size === 0) {
-      return edge;
-    }
-
-    const windows = edge.data?.validityWindows;
-    if (!windows?.length) {
-      return edge;
-    }
-
-    const filteredWindows = windows.filter(window => !excludedSkuIdSet.has(window.sku));
-    if (!filteredWindows.length) {
-      return null;
-    }
-
-    if (filteredWindows.length === windows.length) {
-      return edge;
-    }
-
-    return {
-      ...edge,
-      data: {
-        ...edge.data!,
-        validityWindows: filteredWindows
-      }
-    };
-  }
-
-  private _filterEdgesByExcludedSkus(edges: Edge<CcuEdgeData>[], excludedSkuIdSet: Set<number>): Edge<CcuEdgeData>[] {
-    return edges.flatMap(edge => {
-      const filtered = this._filterEdgeByExcludedSkus(edge, excludedSkuIdSet);
-      return filtered ? [filtered] : [];
-    });
   }
 
   private _keepReachablePaths(params: {
@@ -1751,6 +1868,128 @@ export class PathBuilderService {
     return levelShips;
   }
 
+  private _buildNonHangarEdgeData(params: {
+    sourceShipNode: Node<ShipNodeData>;
+    targetShipNode: Node<ShipNodeData>;
+    stepShips: Ship[][];
+    ccus: Ccu[];
+    priceHistoryMap: Record<number, PriceHistoryEntity>;
+    specialPricingMap: Record<string, SpecialShipPricing> | undefined;
+  }): CcuEdgeData | null {
+    const { sourceShipNode, targetShipNode, stepShips, ccus, priceHistoryMap, specialPricingMap } = params;
+    const priceDifference = targetShipNode.data.ship.msrp - sourceShipNode.data.ship.msrp;
+    const edgeData: CcuEdgeData = {
+      price: priceDifference,
+      sourceShip: sourceShipNode.data.ship,
+      targetShip: targetShipNode.data.ship,
+      sourceType: CcuSourceType.OFFICIAL
+    };
+
+    const targetShipInPath = stepShips[1].find(ship => this._getShipVariantKey(ship) === targetShipNode.data.plannerShipKey);
+    const targetShipNameInPath = targetShipInPath?.name;
+    const specialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
+
+    if (specialPricing) {
+      const actualPrice = specialPricing.priceCents / 100 - sourceShipNode.data.ship.msrp / 100;
+      if (actualPrice <= 0) {
+        return null;
+      }
+
+      if (
+        (specialPricing.sourceType === CcuSourceType.HISTORICAL ||
+          specialPricing.sourceType === CcuSourceType.PRICE_INCREASE) &&
+        specialPricing.validityWindows?.length
+      ) {
+        const constrainedWindows = this._filterTargetValidityWindowsBySourceSkuPrice({
+          sourceShipId: sourceShipNode.data.ship.id,
+          sourceShipMsrp: sourceShipNode.data.ship.msrp,
+          targetPriceCents: specialPricing.priceCents,
+          targetValidityWindows: specialPricing.validityWindows,
+          priceHistoryMap
+        });
+
+        if (!constrainedWindows.length) {
+          return null;
+        }
+
+        edgeData.validityWindows = constrainedWindows;
+      }
+
+      edgeData.sourceType = specialPricing.sourceType;
+      edgeData.customPrice = Math.max(0, actualPrice);
+      if (specialPricing.validityWindows?.length && !edgeData.validityWindows) {
+        edgeData.validityWindows = specialPricing.validityWindows;
+      }
+      return edgeData;
+    }
+
+    if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
+      const historicalPrice = priceHistoryMap[targetShipNode.data.ship.id]?.history
+        .filter(entry => entry.change === '+' && this._isStandardOrNormalPriceEntry(entry))
+        .map(entry => entry.msrp as number)
+        .sort((a, b) => a - b)[0];
+
+      if (historicalPrice && historicalPrice !== targetShipNode.data.ship.msrp) {
+        const actualPrice = historicalPrice / 100 - sourceShipNode.data.ship.msrp / 100;
+        if (actualPrice <= 0) {
+          return null;
+        }
+        edgeData.sourceType = CcuSourceType.PRICE_INCREASE;
+        edgeData.customPrice = Math.max(0, actualPrice);
+      }
+      return edgeData;
+    }
+
+    if (targetShipNameInPath && this._isWbVariantName(targetShipNameInPath)) {
+      const wbPrice = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus.find(sku =>
+        sku.price !== targetShipNode.data.ship.msrp && sku.available)?.price || targetShipNode.data.ship.msrp;
+
+      if (wbPrice && wbPrice !== targetShipNode.data.ship.msrp) {
+        const actualPrice = wbPrice / 100 - sourceShipNode.data.ship.msrp / 100;
+        if (actualPrice <= 0) {
+          return null;
+        }
+        edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
+        edgeData.customPrice = Math.max(0, actualPrice);
+      }
+      return edgeData;
+    }
+
+    const targetShipSkus = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus;
+    const targetWb = targetShipSkus?.find(sku => sku.price !== targetShipNode.data.ship.msrp && sku.available);
+
+    if (targetWb && sourceShipNode.data.ship.msrp < targetWb.price) {
+      const actualPrice = targetWb.price / 100 - sourceShipNode.data.ship.msrp / 100;
+      if (actualPrice <= 0) {
+        return null;
+      }
+      edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
+      edgeData.customPrice = Math.max(0, actualPrice);
+    }
+
+    return edgeData;
+  }
+
+  private _pushAutoPathEdge(params: {
+    sourceShipNode: Node<ShipNodeData>;
+    targetShipNode: Node<ShipNodeData>;
+    edgeData: CcuEdgeData;
+    newEdges: Edge<CcuEdgeData>[];
+    idSuffix?: string;
+  }): void {
+    const { sourceShipNode, targetShipNode, edgeData, newEdges, idSuffix } = params;
+    const baseId = `edge-${sourceShipNode.id}-${targetShipNode.id}`;
+    const edgeId = idSuffix ? `${baseId}-${idSuffix}` : baseId;
+    newEdges.push({
+      id: edgeId,
+      source: sourceShipNode.id,
+      target: targetShipNode.id,
+      type: 'ccu',
+      animated: true,
+      data: edgeData
+    });
+  }
+
   private _createUpgradeEdges(
     levelShips: Node<ShipNodeData>[][],
     stepShips: Ship[][],
@@ -1765,6 +2004,7 @@ export class PathBuilderService {
   ): void {
     const exhaustiveEdgeSearch = options?.exhaustiveEdgeSearch === true;
     const preferHangarCcu = options?.preferHangarCcu !== false;
+    const buildConstraintAwareGraph = options?.buildConstraintAwareGraph === true;
 
     levelShips.forEach((level, index) => {
       level.forEach(targetShipNode => {
@@ -1774,7 +2014,7 @@ export class PathBuilderService {
             const targetShipInPath = stepShips[1].find(s => this._getShipVariantKey(s) === targetShipNode.data.plannerShipKey);
             const targetShipCost = this._getShipPrice(targetShipInPath || targetShipNode.data.ship, ccus, [], priceHistoryMap, specialPricingMap);
 
-            const exactMatchCCU = preferHangarCcu && hangarItems.some(upgrade =>
+            const exactMatchCCU = (buildConstraintAwareGraph || preferHangarCcu) && hangarItems.some(upgrade =>
               upgrade.fromShip?.toUpperCase() === sourceShipNode.data.ship.name.trim().toUpperCase() &&
               upgrade.toShip?.toUpperCase() === targetShipNode.data.ship.name.trim().toUpperCase()
             );
@@ -1800,110 +2040,67 @@ export class PathBuilderService {
           if (sourceShips.length > 0) {
             sourceShips.forEach(sourceShipNode => {
               const priceDifference = targetShipNode.data.ship.msrp - sourceShipNode.data.ship.msrp;
-
               const hangarCcu = hangarItems.find(upgrade => {
                 const from = upgrade.fromShip?.toUpperCase();
                 const to = upgrade.toShip?.toUpperCase();
                 return from === sourceShipNode.data.ship.name.trim().toUpperCase() && to === targetShipNode.data.ship.name.trim().toUpperCase();
               });
 
-              const edgeData: CcuEdgeData = {
-                price: priceDifference,
-                sourceShip: sourceShipNode.data.ship,
-                targetShip: targetShipNode.data.ship,
-                sourceType: CcuSourceType.OFFICIAL
-              };
+              const nonHangarEdgeData = this._buildNonHangarEdgeData({
+                sourceShipNode,
+                targetShipNode,
+                stepShips,
+                ccus,
+                priceHistoryMap,
+                specialPricingMap
+              });
 
-              if (hangarCcu && preferHangarCcu) {
-                edgeData.sourceType = CcuSourceType.HANGER;
-                edgeData.customPrice = hangarCcu.price;
-              } else {
-                const targetShipInPath = stepShips[1].find(ship => this._getShipVariantKey(ship) === targetShipNode.data.plannerShipKey);
-                const targetShipNameInPath = targetShipInPath?.name;
-                const specialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
-
-                if (specialPricing) {
-                  const actualPrice = specialPricing.priceCents / 100 - sourceShipNode.data.ship.msrp / 100;
-                  if (actualPrice <= 0) {
-                    return;
-                  }
-
-                  if (
-                    (specialPricing.sourceType === CcuSourceType.HISTORICAL ||
-                      specialPricing.sourceType === CcuSourceType.PRICE_INCREASE) &&
-                    specialPricing.validityWindows?.length
-                  ) {
-                    const constrainedWindows = this._filterTargetValidityWindowsBySourceSkuPrice({
-                      sourceShipId: sourceShipNode.data.ship.id,
-                      sourceShipMsrp: sourceShipNode.data.ship.msrp,
-                      targetPriceCents: specialPricing.priceCents,
-                      targetValidityWindows: specialPricing.validityWindows,
-                      priceHistoryMap
-                    });
-
-                    if (!constrainedWindows.length) {
-                      return;
-                    }
-
-                    edgeData.validityWindows = constrainedWindows;
-                  }
-
-                  edgeData.sourceType = specialPricing.sourceType;
-                  edgeData.customPrice = Math.max(0, actualPrice);
-                  if (specialPricing.validityWindows?.length && !edgeData.validityWindows) {
-                    edgeData.validityWindows = specialPricing.validityWindows;
-                  }
-                } else if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
-                  const historicalPrice = priceHistoryMap[targetShipNode.data.ship.id]?.history
-                    .filter(entry => entry.change === '+' && this._isStandardOrNormalPriceEntry(entry))
-                    .map(entry => entry.msrp as number)
-                    .sort((a, b) => a - b)[0];
-
-                  if (historicalPrice && historicalPrice !== targetShipNode.data.ship.msrp) {
-                    const actualPrice = historicalPrice / 100 - sourceShipNode.data.ship.msrp / 100;
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-                    edgeData.sourceType = CcuSourceType.PRICE_INCREASE;
-                    edgeData.customPrice = Math.max(0, actualPrice);
-                  }
-                } else if (targetShipNameInPath && this._isWbVariantName(targetShipNameInPath)) {
-                  const wbPrice = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus.find(sku =>
-                    sku.price !== targetShipNode.data.ship.msrp && sku.available)?.price || targetShipNode.data.ship.msrp;
-
-                  if (wbPrice && wbPrice !== targetShipNode.data.ship.msrp) {
-                    const actualPrice = wbPrice / 100 - sourceShipNode.data.ship.msrp / 100;
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-                    edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
-                    edgeData.customPrice = Math.max(0, actualPrice);
-                  }
-                } else {
-                  const targetShipSkus = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus;
-                  const targetWb = targetShipSkus?.find(sku => sku.price !== targetShipNode.data.ship.msrp && sku.available);
-
-                  if (targetWb && sourceShipNode.data.ship.msrp < targetWb.price) {
-                    const actualPrice = targetWb.price / 100 - sourceShipNode.data.ship.msrp / 100;
-                    if (actualPrice <= 0) {
-                      return;
-                    }
-                    edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
-                    edgeData.customPrice = Math.max(0, actualPrice);
-                  }
+              const hangarEdgeData: CcuEdgeData | null = hangarCcu
+                ? {
+                  price: priceDifference,
+                  sourceShip: sourceShipNode.data.ship,
+                  targetShip: targetShipNode.data.ship,
+                  sourceType: CcuSourceType.HANGER,
+                  customPrice: hangarCcu.price
                 }
+                : null;
+
+              if (buildConstraintAwareGraph) {
+                if (nonHangarEdgeData) {
+                  this._pushAutoPathEdge({
+                    sourceShipNode,
+                    targetShipNode,
+                    edgeData: nonHangarEdgeData,
+                    newEdges,
+                    idSuffix: 'base'
+                  });
+                }
+
+                if (hangarEdgeData) {
+                  this._pushAutoPathEdge({
+                    sourceShipNode,
+                    targetShipNode,
+                    edgeData: hangarEdgeData,
+                    newEdges,
+                    idSuffix: 'hangar'
+                  });
+                }
+                return;
               }
 
-              const newEdge: Edge<CcuEdgeData> = {
-                id: `edge-${sourceShipNode.id}-${targetShipNode.id}`,
-                source: sourceShipNode.id,
-                target: targetShipNode.id,
-                type: 'ccu',
-                animated: true,
-                data: edgeData
-              };
+              const selectedEdgeData = hangarEdgeData && preferHangarCcu
+                ? hangarEdgeData
+                : nonHangarEdgeData;
+              if (!selectedEdgeData) {
+                return;
+              }
 
-              newEdges.push(newEdge);
+              this._pushAutoPathEdge({
+                sourceShipNode,
+                targetShipNode,
+                edgeData: selectedEdgeData,
+                newEdges
+              });
             });
 
             if (!exhaustiveEdgeSearch) {

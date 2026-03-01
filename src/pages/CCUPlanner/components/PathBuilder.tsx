@@ -443,22 +443,17 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     terminateBaseGraphPrebuildWorker();
     pathBuilderService.clearAutoPathBaseGraphCache();
 
-    const range = parseDateRangeToTs(rangeStartDate, rangeEndDate);
-    if (!range) {
-      return;
-    }
-
     const serviceData = getServiceData();
     const sessionData: AutoPathSessionData = {
       ships,
       ...serviceData
     };
     const options: AutoPathBaseGraphOptions = {
-      rangeStartTs: range.startTs,
-      rangeEndTs: range.endTs,
-      includeWarbond,
-      includePriceIncrease,
-      preferHangarCcu
+      rangeStartTs: 0,
+      rangeEndTs: Number.MAX_SAFE_INTEGER,
+      includeWarbond: true,
+      includePriceIncrease: true,
+      preferHangarCcu: true
     };
     const requestId = Date.now() + Math.random();
     baseGraphPrebuildTaskRef.current = requestId;
@@ -518,7 +513,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         baseGraphPrebuildWorkerRef.current = null;
       }
     };
-  }, [open, rangeStartDate, rangeEndDate, includeWarbond, includePriceIncrease, preferHangarCcu, ships, getServiceData, pathBuilderService, terminateBaseGraphPrebuildWorker]);
+  }, [open, ships, getServiceData, pathBuilderService, terminateBaseGraphPrebuildWorker]);
 
   useEffect(() => {
     setHoveredSkuContext(null);
@@ -687,6 +682,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         ? await pathBuilderService.rebuildAutoPathFromCache({
           startShipId: request.startShipId,
           targetShipId: request.targetShipId,
+          rangeStartTs: request.rangeStartTs,
+          rangeEndTs: request.rangeEndTs,
+          includeWarbond: request.includeWarbond,
+          includePriceIncrease: request.includePriceIncrease,
+          preferHangarCcu: request.preferHangarCcu,
           excludedCcuKeys: nextExcludedCcus.map(item => item.key),
           excludedSkuIds: nextExcludedSkuIds,
           requiredHangarCcuKeys: nextRequiredHangarCcuKeys,

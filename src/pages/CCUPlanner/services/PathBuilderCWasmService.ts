@@ -9,6 +9,9 @@ interface CPathBuilderModule {
     args: unknown[]
   ) => unknown;
   UTF8ToString: (ptr: number) => string;
+  _malloc: (size: number) => number;
+  _free: (ptr: number) => void;
+  HEAPU8: Uint8Array;
 }
 
 declare global {
@@ -191,7 +194,41 @@ class PathBuilderCWasmService {
     nodesRef: Node<ShipNodeLikeData>[];
     edgesRef: Edge<CcuEdgeData>[];
     loadedEdgeOriginalIndices: number[];
+    hasCustomEdgeMask: boolean;
   } | null = null;
+
+  private _invokeWasmBytesBatch(params: {
+    module: CPathBuilderModule;
+    ident: 'pbSetEdgeActiveMaskBatch' | 'pbSetEdgeReviewBitsBatch';
+    bytes: Uint8Array;
+    count: number;
+    errorMessage: string;
+  }): void {
+    const { module, ident, bytes, count, errorMessage } = params;
+    const byteLength = bytes.byteLength;
+    const ptr = module._malloc(Math.max(1, byteLength));
+    if (!Number.isFinite(ptr) || ptr <= 0) {
+      throw new Error(errorMessage);
+    }
+
+    try {
+      if (byteLength > 0) {
+        module.HEAPU8.set(bytes, ptr);
+      }
+
+      const result = module.ccall(
+        ident,
+        'number',
+        ['number', 'number'],
+        [ptr, count]
+      ) as number;
+      if (!Number.isFinite(result) || result < 0) {
+        throw new Error(errorMessage);
+      }
+    } finally {
+      module._free(ptr);
+    }
+  }
 
   private _loadGraphToWasm(params: {
     module: CPathBuilderModule;
@@ -219,7 +256,7 @@ class PathBuilderCWasmService {
 
       for (let offset = 0; offset < nodeCount; offset += NODE_BATCH_SIZE) {
         const end = Math.min(nodeCount, offset + NODE_BATCH_SIZE);
-        module.ccall(
+        const addNodeResult = module.ccall(
           'pbAddNodeBatch',
           'number',
           ['array', 'array', 'array', 'array', 'number'],
@@ -230,7 +267,10 @@ class PathBuilderCWasmService {
             toBytes(msrps.subarray(offset, end)),
             end - offset
           ]
-        );
+        ) as number;
+        if (!Number.isFinite(addNodeResult) || addNodeResult < 0) {
+          throw new Error('failed to add node batch to C-WASM path builder');
+        }
       }
     }
 
@@ -261,7 +301,7 @@ class PathBuilderCWasmService {
       if (edgeCount > 0) {
         for (let offset = 0; offset < edgeCount; offset += EDGE_BATCH_SIZE) {
           const end = Math.min(edgeCount, offset + EDGE_BATCH_SIZE);
-          module.ccall(
+          const addEdgeResult = module.ccall(
             'pbAddEdgeBatch',
             'number',
             ['array', 'array', 'array', 'array', 'number'],
@@ -272,7 +312,10 @@ class PathBuilderCWasmService {
               toBytes(officialCosts.subarray(offset, end)),
               end - offset
             ]
-          );
+          ) as number;
+          if (!Number.isFinite(addEdgeResult) || addEdgeResult < 0) {
+            throw new Error('failed to add edge batch to C-WASM path builder');
+          }
         }
       }
     }
@@ -311,7 +354,8 @@ class PathBuilderCWasmService {
       module,
       nodesRef: params.nodes,
       edgesRef: params.edges,
-      loadedEdgeOriginalIndices: loaded.loadedEdgeOriginalIndices
+      loadedEdgeOriginalIndices: loaded.loadedEdgeOriginalIndices,
+      hasCustomEdgeMask: false
     };
 
     return {
@@ -328,7 +372,6 @@ class PathBuilderCWasmService {
   }): void {
     const { module, loadedEdgeOriginalIndices, originalEdgeCount, edgeActiveMask } = params;
     const loadedEdgeCount = loadedEdgeOriginalIndices.length;
-    const loadedMask = new Uint8Array(loadedEdgeCount);
 
     if (loadedEdgeCount === 0) {
       return;
@@ -338,22 +381,31 @@ class PathBuilderCWasmService {
       throw new Error('invalid C WASM edge active mask length');
     }
 
-    loadedEdgeOriginalIndices.forEach((originalEdgeIndex, wasmEdgeIndex) => {
-      if (!edgeActiveMask) {
-        loadedMask[wasmEdgeIndex] = 1;
-        return;
-      }
-      loadedMask[wasmEdgeIndex] = edgeActiveMask[originalEdgeIndex] ? 1 : 0;
+    const cached = this._cachedLoadedGraph;
+    const shouldClearMask = !edgeActiveMask && Boolean(cached?.hasCustomEdgeMask);
+    if (!edgeActiveMask && !shouldClearMask) {
+      return;
+    }
+
+    const loadedMask = new Uint8Array(loadedEdgeCount);
+    if (!edgeActiveMask) {
+      loadedMask.fill(1);
+    } else {
+      loadedEdgeOriginalIndices.forEach((originalEdgeIndex, wasmEdgeIndex) => {
+        loadedMask[wasmEdgeIndex] = edgeActiveMask[originalEdgeIndex] ? 1 : 0;
+      });
+    }
+
+    this._invokeWasmBytesBatch({
+      module,
+      ident: 'pbSetEdgeActiveMaskBatch',
+      bytes: loadedMask,
+      count: loadedEdgeCount,
+      errorMessage: 'failed to set C-WASM active edge mask'
     });
 
-    const setResult = module.ccall(
-      'pbSetEdgeActiveMaskBatch',
-      'number',
-      ['array', 'number'],
-      [toBytes(loadedMask), loadedEdgeCount]
-    ) as number;
-    if (!Number.isFinite(setResult) || setResult < 0) {
-      throw new Error('failed to set C-WASM active edge mask');
+    if (cached && cached.module === module) {
+      cached.hasCustomEdgeMask = Boolean(edgeActiveMask);
     }
   }
 
@@ -537,15 +589,13 @@ class PathBuilderCWasmService {
         reviewBits[wasmEdgeIndex] = requiredBit;
       });
 
-      const setResult = module.ccall(
-        'pbSetEdgeReviewBitsBatch',
-        'number',
-        ['array', 'number'],
-        [toBytes(reviewBits), loadedEdgeCount]
-      ) as number;
-      if (!Number.isFinite(setResult) || setResult < 0) {
-        throw new Error('failed to set C-WASM review edge requirements');
-      }
+      this._invokeWasmBytesBatch({
+        module,
+        ident: 'pbSetEdgeReviewBitsBatch',
+        bytes: toBytes(reviewBits),
+        count: loadedEdgeCount,
+        errorMessage: 'failed to set C-WASM review edge requirements'
+      });
     }
 
     const parsed = this._runWasm(
