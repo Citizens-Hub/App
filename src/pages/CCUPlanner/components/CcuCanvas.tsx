@@ -13,8 +13,6 @@ import ReactFlow, {
   ReactFlowInstance,
   getRectOfNodes,
   XYPosition,
-  EdgeProps,
-  Edge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -110,7 +108,6 @@ function CcuCanvasContent() {
   const isMobile = useMediaQuery('(max-width: 644px)');
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [selectedPath, setSelectedPath] = useState<{ edges: { edge: Edge<CcuEdgeData>; }[]; } | undefined>(undefined);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
@@ -125,7 +122,8 @@ function CcuCanvasContent() {
     importExportService,
     handlePathCompletionChange,
     showAlert,
-    getServiceData
+    getServiceData,
+    setSelectedPathEdgeIds
   } = useCcuPlanner();
 
   // Get upgrade items from Redux
@@ -744,18 +742,11 @@ function CcuCanvasContent() {
   }, [setNodes, setEdges, reactFlowInstance, showAlert, intl]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
-  const edgeTypes = useMemo(() => ({
-    ccu: (props: EdgeProps<CcuEdgeData>) => (
-      <CcuEdge
-        {...props}
-        selectedPath={selectedPath}
-      />
-    ),
-  }), [selectedPath]);
+  const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);
 
   const handleSelectedPathChange = useCallback((path: CompletePath | null) => {
-    setSelectedPath(path ? { edges: path.edges } : undefined);
-  }, []);
+    setSelectedPathEdgeIds(path ? path.edges.map(pathEdge => pathEdge.edge.id) : []);
+  }, [setSelectedPathEdgeIds]);
 
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">

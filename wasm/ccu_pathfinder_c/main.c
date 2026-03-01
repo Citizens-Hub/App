@@ -544,6 +544,11 @@ int ccuAddStart(const char *node_id, double usd_cost, double tp_cost) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void ccuClearStarts(void) {
+  g_ctx.start_count = 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 char *ccuFindAllPathsC(void) {
   clear_search_state();
 

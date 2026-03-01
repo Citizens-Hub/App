@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect, ReactNode } from 'react';
+import React, { useCallback, useMemo, useEffect, ReactNode, useState } from 'react';
 import { Ship, Ccu, WbHistoryData, HangarItem, PriceHistoryEntity } from '../../../types';
 import { useSelector } from 'react-redux';
 import { selectHangarItems } from '../../../store/upgradesStore';
@@ -34,6 +34,7 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   // Get upgrades and import items from Redux
   const upgrades = useSelector(selectHangarItems);
   const importItems = useSelector(selectImportItems);
+  const [selectedPathEdgeIds, setSelectedPathEdgeIdsState] = useState<Set<string>>(new Set());
   // Initialize services
   const edgeService = useMemo(() => new CcuEdgeService(), []);
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
@@ -69,6 +70,10 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
       type
     });
   }, [setAlert]);
+
+  const setSelectedPathEdgeIds = useCallback((edgeIds: string[]) => {
+    setSelectedPathEdgeIdsState(new Set(edgeIds));
+  }, []);
   
   // Add convenient method to get service data
   const getServiceData = useCallback((): ServiceData => {
@@ -101,7 +106,9 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
     getServiceData,
     handlePathCompletionChange,
     showAlert,
-    priceHistoryMap
+    priceHistoryMap,
+    selectedPathEdgeIds,
+    setSelectedPathEdgeIds
   };
   
   return (

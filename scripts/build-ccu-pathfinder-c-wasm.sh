@@ -28,7 +28,7 @@ emcc "$PATHFINDER_C_MAIN" \
   -s EXPORT_ES6=0 \
   -s ENVIRONMENT=web \
   -s EXPORT_NAME=createCcuPathfinderCModule \
-  -s EXPORTED_FUNCTIONS='["_ccuReset","_ccuSetConfig","_ccuAddNode","_ccuAddEdge","_ccuAddStart","_ccuFindAllPathsC","_ccuFreeCString"]' \
+  -s EXPORTED_FUNCTIONS='["_ccuReset","_ccuSetConfig","_ccuAddNode","_ccuAddEdge","_ccuAddStart","_ccuClearStarts","_ccuFindAllPathsC","_ccuFreeCString"]' \
   -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \
   -o "$OUT_DIR/ccu-pathfinder-c.js"
 

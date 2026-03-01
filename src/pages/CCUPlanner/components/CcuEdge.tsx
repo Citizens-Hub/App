@@ -13,11 +13,6 @@ import { BiSlots, reportBi } from '@/report';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
-  selectedPath?: {
-    edges: Array<{
-      edge: Edge<CcuEdgeData>;
-    }>;
-  };
 }
 
 export default function CcuEdge({
@@ -30,14 +25,20 @@ export default function CcuEdge({
   targetPosition,
   data,
   style = {},
-  markerEnd,
-  selectedPath
+  markerEnd
 }: CcuEdgeProps) {
   const intl = useIntl();
   const { locale } = intl;
   const { currency: selectedCurrency } = useSelector((state: RootState) => state.upgrades);
   const factory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
-  const { priceHistoryMap, ccus, wbHistory, hangarItems, importItems } = useCcuPlanner();
+  const {
+    priceHistoryMap,
+    ccus,
+    wbHistory,
+    hangarItems,
+    importItems,
+    selectedPathEdgeIds
+  } = useCcuPlanner();
 
   // Check if the edge belongs to any completed path
   const isCompleted = useMemo(() => {
@@ -56,12 +57,9 @@ export default function CcuEdge({
 
   // Check if the edge is in the currently selected path
   const isInSelectedPath = useMemo(() => {
-    if (!selectedPath || !data?.sourceShip || !data?.targetShip) return false;
-
-    return selectedPath.edges.some(pathEdge =>
-      pathEdge.edge.id === id
-    );
-  }, [selectedPath, id, data]);
+    if (!data?.sourceShip || !data?.targetShip) return false;
+    return selectedPathEdgeIds.has(id);
+  }, [selectedPathEdgeIds, id, data]);
 
   // Create edge style
   const edgeStyle = useMemo(() => {

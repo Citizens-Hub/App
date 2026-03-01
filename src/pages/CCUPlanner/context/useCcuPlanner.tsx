@@ -41,6 +41,10 @@ export interface CcuPlannerContextType {
   
   // Show notifications
   showAlert: (message: string, type?: "success" | "error" | "warning") => void;
+
+  // Selected route path edge ids (for edge highlight)
+  selectedPathEdgeIds: Set<string>;
+  setSelectedPathEdgeIds: (edgeIds: string[]) => void;
 }
 
 // Create context

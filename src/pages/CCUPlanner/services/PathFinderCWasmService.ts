@@ -1,6 +1,7 @@
 import {
   WasmPathFinderParams,
   WasmPathFinderResult,
+  WasmRequest,
   WasmResponse,
   buildWasmRequest,
   toFiniteNumber
@@ -104,23 +105,34 @@ function ensureCWasmInitialized(): Promise<CPathFinderModule> {
   return cWasmInitPromise;
 }
 
-class PathFinderCWasmService {
-  async findAllPaths(params: WasmPathFinderParams): Promise<WasmPathFinderResult> {
-    const request = buildWasmRequest(params);
-    const module = await ensureCWasmInitialized();
+interface WasmBaseGraphParams {
+  edges: WasmPathFinderParams['edges'];
+  nodes: WasmPathFinderParams['nodes'];
+  data: WasmPathFinderParams['data'];
+}
 
+class PathFinderCWasmService {
+  private queued: Promise<void> = Promise.resolve();
+
+  private loadedGraphSignature: string | null = null;
+
+  private clearStartsSupported: boolean | null = null;
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const nextTask = this.queued.then(task, task);
+    this.queued = nextTask.then(() => undefined, () => undefined);
+    return nextTask;
+  }
+
+  private buildGraphSignature(request: WasmRequest): string {
+    return JSON.stringify({
+      nodes: request.nodes,
+      edges: request.edges
+    });
+  }
+
+  private loadBaseGraph(module: CPathFinderModule, request: WasmRequest): void {
     module.ccall('ccuReset', null, [], []);
-    module.ccall(
-      'ccuSetConfig',
-      null,
-      ['string', 'number', 'number', 'number'],
-      [
-        request.endShipId,
-        request.exchangeRate,
-        request.conciergeValue,
-        request.pruneOpt ? 1 : 0
-      ]
-    );
 
     request.nodes.forEach(node => {
       module.ccall('ccuAddNode', 'number', ['string', 'string'], [node.id, node.shipId]);
@@ -142,35 +154,110 @@ class PathFinderCWasmService {
         ]
       );
     });
+  }
 
-    request.starts.forEach(start => {
-      module.ccall(
-        'ccuAddStart',
-        'number',
-        ['string', 'number', 'number'],
-        [start.nodeId, start.usdCost, start.tpCost]
-      );
+  private ensureBaseGraphLoaded(module: CPathFinderModule, request: WasmRequest): void {
+    const graphSignature = this.buildGraphSignature(request);
+    if (this.loadedGraphSignature === graphSignature) {
+      return;
+    }
+
+    this.loadBaseGraph(module, request);
+    this.loadedGraphSignature = graphSignature;
+  }
+
+  private tryClearStarts(module: CPathFinderModule): boolean {
+    if (this.clearStartsSupported === false) {
+      return false;
+    }
+
+    try {
+      module.ccall('ccuClearStarts', null, [], []);
+      this.clearStartsSupported = true;
+      return true;
+    } catch (error) {
+      console.warn('C WASM module does not support ccuClearStarts, falling back to full graph reload.', error);
+      this.clearStartsSupported = false;
+      return false;
+    }
+  }
+
+  private buildBaseGraphRequest(params: WasmBaseGraphParams): WasmRequest {
+    return buildWasmRequest({
+      startNodes: [],
+      endNodeId: '',
+      edges: params.edges,
+      nodes: params.nodes,
+      exchangeRate: 1,
+      conciergeValue: '0',
+      pruneOpt: false,
+      startShipPrices: {},
+      data: params.data
     });
+  }
 
-    const totalCallStart = performance.now();
-    const rawPtr = module.ccall('ccuFindAllPathsC', 'number', [], []) as number;
-    const rawResult = rawPtr > 0 ? module.UTF8ToString(rawPtr) : '{"error":"missing C WASM response"}';
-    if (rawPtr > 0) {
-      module.ccall('ccuFreeCString', null, ['number'], [rawPtr]);
-    }
-    const totalCallMs = performance.now() - totalCallStart;
+  async preloadBaseGraph(params: WasmBaseGraphParams): Promise<void> {
+    const request = this.buildBaseGraphRequest(params);
+    await this.enqueue(async () => {
+      const module = await ensureCWasmInitialized();
+      this.ensureBaseGraphLoaded(module, request);
+    });
+  }
 
-    const parsed = JSON.parse(rawResult) as WasmResponse;
-    if (parsed.error) {
-      throw new Error(parsed.error);
-    }
+  async findAllPaths(params: WasmPathFinderParams): Promise<WasmPathFinderResult> {
+    const request = buildWasmRequest(params);
+    return this.enqueue(async () => {
+      const module = await ensureCWasmInitialized();
 
-    return {
-      paths: parsed.paths || [],
-      elapsedMs: toFiniteNumber(parsed.elapsedMs, totalCallMs),
-      totalCallMs,
-      stats: parsed.stats || { expanded: 0, pruned: 0, returned: 0 }
-    };
+      this.ensureBaseGraphLoaded(module, request);
+
+      const startsCleared = this.tryClearStarts(module);
+      if (!startsCleared) {
+        this.loadBaseGraph(module, request);
+        this.loadedGraphSignature = this.buildGraphSignature(request);
+      }
+
+      module.ccall(
+        'ccuSetConfig',
+        null,
+        ['string', 'number', 'number', 'number'],
+        [
+          request.endShipId,
+          request.exchangeRate,
+          request.conciergeValue,
+          request.pruneOpt ? 1 : 0
+        ]
+      );
+
+      request.starts.forEach(start => {
+        module.ccall(
+          'ccuAddStart',
+          'number',
+          ['string', 'number', 'number'],
+          [start.nodeId, start.usdCost, start.tpCost]
+        );
+      });
+
+      const totalCallStart = performance.now();
+      const rawPtr = module.ccall('ccuFindAllPathsC', 'number', [], []) as number;
+      const rawResult = rawPtr > 0 ? module.UTF8ToString(rawPtr) : '{"error":"missing C WASM response"}';
+      if (rawPtr > 0) {
+        module.ccall('ccuFreeCString', null, ['number'], [rawPtr]);
+      }
+      const totalCallMs = performance.now() - totalCallStart;
+
+      const parsed = JSON.parse(rawResult) as WasmResponse;
+      if (parsed.error) {
+        throw new Error(parsed.error);
+      }
+
+      return {
+        paths: parsed.paths || [],
+        elapsedMs: toFiniteNumber(parsed.elapsedMs, totalCallMs),
+        totalCallMs,
+        stats: parsed.stats || { expanded: 0, pruned: 0, returned: 0 }
+      };
+    });
   }
 }
 
