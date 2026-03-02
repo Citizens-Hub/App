@@ -1294,13 +1294,12 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     setStartShipId(option.ship.id);
                                   }
                                 }}
-                                className={`flex items-center justify-between gap-3 border px-3 py-2 transition-colors ${
-                                  option.ship?.id === startShipId
-                                    ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30'
-                                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-[#1a1a1a]'
-                                } ${option.ship
-                                  ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-600'
-                                  : 'cursor-default opacity-80'}`}
+                                className={`flex items-center justify-between gap-3 border px-3 py-2 transition-colors ${option.ship?.id === startShipId
+                                  ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30'
+                                  : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-[#1a1a1a]'
+                                  } ${option.ship
+                                    ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-600'
+                                    : 'cursor-default opacity-80'}`}
                               >
                                 <div className="min-w-0 flex items-center gap-3">
                                   <ShipImage
@@ -1497,21 +1496,21 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     </label>
 
                     <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-800">
-                      <div className="flex items-center justify-between gap-2">
-                        <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
-                          <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
-                        </label>
-                        <Switch
-                          id="useWasmPathBuilder"
-                          checked={useWasmPathBuilder}
-                          onChange={(e) => {
-                            setUseWasmPathBuilder(e.target.checked);
-                            localStorage.setItem('useWasmPathBuilder', e.target.checked.toString());
-                          }}
-                        />
-                      </div>
+                      {isDevMode && (<>
+                        <div className="flex items-center justify-between gap-2">
+                          <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
+                            <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
+                          </label>
+                          <Switch
+                            id="useWasmPathBuilder"
+                            checked={useWasmPathBuilder}
+                            onChange={(e) => {
+                              setUseWasmPathBuilder(e.target.checked);
+                              localStorage.setItem('useWasmPathBuilder', e.target.checked.toString());
+                            }}
+                          />
+                        </div>
 
-                      {isDevMode && (
                         <div className="flex items-center justify-between gap-2">
                           <label htmlFor="comparePathBuilderPerf" className="text-sm text-gray-600 dark:text-gray-400">
                             <FormattedMessage id="pathBuilder.comparePathBuilderPerf" defaultMessage="Compare JS + C-WASM (Dev)" />
@@ -1525,31 +1524,31 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             }}
                           />
                         </div>
-                      )}
 
-                      {isDevMode && buildStepPerfStats && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Step 1 (Build): {formatPathBuilderPerfLog(buildStepPerfStats)}
-                        </div>
-                      )}
+                        {buildStepPerfStats && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Step 1 (Build): {formatPathBuilderPerfLog(buildStepPerfStats)}
+                          </div>
+                        )}
 
-                      {isDevMode && reviewStepPerfStats && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Step 2 (Review): {formatPathBuilderPerfLog(reviewStepPerfStats)}
-                        </div>
-                      )}
+                        {reviewStepPerfStats && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Step 2 (Review): {formatPathBuilderPerfLog(reviewStepPerfStats)}
+                          </div>
+                        )}
 
-                      {isDevMode && buildStepMismatchMessage && (
-                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          Step 1 (Build): {buildStepMismatchMessage}
-                        </div>
-                      )}
+                        {buildStepMismatchMessage && (
+                          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            Step 1 (Build): {buildStepMismatchMessage}
+                          </div>
+                        )}
 
-                      {isDevMode && reviewStepMismatchMessage && (
-                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          Step 2 (Review): {reviewStepMismatchMessage}
-                        </div>
-                      )}
+                        {reviewStepMismatchMessage && (
+                          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            Step 2 (Review): {reviewStepMismatchMessage}
+                          </div>
+                        )}
+                      </>)}
                     </div>
                   </div>
 

@@ -368,7 +368,7 @@ export default function RouteInfoPanel({
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShipId, edges, isDevMode, comparePathFinderPerf, selectedNode, useWasmPathFinder, pathFinderService, getServiceData, startShipPrices, exchangeRate, conciergeValue, pruneOpt]);
 
   const sortedPathsGroups = useMemo(() => {
@@ -378,12 +378,12 @@ export default function RouteInfoPanel({
     const filteredPaths = completePaths.filter(path => {
       // 检查路径是否已完成
       const { completed } = pathFinderService.isPathCompleted(path);
-      
+
       // 已完成的路径不过滤
       if (completed) {
         return true;
       }
-      
+
       // 检查路径中的每条边
       return !path.edges.some(edge => {
         // 获取价格信息
@@ -659,20 +659,20 @@ export default function RouteInfoPanel({
               }}
             />
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <label htmlFor="useWasmPathFinder" className="text-sm text-gray-600 dark:text-gray-400">
-              <FormattedMessage id="routeInfoPanel.useWasmPathFinder" defaultMessage="Use WASM Path Finder" />
-            </label>
-            <Switch
-              id="useWasmPathFinder"
-              checked={useWasmPathFinder}
-              onChange={(e) => {
-                setUseWasmPathFinder(e.target.checked);
-                localStorage.setItem('useWasmPathFinder', e.target.checked.toString());
-              }}
-            />
-          </div>
-          {isDevMode && (
+          {isDevMode && (<>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="useWasmPathFinder" className="text-sm text-gray-600 dark:text-gray-400">
+                <FormattedMessage id="routeInfoPanel.useWasmPathFinder" defaultMessage="Use WASM Path Finder" />
+              </label>
+              <Switch
+                id="useWasmPathFinder"
+                checked={useWasmPathFinder}
+                onChange={(e) => {
+                  setUseWasmPathFinder(e.target.checked);
+                  localStorage.setItem('useWasmPathFinder', e.target.checked.toString());
+                }}
+              />
+            </div>
             <div className="flex items-center justify-between gap-2">
               <label htmlFor="comparePathFinderPerf" className="text-sm text-gray-600 dark:text-gray-400">
                 <FormattedMessage id="routeInfoPanel.comparePathFinderPerf" defaultMessage="Compare JS + C-WASM (Dev)" />
@@ -686,28 +686,28 @@ export default function RouteInfoPanel({
                 }}
               />
             </div>
-          )}
-          {isDevMode && pathFinderPerfStats && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {!isDevMode || !comparePathFinderPerf
-                ? `${pathFinderPerfStats.mode === 'c-wasm' ? 'C-WASM' : 'JS'} ${((pathFinderPerfStats.mode === 'c-wasm'
+            {pathFinderPerfStats && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {!isDevMode || !comparePathFinderPerf
+                  ? `${pathFinderPerfStats.mode === 'c-wasm' ? 'C-WASM' : 'JS'} ${((pathFinderPerfStats.mode === 'c-wasm'
                     ? pathFinderPerfStats.cWasmElapsedMs
                     : pathFinderPerfStats.jsElapsedMs) ?? 0).toFixed(2)}ms (${(pathFinderPerfStats.mode === 'c-wasm'
-                    ? pathFinderPerfStats.cWasmPathCount
-                    : pathFinderPerfStats.jsPathCount) ?? 0} paths)`
-                : `Consistency: ${pathFinderPerfStats.consistency === 'match' ? 'MATCH' : pathFinderPerfStats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${pathFinderPerfStats.jsElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.jsPathCount || 0}) | C-WASM ${pathFinderPerfStats.cWasmElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.cWasmPathCount || 0})${pathFinderPerfStats.cWasmSpeedupRatio ? ` (${pathFinderPerfStats.cWasmSpeedupRatio.toFixed(2)}x)` : ''}`}
-            </div>
-          )}
-          {isCalculatingPaths && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              <FormattedMessage id="routeInfoPanel.calculatingPaths" defaultMessage="Calculating paths..." />
-            </div>
-          )}
-          {pathFinderMismatchMessage && (
-            <div className="text-xs text-amber-600 dark:text-amber-400">
-              {pathFinderMismatchMessage}
-            </div>
-          )}
+                      ? pathFinderPerfStats.cWasmPathCount
+                      : pathFinderPerfStats.jsPathCount) ?? 0} paths)`
+                  : `Consistency: ${pathFinderPerfStats.consistency === 'match' ? 'MATCH' : pathFinderPerfStats.consistency === 'mismatch' ? 'MISMATCH' : 'UNAVAILABLE'} | JS ${pathFinderPerfStats.jsElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.jsPathCount || 0}) | C-WASM ${pathFinderPerfStats.cWasmElapsedMs?.toFixed(2) || '0.00'}ms (${pathFinderPerfStats.cWasmPathCount || 0})${pathFinderPerfStats.cWasmSpeedupRatio ? ` (${pathFinderPerfStats.cWasmSpeedupRatio.toFixed(2)}x)` : ''}`}
+              </div>
+            )}
+            {isCalculatingPaths && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                <FormattedMessage id="routeInfoPanel.calculatingPaths" defaultMessage="Calculating paths..." />
+              </div>
+            )}
+            {pathFinderMismatchMessage && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                {pathFinderMismatchMessage}
+              </div>
+            )}
+          </>)}
           <div className="flex items-center justify-between">
             <label htmlFor="conciergeValue" className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <FormattedMessage id="routeInfoPanel.conciergeValue" defaultMessage="Concierge Value" />
