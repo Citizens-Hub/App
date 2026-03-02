@@ -1768,14 +1768,21 @@ export class PathBuilderService {
   private _filterTargetValidityWindowsBySourceSkuPrice(params: SourceSkuPriceConstraintParams): CcuValidityWindow[] {
     const {
       sourceShipId,
-      sourceShipMsrp,
       targetPriceCents,
       targetValidityWindows,
       priceHistoryMap
     } = params;
 
     const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
-    const hasHistoryData = sourceHistory.length > 0;
+    const hasHistorySkuData = sourceHistory.some(entry =>
+      entry.change === '+' &&
+      typeof entry.sku === 'number' &&
+      typeof entry.msrp === 'number'
+    );
+    if (!hasHistorySkuData) {
+      return [];
+    }
+
     const sourceCheaperWindows = this._collectSourceSkuValidityWindowsBelowPrice({
       history: sourceHistory,
       targetPriceCents
@@ -1807,11 +1814,6 @@ export class PathBuilderService {
       });
 
       if (isPurchasableBySourceHistory) {
-        return true;
-      }
-
-      // Fallback for ships lacking historical records: use current MSRP as availability baseline.
-      if (!hasHistoryData && sourceShipMsrp < targetPriceCents) {
         return true;
       }
 
