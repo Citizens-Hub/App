@@ -153,6 +153,14 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         return resolveShipName(candidate);
       }, "");
 
+      if (!from) {
+        from = ships.find(ship => ship.id === Number(fromCandidates[1]))?.name || ""
+      }
+
+      if (!to) {
+        to = ships.find(ship => ship.id === Number(toCandidates[1]))?.name || ""
+      }
+
       if (!from || !to || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from)) || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to))) {
         throw new Error(JSON.stringify({
           reason: "CCU_SHIP_NOT_FOUND",
