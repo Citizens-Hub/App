@@ -66,7 +66,7 @@
   "pathBuilder.ltiLoading": "Loading available LTI seed ships...",
   "pathBuilder.ltiLoadError": "Failed to load LTI seed ships.",
   "pathBuilder.ltiEmpty": "No available LTI seed ships right now.",
-  "pathBuilder.openWarbond": "Open Warbond",
+  "pathBuilder.openWarbond": "Open RSI Pledge Store",
   "pathBuilder.ltiNotInList": "Not in selectable ship list",
   "pathBuilder.targetShip": "Target Ship",
   "pathBuilder.selectTargetShip": "Select target ship",

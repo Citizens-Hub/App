@@ -85,6 +85,7 @@ export default function PriceHistoryChart({
 
   const intl = useIntl();
   const tooltipIdRef = useRef(`chartjs-tooltip-${Math.random().toString(36).slice(2, 10)}`);
+  const rangeOverlayPluginIdRef = useRef(`selected-range-overlay-${Math.random().toString(36).slice(2, 10)}`);
   const [isDarkMode, setIsDarkMode] = useState(() =>
     document.documentElement.classList.contains('dark')
   );
@@ -183,13 +184,45 @@ export default function PriceHistoryChart({
     sortedTimestamps: number[];
   } | null>(null);
 
+  const rangeStartTsRef = useRef<number | undefined>(rangeStartTs);
+  const rangeEndTsRef = useRef<number | undefined>(rangeEndTs);
+  const useRealTimeScaleRef = useRef(useRealTimeScale);
+  const periodDataRef = useRef(periodData);
+  const isDarkModeRef = useRef(isDarkMode);
+
+  useEffect(() => {
+    rangeStartTsRef.current = rangeStartTs;
+  }, [rangeStartTs]);
+
+  useEffect(() => {
+    rangeEndTsRef.current = rangeEndTs;
+  }, [rangeEndTs]);
+
+  useEffect(() => {
+    useRealTimeScaleRef.current = useRealTimeScale;
+  }, [useRealTimeScale]);
+
+  useEffect(() => {
+    periodDataRef.current = periodData;
+  }, [periodData]);
+
+  useEffect(() => {
+    isDarkModeRef.current = isDarkMode;
+  }, [isDarkMode]);
+
   const selectedRangeOverlayPlugin = useMemo<Plugin<'line'>>(() => ({
-    id: 'selected-range-overlay',
+    id: rangeOverlayPluginIdRef.current,
     beforeDatasetsDraw: (chart) => {
-      if (typeof rangeStartTs !== 'number' || typeof rangeEndTs !== 'number') {
+      const activeRangeStartTs = rangeStartTsRef.current;
+      const activeRangeEndTs = rangeEndTsRef.current;
+      const activeUseRealTimeScale = useRealTimeScaleRef.current;
+      const activePeriodData = periodDataRef.current;
+      const activeIsDarkMode = isDarkModeRef.current;
+
+      if (typeof activeRangeStartTs !== 'number' || typeof activeRangeEndTs !== 'number') {
         return;
       }
-      if (rangeEndTs <= rangeStartTs) {
+      if (activeRangeEndTs <= activeRangeStartTs) {
         return;
       }
 
@@ -201,17 +234,17 @@ export default function PriceHistoryChart({
       let startPixel: number | null = null;
       let endPixel: number | null = null;
 
-      if (useRealTimeScale) {
-        startPixel = xScale.getPixelForValue(rangeStartTs);
-        endPixel = xScale.getPixelForValue(rangeEndTs);
+      if (activeUseRealTimeScale) {
+        startPixel = xScale.getPixelForValue(activeRangeStartTs);
+        endPixel = xScale.getPixelForValue(activeRangeEndTs);
       } else {
-        const sortedTimestamps = periodData?.sortedTimestamps || [];
+        const sortedTimestamps = activePeriodData?.sortedTimestamps || [];
         if (!sortedTimestamps.length) {
           return;
         }
 
-        const startIndex = sortedTimestamps.findIndex(ts => ts >= rangeStartTs);
-        const endIndexFromLeft = sortedTimestamps.findIndex(ts => ts > rangeEndTs);
+        const startIndex = sortedTimestamps.findIndex(ts => ts >= activeRangeStartTs);
+        const endIndexFromLeft = sortedTimestamps.findIndex(ts => ts > activeRangeEndTs);
         const resolvedStartIndex = startIndex === -1 ? sortedTimestamps.length - 1 : startIndex;
         const resolvedEndIndex = endIndexFromLeft === -1 ? sortedTimestamps.length - 1 : Math.max(0, endIndexFromLeft - 1);
 
@@ -232,11 +265,11 @@ export default function PriceHistoryChart({
       const ctx = chart.ctx;
       ctx.save();
 
-      const fillColor = isDarkMode ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.10)';
+      const fillColor = activeIsDarkMode ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.10)';
       ctx.fillStyle = fillColor;
       ctx.fillRect(left, chart.chartArea.top, right - left, chart.chartArea.bottom - chart.chartArea.top);
 
-      const strokeColor = isDarkMode ? 'rgba(96, 165, 250, 0.75)' : 'rgba(37, 99, 235, 0.7)';
+      const strokeColor = activeIsDarkMode ? 'rgba(96, 165, 250, 0.75)' : 'rgba(37, 99, 235, 0.7)';
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
@@ -253,7 +286,7 @@ export default function PriceHistoryChart({
 
       ctx.restore();
     }
-  }), [isDarkMode, periodData, rangeEndTs, rangeStartTs, useRealTimeScale]);
+  }), []);
 
   const chartData = useMemo(() => {
     if (!history) return null;
@@ -1090,7 +1123,8 @@ export default function PriceHistoryChart({
       axis: 'x' as const,
       intersect: false
     }
-  }), [legendPosition, legendAlign, isDarkMode, showTitle, intl, useRealTimeScale, periodData, tooltipZIndex, findPeriodForDataPoint, history, showSkuMetaInTooltip, yAxisBounds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [legendPosition, legendAlign, isDarkMode, showTitle, intl, useRealTimeScale, periodData, tooltipZIndex, findPeriodForDataPoint, history, showSkuMetaInTooltip, yAxisBounds, rangeStartTs, rangeEndTs]);
 
   if (!chartData) {
     return null;

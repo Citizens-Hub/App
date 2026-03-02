@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch, Slider } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -55,6 +55,11 @@ interface OverlayPricePeriod {
   startTs: number;
   endTs: number | null;
   price: number;
+}
+
+interface ReviewRangeBounds {
+  minTs: number;
+  maxTs: number;
 }
 
 interface LtiShipSku {
@@ -245,6 +250,14 @@ function formatUsdByLocale(value: number, locale: string): string {
   });
 }
 
+function formatDateByLocale(ts: number, locale: string): string {
+  return new Date(ts).toLocaleDateString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 function parseDateRangeToTs(startDate: string, endDate: string): { startTs: number; endTs: number } | null {
   const startTs = new Date(`${startDate}T00:00:00`).getTime();
   const endTs = new Date(`${endDate}T23:59:59`).getTime();
@@ -254,6 +267,56 @@ function parseDateRangeToTs(startDate: string, endDate: string): { startTs: numb
   }
 
   return { startTs, endTs };
+}
+
+function toDayStartTs(ts: number): number {
+  const date = new Date(ts);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function toDayEndTs(ts: number): number {
+  const date = new Date(ts);
+  date.setHours(23, 59, 59, 0);
+  return date.getTime();
+}
+
+function findFirstIndexAtOrAfter(sortedValues: number[], target: number): number {
+  if (!sortedValues.length) {
+    return 0;
+  }
+
+  let left = 0;
+  let right = sortedValues.length;
+  while (left < right) {
+    const middle = Math.floor((left + right) / 2);
+    if (sortedValues[middle] < target) {
+      left = middle + 1;
+    } else {
+      right = middle;
+    }
+  }
+
+  return Math.min(Math.max(left, 0), sortedValues.length - 1);
+}
+
+function findLastIndexAtOrBefore(sortedValues: number[], target: number): number {
+  if (!sortedValues.length) {
+    return 0;
+  }
+
+  let left = 0;
+  let right = sortedValues.length;
+  while (left < right) {
+    const middle = Math.floor((left + right) / 2);
+    if (sortedValues[middle] <= target) {
+      left = middle + 1;
+    } else {
+      right = middle;
+    }
+  }
+
+  return Math.min(Math.max(left - 1, 0), sortedValues.length - 1);
 }
 
 function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): GroupedSkuValidityWindow[] {
@@ -302,6 +365,39 @@ function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): Group
 
       return { sku, windows: mergedWindows };
     });
+}
+
+function clipValidityWindowsToRange(
+  validityWindows: CcuValidityWindow[] | undefined,
+  rangeStartTs: number,
+  rangeEndTs: number
+): CcuValidityWindow[] {
+  if (!validityWindows?.length) {
+    return [];
+  }
+
+  return validityWindows.flatMap(window => {
+    if (typeof window.sku !== 'number') {
+      return [];
+    }
+
+    const rawEndTs = window.endTs ?? Number.POSITIVE_INFINITY;
+    if (rawEndTs < rangeStartTs || window.startTs > rangeEndTs) {
+      return [];
+    }
+
+    const clippedStartTs = Math.max(window.startTs, rangeStartTs);
+    const clippedEndTs = Math.min(rawEndTs, rangeEndTs);
+    if (!Number.isFinite(clippedEndTs) || clippedEndTs < clippedStartTs) {
+      return [];
+    }
+
+    return [{
+      ...window,
+      startTs: clippedStartTs,
+      endTs: clippedEndTs
+    }];
+  });
 }
 
 function isWarbondEdition(edition?: string): boolean {
@@ -440,6 +536,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [ltiUpdatedAt, setLtiUpdatedAt] = useState<string | null>(null);
   const [isLtiLoading, setIsLtiLoading] = useState(false);
   const [ltiLoadError, setLtiLoadError] = useState(false);
+  const [reviewRangeBounds, setReviewRangeBounds] = useState<ReviewRangeBounds | null>(null);
+  const [reviewRangeDraftIndices, setReviewRangeDraftIndices] = useState<[number, number] | null>(null);
   const calculateTaskRef = useRef(0);
   const baseGraphPrebuildWorkerRef = useRef<Worker | null>(null);
   const baseGraphPrebuildTaskRef = useRef(0);
@@ -552,6 +650,97 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     return ships.find(ship => ship.id === reviewRequest.targetShipId) || null;
   }, [reviewRequest, ships]);
 
+  const earliestHistoryStartTs = useMemo(() => {
+    let minTs = Number.POSITIVE_INFINITY;
+
+    Object.values(priceHistoryMap).forEach(entity => {
+      const history = entity?.history || [];
+      history.forEach(entry => {
+        if (typeof entry.ts !== 'number' || !Number.isFinite(entry.ts)) {
+          return;
+        }
+        minTs = Math.min(minTs, entry.ts);
+      });
+    });
+
+    return Number.isFinite(minTs) ? toDayStartTs(minTs) : null;
+  }, [priceHistoryMap]);
+
+  const reviewTimelineDayTs = useMemo(() => {
+    if (!reviewRequest) {
+      return [];
+    }
+
+    const relatedShipIds = new Set<number>([reviewRequest.startShipId, reviewRequest.targetShipId]);
+    reviewRoute?.edges.forEach(item => {
+      relatedShipIds.add(item.sourceShip.id);
+      relatedShipIds.add(item.targetShip.id);
+    });
+
+    let minTs = Number.POSITIVE_INFINITY;
+    let maxTs = Number.NEGATIVE_INFINITY;
+
+    relatedShipIds.forEach(shipId => {
+      const history = priceHistoryMap[shipId]?.history;
+      history?.forEach(entry => {
+        if (typeof entry.ts !== 'number' || !Number.isFinite(entry.ts)) {
+          return;
+        }
+        minTs = Math.min(minTs, entry.ts);
+        maxTs = Math.max(maxTs, entry.ts);
+      });
+    });
+
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
+      minTs = reviewRequest.rangeStartTs;
+      maxTs = reviewRequest.rangeEndTs;
+    }
+
+    const boundedMinTs = reviewRangeBounds
+      ? reviewRangeBounds.minTs
+      : Math.min(minTs, reviewRequest.rangeStartTs);
+    const boundedMaxTs = reviewRangeBounds
+      ? reviewRangeBounds.maxTs
+      : Math.max(maxTs, reviewRequest.rangeEndTs);
+    const minDayTs = toDayStartTs(boundedMinTs);
+    const maxDayTs = toDayStartTs(boundedMaxTs);
+
+    const dayTs: number[] = [];
+    const cursor = new Date(minDayTs);
+    for (let guard = 0; guard < 10000 && cursor.getTime() <= maxDayTs; guard += 1) {
+      dayTs.push(cursor.getTime());
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    if (!dayTs.length) {
+      dayTs.push(minDayTs);
+      if (maxDayTs !== minDayTs) {
+        dayTs.push(maxDayTs);
+      }
+    }
+
+    return dayTs;
+  }, [priceHistoryMap, reviewRangeBounds, reviewRequest, reviewRoute]);
+
+  useEffect(() => {
+    if (!reviewRequest || !reviewTimelineDayTs.length) {
+      setReviewRangeDraftIndices(null);
+      return;
+    }
+
+    const startIndex = findFirstIndexAtOrAfter(reviewTimelineDayTs, reviewRequest.rangeStartTs);
+    const endIndex = findLastIndexAtOrBefore(reviewTimelineDayTs, reviewRequest.rangeEndTs);
+    const safeStartIndex = Math.max(0, Math.min(startIndex, reviewTimelineDayTs.length - 1));
+    const safeEndIndex = Math.max(safeStartIndex, Math.min(endIndex, reviewTimelineDayTs.length - 1));
+
+    setReviewRangeDraftIndices(previous => {
+      if (previous && previous[0] === safeStartIndex && previous[1] === safeEndIndex) {
+        return previous;
+      }
+      return [safeStartIndex, safeEndIndex];
+    });
+  }, [reviewRequest, reviewTimelineDayTs]);
+
   const sourceShipOverlaySeriesByShipId = useMemo(() => {
     const overlayMap = new Map<number, Array<{
       label: string;
@@ -626,6 +815,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setReviewRoute(null);
     setReviewStepPerfStats(null);
     setReviewStepMismatchMessage(null);
+    setReviewRangeBounds(null);
+    setReviewRangeDraftIndices(null);
   }, [open, terminateBaseGraphPrebuildWorker]);
 
   useEffect(() => {
@@ -839,13 +1030,31 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     return formatUsdByLocale(value, intl.locale);
   };
 
-  const formatDate = (ts: number): string => {
-    return new Date(ts).toLocaleDateString(intl.locale, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  };
+  const formatDate = useCallback((ts: number): string => {
+    return formatDateByLocale(ts, intl.locale);
+  }, [intl.locale]);
+
+  const reviewPreviewRange = useMemo(() => {
+    if (!reviewRequest) {
+      return null;
+    }
+
+    if (reviewRangeDraftIndices && reviewTimelineDayTs.length > 0) {
+      const maxIndex = reviewTimelineDayTs.length - 1;
+      const startIndex = Math.max(0, Math.min(reviewRangeDraftIndices[0], maxIndex));
+      const endIndex = Math.max(startIndex, Math.min(reviewRangeDraftIndices[1], maxIndex));
+
+      return {
+        startTs: toDayStartTs(reviewTimelineDayTs[startIndex]),
+        endTs: toDayEndTs(reviewTimelineDayTs[endIndex])
+      };
+    }
+
+    return {
+      startTs: reviewRequest.rangeStartTs,
+      endTs: reviewRequest.rangeEndTs
+    };
+  }, [reviewRangeDraftIndices, reviewRequest, reviewTimelineDayTs]);
 
   const formatPathBuilderPerfLog = (stats: AutoPathBuildPerfStats | null): string | null => {
     if (!stats) {
@@ -959,7 +1168,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     return request;
   };
 
-  const calculateRoute = async (
+  const calculateRoute = useCallback(async (
     request: AutoPathBuildRequest,
     nextExcludedCcus: ExcludedCcu[],
     nextExcludedSkuIds: number[],
@@ -1056,13 +1265,83 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         setIsCalculating(false);
       }
     }
-  };
+  }, [comparePathBuilderPerf, intl, pathBuilderService, showAlert, useWasmPathBuilder]);
+
+  const applyReviewRangeFromIndices = useCallback((nextRangeIndices: [number, number]) => {
+    if (!reviewRequest || isCalculating || !reviewTimelineDayTs.length) {
+      return;
+    }
+
+    const maxIndex = reviewTimelineDayTs.length - 1;
+    const normalizedStartIndex = Math.max(0, Math.min(nextRangeIndices[0], maxIndex));
+    const normalizedEndIndex = Math.max(normalizedStartIndex, Math.min(nextRangeIndices[1], maxIndex));
+
+    const nextRangeStartTs = toDayStartTs(reviewTimelineDayTs[normalizedStartIndex]);
+    const nextRangeEndTs = toDayEndTs(reviewTimelineDayTs[normalizedEndIndex]);
+
+    if (nextRangeStartTs === reviewRequest.rangeStartTs && nextRangeEndTs === reviewRequest.rangeEndTs) {
+      return;
+    }
+
+    const nextRequest: AutoPathBuildRequest = {
+      ...reviewRequest,
+      rangeStartTs: nextRangeStartTs,
+      rangeEndTs: nextRangeEndTs
+    };
+
+    setReviewRequest(nextRequest);
+    void calculateRoute(nextRequest, excludedCcus, excludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
+  }, [
+    calculateRoute,
+    excludedCcus,
+    excludedSkuIds,
+    isCalculating,
+    requiredHangarCcuKeys,
+    reviewRequest,
+    reviewTimelineDayTs
+  ]);
+
+  const handleReviewRangeSliderChange = useCallback((_: unknown, value: number | number[]) => {
+    if (!Array.isArray(value)) {
+      return;
+    }
+
+    const nextStart = Math.floor(value[0] ?? 0);
+    const nextEnd = Math.floor(value[1] ?? nextStart);
+    setReviewRangeDraftIndices([Math.min(nextStart, nextEnd), Math.max(nextStart, nextEnd)]);
+  }, []);
+
+  const formatReviewRangeSliderValueLabel = useCallback((indexValue: number): string => {
+    const roundedIndex = Math.max(0, Math.floor(indexValue));
+    const ts = reviewTimelineDayTs[roundedIndex];
+    if (typeof ts !== 'number') {
+      return '';
+    }
+    return formatDate(ts);
+  }, [formatDate, reviewTimelineDayTs]);
+
+  const handleReviewRangeSliderCommit = useCallback((_: unknown, value: number | number[]) => {
+    if (!Array.isArray(value)) {
+      return;
+    }
+
+    const nextStart = Math.floor(value[0] ?? 0);
+    const nextEnd = Math.floor(value[1] ?? nextStart);
+    const normalizedRange: [number, number] = [Math.min(nextStart, nextEnd), Math.max(nextStart, nextEnd)];
+    setReviewRangeDraftIndices(normalizedRange);
+    applyReviewRangeFromIndices(normalizedRange);
+  }, [applyReviewRangeFromIndices]);
 
   const handleGenerateForReview = async () => {
     const request = buildRequest();
     if (!request) {
       return;
     }
+
+    setReviewRangeBounds({
+      minTs: earliestHistoryStartTs ?? toDayStartTs(request.rangeStartTs),
+      maxTs: toDayEndTs(Date.now())
+    });
 
     const nextExcludedCcus: ExcludedCcu[] = [];
     const nextExcludedSkuIds: number[] = [];
@@ -1340,7 +1619,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   rel="noopener noreferrer"
                                   onClick={(event) => event.stopPropagation()}
                                 >
-                                  <FormattedMessage id="pathBuilder.openWarbond" defaultMessage="Open Warbond" />
+                                  <FormattedMessage id="pathBuilder.openWarbond" defaultMessage="Open RSI Pledge Store" />
                                 </Button>
                               </div>
                             ))}
@@ -1495,8 +1774,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </span>
                     </label>
 
-                    <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-800">
-                      {isDevMode && (<>
+                    {isDevMode && (
+                      <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-800">
                         <div className="flex items-center justify-between gap-2">
                           <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
                             <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
@@ -1548,8 +1827,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             Step 2 (Review): {reviewStepMismatchMessage}
                           </div>
                         )}
-                      </>)}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="border border-gray-200 dark:border-gray-800 p-3">
@@ -1666,6 +1945,60 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 </div>
               )}
 
+              {reviewRequest && reviewRangeDraftIndices && reviewTimelineDayTs.length > 0 && (
+                <div className="border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] p-3">
+                  {reviewTimelineDayTs.length > 1 ? (
+                    <div className="pt-1">
+                      <div className='px-2'>
+                        <Slider
+                          value={reviewRangeDraftIndices}
+                          min={0}
+                          max={reviewTimelineDayTs.length - 1}
+                          step={1}
+                          disableSwap
+                          disabled={isCalculating}
+                          onChange={handleReviewRangeSliderChange}
+                          onChangeCommitted={handleReviewRangeSliderCommit}
+                          valueLabelDisplay="auto"
+                          valueLabelFormat={formatReviewRangeSliderValueLabel}
+                          sx={{
+                            mb: 0.5,
+                            '& .MuiSlider-rail': {
+                              opacity: 1,
+                              backgroundColor: 'rgb(209 213 219)',
+                              height: 3
+                            },
+                            '& .MuiSlider-track': {
+                              height: 3
+                            },
+                            '& .MuiSlider-thumb': {
+                              width: 14,
+                              height: 14
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="px-2 -mt-3">
+                        <div className="flex items-end justify-between">
+                          {Array.from({ length: 11 }).map((_, tickIndex) => (
+                            <span
+                              key={`review-ruler-tick-${tickIndex}`}
+                              className={`block w-px bg-gray-300 dark:bg-gray-600 ${tickIndex % 5 === 0 ? 'h-3' : 'h-2'}`}
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                          <span>{formatDate(reviewTimelineDayTs[0])}</span>
+                          <span>{formatDate(toDayEndTs(reviewTimelineDayTs[reviewTimelineDayTs.length - 1]))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-6 border-t border-gray-300 dark:border-gray-700" />
+                  )}
+                </div>
+              )}
+
               <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:grid-rows-1 gap-4">
                 <div className="flex flex-col gap-3 border border-gray-200 p-3 min-h-0 overflow-hidden">
                   {reviewRoute ? (
@@ -1694,7 +2027,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
                         {reviewRoute.edges.map((item, index) => {
                           const stepKey = `${item.key}-${index}`;
-                          const groupedValidityWindows = groupValidityWindowsBySku(item.validityWindows);
+                          const clippedValidityWindows = reviewPreviewRange
+                            ? clipValidityWindowsToRange(item.validityWindows, reviewPreviewRange.startTs, reviewPreviewRange.endTs)
+                            : (item.validityWindows || []);
+                          const groupedValidityWindows = groupValidityWindowsBySku(clippedValidityWindows);
 
                           return (
                             <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-[#121212]">
@@ -1807,8 +2143,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                         currentMsrp={item.targetShip.msrp}
                                         shipName={item.targetShip.name}
                                         overlaySeries={sourceShipOverlaySeriesByShipId.get(item.sourceShip.id) || []}
-                                        rangeStartTs={reviewRequest?.rangeStartTs}
-                                        rangeEndTs={reviewRequest?.rangeEndTs}
+                                        rangeStartTs={reviewPreviewRange?.startTs}
+                                        rangeEndTs={reviewPreviewRange?.endTs}
                                         highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
                                         showRealTimeScaleToggle={false}
                                         showTitle={false}

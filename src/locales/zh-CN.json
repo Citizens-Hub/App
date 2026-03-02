@@ -66,7 +66,7 @@
   "pathBuilder.ltiLoading": "正在加载当前可用的 LTI 种子船...",
   "pathBuilder.ltiLoadError": "加载 LTI 种子船失败。",
   "pathBuilder.ltiEmpty": "当前暂无可用的 LTI 种子船。",
-  "pathBuilder.openWarbond": "打开 Warbond",
+  "pathBuilder.openWarbond": "打开 RSI Pledge Store",
   "pathBuilder.ltiNotInList": "不在可选舰船列表中",
   "pathBuilder.targetShip": "目标舰船",
   "pathBuilder.selectTargetShip": "选择目标舰船",

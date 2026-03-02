@@ -66,7 +66,7 @@
   "pathBuilder.ltiLoading": "利用可能なLTIシード艦船を読み込み中...",
   "pathBuilder.ltiLoadError": "LTIシード艦船の読み込みに失敗しました。",
   "pathBuilder.ltiEmpty": "現在利用可能なLTIシード艦船はありません。",
-  "pathBuilder.openWarbond": "Warbondを開く",
+  "pathBuilder.openWarbond": "RSI Pledge Storeを開く",
   "pathBuilder.ltiNotInList": "選択可能な艦船リストにありません",
   "pathBuilder.targetShip": "目標艦船",
   "pathBuilder.selectTargetShip": "目標艦船を選択",
