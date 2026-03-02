@@ -2027,6 +2027,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
                         {reviewRoute.edges.map((item, index) => {
                           const stepKey = `${item.key}-${index}`;
+                          const officialUpgradeCost = Math.max(0, (item.targetShip.msrp - item.sourceShip.msrp) / 100);
+                          const stepSavedAmount = officialUpgradeCost - item.cost;
+                          const stepSavedRatio = officialUpgradeCost > 0
+                            ? (stepSavedAmount / officialUpgradeCost) * 100
+                            : 0;
                           const clippedValidityWindows = reviewPreviewRange
                             ? clipValidityWindowsToRange(item.validityWindows, reviewPreviewRange.startTs, reviewPreviewRange.endTs)
                             : (item.validityWindows || []);
@@ -2047,6 +2052,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 px-2 py-[2px]">
                                       {formatUsd(item.cost)}
                                     </span>
+                                    {officialUpgradeCost > 0 && (
+                                      <span className={`text-xs font-medium px-2 py-[2px] ${stepSavedAmount >= 0 ? 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/30' : 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/30'}`}>
+                                        {intl.formatMessage({ id: 'pathBuilder.stepSavings', defaultMessage: 'Savings' })}: {`${formatUsd(stepSavedAmount)}`} ({`${stepSavedRatio > 0 ? '-' : ''}${stepSavedRatio.toFixed(2)}%`})
+                                      </span>
+                                    )}
                                   </div>
                                   <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
                                 </div>

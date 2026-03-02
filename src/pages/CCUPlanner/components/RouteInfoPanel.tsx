@@ -946,6 +946,18 @@ export default function RouteInfoPanel({
                           }
 
                           const sourceType = pathEdge.edge.data?.sourceType || CcuSourceType.OFFICIAL;
+                          // const sourceShipMsrp = pathEdge.sourceNode.data?.ship?.msrp || 0;
+                          // const targetShipMsrp = pathEdge.targetNode.data?.ship?.msrp || 0;
+                          // const officialUpgradeUsdCost = Math.max(0, (targetShipMsrp - sourceShipMsrp) / 100);
+                          // const isThirdPartyPricing = sourceType === CcuSourceType.THIRD_PARTY || sourceType === CcuSourceType.SUBSCRIPTION;
+                          // const displayCurrency = isThirdPartyPricing ? currency : 'USD';
+                          // const displayCost = isThirdPartyPricing ? tpPrice : usdPrice;
+                          // const officialUpgradeDisplayCost = isThirdPartyPricing ? officialUpgradeUsdCost * exchangeRate : officialUpgradeUsdCost;
+                          // const stepSavedAmount = officialUpgradeDisplayCost - displayCost;
+                          // const stepSavedRatio = officialUpgradeDisplayCost > 0
+                          //   ? (stepSavedAmount / officialUpgradeDisplayCost) * 100
+                          //   : 0;
+                          const isPriceUnavailable = usdPrice + tpPrice === 0 && pathEdge.edge.data?.sourceType !== CcuSourceType.HANGER;
 
                           const isEdgeCompleted = pathEdge.edge.data?.sourceShip && pathEdge.edge.data?.targetShip &&
                             pathFinderService.isEdgeCompleted(
@@ -999,7 +1011,7 @@ export default function RouteInfoPanel({
                                 </span>
 
                                 {
-                                  (usdPrice + tpPrice === 0 && pathEdge.edge.data?.sourceType !== CcuSourceType.HANGER) ? (
+                                  isPriceUnavailable ? (
                                     <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                       <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
                                       <span className="text-red-600 dark:text-red-400">Not available</span>
@@ -1030,6 +1042,20 @@ export default function RouteInfoPanel({
                                   )
                                 }
                               </div>
+
+                              {/* {!isPriceUnavailable && officialUpgradeDisplayCost > 0 && (
+                                <div className="flex justify-end">
+                                  <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+                                    <FormattedMessage id="routeInfoPanel.stepSavings" defaultMessage="Savings" />:
+                                    <span className={stepSavedAmount >= 0 ? "text-green-700 dark:text-green-400 font-medium" : "text-orange-700 dark:text-orange-300 font-medium"}>
+                                      {`${stepSavedAmount.toLocaleString(locale, { style: 'currency', currency: displayCurrency })}`}
+                                    </span>
+                                    <span className={stepSavedAmount >= 0 ? "text-green-700 dark:text-green-400" : "text-orange-700 dark:text-orange-300"}>
+                                      ({`${stepSavedRatio > 0 ? "-" : ""}${stepSavedRatio.toFixed(2)}%`})
+                                    </span>
+                                  </span>
+                                </div>
+                              )} */}
                             </div>
                           );
                         })}
