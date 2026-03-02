@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -43,7 +43,15 @@ interface DisplayEquipmentItem {
   insurance?: string;
   ships?: Partial<ShipItem>[];
   others?: Partial<OtherItem>[];
+  groupedItems?: DisplayEquipmentItem[];
+  ownerCount?: number;
+  hasMultipleValues?: boolean;
+  totalCost?: number;
 }
+
+const normalizeShipName = (name: string) => name.toUpperCase().trim();
+const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
+const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 
 // MARK: Bundle中船只图片的轮播组件
 function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuyBack, isLti }: {
@@ -181,6 +189,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const [showShips, setShowShips] = useState(true);
   const [showBuybacks, setShowBuybacks] = useState(true);
   const [expandedBundles, setExpandedBundles] = useState<{ [key: string]: boolean }>({});
+  const [expandedCcuGroups, setExpandedCcuGroups] = useState<{ [key: string]: boolean }>({});
   const [completedPaths] = useState<StoredCompletedPath[]>(JSON.parse(localStorage.getItem('completedPaths') || '[]'));
   const [hangarMarkdown, setHangarMarkdown] = useState<string>('');
 
@@ -188,26 +197,33 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const { users } = useSelector((state: RootState) => state.upgrades);
   const items = useSelector(selectUsersHangarItems);
 
-  // 计算每个CCU在完成的路径中使用的数量
-  const getCcuUsage = (from: string, to: string) => {
-    let usedCount = 0;
-    
+  // 计算每个CCU在完成路径中的使用数量，按 from/to 聚合
+  const ccuUsageMap = useMemo(() => {
+    const usage = new Map<string, number>();
+    const shipIdNameMap = new Map<number, string>();
+    ships.forEach(ship => shipIdNameMap.set(ship.id, ship.name));
+
     completedPaths.forEach(path => {
       path.path.edges?.forEach(edge => {
-        if (edge.sourceShipId && edge.targetShipId) {
-          const fromShipName = ships.find(ship => ship.id === edge.sourceShipId)?.name;
-          const toShipName = ships.find(ship => ship.id === edge.targetShipId)?.name;
-          
-          if (fromShipName?.toUpperCase().trim() === from.toUpperCase().trim() &&
-              toShipName?.toUpperCase().trim() === to.toUpperCase().trim()) {
-            usedCount++;
-          }
+        if (!edge.sourceShipId || !edge.targetShipId) {
+          return;
         }
+
+        const fromShipName = shipIdNameMap.get(edge.sourceShipId);
+        const toShipName = shipIdNameMap.get(edge.targetShipId);
+        if (!fromShipName || !toShipName) {
+          return;
+        }
+
+        const key = getCcuPairKey(fromShipName, toShipName);
+        usage.set(key, (usage.get(key) || 0) + 1);
       });
     });
-    
-    return usedCount;
-  };
+
+    return usage;
+  }, [completedPaths, ships]);
+
+  const getCcuUsage = (from: string, to: string) => ccuUsageMap.get(getCcuPairKey(from, to)) || 0;
 
   useEffect(() => {
     const processStoreData = () => {
@@ -303,15 +319,53 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     }));
   };
 
+  // 展开/折叠CCU明细
+  const toggleCcuGroupExpand = (groupId: string) => {
+    setExpandedCcuGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
+  };
+
+  const mergedCcus = useMemo<DisplayEquipmentItem[]>(() => {
+    const grouped = new Map<string, DisplayEquipmentItem[]>();
+
+    ccus.forEach(ccu => {
+      const key = getCcuGroupKey(ccu.from.name, ccu.to.name, ccu.isBuyBack);
+      const bucket = grouped.get(key) || [];
+      bucket.push(ccu);
+      grouped.set(key, bucket);
+    });
+
+    return Array.from(grouped.entries()).map(([key, group]) => {
+      const first = group[0];
+      const totalQuantity = group.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      const totalCost = group.reduce((sum, item) => sum + item.value * (item.quantity || 1), 0);
+      const uniqueOwners = new Set(group.map(item => item.belongsTo)).size;
+      const valueSet = new Set(group.map(item => item.value));
+
+      return {
+        ...first,
+        id: `ccu-group-${key}`,
+        quantity: totalQuantity,
+        value: totalQuantity > 0 ? totalCost / totalQuantity : first.value,
+        groupedItems: group,
+        ownerCount: uniqueOwners,
+        hasMultipleValues: valueSet.size > 1,
+        totalCost,
+      };
+    });
+  }, [ccus]);
+
   // MARK: 过滤和分页数据
-  const filteredEquipment = [...(showCcus ? ccus.filter(item =>
+  const filteredEquipment: DisplayEquipmentItem[] = [...(showCcus ? mergedCcus.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.from?.name && item.from.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (item.to?.name && item.to.name.toLowerCase().includes(searchTerm.toLowerCase()))
   ) : []),
   ...(showShips ? hangarShips.filter(ship =>
     ship.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ).map(ship => {
+  ).map<DisplayEquipmentItem>(ship => {
     // 查找对应的船只信息
     const shipInfo = ships.find(s => s.name.toUpperCase().trim() === ship.name.toUpperCase().trim());
 
@@ -358,7 +412,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     (bundle.others || []).some(other => 
       other.name && other.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
-  ).map(bundle => {
+  ).map<DisplayEquipmentItem>(bundle => {
     // 计算Bundle中所有船只的MSRP总和
     const totalMsrp = (bundle.ships || []).reduce((sum, bundleShip) => {
       const shipInfo = ships.find(s =>
@@ -646,31 +700,36 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             </span>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                              {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                              {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
+                              {(item.groupedItems && item.groupedItems.length > 1 ? (item.totalCost || 0) : item.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              {item.groupedItems && item.groupedItems.length > 1 ? (
+                                <span className='text-gray-500 mx-2'>
+                                  (<FormattedMessage id="hangar.avgCost" defaultMessage="Avg:" /> {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                                </span>
+                              ) : null}
+                              {!item.hasMultipleValues && item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
                                 {`${((item.to.msrp - item.from.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}`}
                               </span>}
                             </span>
-                            {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-md text-blue-500 font-bold flex items-center gap-2'>
+                            {!item.hasMultipleValues && item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-md text-blue-500 font-bold flex items-center gap-2'>
                               <BadgePercent className='w-4 h-4' />
                               <span>
                                 {((1 - (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100 - item.value) / (((item.to.msrp || 0) - (item.from.msrp || 0)) / 100)) * 100).toFixed(2)}%
                               </span>
                             </span>}
-                            
-                            {/* 显示CCU在路径中的使用情况 */}
-                            {item.type === 'CCU' && (() => {
+
+                            {/* 顶层显示CCU使用情况 */}
+                            {(() => {
                               const usedCount = getCcuUsage(item.from.name, item.to.name);
                               const totalCount = item.quantity || 1;
-                              const remainingCount = totalCount - usedCount;
-                              
-                              return usedCount > 0 && (
+                              const remainingCount = Math.max(totalCount - usedCount, 0);
+
+                              return (
                                 <span className='text-md text-amber-500 font-bold'>
                                   <span className='text-gray-500 mr-2 dark:text-gray-400'>
                                     <FormattedMessage id="hangar.usage" defaultMessage="Usage:" />
                                   </span>
-                                  <FormattedMessage 
-                                    id="hangar.ccuUsage" 
+                                  <FormattedMessage
+                                    id="hangar.ccuUsage"
                                     defaultMessage="Used: {used}, Remaining: {remaining}"
                                     values={{
                                       used: usedCount,
@@ -680,6 +739,20 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 </span>
                               );
                             })()}
+
+                            {item.groupedItems && item.groupedItems.length > 1 && (
+                              <div className="flex items-center">
+                                <Button
+                                  size="small"
+                                  onClick={() => toggleCcuGroupExpand(item.id)}
+                                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                                  variant="text"
+                                >
+                                  <FormattedMessage id="hangar.expand" defaultMessage="Items" />
+                                  {expandedCcuGroups[item.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </Button>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <>
@@ -705,7 +778,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             {
                               !item.isBuyBack && <Gift className={`${item.canGift ? 'text-green-300' : 'text-red-400'} w-4 h-4`} />
                             }
-                            {users.find(user => user.id === item.belongsTo)?.nickname || '-'}
+                            {item.type === 'CCU' && item.ownerCount && item.ownerCount > 1 ? (
+                              <FormattedMessage
+                                id="hangar.multipleOwners"
+                                defaultMessage="{count} owners"
+                                values={{ count: item.ownerCount }}
+                              />
+                            ) : (users.find(user => user.id === item.belongsTo)?.nickname || '-')}
                           </span>
                         </span>
                         {item.quantity && <span className='text-md font-bold flex flex-col'>
@@ -813,6 +892,77 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                       <span className="text-gray-500 dark:text-gray-400">{bundleOther.type}</span>
                                       <span className="text-md font-bold">{bundleOther.name}</span>
                                     </div>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {item.type === 'CCU' && !!item.groupedItems && item.groupedItems.length > 1 && (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ py: 0, border: expandedCcuGroups[item.id] ? '' : 'none' }}>
+                        <Collapse in={expandedCcuGroups[item.id]} timeout="auto" unmountOnExit>
+                          <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                              <FormattedMessage
+                                id="hangar.mergedCcuDetails"
+                                defaultMessage="Merged CCU details ({count} records)"
+                                values={{ count: item.groupedItems.length }}
+                              />
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              {item.groupedItems.map(groupedItem => {
+                                const ownerName = users.find(user => user.id === groupedItem.belongsTo)?.nickname || '-';
+                                const quantity = groupedItem.quantity || 1;
+                                const lineTotal = groupedItem.value * quantity;
+                                const detailHangarUrl = groupedItem.isBuyBack
+                                  ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${groupedItem.pageId}&product-type=upgrade&pagesize=1`
+                                  : `https://robertsspaceindustries.com/en/account/pledges?page=${groupedItem.pageId}&pagesize=1`;
+
+                                return (
+                                  <Box
+                                    key={groupedItem.id}
+                                    sx={{
+                                      display: 'flex',
+                                      flexWrap: 'wrap',
+                                      alignItems: 'center',
+                                      gap: 2,
+                                      px: 1.5,
+                                      py: 1,
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      borderRadius: 1
+                                    }}
+                                  >
+                                    <span className='text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2'>
+                                      <CircleUser className='w-4 h-4' />
+                                      {ownerName}
+                                    </span>
+                                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                      <span className='text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2'>
+                                        <Archive className='w-4 h-4' />
+                                        x{quantity}
+                                      </span>
+                                      <span className='text-sm text-blue-500 font-bold'>
+                                        {groupedItem.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                        <span className='text-gray-500 mx-1'>/ea</span>
+                                        <span className='text-gray-500 mx-1'>·</span>
+                                        {lineTotal.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                      </span>
+                                      {!!groupedItem.pageId && (
+                                        <Link
+                                          to={detailHangarUrl}
+                                          target="_blank"
+                                          className="flex items-center gap-2 text-sm"
+                                        >
+                                          <SquareArrowOutUpRight className="w-4 h-4" />
+                                          <FormattedMessage id="hangar.viewInHangar" defaultMessage="RSI Hangar" />
+                                        </Link>
+                                      )}
+                                    </Box>
                                   </Box>
                                 );
                               })}
