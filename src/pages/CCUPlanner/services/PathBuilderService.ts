@@ -24,10 +24,17 @@ interface SpecialShipPricing {
 
 interface SourceSkuPriceConstraintParams {
   sourceShipId: number;
-  sourceShipMsrp: number;
   targetPriceCents: number;
   targetValidityWindows: CcuValidityWindow[];
   priceHistoryMap: Record<number, PriceHistoryEntity>;
+  enforceSimultaneousIncrease?: boolean;
+}
+
+interface SourceStandardPriceWindow {
+  sku: number;
+  priceCents: number;
+  startTs: number;
+  endTs: number | null;
 }
 
 interface PathLayoutOptions {
@@ -1615,6 +1622,7 @@ export class PathBuilderService {
     const prices = history
       .filter(entry =>
         entry.change === '+' &&
+        typeof entry.sku === 'number' &&
         typeof entry.msrp === 'number' &&
         entry.ts >= rangeStartTs &&
         entry.ts <= rangeEndTs &&
@@ -1693,76 +1701,157 @@ export class PathBuilderService {
     });
   }
 
-  private _collectSourceSkuValidityWindowsBelowPrice(params: {
+  private _collectSourceStandardPriceWindows(params: {
     history: PriceHistoryEntity['history'];
-    targetPriceCents: number;
-  }): CcuValidityWindow[] {
-    const { history, targetPriceCents } = params;
-    const openBySku = new Map<number, number>();
-    const windows: CcuValidityWindow[] = [];
+  }): SourceStandardPriceWindow[] {
+    const { history } = params;
+    const openBySku = new Map<number, { startTs: number; priceCents: number }>();
+    const windows: SourceStandardPriceWindow[] = [];
 
-    const pushWindow = (sku: number, startTs: number, endTs: number | null) => {
+    const pushWindow = (sku: number, priceCents: number, startTs: number, endTs: number | null) => {
       if (endTs !== null && startTs >= endTs) {
         return;
       }
 
       windows.push({
         sku,
+        priceCents,
         startTs,
         endTs
       });
     };
 
     const sortedHistory = [...history].sort((a, b) => a.ts - b.ts);
-
     sortedHistory.forEach(entry => {
       if (typeof entry.sku !== 'number') {
         return;
       }
 
-      const sku = entry.sku;
       if (entry.change === '+') {
-        const isCheaperStandardSku =
-          this._isStandardOrNormalPriceEntry(entry) &&
-          typeof entry.msrp === 'number' &&
-          entry.msrp < targetPriceCents;
+        const existing = openBySku.get(entry.sku);
+        if (existing) {
+          pushWindow(entry.sku, existing.priceCents, existing.startTs, entry.ts);
+          openBySku.delete(entry.sku);
+        }
 
-        if (!isCheaperStandardSku) {
-          const openTs = openBySku.get(sku);
-          if (openTs !== undefined) {
-            pushWindow(sku, openTs, entry.ts);
-            openBySku.delete(sku);
-          }
+        if (!this._isStandardOrNormalPriceEntry(entry) || typeof entry.msrp !== 'number') {
           return;
         }
 
-        if (!openBySku.has(sku)) {
-          openBySku.set(sku, entry.ts);
-        }
+        openBySku.set(entry.sku, {
+          startTs: entry.ts,
+          priceCents: entry.msrp
+        });
         return;
       }
 
       if (entry.change === '-') {
-        const openTs = openBySku.get(sku);
-        if (openTs === undefined) {
+        const existing = openBySku.get(entry.sku);
+        if (!existing) {
           return;
         }
 
-        pushWindow(sku, openTs, entry.ts);
-        openBySku.delete(sku);
+        pushWindow(entry.sku, existing.priceCents, existing.startTs, entry.ts);
+        openBySku.delete(entry.sku);
       }
     });
 
-    openBySku.forEach((startTs, sku) => {
-      pushWindow(sku, startTs, null);
+    openBySku.forEach((value, sku) => {
+      pushWindow(sku, value.priceCents, value.startTs, null);
     });
 
     return windows.sort((a, b) => {
       if (a.startTs !== b.startTs) {
         return a.startTs - b.startTs;
       }
+      if (a.priceCents !== b.priceCents) {
+        return a.priceCents - b.priceCents;
+      }
       return a.sku - b.sku;
     });
+  }
+
+  private _getSourceHighestStandardPriceByTs(
+    sourceStandardWindows: SourceStandardPriceWindow[],
+    tsInclusive: number
+  ): number | null {
+    const candidatePrices = sourceStandardWindows
+      .filter(sourceWindow => sourceWindow.startTs <= tsInclusive)
+      .map(sourceWindow => sourceWindow.priceCents);
+    if (!candidatePrices.length) {
+      return null;
+    }
+    return Math.max(...candidatePrices);
+  }
+
+  private _hasSourceEffectiveIncreaseAtTs(
+    sourceStandardWindows: SourceStandardPriceWindow[],
+    ts: number
+  ): boolean {
+    const previousPrices = sourceStandardWindows
+      .filter(sourceWindow => sourceWindow.startTs < ts)
+      .map(sourceWindow => sourceWindow.priceCents);
+    const atTsPrices = sourceStandardWindows
+      .filter(sourceWindow => sourceWindow.startTs === ts)
+      .map(sourceWindow => sourceWindow.priceCents);
+    if (!atTsPrices.length) {
+      return false;
+    }
+
+    const previousMax = previousPrices.length ? Math.max(...previousPrices) : Number.NEGATIVE_INFINITY;
+    const atTsMax = Math.max(...atTsPrices);
+    return atTsMax > previousMax;
+  }
+
+  private _getLowestHistoricalUpgradeCostUsd(params: {
+    sourceShipId: number;
+    targetPriceCents: number;
+    targetValidityWindows: CcuValidityWindow[];
+    priceHistoryMap: Record<number, PriceHistoryEntity>;
+  }): number | null {
+    const { sourceShipId, targetPriceCents, targetValidityWindows, priceHistoryMap } = params;
+    if (!targetValidityWindows.length) {
+      return null;
+    }
+
+    const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
+    const sourceStandardWindows = this._collectSourceStandardPriceWindows({
+      history: sourceHistory
+    });
+    if (!sourceStandardWindows.length) {
+      return null;
+    }
+
+    const candidateCosts = targetValidityWindows
+      .map(targetWindow => {
+        const pricePointTs = this._getWindowEvaluationTs(
+          targetWindow.startTs,
+          targetWindow.endTs,
+          Number.POSITIVE_INFINITY
+        );
+        const sourceEffectivePrice = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, pricePointTs);
+        if (sourceEffectivePrice === null || sourceEffectivePrice >= targetPriceCents) {
+          return null;
+        }
+
+        const costUsd = (targetPriceCents - sourceEffectivePrice) / 100;
+        return costUsd > 0 ? costUsd : null;
+      })
+      .filter((value): value is number => typeof value === 'number');
+
+    if (!candidateCosts.length) {
+      return null;
+    }
+
+    return Math.min(...candidateCosts);
+  }
+
+  private _getWindowEvaluationTs(startTs: number, endTs: number | null, fallbackEndTs: number): number {
+    if (endTs === null) {
+      return fallbackEndTs;
+    }
+    // Treat validity window end as exclusive.
+    return Math.max(startTs, endTs - 1);
   }
 
   private _filterTargetValidityWindowsBySourceSkuPrice(params: SourceSkuPriceConstraintParams): CcuValidityWindow[] {
@@ -1770,7 +1859,8 @@ export class PathBuilderService {
       sourceShipId,
       targetPriceCents,
       targetValidityWindows,
-      priceHistoryMap
+      priceHistoryMap,
+      enforceSimultaneousIncrease = false
     } = params;
 
     const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
@@ -1783,41 +1873,59 @@ export class PathBuilderService {
       return [];
     }
 
-    const sourceCheaperWindows = this._collectSourceSkuValidityWindowsBelowPrice({
-      history: sourceHistory,
-      targetPriceCents
+    const sourceStandardWindows = this._collectSourceStandardPriceWindows({
+      history: sourceHistory
     });
+    if (!sourceStandardWindows.length) {
+      return [];
+    }
 
-    return targetValidityWindows.filter(targetWindow => {
+    return targetValidityWindows.flatMap(targetWindow => {
       const targetWindowStartTs = targetWindow.startTs;
-      const targetWindowEndTs = targetWindow.endTs ?? Number.POSITIVE_INFINITY;
-      const isPurchasableBySourceHistory = sourceCheaperWindows.some(sourceWindow => {
-        const sourceWindowStartTs = sourceWindow.startTs;
-        const sourceWindowEndTs = sourceWindow.endTs ?? Number.POSITIVE_INFINITY;
-
-        // Both SKUs must be concurrently available to make the historical CCU purchasable.
-        const hasTimeOverlap = sourceWindowStartTs < targetWindowEndTs && targetWindowStartTs < sourceWindowEndTs;
-        if (!hasTimeOverlap) {
-          return false;
-        }
-
-        // If both ships increase at the exact same timestamp, do not generate a price-increase CCU.
-        if (
-          targetWindow.endTs !== null &&
-          sourceWindow.endTs !== null &&
-          sourceWindow.endTs === targetWindow.endTs
-        ) {
-          return false;
-        }
-
-        return true;
-      });
-
-      if (isPurchasableBySourceHistory) {
-        return true;
+      const sourceHighestAtWindowStart = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, targetWindowStartTs);
+      if (sourceHighestAtWindowStart === null || sourceHighestAtWindowStart >= targetPriceCents) {
+        return [];
       }
 
-      return false;
+      let effectiveTargetWindowEndTs = targetWindow.endTs;
+      const firstHigherSourceTs = sourceStandardWindows
+        .filter(sourceWindow =>
+          sourceWindow.startTs > targetWindowStartTs
+          && sourceWindow.priceCents > targetPriceCents
+          && (targetWindow.endTs === null || sourceWindow.startTs < targetWindow.endTs)
+        )
+        .map(sourceWindow => sourceWindow.startTs)
+        .sort((a, b) => a - b)[0];
+      if (typeof firstHigherSourceTs === 'number') {
+        effectiveTargetWindowEndTs = firstHigherSourceTs;
+      }
+
+      if (effectiveTargetWindowEndTs !== null && effectiveTargetWindowEndTs <= targetWindowStartTs) {
+        return [];
+      }
+
+      const effectiveTargetWindowEvalTs = this._getWindowEvaluationTs(
+        targetWindowStartTs,
+        effectiveTargetWindowEndTs,
+        Number.POSITIVE_INFINITY
+      );
+      const sourceHighestAtWindowEnd = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, effectiveTargetWindowEvalTs);
+      if (sourceHighestAtWindowEnd !== null && sourceHighestAtWindowEnd > targetPriceCents) {
+        return [];
+      }
+
+      if (
+        enforceSimultaneousIncrease
+        && targetWindow.endTs !== null
+        && this._hasSourceEffectiveIncreaseAtTs(sourceStandardWindows, targetWindow.endTs)
+      ) {
+        return [];
+      }
+
+      return [{
+        ...targetWindow,
+        endTs: effectiveTargetWindowEndTs
+      }];
     });
   }
 
@@ -1861,7 +1969,11 @@ export class PathBuilderService {
 
     if (this._isPriceIncreaseVariantName(ship.name)) {
       const historicalPrice = priceHistoryMap[ship.id]?.history
-        .filter(entry => entry.change === '+' && this._isStandardOrNormalPriceEntry(entry))
+        .filter(entry =>
+          entry.change === '+' &&
+          typeof entry.sku === 'number' &&
+          this._isStandardOrNormalPriceEntry(entry)
+        )
         .map(entry => entry.msrp as number)
         .sort((a, b) => a - b)[0];
       return historicalPrice || ship.msrp;
@@ -1983,11 +2095,6 @@ export class PathBuilderService {
     const specialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
 
     if (specialPricing) {
-      const actualPrice = specialPricing.priceCents / 100 - sourceShipNode.data.ship.msrp / 100;
-      if (actualPrice <= 0) {
-        return null;
-      }
-
       if (
         (specialPricing.sourceType === CcuSourceType.HISTORICAL ||
           specialPricing.sourceType === CcuSourceType.PRICE_INCREASE) &&
@@ -1995,17 +2102,35 @@ export class PathBuilderService {
       ) {
         const constrainedWindows = this._filterTargetValidityWindowsBySourceSkuPrice({
           sourceShipId: sourceShipNode.data.ship.id,
-          sourceShipMsrp: sourceShipNode.data.ship.msrp,
           targetPriceCents: specialPricing.priceCents,
           targetValidityWindows: specialPricing.validityWindows,
-          priceHistoryMap
+          priceHistoryMap,
+          enforceSimultaneousIncrease: specialPricing.sourceType === CcuSourceType.PRICE_INCREASE
         });
 
         if (!constrainedWindows.length) {
           return null;
         }
 
+        const actualPrice = this._getLowestHistoricalUpgradeCostUsd({
+          sourceShipId: sourceShipNode.data.ship.id,
+          targetPriceCents: specialPricing.priceCents,
+          targetValidityWindows: constrainedWindows,
+          priceHistoryMap
+        });
+        if (actualPrice === null || actualPrice <= 0) {
+          return null;
+        }
+
         edgeData.validityWindows = constrainedWindows;
+        edgeData.sourceType = specialPricing.sourceType;
+        edgeData.customPrice = Math.max(0, actualPrice);
+        return edgeData;
+      }
+
+      const actualPrice = specialPricing.priceCents / 100 - sourceShipNode.data.ship.msrp / 100;
+      if (actualPrice <= 0) {
+        return null;
       }
 
       edgeData.sourceType = specialPricing.sourceType;
@@ -2018,7 +2143,11 @@ export class PathBuilderService {
 
     if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
       const historicalPrice = priceHistoryMap[targetShipNode.data.ship.id]?.history
-        .filter(entry => entry.change === '+' && this._isStandardOrNormalPriceEntry(entry))
+        .filter(entry =>
+          entry.change === '+' &&
+          typeof entry.sku === 'number' &&
+          this._isStandardOrNormalPriceEntry(entry)
+        )
         .map(entry => entry.msrp as number)
         .sort((a, b) => a - b)[0];
 
@@ -2105,14 +2234,20 @@ export class PathBuilderService {
           const sourceShips = levelShips[i].filter(sourceShipNode => {
             const originShip = stepShips[1].find(s => this._getShipVariantKey(s) === sourceShipNode.data.plannerShipKey);
             const targetShipInPath = stepShips[1].find(s => this._getShipVariantKey(s) === targetShipNode.data.plannerShipKey);
+            const targetSpecialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
             const targetShipCost = this._getShipPrice(targetShipInPath || targetShipNode.data.ship, ccus, [], priceHistoryMap, specialPricingMap);
+            const isHistoricalTargetPricing = targetSpecialPricing
+              && (
+                targetSpecialPricing.sourceType === CcuSourceType.HISTORICAL
+                || targetSpecialPricing.sourceType === CcuSourceType.PRICE_INCREASE
+              );
 
             const exactMatchCCU = (buildConstraintAwareGraph || preferHangarCcu) && hangarItems.some(upgrade =>
               upgrade.fromShip?.toUpperCase() === sourceShipNode.data.ship.name.trim().toUpperCase() &&
               upgrade.toShip?.toUpperCase() === targetShipNode.data.ship.name.trim().toUpperCase()
             );
 
-            if (sourceShipNode.data.ship.msrp >= targetShipCost && !exactMatchCCU) {
+            if (!isHistoricalTargetPricing && sourceShipNode.data.ship.msrp >= targetShipCost && !exactMatchCCU) {
               return false;
             }
 

@@ -9,6 +9,7 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onOpenPathBuilder?: () => void;
+  onOpenPathReview?: () => void;
   onOpenGuide?: () => void;
   nodes?: Node[];
   saveStatus?: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -76,6 +77,7 @@ export default function Toolbar({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          flexShrink: 0
         }}
       >
         <Trash2 size={16} />
@@ -94,9 +96,10 @@ export default function Toolbar({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          flexShrink: 0
         }}
       >
-        <Save size={16} />
+        <Save size={16} className='shrink-0' />
         <span className="xl:block hidden">
           <FormattedMessage id="toolbar.save" defaultMessage="Save" />
         </span>
@@ -112,9 +115,10 @@ export default function Toolbar({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          flexShrink: 0
         }}
       >
-        <Download size={16} />
+        <Download size={16} className='shrink-0' />
         <span className="xl:block hidden">
           <FormattedMessage id="toolbar.export" defaultMessage="Export" />
         </span>
@@ -129,9 +133,10 @@ export default function Toolbar({
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          flexShrink: 0
         }}
       >
-        <Upload size={16} />
+        <Upload size={16} className='shrink-0' />
         <span className="xl:block hidden">
           <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </span>
@@ -148,9 +153,10 @@ export default function Toolbar({
             display: 'flex',
             alignItems: 'center',
             gap: 1,
+            flexShrink: 0
           }}
         >
-          <Route size={16} />
+          <Route size={16} className='shrink-0' />
           <span className="xl:block hidden text-nowrap">
             <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
           </span>
@@ -168,9 +174,10 @@ export default function Toolbar({
               display: 'flex',
               alignItems: 'center',
               gap: 1,
+              flexShrink: 0
             }}
           >
-            <HelpCircle size={16} />
+            <HelpCircle size={16} className='shrink-0' />
             <span className="xl:block hidden text-nowrap">
               <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
             </span>
