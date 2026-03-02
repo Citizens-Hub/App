@@ -554,5 +554,11 @@
   "admin.bi.chart.noDimensionData": "No topDeviceTags/byErrorType/byAppVersion data",
   "admin.bi.category.deviceTag": "Device Tag",
   "admin.bi.category.errorType": "Error Type",
-  "admin.bi.category.appVersion": "App Version"
+  "admin.bi.category.appVersion": "App Version",
+  "supportPrompt.title": "Support Citizens' Hub",
+  "supportPrompt.description": "If this app helps you, could you leave a review on Chrome Web Store or give our GitHub repo a star 😘",
+  "supportPrompt.nextTime": "Later",
+  "supportPrompt.review": "Review",
+  "supportPrompt.star": "Give a Star",
+  "supportPrompt.never": "Don't remind me again"
 }

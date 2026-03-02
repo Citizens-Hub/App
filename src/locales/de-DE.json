@@ -532,5 +532,11 @@
   "admin.bi.chart.noDimensionData": "Keine topDeviceTags/byErrorType/byAppVersion-Daten",
   "admin.bi.category.deviceTag": "Geräte-Tag",
   "admin.bi.category.errorType": "Fehlertyp",
-  "admin.bi.category.appVersion": "App-Version"
+  "admin.bi.category.appVersion": "App-Version",
+  "supportPrompt.title": "Citizens' Hub unterstützen",
+  "supportPrompt.description": "Wenn dir diese App hilft, hinterlasse bitte eine Bewertung im Chrome Web Store oder gib dem GitHub-Repo einen Star 😘",
+  "supportPrompt.nextTime": "Später",
+  "supportPrompt.review": "Bewerten",
+  "supportPrompt.star": "Star geben",
+  "supportPrompt.never": "Nicht mehr anzeigen"
 }

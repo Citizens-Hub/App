@@ -532,5 +532,11 @@
   "admin.bi.chart.noDimensionData": "topDeviceTags/byErrorType/byAppVersion データがありません",
   "admin.bi.category.deviceTag": "デバイスタグ",
   "admin.bi.category.errorType": "エラー種別",
-  "admin.bi.category.appVersion": "アプリバージョン"
+  "admin.bi.category.appVersion": "アプリバージョン",
+  "supportPrompt.title": "Citizens' Hub を応援",
+  "supportPrompt.description": "このアプリが役立ったら、Chrome Web Store でのレビューか GitHub での Star をお願いします 😘",
+  "supportPrompt.nextTime": "次回",
+  "supportPrompt.review": "レビューする",
+  "supportPrompt.star": "Star をつける",
+  "supportPrompt.never": "今後は表示しない"
 }

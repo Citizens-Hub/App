@@ -11,6 +11,7 @@ import { SWRConfig } from 'swr'
 import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
 import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
+import SupportPrompt from '@/components/SupportPrompt'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -154,6 +155,7 @@ function App() {
         <CssBaseline />
         <BrowserRouter>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
+          <SupportPrompt />
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/fall-back" element={<LoadingFallback />} />

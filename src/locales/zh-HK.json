@@ -681,5 +681,11 @@
   "pathBuilder.excludedSku": "已排除",
   "pathBuilder.excludedSkusTitle": "已排除的 SKU",
   "pathBuilder.excludedCcusTitle": "已排除的 CCU",
-  "pathBuilder.skuChipLabel": "SKU {sku}"
+  "pathBuilder.skuChipLabel": "SKU {sku}",
+  "supportPrompt.title": "支持 Citizens' Hub",
+  "supportPrompt.description": "如果這個應用幫到你，可以到 Chrome Web Store 留個評價，或在 GitHub 點個 Star 嗎 😘",
+  "supportPrompt.nextTime": "下次",
+  "supportPrompt.review": "去評價",
+  "supportPrompt.star": "去 Star",
+  "supportPrompt.never": "不再提示"
 }
