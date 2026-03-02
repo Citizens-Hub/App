@@ -626,8 +626,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedEquipment.map((item) => (
-                <React.Fragment key={item.id}>
+              {paginatedEquipment.map((item, index) => (
+                <React.Fragment key={index}>
                   <TableRow hover>
                     <TableCell>
                       {item.type === 'CCU' && item.from && item.to ? (
@@ -914,7 +914,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               />
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {item.groupedItems.map(groupedItem => {
+                              {item.groupedItems.map((groupedItem, index) => {
                                 const ownerName = users.find(user => user.id === groupedItem.belongsTo)?.nickname || '-';
                                 const quantity = groupedItem.quantity || 1;
                                 const lineTotal = groupedItem.value * quantity;
@@ -924,7 +924,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
                                 return (
                                   <Box
-                                    key={groupedItem.id}
+                                    key={index}
                                     sx={{
                                       display: 'flex',
                                       flexWrap: 'wrap',
