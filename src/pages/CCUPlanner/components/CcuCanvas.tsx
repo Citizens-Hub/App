@@ -24,7 +24,7 @@ import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
 import { Alert, Dialog, DialogContent, DialogTitle, IconButton, Snackbar, useMediaQuery } from '@mui/material';
-import { selectHangarItems } from '@/store/upgradesStore';
+import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder, { ReviewedPathBuildResult } from './PathBuilder';
@@ -127,7 +127,7 @@ function CcuCanvasContent() {
   } = useCcuPlanner();
 
   // Get upgrade items from Redux
-  const upgrades = useSelector(selectHangarItems);
+  const upgrades = useSelector(selectUsersHangarItems);
 
   const clearAutoSaveTimer = useCallback(() => {
     if (autoSaveTimeoutRef.current) {

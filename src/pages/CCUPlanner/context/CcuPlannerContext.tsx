@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useEffect, ReactNode, useState } from 'react';
 import { Ship, Ccu, WbHistoryData, HangarItem, PriceHistoryEntity } from '../../../types';
 import { useSelector } from 'react-redux';
-import { selectHangarItems } from '../../../store/upgradesStore';
+import { selectUsersHangarItems } from '../../../store/upgradesStore';
 import { selectImportItems } from '../../../store/importStore';
 import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
@@ -32,7 +32,7 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   setAlert
 }) => {
   // Get upgrades and import items from Redux
-  const upgrades = useSelector(selectHangarItems);
+  const upgrades = useSelector(selectUsersHangarItems);
   const importItems = useSelector(selectImportItems);
   const [selectedPathEdgeIds, setSelectedPathEdgeIdsState] = useState<Set<string>>(new Set());
   // Initialize services

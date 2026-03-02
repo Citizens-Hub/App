@@ -2,7 +2,7 @@ import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlL
 import { Ccu, Ship } from "@/types";
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { selectHangarItems } from "@/store/upgradesStore";
+import { selectUsersHangarItems } from "@/store/upgradesStore";
 import { RootState } from "@/store";
 import { ExpandLess, ExpandMore, Search } from "@mui/icons-material";
 import ExtensionModal from "./ExtensionModal";
@@ -30,7 +30,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [showSubscriptionCCU, setShowSubscriptionCCU] = useState(true);
 
   const intl = useIntl();
-  const upgrades = useSelector(selectHangarItems);
+  const upgrades = useSelector(selectUsersHangarItems);
   const importItems = useSelector(selectImportItems);
   const users = useSelector((state: RootState) => state.upgrades.users);
 

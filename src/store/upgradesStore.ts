@@ -239,20 +239,6 @@ export const upgradesSlice = createSlice({
   }
 });
 
-export const selectHangarItems = createSelector(
-  (state: RootState) => state.upgrades.items.ccus,
-  (state: RootState) => state.upgrades.items.ships,
-  (state: RootState) => state.upgrades.items.bundles,
-  (state: RootState) => state.upgrades.selectedUser,
-  (ccus, ships, bundles, selectedUser) => {
-    return {
-      ccus: ccus.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
-      ships: ships.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
-      bundles: bundles.filter(item => item.belongsTo === selectedUser || item.canGift || selectedUser === -1),
-    };
-  }
-);
-
 export const selectUsersHangarItems = createSelector(
   (state: RootState) => state.upgrades.items.ccus,
   (state: RootState) => state.upgrades.items.ships,
