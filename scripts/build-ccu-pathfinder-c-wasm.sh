@@ -4,7 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$ROOT_DIR/public/wasm"
 PATHFINDER_C_MAIN="$ROOT_DIR/wasm/ccu_pathfinder_c/main.c"
-PATHBUILDER_C_MAIN="$ROOT_DIR/wasm/ccu_pathbuilder_c/main.c"
+PATHBUILDER_C_DIR="$ROOT_DIR/wasm/ccu_pathbuilder_c"
+PATHBUILDER_C_SRCS=(
+  "$PATHBUILDER_C_DIR/main.c"
+  "$PATHBUILDER_C_DIR/pathbuilder_context.c"
+  "$PATHBUILDER_C_DIR/pathbuilder_algorithms.c"
+)
 
 if ! command -v emcc >/dev/null 2>&1; then
   echo "emcc is required to build the C WASM pathfinder." >&2
@@ -32,7 +37,7 @@ emcc "$PATHFINDER_C_MAIN" \
   -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \
   -o "$OUT_DIR/ccu-pathfinder-c.js"
 
-emcc "$PATHBUILDER_C_MAIN" \
+emcc "${PATHBUILDER_C_SRCS[@]}" \
   -O3 \
   -s WASM=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
