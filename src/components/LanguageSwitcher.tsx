@@ -55,13 +55,13 @@ export default function LanguageSwitcher() {
           onClick={() => handleLanguageChange('zh-CN')}
           selected={locale === 'zh-CN'}
         >
-          简体中文
+          中文（Simplified）
         </MenuItem>
         <MenuItem
           onClick={() => handleLanguageChange('zh-HK')}
           selected={locale === 'zh-HK'}
         >
-          繁體中文
+          中文（Traditional）
         </MenuItem>
         <MenuItem 
           onClick={() => handleLanguageChange('en')}
