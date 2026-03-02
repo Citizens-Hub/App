@@ -9,9 +9,9 @@ interface CPathBuilderModule {
     args: unknown[]
   ) => unknown;
   UTF8ToString: (ptr: number) => string;
-  _malloc: (size: number) => number;
-  _free: (ptr: number) => void;
-  HEAPU8: Uint8Array;
+  _malloc?: (size: number) => number;
+  _free?: (ptr: number) => void;
+  HEAPU8?: Uint8Array;
 }
 
 declare global {
@@ -205,28 +205,43 @@ class PathBuilderCWasmService {
     errorMessage: string;
   }): void {
     const { module, ident, bytes, count, errorMessage } = params;
-    const byteLength = bytes.byteLength;
-    const ptr = module._malloc(Math.max(1, byteLength));
-    if (!Number.isFinite(ptr) || ptr <= 0) {
-      throw new Error(errorMessage);
-    }
-
-    try {
-      if (byteLength > 0) {
-        module.HEAPU8.set(bytes, ptr);
-      }
-
-      const result = module.ccall(
-        ident,
-        'number',
-        ['number', 'number'],
-        [ptr, count]
-      ) as number;
-      if (!Number.isFinite(result) || result < 0) {
+    const malloc = module._malloc;
+    const free = module._free;
+    const heap = module.HEAPU8;
+    if (typeof malloc === 'function' && typeof free === 'function' && heap) {
+      const ptr = malloc(Math.max(1, bytes.byteLength));
+      if (!Number.isFinite(ptr) || ptr <= 0) {
         throw new Error(errorMessage);
       }
-    } finally {
-      module._free(ptr);
+
+      try {
+        if (bytes.byteLength > 0) {
+          heap.set(bytes, ptr);
+        }
+
+        const result = module.ccall(
+          ident,
+          'number',
+          ['number', 'number'],
+          [ptr, count]
+        ) as number;
+        if (!Number.isFinite(result) || result < 0) {
+          throw new Error(errorMessage);
+        }
+        return;
+      } finally {
+        free(ptr);
+      }
+    }
+
+    const result = module.ccall(
+      ident,
+      'number',
+      ['array', 'number'],
+      [bytes, count]
+    ) as number;
+    if (!Number.isFinite(result) || result < 0) {
+      throw new Error(errorMessage);
     }
   }
 

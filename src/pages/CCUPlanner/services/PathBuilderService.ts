@@ -77,7 +77,6 @@ export interface AutoPathSessionInitOptions {
 }
 
 interface AutoPathExclusionResult {
-  filteredEdges: Edge<CcuEdgeData>[];
   edgeActiveMask: Uint8Array;
 }
 
@@ -468,42 +467,76 @@ export class PathBuilderService {
     const comparePathBuilderPerf = import.meta.env.DEV && executionOptions?.comparePathBuilderPerf === true;
 
     if (requiredHangarSet.size > 0) {
-      return this._runPathFilterWithExecution({
+      const filteredResult = await this._runPathFilterWithExecution({
         useWasmPathBuilder,
         comparePathBuilderPerf,
         runJs: () => this._keepReachablePaths({
           nodes: generated.nodes,
-          edges: exclusionResult.filteredEdges,
+          edges: this._buildFilteredEdgesForJsFromMask({
+            edges: generated.edges,
+            edgeActiveMask: exclusionResult.edgeActiveMask,
+            request
+          }),
           startShipId: request.startShipId,
           targetShipId: request.targetShipId
         }),
         runCWasm: () => this._keepReachablePathsWithWasm({
           nodes: generated.nodes,
-          edges: exclusionResult.filteredEdges,
+          edges: generated.edges,
           startShipId: request.startShipId,
-          targetShipId: request.targetShipId
+          targetShipId: request.targetShipId,
+          edgeActiveMask: exclusionResult.edgeActiveMask
         })
       });
+
+      if (filteredResult.perfStats?.mode !== 'c-wasm') {
+        return filteredResult;
+      }
+
+      return {
+        ...filteredResult,
+        edges: this._applyRequestWindowsToResultEdges({
+          edges: filteredResult.edges,
+          request
+        })
+      };
     }
 
-    return this._runPathFilterWithExecution({
+    const filteredResult = await this._runPathFilterWithExecution({
       useWasmPathBuilder,
       comparePathBuilderPerf,
       runJs: () => this._keepOnlySavingPaths({
         nodes: generated.nodes,
-        edges: exclusionResult.filteredEdges,
+        edges: this._buildFilteredEdgesForJsFromMask({
+          edges: generated.edges,
+          edgeActiveMask: exclusionResult.edgeActiveMask,
+          request
+        }),
         startShipId: request.startShipId,
         targetShipId: request.targetShipId,
         directUpgradeCost
       }),
       runCWasm: () => this._keepOnlySavingPathsWithWasm({
         nodes: generated.nodes,
-        edges: exclusionResult.filteredEdges,
+        edges: generated.edges,
         startShipId: request.startShipId,
         targetShipId: request.targetShipId,
-        directUpgradeCost
+        directUpgradeCost,
+        edgeActiveMask: exclusionResult.edgeActiveMask
       })
     });
+
+    if (filteredResult.perfStats?.mode !== 'c-wasm') {
+      return filteredResult;
+    }
+
+    return {
+      ...filteredResult,
+      edges: this._applyRequestWindowsToResultEdges({
+        edges: filteredResult.edges,
+        request
+      })
+    };
   }
 
   private _resolveAutoPathData(params: {
@@ -707,22 +740,75 @@ export class PathBuilderService {
     const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
     const edgeActiveMask = new Uint8Array(edges.length);
     if (edges.length === 0) {
-      return { filteredEdges: [], edgeActiveMask };
+      return { edgeActiveMask };
     }
 
     const hangarPairKeySet = request.preferHangarCcu
       ? this._collectHangarEdgePairKeys(edges)
       : null;
 
-    const filteredEdges: Edge<CcuEdgeData>[] = [];
     edges.forEach((edge, edgeIndex) => {
       if (!this._isEdgeAllowedByRequest(edge, request, hangarPairKeySet)) {
-        edgeActiveMask[edgeIndex] = 0;
         return;
       }
 
       if (excludedCcuKeySet.has(this._getAutoPathEdgeKey(edge))) {
-        edgeActiveMask[edgeIndex] = 0;
+        return;
+      }
+
+      if (!this._isEdgeAvailableInRequestWindows({
+        edge,
+        rangeStartTs: request.rangeStartTs,
+        rangeEndTs: request.rangeEndTs,
+        excludedSkuIdSet
+      })) {
+        return;
+      }
+
+      edgeActiveMask[edgeIndex] = 1;
+    });
+
+    return {
+      edgeActiveMask
+    };
+  }
+
+  private _isEdgeAvailableInRequestWindows(params: {
+    edge: Edge<CcuEdgeData>;
+    rangeStartTs: number;
+    rangeEndTs: number;
+    excludedSkuIdSet: Set<number>;
+  }): boolean {
+    const { edge, rangeStartTs, rangeEndTs, excludedSkuIdSet } = params;
+    const windows = edge.data?.validityWindows;
+    if (!windows?.length) {
+      return true;
+    }
+
+    return windows.some(window => {
+      if (excludedSkuIdSet.has(window.sku)) {
+        return false;
+      }
+
+      const windowEndTs = window.endTs ?? Number.POSITIVE_INFINITY;
+      return !(windowEndTs < rangeStartTs || window.startTs > rangeEndTs);
+    });
+  }
+
+  private _buildFilteredEdgesForJsFromMask(params: {
+    edges: Edge<CcuEdgeData>[];
+    edgeActiveMask: Uint8Array;
+    request: Pick<AutoPathFilterRequest, 'rangeStartTs' | 'rangeEndTs' | 'excludedSkuIds'>;
+  }): Edge<CcuEdgeData>[] {
+    const { edges, edgeActiveMask, request } = params;
+    if (edges.length !== edgeActiveMask.length) {
+      return [];
+    }
+
+    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
+    const filteredEdges: Edge<CcuEdgeData>[] = [];
+    edges.forEach((edge, edgeIndex) => {
+      if (!edgeActiveMask[edgeIndex]) {
         return;
       }
 
@@ -732,19 +818,45 @@ export class PathBuilderService {
         rangeEndTs: request.rangeEndTs,
         excludedSkuIdSet
       });
+      if (filteredEdge) {
+        filteredEdges.push(filteredEdge);
+      }
+    });
+    return filteredEdges;
+  }
+
+  private _applyRequestWindowsToResultEdges(params: {
+    edges: Edge<CcuEdgeData>[];
+    request: Pick<AutoPathFilterRequest, 'rangeStartTs' | 'rangeEndTs' | 'excludedSkuIds'>;
+  }): Edge<CcuEdgeData>[] {
+    const { edges, request } = params;
+    if (!edges.length) {
+      return edges;
+    }
+
+    const excludedSkuIdSet = new Set(request.excludedSkuIds || []);
+    let hasUpdatedEdge = false;
+    const filteredEdges: Edge<CcuEdgeData>[] = [];
+    edges.forEach(edge => {
+      const filteredEdge = this._filterEdgeByRequestWindows({
+        edge,
+        rangeStartTs: request.rangeStartTs,
+        rangeEndTs: request.rangeEndTs,
+        excludedSkuIdSet
+      });
       if (!filteredEdge) {
-        edgeActiveMask[edgeIndex] = 0;
+        hasUpdatedEdge = true;
         return;
       }
 
-      edgeActiveMask[edgeIndex] = 1;
+      if (filteredEdge !== edge) {
+        hasUpdatedEdge = true;
+      }
+
       filteredEdges.push(filteredEdge);
     });
 
-    return {
-      filteredEdges,
-      edgeActiveMask
-    };
+    return hasUpdatedEdge ? filteredEdges : edges;
   }
 
   private _isEdgeAllowedByRequest(
@@ -1417,12 +1529,14 @@ export class PathBuilderService {
     edges: Edge<CcuEdgeData>[];
     startShipId: number;
     targetShipId: number;
+    edgeActiveMask?: Uint8Array;
   }): Promise<PathGraphResult> {
     const wasmResult = await pathBuilderCWasmService.filterReachable({
       nodes: params.nodes,
       edges: params.edges,
       startShipId: params.startShipId,
-      targetShipId: params.targetShipId
+      targetShipId: params.targetShipId,
+      edgeActiveMask: params.edgeActiveMask
     });
 
     return {
@@ -1437,13 +1551,15 @@ export class PathBuilderService {
     startShipId: number;
     targetShipId: number;
     directUpgradeCost: number;
+    edgeActiveMask?: Uint8Array;
   }): Promise<PathGraphResult> {
     const wasmResult = await pathBuilderCWasmService.filterSaving({
       nodes: params.nodes,
       edges: params.edges,
       startShipId: params.startShipId,
       targetShipId: params.targetShipId,
-      directUpgradeCost: params.directUpgradeCost
+      directUpgradeCost: params.directUpgradeCost,
+      edgeActiveMask: params.edgeActiveMask
     });
 
     return {

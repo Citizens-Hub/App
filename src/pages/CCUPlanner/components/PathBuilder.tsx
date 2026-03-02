@@ -1203,7 +1203,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         ) : (
           <div className="flex h-full min-h-0 flex-col">
             <div className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col gap-4">
-              {isCalculating && (
+              {/* {isCalculating && (
                 <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 p-2">
                   <CircularProgress size={16} />
                   <FormattedMessage
@@ -1211,7 +1211,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     defaultMessage="Recalculating route..."
                   />
                 </div>
-              )}
+              )} */}
 
               <div className="text-sm text-gray-500">
                 <FormattedMessage
