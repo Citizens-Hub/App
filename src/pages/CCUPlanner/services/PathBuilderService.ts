@@ -1693,6 +1693,78 @@ export class PathBuilderService {
     });
   }
 
+  private _collectSourceSkuValidityWindowsBelowPrice(params: {
+    history: PriceHistoryEntity['history'];
+    targetPriceCents: number;
+  }): CcuValidityWindow[] {
+    const { history, targetPriceCents } = params;
+    const openBySku = new Map<number, number>();
+    const windows: CcuValidityWindow[] = [];
+
+    const pushWindow = (sku: number, startTs: number, endTs: number | null) => {
+      if (endTs !== null && startTs >= endTs) {
+        return;
+      }
+
+      windows.push({
+        sku,
+        startTs,
+        endTs
+      });
+    };
+
+    const sortedHistory = [...history].sort((a, b) => a.ts - b.ts);
+
+    sortedHistory.forEach(entry => {
+      if (typeof entry.sku !== 'number') {
+        return;
+      }
+
+      const sku = entry.sku;
+      if (entry.change === '+') {
+        const isCheaperStandardSku =
+          this._isStandardOrNormalPriceEntry(entry) &&
+          typeof entry.msrp === 'number' &&
+          entry.msrp < targetPriceCents;
+
+        if (!isCheaperStandardSku) {
+          const openTs = openBySku.get(sku);
+          if (openTs !== undefined) {
+            pushWindow(sku, openTs, entry.ts);
+            openBySku.delete(sku);
+          }
+          return;
+        }
+
+        if (!openBySku.has(sku)) {
+          openBySku.set(sku, entry.ts);
+        }
+        return;
+      }
+
+      if (entry.change === '-') {
+        const openTs = openBySku.get(sku);
+        if (openTs === undefined) {
+          return;
+        }
+
+        pushWindow(sku, openTs, entry.ts);
+        openBySku.delete(sku);
+      }
+    });
+
+    openBySku.forEach((startTs, sku) => {
+      pushWindow(sku, startTs, null);
+    });
+
+    return windows.sort((a, b) => {
+      if (a.startTs !== b.startTs) {
+        return a.startTs - b.startTs;
+      }
+      return a.sku - b.sku;
+    });
+  }
+
   private _filterTargetValidityWindowsBySourceSkuPrice(params: SourceSkuPriceConstraintParams): CcuValidityWindow[] {
     const {
       sourceShipId,
@@ -1704,18 +1776,37 @@ export class PathBuilderService {
 
     const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
     const hasHistoryData = sourceHistory.length > 0;
+    const sourceCheaperWindows = this._collectSourceSkuValidityWindowsBelowPrice({
+      history: sourceHistory,
+      targetPriceCents
+    });
 
     return targetValidityWindows.filter(targetWindow => {
+      const targetWindowStartTs = targetWindow.startTs;
       const targetWindowEndTs = targetWindow.endTs ?? Number.POSITIVE_INFINITY;
-      const hasCheaperSourceSkuBeforeTarget = sourceHistory.some(entry =>
-        entry.change === '+' &&
-        typeof entry.sku === 'number' &&
-        typeof entry.msrp === 'number' &&
-        entry.msrp < targetPriceCents &&
-        entry.ts <= targetWindowEndTs
-      );
+      const isPurchasableBySourceHistory = sourceCheaperWindows.some(sourceWindow => {
+        const sourceWindowStartTs = sourceWindow.startTs;
+        const sourceWindowEndTs = sourceWindow.endTs ?? Number.POSITIVE_INFINITY;
 
-      if (hasCheaperSourceSkuBeforeTarget) {
+        // Both SKUs must be concurrently available to make the historical CCU purchasable.
+        const hasTimeOverlap = sourceWindowStartTs < targetWindowEndTs && targetWindowStartTs < sourceWindowEndTs;
+        if (!hasTimeOverlap) {
+          return false;
+        }
+
+        // If both ships increase at the exact same timestamp, do not generate a price-increase CCU.
+        if (
+          targetWindow.endTs !== null &&
+          sourceWindow.endTs !== null &&
+          sourceWindow.endTs === targetWindow.endTs
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (isPurchasableBySourceHistory) {
         return true;
       }
 
