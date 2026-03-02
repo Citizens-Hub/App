@@ -57,6 +57,42 @@ interface OverlayPricePeriod {
   price: number;
 }
 
+interface LtiShipSku {
+  skuId: string;
+  url: string;
+  isWarbond: boolean;
+  price?: {
+    amount?: number;
+    formatted?: string | null;
+  } | null;
+  stock?: {
+    available?: boolean;
+  } | null;
+}
+
+interface LtiShipEntry {
+  shipId: number;
+  shipName: string;
+  shipTitle?: string;
+  skus: LtiShipSku[];
+}
+
+interface LtiShipsResponse {
+  success: boolean;
+  data?: {
+    updatedAt?: string;
+    ships?: LtiShipEntry[];
+  } | null;
+}
+
+interface LtiQuickSelectOption {
+  key: string;
+  displayName: string;
+  ship: Ship | null;
+  warbondUrl: string;
+  warbondPrice: string | null;
+}
+
 type PriceHistoryEntry = PriceHistoryEntity['history'][number];
 
 interface BaseGraphPrebuildWorkerRequest {
@@ -198,6 +234,15 @@ function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatUsdByLocale(value: number, locale: string): string {
+  return value.toLocaleString(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 function parseDateRangeToTs(startDate: string, endDate: string): { startTs: number; endTs: number } | null {
@@ -352,6 +397,7 @@ function buildStartShipStandardPricePeriods(history?: PriceHistoryEntity['histor
 export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
   const isDevMode = import.meta.env.DEV;
+  const ltiShipsEndpoint = `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/lti-ships`;
   const {
     ships,
     hangarItems,
@@ -390,6 +436,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [reviewRoute, setReviewRoute] = useState<{ nodeIds: string[]; edges: ReviewPathEdge[]; totalCost: number } | null>(null);
   const [reviewStepPerfStats, setReviewStepPerfStats] = useState<AutoPathBuildPerfStats | null>(null);
   const [reviewStepMismatchMessage, setReviewStepMismatchMessage] = useState<string | null>(null);
+  const [ltiQuickOptions, setLtiQuickOptions] = useState<LtiQuickSelectOption[]>([]);
+  const [ltiUpdatedAt, setLtiUpdatedAt] = useState<string | null>(null);
+  const [isLtiLoading, setIsLtiLoading] = useState(false);
+  const [ltiLoadError, setLtiLoadError] = useState(false);
   const calculateTaskRef = useRef(0);
   const baseGraphPrebuildWorkerRef = useRef<Worker | null>(null);
   const baseGraphPrebuildTaskRef = useRef(0);
@@ -424,6 +474,25 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     () => selectableShips.find(ship => ship.id === targetShipId),
     [selectableShips, targetShipId]
   );
+
+  const ltiUpdatedAtLabel = useMemo(() => {
+    if (!ltiUpdatedAt) {
+      return null;
+    }
+
+    const ts = Date.parse(ltiUpdatedAt);
+    if (Number.isNaN(ts)) {
+      return ltiUpdatedAt;
+    }
+
+    return new Date(ts).toLocaleString(intl.locale, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, [intl.locale, ltiUpdatedAt]);
 
   const requiredHangarOptions = useMemo(() => {
     const optionMap = new Map<string, HangarCcuOption>();
@@ -578,6 +647,102 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       return;
     }
 
+    const abortController = new AbortController();
+
+    const loadLtiShips = async () => {
+      setIsLtiLoading(true);
+      setLtiLoadError(false);
+      setLtiQuickOptions([]);
+      setLtiUpdatedAt(null);
+
+      try {
+        const response = await fetch(ltiShipsEndpoint, {
+          method: 'GET',
+          signal: abortController.signal
+        });
+        if (!response.ok) {
+          throw new Error(`LTI ships request failed: ${response.status}`);
+        }
+
+        const payload = await response.json() as LtiShipsResponse;
+        if (!payload.success) {
+          throw new Error('LTI ships response indicated failure');
+        }
+
+        const ltiShips = payload.data?.ships || [];
+        const optionMap = new Map<string, LtiQuickSelectOption>();
+
+        ltiShips.forEach(entry => {
+          const warbondSku = entry.skus.find(
+            sku => sku.isWarbond && Boolean(sku.url) && (sku.stock?.available ?? true)
+          );
+          if (!warbondSku) {
+            return;
+          }
+
+          const displayName = entry.shipName || entry.shipTitle || `Ship ${entry.shipId}`;
+          const normalizedName = normalizeShipName(displayName);
+          const matchedShip = selectableShips.find(ship => ship.id === entry.shipId)
+            ?? selectableShips.find(ship => normalizeShipName(ship.name) === normalizedName);
+          const key = matchedShip ? `ship-${matchedShip.id}` : `external-${normalizedName}`;
+          if (optionMap.has(key)) {
+            return;
+          }
+
+          const warbondPrice = warbondSku.price?.formatted
+            || (typeof warbondSku.price?.amount === 'number'
+              ? formatUsdByLocale(warbondSku.price.amount / 100, intl.locale)
+              : null);
+
+          optionMap.set(key, {
+            key,
+            displayName: matchedShip?.name || displayName,
+            ship: matchedShip || null,
+            warbondUrl: warbondSku.url,
+            warbondPrice
+          });
+        });
+
+        const options = Array.from(optionMap.values()).sort((a, b) => {
+          if (a.ship && b.ship) {
+            return a.ship.msrp - b.ship.msrp;
+          }
+          if (a.ship) {
+            return -1;
+          }
+          if (b.ship) {
+            return 1;
+          }
+          return a.displayName.localeCompare(b.displayName);
+        });
+
+        setLtiQuickOptions(options);
+        setLtiUpdatedAt(payload.data?.updatedAt || null);
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+        console.warn('[PathBuilder] failed to load LTI seed ships', error);
+        setLtiLoadError(true);
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsLtiLoading(false);
+        }
+      }
+    };
+
+    void loadLtiShips();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [intl.locale, ltiShipsEndpoint, open, selectableShips]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     terminateBaseGraphPrebuildWorker();
     pathBuilderService.clearAutoPathBaseGraphCache();
 
@@ -671,12 +836,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   }, [startShip, targetShipId, selectableShips]);
 
   const formatUsd = (value: number): string => {
-    return value.toLocaleString(intl.locale, {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    return formatUsdByLocale(value, intl.locale);
   };
 
   const formatDate = (ts: number): string => {
@@ -1083,6 +1243,108 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         ) : (
                           <div className="text-xs text-gray-500">
                             <FormattedMessage id="pathBuilder.selectStartShip" defaultMessage="Select starting ship" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#121212] p-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                            <FormattedMessage id="pathBuilder.ltiQuickSelect" defaultMessage="LTI Seed Ships (Quick Select)" />
+                          </div>
+                          {ltiUpdatedAtLabel && (
+                            <div className="text-[11px] text-gray-500">
+                              <FormattedMessage
+                                id="pathBuilder.ltiUpdatedAt"
+                                defaultMessage="Updated: {time}"
+                                values={{ time: ltiUpdatedAtLabel }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {isLtiLoading ? (
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <CircularProgress size={14} />
+                            <FormattedMessage id="pathBuilder.ltiLoading" defaultMessage="Loading available LTI seed ships..." />
+                          </div>
+                        ) : ltiLoadError ? (
+                          <div className="text-xs text-red-500">
+                            <FormattedMessage id="pathBuilder.ltiLoadError" defaultMessage="Failed to load LTI seed ships." />
+                          </div>
+                        ) : ltiQuickOptions.length === 0 ? (
+                          <div className="text-xs text-gray-500">
+                            <FormattedMessage id="pathBuilder.ltiEmpty" defaultMessage="No available LTI seed ships right now." />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {ltiQuickOptions.map(option => (
+                              <div
+                                key={option.key}
+                                role="button"
+                                tabIndex={option.ship ? 0 : -1}
+                                aria-disabled={!option.ship}
+                                onClick={() => option.ship && setStartShipId(option.ship.id)}
+                                onKeyDown={(event) => {
+                                  if (!option.ship) {
+                                    return;
+                                  }
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    setStartShipId(option.ship.id);
+                                  }
+                                }}
+                                className={`flex items-center justify-between gap-3 border px-3 py-2 transition-colors ${
+                                  option.ship?.id === startShipId
+                                    ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30'
+                                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-[#1a1a1a]'
+                                } ${option.ship
+                                  ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-600'
+                                  : 'cursor-default opacity-80'}`}
+                              >
+                                <div className="min-w-0 flex items-center gap-3">
+                                  <ShipImage
+                                    ship={option.ship}
+                                    className="w-16 h-12 shrink-0"
+                                    placeholderClassName="border border-gray-200 dark:border-gray-700"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold truncate">{option.displayName}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                      {option.ship ? (
+                                        option.ship.manufacturer.name
+                                      ) : (
+                                        <FormattedMessage
+                                          id="pathBuilder.ltiNotInList"
+                                          defaultMessage="Not in selectable ship list"
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="mt-1 flex items-center gap-2 text-xs">
+                                      {option.warbondPrice && (
+                                        <span className="text-gray-600 dark:text-gray-300">{option.warbondPrice}</span>
+                                      )}
+                                      <span className="font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                                        LTI
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  color="warning"
+                                  component="a"
+                                  href={option.warbondUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <FormattedMessage id="pathBuilder.openWarbond" defaultMessage="Open Warbond" />
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
