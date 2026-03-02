@@ -17,7 +17,7 @@ export default function LanguageSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleLanguageChange = (newLocale: 'zh-CN' | 'en' | 'ja-JP' | 'de-DE') => {
+  const handleLanguageChange = (newLocale: 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE') => {
     setLocale(newLocale);
     handleClose();
   };
@@ -55,7 +55,13 @@ export default function LanguageSwitcher() {
           onClick={() => handleLanguageChange('zh-CN')}
           selected={locale === 'zh-CN'}
         >
-          中文
+          简体中文
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleLanguageChange('zh-HK')}
+          selected={locale === 'zh-HK'}
+        >
+          繁體中文
         </MenuItem>
         <MenuItem 
           onClick={() => handleLanguageChange('en')}

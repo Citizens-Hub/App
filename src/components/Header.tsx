@@ -44,6 +44,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const pathname = useLocation().pathname;
   const { data: exchangeRateData } = useApi<{ usd: Record<string, number> }>('/api/currency');
   const exchangeRate = exchangeRateData?.usd?.[currency.toLowerCase()] || 0;
+  const isChineseLocale = locale.startsWith('zh');
   const isExchangeCalculatorPage = pathname.startsWith('/ccu-planner')
     || pathname.startsWith('/price-history')
     || pathname.startsWith('/hangar');
@@ -218,7 +219,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>
         {
-          locale === "zh-CN" ? (<IconButton
+          isChineseLocale ? (<IconButton
             onClick={() => window.open("http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475", "_blank")}
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
@@ -357,7 +358,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 >
                   <GithubIcon />
                 </IconButton>
-                {locale === "zh-CN" ? (
+                {isChineseLocale ? (
                   <IconButton
                     size="small"
                     onClick={() => window.open("http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475", "_blank")}

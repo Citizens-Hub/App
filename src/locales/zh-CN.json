@@ -667,5 +667,9 @@
   "pathBuilder.requiredHangarTitle": "包含机库CCU",
   "pathBuilder.requiredHangarHint": "强制使用这些CCU",
   "pathBuilder.selectRequiredHangar": "选择包含机库CCU",
-  "pathBuilder.noHangarCcu": "无可用CCU"
+  "pathBuilder.noHangarCcu": "无可用CCU",
+  "pathBuilder.excludedSku": "已排除",
+  "pathBuilder.excludedSkusTitle": "已排除的 SKU",
+  "pathBuilder.excludedCcusTitle": "已排除的 CCU",
+  "pathBuilder.skuChipLabel": "SKU {sku}"
 }

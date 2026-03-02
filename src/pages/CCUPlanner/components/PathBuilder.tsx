@@ -1549,6 +1549,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                         rangeStartTs={reviewRequest?.rangeStartTs}
                                         rangeEndTs={reviewRequest?.rangeEndTs}
                                         highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
+                                        showRealTimeScaleToggle={false}
                                         showTitle={false}
                                         legendAlign="start"
                                         legendPosition="left"

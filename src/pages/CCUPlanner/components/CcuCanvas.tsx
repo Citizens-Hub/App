@@ -801,7 +801,7 @@ function CcuCanvasContent() {
                     slot: BiSlots.VIEW_GUIDE,
                     data: null
                   })
-                  navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale === 'zh-CN' ? '-zh' : ''))
+                  navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale.startsWith('zh') ? '-zh' : ''))
                 }}
               />
             </div>

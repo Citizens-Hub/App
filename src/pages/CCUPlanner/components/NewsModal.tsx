@@ -46,7 +46,7 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(locale === 'zh-CN' ? 0 : 1);
+  const [tabValue, setTabValue] = useState(locale.startsWith('zh') ? 0 : 1);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
