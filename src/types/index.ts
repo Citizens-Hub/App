@@ -75,6 +75,7 @@ export interface CcusData {
 }
 
 export interface Ship {
+  alias: string;
   id: number;
   name: string;
   medias: {

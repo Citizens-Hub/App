@@ -94,6 +94,33 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
   // MARK: Hangar
 
+  const shipWithAlias = ships.filter(ship => ship.alias)
+
+  const normalizeShipName = useCallback((shipName: string) => shipName.toLowerCase().trim(), []);
+
+  const resolveShipName = useCallback((shipName: string) => {
+    const normalizedShipName = normalizeShipName(shipName);
+
+    const exactMatch = ships.find(ship => normalizeShipName(ship.name) === normalizedShipName);
+    if (exactMatch) return exactMatch.name;
+
+    const aliasMatch = shipWithAlias.find(ship => {
+      try {
+        const aliases = JSON.parse(ship.alias);
+
+        if (!Array.isArray(aliases)) return false;
+
+        return aliases.some(alias =>
+          typeof alias === "string" && normalizeShipName(alias) === normalizedShipName
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    return aliasMatch?.name || "";
+  }, [normalizeShipName, shipWithAlias, ships]);
+
   const tryResolveCCU = useCallback((content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
     const name = content.name;
 
@@ -101,27 +128,39 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     let to = "";
 
     try {
-      const regExp = /upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)/
-      const match = name.toLowerCase().match(regExp);
+      const regExp = /upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)/i
+      const match = name.match(regExp);
+      const fallbackFrom = content.match_items[0]?.name?.trim() || "";
+      const fallbackTo = content.target_items[0]?.name?.trim() || "";
 
-      if (match) {
-        from = match[1].trim()
-        to = match[2].trim()
-      } else {
-        from = content.match_items[0].name
-        to = content.target_items[0].name
-      }
+      const fromCandidates = [
+        match?.[1]?.trim() || "",
+        fallbackFrom,
+      ].filter(Boolean);
 
-      if (!ships.find(ship => ship.name.toLowerCase().trim() === from.toLowerCase().trim())) {
-        from = content.match_items[0].name
-      }
+      const toCandidates = [
+        match?.[2]?.trim() || "",
+        fallbackTo,
+      ].filter(Boolean);
 
-      if (!ships.find(ship => ship.name.toLowerCase().trim() === to.toLowerCase().trim())) {
-        to = content.target_items[0].name
-      }
+      from = fromCandidates.reduce((resolved, candidate) => {
+        if (resolved) return resolved;
+        return resolveShipName(candidate);
+      }, "");
 
-      if (!from || !to) {
-        throw new Error("invalid ccu");
+      to = toCandidates.reduce((resolved, candidate) => {
+        if (resolved) return resolved;
+        return resolveShipName(candidate);
+      }, "");
+
+      if (!from || !to || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from)) || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to))) {
+        throw new Error(JSON.stringify({
+          reason: "CCU_SHIP_NOT_FOUND",
+          fromCandidates,
+          toCandidates,
+          resolvedFrom: from,
+          resolvedTo: to,
+        }));
       }
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
@@ -137,7 +176,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     }
 
     return { from, to };
-  }, [ships]);
+  }, [normalizeShipName, resolveShipName, ships]);
 
   const parseHangarItems = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelector('.list-items');
@@ -569,6 +608,17 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
     return () => window.removeEventListener('message', handleMessage);
   }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef, tryResolveCCU, intl]);
+
+
+  //@ts-expect-error parse
+  window.crawlerdebugtools = {}
+  //@ts-expect-error parse
+  window.crawlerdebugtools.parseHangar = (htmlString: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+  
+    parseHangarItems(doc, 1);
+  }
 
   return <>
     <div className="w-full flex flex-col items-center justify-center fixed top-0 left-0 right-0">
