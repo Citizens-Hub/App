@@ -13,7 +13,8 @@ import {
   Legend,
   Filler,
   TooltipItem,
-  TooltipModel
+  TooltipModel,
+  Plugin
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { Line } from 'react-chartjs-2';
@@ -35,6 +36,9 @@ interface PriceHistoryChartProps {
   history: PriceHistoryEntity['history'] | null;
   currentMsrp: number;
   shipName: string;
+  overlaySeries?: PriceHistoryOverlaySeries[];
+  rangeStartTs?: number;
+  rangeEndTs?: number;
   highlightedSkuId?: number | null;
   showRealTimeScaleToggle?: boolean;
   showTitle?: boolean;
@@ -46,10 +50,26 @@ interface PriceHistoryChartProps {
   panelClassName?: string;
 }
 
+interface PriceHistoryOverlaySeries {
+  label: string;
+  periods: Array<{
+    startTs: number;
+    endTs: number | null;
+    price: number;
+  }>;
+  color?: string;
+  borderDash?: number[];
+}
+
+const EMPTY_OVERLAY_SERIES: PriceHistoryOverlaySeries[] = [];
+
 export default function PriceHistoryChart({
   history,
   currentMsrp,
   shipName,
+  overlaySeries,
+  rangeStartTs,
+  rangeEndTs,
   highlightedSkuId = null,
   showRealTimeScaleToggle = true,
   showTitle = true,
@@ -69,6 +89,7 @@ export default function PriceHistoryChart({
     document.documentElement.classList.contains('dark')
   );
   const [useRealTimeScale, setUseRealTimeScale] = useState(false);
+  const normalizedOverlaySeries = overlaySeries ?? EMPTY_OVERLAY_SERIES;
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -162,6 +183,78 @@ export default function PriceHistoryChart({
     sortedTimestamps: number[];
   } | null>(null);
 
+  const selectedRangeOverlayPlugin = useMemo<Plugin<'line'>>(() => ({
+    id: 'selected-range-overlay',
+    beforeDatasetsDraw: (chart) => {
+      if (typeof rangeStartTs !== 'number' || typeof rangeEndTs !== 'number') {
+        return;
+      }
+      if (rangeEndTs <= rangeStartTs) {
+        return;
+      }
+
+      const xScale = chart.scales.x;
+      if (!xScale || !chart.chartArea) {
+        return;
+      }
+
+      let startPixel: number | null = null;
+      let endPixel: number | null = null;
+
+      if (useRealTimeScale) {
+        startPixel = xScale.getPixelForValue(rangeStartTs);
+        endPixel = xScale.getPixelForValue(rangeEndTs);
+      } else {
+        const sortedTimestamps = periodData?.sortedTimestamps || [];
+        if (!sortedTimestamps.length) {
+          return;
+        }
+
+        const startIndex = sortedTimestamps.findIndex(ts => ts >= rangeStartTs);
+        const endIndexFromLeft = sortedTimestamps.findIndex(ts => ts > rangeEndTs);
+        const resolvedStartIndex = startIndex === -1 ? sortedTimestamps.length - 1 : startIndex;
+        const resolvedEndIndex = endIndexFromLeft === -1 ? sortedTimestamps.length - 1 : Math.max(0, endIndexFromLeft - 1);
+
+        startPixel = xScale.getPixelForValue(resolvedStartIndex);
+        endPixel = xScale.getPixelForValue(resolvedEndIndex);
+      }
+
+      if (!Number.isFinite(startPixel) || !Number.isFinite(endPixel)) {
+        return;
+      }
+
+      const left = Math.max(chart.chartArea.left, Math.min(startPixel, endPixel));
+      const right = Math.min(chart.chartArea.right, Math.max(startPixel, endPixel));
+      if (right <= left) {
+        return;
+      }
+
+      const ctx = chart.ctx;
+      ctx.save();
+
+      const fillColor = isDarkMode ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.10)';
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(left, chart.chartArea.top, right - left, chart.chartArea.bottom - chart.chartArea.top);
+
+      const strokeColor = isDarkMode ? 'rgba(96, 165, 250, 0.75)' : 'rgba(37, 99, 235, 0.7)';
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      ctx.beginPath();
+      ctx.moveTo(left, chart.chartArea.top);
+      ctx.lineTo(left, chart.chartArea.bottom);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(right, chart.chartArea.top);
+      ctx.lineTo(right, chart.chartArea.bottom);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }), [isDarkMode, periodData, rangeEndTs, rangeStartTs, useRealTimeScale]);
+
   const chartData = useMemo(() => {
     if (!history) return null;
 
@@ -248,6 +341,21 @@ export default function PriceHistoryChart({
       }
     }
 
+    for (const series of normalizedOverlaySeries) {
+      for (const period of series.periods) {
+        allTimestamps.add(period.startTs);
+        if (period.endTs !== null) {
+          const lastValidTs = period.endTs - 1;
+          if (lastValidTs >= period.startTs && lastValidTs !== period.startTs) {
+            allTimestamps.add(lastValidTs);
+          }
+          allTimestamps.add(period.endTs);
+        } else {
+          allTimestamps.add(now);
+        }
+      }
+    }
+
     // Sort all timestamps
     const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
 
@@ -278,6 +386,7 @@ export default function PriceHistoryChart({
       borderColor: string;
       backgroundColor: string;
       borderWidth: number;
+      borderDash?: number[];
       fill: boolean;
       tension: number;
       pointRadius: number | Array<number>;
@@ -455,11 +564,137 @@ export default function PriceHistoryChart({
       }
     });
 
+    normalizedOverlaySeries.forEach((series) => {
+      const overlayColor = series.color || 'rgb(17, 24, 39)';
+
+      if (useRealTimeScale) {
+        const data: Array<{ x: number; y: number | null }> = sortedTimestamps.map(ts => {
+          let value: number | null = null;
+
+          for (const period of series.periods) {
+            if (period.endTs === null) {
+              if (ts >= period.startTs && ts <= now) {
+                value = period.price;
+                break;
+              }
+            } else {
+              if (ts === period.endTs) {
+                value = null;
+                break;
+              }
+              if (ts >= period.startTs && ts < period.endTs) {
+                value = period.price;
+                break;
+              }
+            }
+          }
+
+          return { x: ts, y: value };
+        });
+
+        datasets.push({
+          label: series.label,
+          data,
+          borderColor: overlayColor,
+          backgroundColor: withAlpha(overlayColor, 0),
+          borderWidth: 2,
+          borderDash: series.borderDash,
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          spanGaps: false,
+          order: -1
+        });
+      } else {
+        const data: Array<number | null> = sortedTimestamps.map(ts => {
+          let value: number | null = null;
+
+          for (const period of series.periods) {
+            if (period.endTs === null) {
+              if (ts >= period.startTs && ts <= now) {
+                value = period.price;
+                break;
+              }
+            } else {
+              if (ts === period.endTs) {
+                value = null;
+                break;
+              }
+              if (ts >= period.startTs && ts < period.endTs) {
+                value = period.price;
+                break;
+              }
+            }
+          }
+
+          return value;
+        });
+
+        datasets.push({
+          label: series.label,
+          data,
+          borderColor: overlayColor,
+          backgroundColor: withAlpha(overlayColor, 0),
+          borderWidth: 2,
+          borderDash: series.borderDash,
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          spanGaps: false,
+          order: -1
+        });
+      }
+    });
+
     return {
       labels: useRealTimeScale ? undefined : labels,
       datasets
     };
-  }, [extractSkuIdFromEdition, getEditionName, getEditionColor, highlightedSkuId, history, intl.locale, useRealTimeScale, withAlpha]);
+  }, [extractSkuIdFromEdition, getEditionName, getEditionColor, highlightedSkuId, history, intl.locale, normalizedOverlaySeries, useRealTimeScale, withAlpha]);
+
+  const yAxisBounds = useMemo(() => {
+    if (!chartData?.datasets?.length) {
+      return null;
+    }
+
+    const yValues: number[] = [];
+
+    chartData.datasets.forEach(dataset => {
+      dataset.data.forEach(point => {
+        if (typeof point === 'number' && Number.isFinite(point)) {
+          yValues.push(point);
+          return;
+        }
+
+        if (
+          point
+          && typeof point === 'object'
+          && 'y' in point
+          && typeof point.y === 'number'
+          && Number.isFinite(point.y)
+        ) {
+          yValues.push(point.y);
+        }
+      });
+    });
+
+    if (!yValues.length) {
+      return null;
+    }
+
+    const minValue = Math.min(...yValues);
+    const maxValue = Math.max(...yValues);
+    const span = Math.max(maxValue - minValue, 1);
+    const lowerPadding = Math.max(span * 0.08, 0.5);
+    const upperPadding = Math.max(span * 0.10, 0.5);
+
+    return {
+      min: Math.max(0, minValue - lowerPadding),
+      max: maxValue + upperPadding
+    };
+  }, [chartData]);
 
   // Helper function to find period info for a data point
   const findPeriodForDataPoint = useCallback((
@@ -845,8 +1080,9 @@ export default function PriceHistoryChart({
             size: 11
           }
         },
-        beginAtZero: true,
-        grace: '15%'
+        beginAtZero: false,
+        min: yAxisBounds?.min,
+        max: yAxisBounds?.max
       }
     },
     interaction: {
@@ -854,7 +1090,7 @@ export default function PriceHistoryChart({
       axis: 'x' as const,
       intersect: false
     }
-  }), [legendPosition, legendAlign, isDarkMode, showTitle, intl, useRealTimeScale, periodData, tooltipZIndex, findPeriodForDataPoint, history, showSkuMetaInTooltip]);
+  }), [legendPosition, legendAlign, isDarkMode, showTitle, intl, useRealTimeScale, periodData, tooltipZIndex, findPeriodForDataPoint, history, showSkuMetaInTooltip, yAxisBounds]);
 
   if (!chartData) {
     return null;
@@ -981,7 +1217,7 @@ export default function PriceHistoryChart({
             </Box>
           )}
           <Box className='flex-1 min-h-0'>
-            <Line data={chartData} options={chartOptions} />
+            <Line data={chartData} options={chartOptions} plugins={[selectedRangeOverlayPlugin]} />
           </Box>
         </Box>
       </Box>

@@ -3,7 +3,7 @@ import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularP
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CcuEdgeData, CcuSourceType, CcuValidityWindow, Ship } from '../../../types';
+import { CcuEdgeData, CcuSourceType, CcuValidityWindow, PriceHistoryEntity, Ship } from '../../../types';
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import {
@@ -50,6 +50,14 @@ interface GroupedSkuValidityWindow {
   sku: number;
   windows: CcuValidityWindow[];
 }
+
+interface OverlayPricePeriod {
+  startTs: number;
+  endTs: number | null;
+  price: number;
+}
+
+type PriceHistoryEntry = PriceHistoryEntity['history'][number];
 
 interface BaseGraphPrebuildWorkerRequest {
   type: 'prebuild';
@@ -251,6 +259,96 @@ function groupValidityWindowsBySku(validityWindows?: CcuValidityWindow[]): Group
     });
 }
 
+function isWarbondEdition(edition?: string): boolean {
+  if (!edition) return false;
+  const lowerEdition = edition.toLowerCase();
+  return lowerEdition.includes('warbond') || lowerEdition.includes('-wb') || lowerEdition.includes(' wb');
+}
+
+function isStandardEdition(edition?: string): boolean {
+  if (!edition) return true;
+  if (isWarbondEdition(edition)) return false;
+  return edition.toLowerCase().includes('standard');
+}
+
+function isDiscountPriceEntry(entry: PriceHistoryEntry): boolean {
+  if (typeof entry.msrp !== 'number') return false;
+  if (typeof entry.baseMsrp === 'number' && entry.msrp < entry.baseMsrp) {
+    return true;
+  }
+  return isWarbondEdition(entry.edition);
+}
+
+function isStandardOrNormalPriceEntry(entry: PriceHistoryEntry): boolean {
+  if (typeof entry.msrp !== 'number') return false;
+  if (isDiscountPriceEntry(entry)) return false;
+  if (typeof entry.baseMsrp === 'number') {
+    return entry.msrp >= entry.baseMsrp;
+  }
+  return isStandardEdition(entry.edition);
+}
+
+function buildStartShipStandardPricePeriods(history?: PriceHistoryEntity['history'] | null): OverlayPricePeriod[] {
+  if (!history?.length) {
+    return [];
+  }
+
+  const priceByStartTs = new Map<number, number>();
+  [...history]
+    .sort((a, b) => a.ts - b.ts)
+    .forEach(entry => {
+      if (entry.change !== '+' || !isStandardOrNormalPriceEntry(entry) || typeof entry.msrp !== 'number') {
+        return;
+      }
+
+      const existing = priceByStartTs.get(entry.ts);
+      if (existing === undefined || entry.msrp > existing) {
+        priceByStartTs.set(entry.ts, entry.msrp);
+      }
+    });
+
+  const sortedPoints = Array.from(priceByStartTs.entries()).sort((a, b) => a[0] - b[0]);
+  if (!sortedPoints.length) {
+    return [];
+  }
+
+  const periods: OverlayPricePeriod[] = [];
+  let currentStartTs: number | null = null;
+  let currentPriceCents: number | null = null;
+
+  sortedPoints.forEach(([ts, priceCents]) => {
+    if (currentPriceCents === null || currentStartTs === null) {
+      currentStartTs = ts;
+      currentPriceCents = priceCents;
+      return;
+    }
+
+    const nextPriceCents = Math.max(currentPriceCents, priceCents);
+    if (nextPriceCents === currentPriceCents) {
+      return;
+    }
+
+    periods.push({
+      startTs: currentStartTs,
+      endTs: ts,
+      price: currentPriceCents / 100
+    });
+
+    currentStartTs = ts;
+    currentPriceCents = nextPriceCents;
+  });
+
+  if (currentPriceCents !== null && currentStartTs !== null) {
+    periods.push({
+      startTs: currentStartTs,
+      endTs: null,
+      price: currentPriceCents / 100
+    });
+  }
+
+  return periods;
+}
+
 export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
   const isDevMode = import.meta.env.DEV;
@@ -305,7 +403,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   }, []);
 
   const selectableShips = useMemo(
-    () => ships.filter(ship => ship.msrp > 0).sort((a, b) => a.msrp - b.msrp),
+    () => ships.filter(ship => ship.msrp > 1500 && ship.msrp < 100000).sort((a, b) => a.msrp - b.msrp),
     [ships]
   );
 
@@ -384,6 +482,46 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     if (!reviewRequest) return null;
     return ships.find(ship => ship.id === reviewRequest.targetShipId) || null;
   }, [reviewRequest, ships]);
+
+  const sourceShipOverlaySeriesByShipId = useMemo(() => {
+    const overlayMap = new Map<number, Array<{
+      label: string;
+      periods: OverlayPricePeriod[];
+      color: string;
+      borderDash: number[];
+    }>>();
+
+    if (!reviewRoute) {
+      return overlayMap;
+    }
+
+    reviewRoute.edges.forEach(item => {
+      const sourceShipId = item.sourceShip.id;
+      if (overlayMap.has(sourceShipId)) {
+        return;
+      }
+
+      const periods = buildStartShipStandardPricePeriods(priceHistoryMap[sourceShipId]?.history || null);
+      if (!periods.length) {
+        return;
+      }
+
+      overlayMap.set(sourceShipId, [{
+        label: intl.formatMessage(
+          {
+            id: 'pathBuilder.startShipStandardPriceOverlay',
+            defaultMessage: '{ship} standard price'
+          },
+          { ship: item.sourceShip.name }
+        ),
+        periods,
+        color: 'rgb(71, 85, 105)',
+        borderDash: [6, 4]
+      }]);
+    });
+
+    return overlayMap;
+  }, [intl, priceHistoryMap, reviewRoute]);
 
   useEffect(() => {
     if (!open) {
@@ -909,8 +1047,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           },
                           popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } }
                         }}
-                        renderOption={(props, option) => (
-                          <li {...props}>
+                        renderOption={(props, option, state) => (
+                          <li {...props} key={state.index}>
                             <div className="flex items-center gap-3 w-full py-1">
                               <ShipImage ship={option} className="w-12 h-12" />
                               <div className="min-w-0">
@@ -965,8 +1103,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           listbox: { style: { maxHeight: 320 } },
                           popper: { sx: { zIndex: 1600, '& .MuiPaper-root': { borderRadius: 0 } } }
                         }}
-                        renderOption={(props, option) => (
-                          <li {...props}>
+                        renderOption={(props, option, state) => (
+                          <li {...props} key={state.index}>
                             <div className="flex items-center gap-3 w-full py-1">
                               <ShipImage ship={option} className="w-12 h-12" />
                               <div className="min-w-0">
@@ -1407,6 +1545,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                         history={priceHistoryMap[item.targetShip.id]?.history || null}
                                         currentMsrp={item.targetShip.msrp}
                                         shipName={item.targetShip.name}
+                                        overlaySeries={sourceShipOverlaySeriesByShipId.get(item.sourceShip.id) || []}
+                                        rangeStartTs={reviewRequest?.rangeStartTs}
+                                        rangeEndTs={reviewRequest?.rangeEndTs}
                                         highlightedSkuId={hoveredSkuContext?.stepKey === stepKey ? hoveredSkuContext.sku : null}
                                         showTitle={false}
                                         legendAlign="start"
