@@ -1228,7 +1228,7 @@ export default function PriceHistoryChart({
         }
       `}</style>
       <Box className={className || 'h-full flex flex-col'}>
-        <Box className={panelClassName || 'bg-white dark:bg-gray-800 pb-4 pl-4 flex-1 flex flex-col'}>
+        <Box className={panelClassName || 'bg-white dark:bg-[#121212] pb-4 pl-4 flex-1 flex flex-col'}>
           {showRealTimeScaleToggle && (
             <Box className='mb-2 flex justify-end'>
               <FormControlLabel

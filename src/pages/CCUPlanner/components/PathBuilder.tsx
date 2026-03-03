@@ -157,7 +157,7 @@ function ShipImage({
   const imageUrl = getShipImageUrl(ship);
   if (!imageUrl) {
     return (
-      <div className={`${className} ${placeholderClassName || ''} bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400`}>
+      <div className={`${className} ${placeholderClassName || ''} bg-gray-200 dark:bg-neutral-700 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400`}>
         N/A
       </div>
     );
@@ -167,7 +167,7 @@ function ShipImage({
     <img
       src={imageUrl}
       alt={ship?.name || 'ship'}
-      className={`${className} object-cover border border-gray-200 dark:border-gray-700`}
+      className={`${className} object-cover border border-gray-200 dark:border-neutral-700`}
     />
   );
 }
@@ -185,7 +185,7 @@ function UpgradePreview({
   const toImage = getShipImageUrl(toShip);
 
   return (
-    <div className={`relative overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-[#1b1b1b] ${className || 'w-[180px] h-[72px]'}`}>
+    <div className={`relative overflow-hidden border border-gray-200 dark:border-neutral-700 bg-gray-100 dark:bg-[#1b1b1b] ${className || 'w-[180px] h-[72px]'}`}>
       {fromImage ? (
         <img
           src={fromImage}
@@ -193,7 +193,7 @@ function UpgradePreview({
           className="absolute left-0 top-0 w-[35%] h-full object-cover"
         />
       ) : (
-        <div className="absolute left-0 top-0 w-[35%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700">N/A</div>
+        <div className="absolute left-0 top-0 w-[35%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">N/A</div>
       )}
 
       {toImage ? (
@@ -203,7 +203,7 @@ function UpgradePreview({
           className="absolute right-0 top-0 w-[65%] h-full object-cover shadow-[0_0_20px_0_rgba(0,0,0,0.22)]"
         />
       ) : (
-        <div className="absolute right-0 top-0 w-[65%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700">N/A</div>
+        <div className="absolute right-0 top-0 w-[65%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">N/A</div>
       )}
 
       <div className="absolute top-1/2 left-[35%] -translate-x-1/2 -translate-y-1/2 text-white">
@@ -230,7 +230,7 @@ function getCcuTypeStyle(sourceType: CcuSourceType): string {
       return 'bg-pink-50 text-pink-700 border border-pink-200 dark:bg-pink-900/30 dark:text-pink-200 dark:border-pink-700/70';
     case CcuSourceType.OFFICIAL:
     default:
-      return 'bg-gray-50 text-gray-700 border border-gray-200 dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-700';
+      return 'bg-gray-50 text-gray-700 border border-gray-200 dark:bg-neutral-900/50 dark:text-gray-200 dark:border-neutral-700';
   }
 }
 
@@ -1436,12 +1436,21 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       fullScreen
       slotProps={{
         paper: {
-          sx: { borderRadius: 0 },
-          className: 'dark:bg-[#0b0f14] dark:text-gray-100'
+          sx: (theme) => ({
+            borderRadius: 0,
+            ...(theme.palette.mode === 'dark'
+              ? {
+                backgroundColor: '#121212',
+                backgroundImage: 'none',
+                color: '#f3f4f6'
+              }
+              : {})
+          }),
+          className: 'dark:bg-[#121212] dark:text-gray-100'
         }
       }}
     >
-      <DialogTitle className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 dark:bg-gray-900/80">
+      <DialogTitle className="flex justify-between items-center border-b border-gray-200 dark:border-neutral-700 dark:bg-[#121212]">
         <div className="flex items-center gap-2">
           <FormattedMessage id="pathBuilder.title" defaultMessage="Path Builder" />
         </div>
@@ -1451,10 +1460,12 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       </DialogTitle>
 
       <DialogContent
-        className="p-0 h-full flex flex-col dark:bg-[#0b0f14] dark:text-gray-100"
+        className="p-0 h-full flex flex-col dark:bg-[#121212] dark:text-gray-100"
         sx={{
           p: 0,
           overflow: 'hidden',
+          backgroundColor: (theme) => (theme.palette.mode === 'dark' ? '#121212' : undefined),
+          backgroundImage: (theme) => (theme.palette.mode === 'dark' ? 'none' : undefined),
           '& .MuiButton-root': { borderRadius: 0 },
           '& .MuiChip-root': { borderRadius: 0 },
           '& .MuiOutlinedInput-root': { borderRadius: 0 }
@@ -1473,7 +1484,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
+                    <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                       <label htmlFor="auto-start-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.startShip" defaultMessage="Starting Ship" />
                       </label>
@@ -1514,7 +1525,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       />
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3">
+                      <div className="mt-3 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-2 sm:p-3">
                         {startShip ? (
                           <div className="flex items-center gap-3">
                             <ShipImage ship={startShip} className="w-16 h-12" />
@@ -1530,7 +1541,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       </div>
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3 flex flex-col gap-2">
+                      <div className="mt-3 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-2 sm:p-3 flex flex-col gap-2">
                         <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <div className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                             <FormattedMessage id="pathBuilder.ltiQuickSelect" defaultMessage="LTI Seed Ships (Quick Select)" />
@@ -1578,17 +1589,17 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   }
                                 }}
                                 className={`flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between gap-3 border px-3 py-2 transition-colors ${option.ship?.id === startShipId
-                                  ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30'
-                                  : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
+                                  ? 'border-blue-400 bg-blue-50 dark:border-neutral-600 dark:bg-neutral-900'
+                                  : 'border-gray-200 bg-white dark:border-neutral-700 dark:bg-[#121212]'
                                   } ${option.ship
-                                    ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-600'
+                                    ? 'cursor-pointer hover:border-blue-300 dark:hover:border-gray-600'
                                     : 'cursor-default opacity-80'}`}
                               >
                                 <div className="min-w-0 flex items-center gap-3">
                                   <ShipImage
                                     ship={option.ship}
                                     className="w-16 h-12 shrink-0"
-                                    placeholderClassName="border border-gray-200 dark:border-gray-700"
+                                    placeholderClassName="border border-gray-200 dark:border-neutral-700"
                                   />
                                   <div className="min-w-0">
                                     <div className="text-sm font-semibold truncate">{option.displayName}</div>
@@ -1633,7 +1644,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
                     </div>
 
-                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
+                    <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                       <label htmlFor="auto-target-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.targetShip" defaultMessage="Target Ship" />
                       </label>
@@ -1672,7 +1683,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       />
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3">
+                      <div className="mt-3 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-2 sm:p-3">
                         {targetShip ? (
                           <div className="flex items-center gap-3">
                             <ShipImage ship={targetShip} className="w-16 h-12" />
@@ -1692,7 +1703,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 </div>
 
                 <div className="flex flex-col gap-3 sm:gap-4">
-                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 flex flex-col gap-3">
+                  <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 flex flex-col gap-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-3">
                       <div className="flex flex-col gap-2">
                         <label htmlFor="auto-range-start" className="text-sm font-medium">
@@ -1703,7 +1714,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           type="date"
                           value={rangeStartDate}
                           onChange={(e) => setRangeStartDate(e.target.value)}
-                          className="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-white dark:bg-gray-950/80 text-gray-900 dark:text-gray-100"
+                          className="border border-gray-300 dark:border-neutral-600 px-3 py-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100"
                         />
                       </div>
 
@@ -1716,13 +1727,13 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           type="date"
                           value={rangeEndDate}
                           onChange={(e) => setRangeEndDate(e.target.value)}
-                          className="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-white dark:bg-gray-950/80 text-gray-900 dark:text-gray-100"
+                          className="border border-gray-300 dark:border-neutral-600 px-3 py-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
+                  <div className="flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                     <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1784,7 +1795,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     </label>
 
                     {isDevMode && (
-                      <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-700">
+                      <div className="pt-2 mt-1 border-t border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-2">
                           <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
                             <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
@@ -1840,7 +1851,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     )}
                   </div>
 
-                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
+                  <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                     <div className="text-sm font-medium">
                       <FormattedMessage id="pathBuilder.requiredHangarTitle" defaultMessage="Required hangar CCUs" />
                     </div>
@@ -1871,7 +1882,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-3 sm:p-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <div className="border-t border-gray-200 dark:border-neutral-700 dark:bg-[#121212] p-3 sm:p-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button onClick={onClose} variant="outlined" disabled={isCalculating} className="w-full sm:w-auto">
                 <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
               </Button>
@@ -1891,7 +1902,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="flex-1 min-h-0 overflow-auto touch-pan-y xl:overflow-hidden p-2 sm:p-4 pb-3 sm:pb-4 flex flex-col gap-3 sm:gap-4">
               {/* {isCalculating && (
-                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 p-2">
+                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 dark:text-gray-200 dark:bg-neutral-900 dark:border-neutral-700 p-2">
                   <CircularProgress size={16} />
                   <FormattedMessage
                     id="pathBuilder.recalculating"
@@ -1908,7 +1919,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
 
               {isDevMode && (buildStepPerfStats || reviewStepPerfStats) && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-2">
                   {buildStepPerfStats && (
                     <div>Step 1 (Build): {formatPathBuilderPerfLog(buildStepPerfStats)}</div>
                   )}
@@ -1926,7 +1937,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
               {reviewStartShip && reviewTargetShip && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-3">
+                  <div className="border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-3">
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       <FormattedMessage id="pathBuilder.startShip" defaultMessage="Starting Ship" />
                     </div>
@@ -1939,7 +1950,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     </div>
                   </div>
 
-                  <div className="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-3">
+                  <div className="border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-3">
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       <FormattedMessage id="pathBuilder.targetShip" defaultMessage="Target Ship" />
                     </div>
@@ -1955,7 +1966,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               )}
 
               {reviewRequest && reviewRangeDraftIndices && reviewTimelineDayTs.length > 0 && (
-                <div className="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-3">
+                <div className="border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-3">
                   {reviewTimelineDayTs.length > 1 ? (
                     <div className="pt-1">
                       <div className='px-2'>
@@ -2003,13 +2014,13 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
                     </div>
                   ) : (
-                    <div className="h-6 border-t border-gray-300 dark:border-gray-700" />
+                    <div className="h-6 border-t border-gray-300 dark:border-neutral-700" />
                   )}
                 </div>
               )}
 
               <div className="xl:flex-1 min-h-0 flex flex-col gap-3 sm:gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-1">
-                <div className="flex flex-col gap-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
+                <div className="flex flex-col gap-3 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
                   {reviewRoute ? (
                     <>
                       <div className="text-sm font-medium">
@@ -2047,7 +2058,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           const groupedValidityWindows = groupValidityWindowsBySku(clippedValidityWindows);
 
                           return (
-                            <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-700 p-2 sm:p-3 bg-white dark:bg-gray-950/70">
+                            <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-neutral-700 p-2 sm:p-3 bg-white dark:bg-neutral-900">
                               <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-3 sm:gap-4 xl:gap-5">
                                 <div className='flex flex-col gap-3 sm:gap-4'>
                                   <div className="text-sm font-semibold">
@@ -2058,7 +2069,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     <span className={`text-xs px-2 py-[2px] ${getCcuTypeStyle(item.sourceType)}`}>
                                       {getCcuTypeLabel(item.sourceType)}
                                     </span>
-                                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 px-2 py-[2px]">
+                                    <span className="text-xs font-medium text-blue-700 dark:text-gray-200 bg-blue-50 dark:bg-neutral-900 px-2 py-[2px]">
                                       {formatUsd(item.cost)}
                                     </span>
                                     {officialUpgradeCost > 0 && (
@@ -2085,7 +2096,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                           return (
                                             <div
                                               key={`${item.key}-${skuGroup.sku}-${groupIndex}`}
-                                              className={`flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 p-1 3xl:flex-row 3xl:items-center 3xl:justify-between ${isHovered ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+                                              className={`flex flex-col items-start gap-2 text-xs text-gray-600 dark:text-gray-300 p-1 3xl:flex-row 3xl:items-center 3xl:justify-between ${isHovered ? 'bg-blue-50 dark:bg-neutral-900/70' : ''}`}
                                               onMouseEnter={() => setHoveredSkuContext({ stepKey, sku: skuGroup.sku })}
                                               onMouseLeave={() => {
                                                 setHoveredSkuContext(prev =>
@@ -2146,7 +2157,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   </div>
                                 </div>
 
-                                <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/80 p-2 sm:p-3 flex-1">
+                                <div className="min-w-0 border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-[#121212] p-2 sm:p-3 flex-1">
                                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                                     <FormattedMessage
                                       id="pathBuilder.stepPriceHistoryTitle"
@@ -2175,7 +2186,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                       />
                                     </div>
                                   ) : (
-                                    <div className="h-[220px] border border-dashed border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                                    <div className="h-[220px] border border-dashed border-gray-300 dark:border-neutral-600 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center">
                                       <FormattedMessage
                                         id="pathBuilder.stepPriceHistoryEmpty"
                                         defaultMessage="No price history data."
@@ -2199,7 +2210,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
+                <div className="flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
                   <div className="text-sm font-medium">
                     <FormattedMessage
                       id="pathBuilder.excludedTitle"
@@ -2266,7 +2277,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
             </div>
 
-            <div className="mt-0 sm:mt-3 border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-end gap-2">
+            <div className="mt-0 sm:mt-3 border-t border-gray-200 dark:border-neutral-700 dark:bg-[#121212] p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-end gap-2">
               <Button
                 onClick={handleConfirmRoute}
                 variant="contained"
