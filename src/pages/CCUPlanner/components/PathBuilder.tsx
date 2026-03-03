@@ -1484,7 +1484,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
+                    <div className="joyride-path-builder-start-ship border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                       <label htmlFor="auto-start-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.startShip" defaultMessage="Starting Ship" />
                       </label>
@@ -1644,7 +1644,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
                     </div>
 
-                    <div className="border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
+                    <div className="joyride-path-builder-target-ship border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                       <label htmlFor="auto-target-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.targetShip" defaultMessage="Target Ship" />
                       </label>
@@ -1733,7 +1733,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
+                  <div className="joyride-path-builder-options flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3">
                     <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1886,7 +1886,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               <Button onClick={onClose} variant="outlined" disabled={isCalculating} className="w-full sm:w-auto">
                 <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
               </Button>
-              <Button onClick={handleGenerateForReview} variant="contained" color="primary" disabled={isCalculating} className="w-full sm:w-auto">
+              <Button onClick={handleGenerateForReview} variant="contained" color="primary" disabled={isCalculating} className="joyride-path-builder-create w-full sm:w-auto">
                 {isCalculating ? (
                   <span className="flex items-center gap-2">
                     <CircularProgress size={16} color="inherit" />

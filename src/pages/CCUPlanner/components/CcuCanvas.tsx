@@ -36,6 +36,9 @@ import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
+import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
+
+const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -100,6 +103,7 @@ function CcuCanvasContent() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
+  const joyrideStepRetryTimeoutRef = useRef<number | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -111,6 +115,8 @@ function CcuCanvasContent() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
+  const [explorePathJoyrideRun, setExplorePathJoyrideRun] = useState(false);
+  const [explorePathJoyrideStepIndex, setExplorePathJoyrideStepIndex] = useState(0);
 
   // Use data from context
   const {
@@ -743,8 +749,192 @@ function CcuCanvasContent() {
     setSelectedPathEdgeIds(path ? path.edges.map(pathEdge => pathEdge.edge.id) : []);
   }, [setSelectedPathEdgeIds]);
 
+  const explorePathJoyrideLocale = useMemo(() => ({
+    back: intl.formatMessage({ id: 'joyride.back', defaultMessage: 'Back' }),
+    close: intl.formatMessage({ id: 'joyride.close', defaultMessage: 'Close' }),
+    last: intl.formatMessage({ id: 'joyride.last', defaultMessage: 'Finish' }),
+    next: intl.formatMessage({ id: 'joyride.next', defaultMessage: 'Next' }),
+    nextLabelWithProgress: intl.formatMessage(
+      { id: 'joyride.nextWithProgress', defaultMessage: 'Next ({step}/{steps})' },
+      { step: '{step}', steps: '{steps}' }
+    ),
+    skip: intl.formatMessage({ id: 'joyride.skip', defaultMessage: 'Skip Tutorial' }),
+  }), [intl]);
+
+  const explorePathJoyrideSteps = useMemo<JoyrideStep[]>(() => [
+    {
+      target: '.joyride-path-builder-trigger',
+      title: intl.formatMessage({ id: 'pathBuilder.joyride.title.trigger', defaultMessage: 'Open Explore' }),
+      content: intl.formatMessage({
+        id: 'pathBuilder.joyride.content.trigger',
+        defaultMessage: 'Click here to open Explore and auto-generate an upgrade route from your starting ship to your target ship.'
+      }),
+      disableBeacon: true,
+      placement: 'top'
+    },
+    {
+      target: '.joyride-path-builder-start-ship',
+      title: intl.formatMessage({ id: 'pathBuilder.joyride.title.startShip', defaultMessage: 'Pick a Starting Ship' }),
+      content: intl.formatMessage({
+        id: 'pathBuilder.joyride.content.startShip',
+        defaultMessage: 'Select the ship you currently own or plan to start from. You can also use the LTI quick-select list.'
+      })
+    },
+    {
+      target: '.joyride-path-builder-target-ship',
+      title: intl.formatMessage({ id: 'pathBuilder.joyride.title.targetShip', defaultMessage: 'Pick a Target Ship' }),
+      content: intl.formatMessage({
+        id: 'pathBuilder.joyride.content.targetShip',
+        defaultMessage: 'Choose the final ship you want to reach. The selectable list is filtered based on price progression.'
+      })
+    },
+    {
+      target: '.joyride-path-builder-options',
+      title: intl.formatMessage({ id: 'pathBuilder.joyride.title.options', defaultMessage: 'Configure Strategy' }),
+      content: intl.formatMessage({
+        id: 'pathBuilder.joyride.content.options',
+        defaultMessage: 'Adjust date range and route options here, such as Warbond history, price increases, and hangar preference.'
+      })
+    },
+    {
+      target: '.joyride-path-builder-create',
+      title: intl.formatMessage({ id: 'pathBuilder.joyride.title.create', defaultMessage: 'Generate Route' }),
+      content: intl.formatMessage({
+        id: 'pathBuilder.joyride.content.create',
+        defaultMessage: 'After setting everything up, click this button to generate and review the route before adding it to the canvas.'
+      }),
+      placement: 'top-end'
+    }
+  ], [intl]);
+
+  const scheduleExplorePathJoyrideStepRetry = useCallback((stepIndex: number, delayMs: number = 300) => {
+    if (joyrideStepRetryTimeoutRef.current) {
+      window.clearTimeout(joyrideStepRetryTimeoutRef.current);
+      joyrideStepRetryTimeoutRef.current = null;
+    }
+
+    joyrideStepRetryTimeoutRef.current = window.setTimeout(() => {
+      setExplorePathJoyrideStepIndex(stepIndex);
+      joyrideStepRetryTimeoutRef.current = null;
+    }, delayMs);
+  }, []);
+
+  const finishExplorePathJoyride = useCallback(() => {
+    if (joyrideStepRetryTimeoutRef.current) {
+      window.clearTimeout(joyrideStepRetryTimeoutRef.current);
+      joyrideStepRetryTimeoutRef.current = null;
+    }
+    setExplorePathJoyrideRun(false);
+    setExplorePathJoyrideStepIndex(0);
+    localStorage.setItem(EXPLORE_PATH_JOYRIDE_STORAGE_KEY, 'true');
+  }, []);
+
+  const handleExplorePathJoyrideCallback = useCallback((data: CallBackProps) => {
+    const { action, index, status, type } = data;
+
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      finishExplorePathJoyride();
+      return;
+    }
+
+    if (type === EVENTS.STEP_AFTER) {
+      if (index === 0 && action !== ACTIONS.PREV) {
+        if (!pathBuilderOpen) {
+          setPathBuilderOpen(true);
+        }
+        scheduleExplorePathJoyrideStepRetry(1, 320);
+        return;
+      }
+
+      const nextIndex = action === ACTIONS.PREV ? index - 1 : index + 1;
+      setExplorePathJoyrideStepIndex(Math.max(nextIndex, 0));
+      return;
+    }
+
+    if (type === EVENTS.TARGET_NOT_FOUND) {
+      if (index > 0 && !pathBuilderOpen) {
+        setPathBuilderOpen(true);
+      }
+
+      scheduleExplorePathJoyrideStepRetry(Math.max(index, 0), 320);
+    }
+  }, [finishExplorePathJoyride, pathBuilderOpen, scheduleExplorePathJoyrideStepRetry]);
+
+  useEffect(() => {
+    const hasSeenExplorePathJoyride = localStorage.getItem(EXPLORE_PATH_JOYRIDE_STORAGE_KEY) === 'true';
+    if (hasSeenExplorePathJoyride) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setExplorePathJoyrideStepIndex(0);
+      setExplorePathJoyrideRun(true);
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (joyrideStepRetryTimeoutRef.current) {
+        window.clearTimeout(joyrideStepRetryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (explorePathJoyrideRun && explorePathJoyrideStepIndex > 0 && !pathBuilderOpen) {
+      setPathBuilderOpen(true);
+    }
+  }, [explorePathJoyrideRun, explorePathJoyrideStepIndex, pathBuilderOpen]);
+
   return (
     <div className="h-[100%] w-full flex sm:flex-row flex-col">
+      <Joyride
+        callback={handleExplorePathJoyrideCallback}
+        continuous
+        hideCloseButton
+        run={explorePathJoyrideRun}
+        stepIndex={explorePathJoyrideStepIndex}
+        scrollToFirstStep
+        showProgress
+        showSkipButton
+        disableScrolling
+        disableOverlayClose
+        spotlightClicks
+        steps={explorePathJoyrideSteps}
+        locale={explorePathJoyrideLocale}
+        styles={{
+          options: {
+            zIndex: 20000,
+          },
+          tooltip: {
+            maxWidth: 320
+          },
+          tooltipFooter: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'nowrap'
+          },
+          buttonNext: {
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            minWidth: 116
+          },
+          buttonBack: {
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          },
+          buttonSkip: {
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }
+        }}
+      />
+
       <div className="min-w-[320px] w-full sm:w-fit sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
         <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>

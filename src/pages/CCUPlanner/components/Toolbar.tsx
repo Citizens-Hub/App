@@ -118,6 +118,7 @@ export default function Toolbar({
         <Button
           variant="outlined"
           onClick={onOpenPathBuilder}
+          className="joyride-path-builder-trigger"
           title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
           aria-label={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
           color="primary"
