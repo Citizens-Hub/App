@@ -294,7 +294,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 <div
                   draggable
                   onDragStart={(event) => onDragStart(event, toShip)}
-                  className="p-2 cursor-move transition-colors hover:bg-amber-100 w-full"
+                  className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900 w-full"
                 >
                   <div className="flex items-center text-left">
                     <img
