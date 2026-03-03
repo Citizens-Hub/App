@@ -571,11 +571,6 @@ function CcuCanvasContent() {
     );
   }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert, clearAutoSaveTimer]);
 
-  const handleSave = useCallback(() => {
-    clearAutoSaveTimer();
-    saveFlowData('manual');
-  }, [clearAutoSaveTimer, saveFlowData]);
-
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
 
@@ -791,7 +786,6 @@ function CcuCanvasContent() {
                 saveStatus={autoSaveStatus}
                 lastSavedAt={lastAutoSavedAt}
                 onClear={handleClear}
-                onSave={handleSave}
                 onExport={handleExport}
                 onImport={handleImport}
                 onOpenPathBuilder={handleOpenPathBuilder}

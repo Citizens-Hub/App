@@ -1453,6 +1453,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       <DialogContent
         className="p-0 h-full flex flex-col dark:bg-[#0b0f14] dark:text-gray-100"
         sx={{
+          p: 0,
           overflow: 'hidden',
           '& .MuiButton-root': { borderRadius: 0 },
           '& .MuiChip-root': { borderRadius: 0 },
@@ -1461,9 +1462,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       >
         {step === 'configure' ? (
           <div className="flex h-full min-h-0 flex-col">
-            <div className="flex-1 min-h-0 overflow-auto p-4">
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                <div className="xl:col-span-2 flex flex-col gap-4">
+            <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4">
+                <div className="xl:col-span-2 flex flex-col gap-3 sm:gap-4">
                   <div className="text-sm text-gray-500 dark:text-gray-300">
                     <FormattedMessage
                       id="pathBuilder.autoHint"
@@ -1471,8 +1472,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
                       <label htmlFor="auto-start-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.startShip" defaultMessage="Starting Ship" />
                       </label>
@@ -1513,7 +1514,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       />
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-3">
+                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3">
                         {startShip ? (
                           <div className="flex items-center gap-3">
                             <ShipImage ship={startShip} className="w-16 h-12" />
@@ -1529,8 +1530,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       </div>
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-3 flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2">
+                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3 flex flex-col gap-2">
+                        <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <div className="text-xs font-semibold text-gray-600 dark:text-gray-300">
                             <FormattedMessage id="pathBuilder.ltiQuickSelect" defaultMessage="LTI Seed Ships (Quick Select)" />
                           </div>
@@ -1576,7 +1577,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     setStartShipId(option.ship.id);
                                   }
                                 }}
-                                className={`flex items-center justify-between gap-3 border px-3 py-2 transition-colors ${option.ship?.id === startShipId
+                                className={`flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between gap-3 border px-3 py-2 transition-colors ${option.ship?.id === startShipId
                                   ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30'
                                   : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
                                   } ${option.ship
@@ -1616,6 +1617,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   size="small"
                                   variant="text"
                                   color="warning"
+                                  className="!self-start sm:!self-auto"
                                   component="a"
                                   href={option.warbondUrl}
                                   target="_blank"
@@ -1631,7 +1633,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
                     </div>
 
-                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3">
+                    <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
                       <label htmlFor="auto-target-ship" className="text-sm font-medium">
                         <FormattedMessage id="pathBuilder.targetShip" defaultMessage="Target Ship" />
                       </label>
@@ -1670,7 +1672,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         )}
                       />
 
-                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-3">
+                      <div className="mt-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/70 p-2 sm:p-3">
                         {targetShip ? (
                           <div className="flex items-center gap-3">
                             <ShipImage ship={targetShip} className="w-16 h-12" />
@@ -1689,8 +1691,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3 flex flex-col gap-3">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 flex flex-col gap-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-3">
                       <div className="flex flex-col gap-2">
                         <label htmlFor="auto-range-start" className="text-sm font-medium">
@@ -1720,10 +1722,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
+                    <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
+                        className="mt-0.5 shrink-0"
                         checked={includeWarbond}
                         onChange={(e) => setIncludeWarbond(e.target.checked)}
                       />
@@ -1735,9 +1738,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </span>
                     </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
+                        className="mt-0.5 shrink-0"
                         checked={includePriceIncrease}
                         onChange={(e) => setIncludePriceIncrease(e.target.checked)}
                       />
@@ -1749,9 +1753,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </span>
                     </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
+                        className="mt-0.5 shrink-0"
                         checked={ignoreTargetAvailability}
                         onChange={(e) => setIgnoreTargetAvailability(e.target.checked)}
                       />
@@ -1763,9 +1768,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </span>
                     </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-start gap-2 cursor-pointer">
                       <input
                         type="checkbox"
+                        className="mt-0.5 shrink-0"
                         checked={preferHangarCcu}
                         onChange={(e) => setPreferHangarCcu(e.target.checked)}
                       />
@@ -1779,7 +1785,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
                     {isDevMode && (
                       <div className="pt-2 mt-1 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-2">
                           <label htmlFor="useWasmPathBuilder" className="text-sm text-gray-600 dark:text-gray-400">
                             <FormattedMessage id="pathBuilder.useWasmPathBuilder" defaultMessage="Use WASM Path Builder" />
                           </label>
@@ -1793,7 +1799,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           />
                         </div>
 
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-2">
                           <label htmlFor="comparePathBuilderPerf" className="text-sm text-gray-600 dark:text-gray-400">
                             <FormattedMessage id="pathBuilder.comparePathBuilderPerf" defaultMessage="Compare JS + C-WASM (Dev)" />
                           </label>
@@ -1834,7 +1840,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     )}
                   </div>
 
-                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3">
+                  <div className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3">
                     <div className="text-sm font-medium">
                       <FormattedMessage id="pathBuilder.requiredHangarTitle" defaultMessage="Required hangar CCUs" />
                     </div>
@@ -1865,11 +1871,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-4 flex justify-end gap-2">
-              <Button onClick={onClose} variant="outlined" disabled={isCalculating}>
+            <div className="border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-3 sm:p-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button onClick={onClose} variant="outlined" disabled={isCalculating} className="w-full sm:w-auto">
                 <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
               </Button>
-              <Button onClick={handleGenerateForReview} variant="contained" color="primary" disabled={isCalculating}>
+              <Button onClick={handleGenerateForReview} variant="contained" color="primary" disabled={isCalculating} className="w-full sm:w-auto">
                 {isCalculating ? (
                   <span className="flex items-center gap-2">
                     <CircularProgress size={16} color="inherit" />
@@ -1882,8 +1888,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
             </div>
           </div>
         ) : (
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col gap-4">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto touch-pan-y xl:overflow-hidden p-2 sm:p-4 pb-3 sm:pb-4 flex flex-col gap-3 sm:gap-4">
               {/* {isCalculating && (
                 <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 p-2">
                   <CircularProgress size={16} />
@@ -2002,8 +2008,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 </div>
               )}
 
-              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:grid-rows-1 gap-4">
-                <div className="flex flex-col gap-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3 min-h-0 overflow-hidden">
+              <div className="xl:flex-1 min-h-0 flex flex-col gap-3 sm:gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-1">
+                <div className="flex flex-col gap-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
                   {reviewRoute ? (
                     <>
                       <div className="text-sm font-medium">
@@ -2027,7 +2033,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         />
                       </div>
 
-                      <div className="min-h-0 overflow-auto pr-1 flex flex-col gap-2">
+                      <div className="overflow-visible xl:min-h-0 xl:overflow-auto pr-0 sm:pr-1 flex flex-col gap-2">
                         {reviewRoute.edges.map((item, index) => {
                           const stepKey = `${item.key}-${index}`;
                           const officialUpgradeCost = Math.max(0, (item.targetShip.msrp - item.sourceShip.msrp) / 100);
@@ -2041,9 +2047,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           const groupedValidityWindows = groupValidityWindowsBySku(clippedValidityWindows);
 
                           return (
-                            <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-950/70">
-                              <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-4 xl:gap-5">
-                                <div className='flex flex-col gap-4'>
+                            <div key={`${item.edge.id}-${index}`} className="border border-gray-200 dark:border-gray-700 p-2 sm:p-3 bg-white dark:bg-gray-950/70">
+                              <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-3 sm:gap-4 xl:gap-5">
+                                <div className='flex flex-col gap-3 sm:gap-4'>
                                   <div className="text-sm font-semibold">
                                     {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
                                   </div>
@@ -2061,7 +2067,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                       </span>
                                     )}
                                   </div>
-                                  <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
+                                  <UpgradePreview fromShip={item.sourceShip} toShip={item.targetShip} className="w-full h-[128px] sm:h-[160px] xl:w-[360px] xl:h-[180px] shrink-0" />
                                 </div>
                                 <div className="min-w-0 flex flex-col gap-2">
                                   {groupedValidityWindows.length > 0 && (
@@ -2140,7 +2146,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   </div>
                                 </div>
 
-                                <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/80 p-3 flex-1">
+                                <div className="min-w-0 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/80 p-2 sm:p-3 flex-1">
                                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                                     <FormattedMessage
                                       id="pathBuilder.stepPriceHistoryTitle"
@@ -2150,7 +2156,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                   </div>
 
                                   {priceHistoryMap[item.targetShip.id]?.history?.length ? (
-                                    <div className="h-[340px]">
+                                    <div className="h-[220px] sm:h-[300px] xl:h-[340px]">
                                       <PriceHistoryChart
                                         history={priceHistoryMap[item.targetShip.id]?.history || null}
                                         currentMsrp={item.targetShip.msrp}
@@ -2165,7 +2171,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                         legendPosition="left"
                                         showSkuMetaInTooltip
                                         className="h-full"
-                                        panelClassName="h-full flex flex-col bg-transparent pb-3 pl-3 pr-2"
+                                        panelClassName="h-full flex flex-col bg-transparent pb-2 sm:pb-3 pl-2 sm:pl-3 pr-1 sm:pr-2"
                                       />
                                     </div>
                                   ) : (
@@ -2193,14 +2199,14 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-3 min-h-0 overflow-hidden">
+                <div className="flex flex-col gap-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
                   <div className="text-sm font-medium">
                     <FormattedMessage
                       id="pathBuilder.excludedTitle"
                       defaultMessage="Excluded items"
                     />
                   </div>
-                  <div className="flex-1 min-h-0 overflow-auto pr-1 flex flex-col gap-3">
+                  <div className="xl:flex-1 xl:min-h-0 overflow-visible xl:overflow-auto pr-0 sm:pr-1 flex flex-col gap-3">
                     {excludedSkuIds.length > 0 && (
                       <div className="flex flex-col gap-2">
                         <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -2260,12 +2266,15 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-4 flex justify-end gap-2 flex-wrap">
-              <Button onClick={onClose} variant="outlined" disabled={isCalculating}>
-                <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
-              </Button>
-              <Button onClick={() => setStep('configure')} variant="outlined" disabled={isCalculating}>
-                <FormattedMessage id="pathBuilder.backToSettings" defaultMessage="Back to settings" />
+            <div className="mt-0 sm:mt-3 border-t border-gray-200 dark:border-gray-700 dark:bg-gray-900/80 p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-end gap-2">
+              <Button
+                onClick={handleConfirmRoute}
+                variant="contained"
+                color="primary"
+                disabled={!reviewRoute || isCalculating}
+                className="w-full sm:w-auto"
+              >
+                <FormattedMessage id="pathBuilder.addToCanvas" defaultMessage="Add to canvas" />
               </Button>
               <Button
                 onClick={() => {
@@ -2278,17 +2287,18 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 }}
                 variant="outlined"
                 disabled={(excludedCcus.length === 0 && excludedSkuIds.length === 0) || isCalculating}
+                className="w-full sm:w-auto"
               >
                 <FormattedMessage id="pathBuilder.clearExcluded" defaultMessage="Reset excluded CCUs" />
               </Button>
-              <Button
-                onClick={handleConfirmRoute}
-                variant="contained"
-                color="primary"
-                disabled={!reviewRoute || isCalculating}
-              >
-                <FormattedMessage id="pathBuilder.addToCanvas" defaultMessage="Add to canvas" />
-              </Button>
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2">
+                <Button onClick={() => setStep('configure')} variant="outlined" disabled={isCalculating} className="w-full sm:w-auto">
+                  <FormattedMessage id="pathBuilder.backToSettings" defaultMessage="Back to settings" />
+                </Button>
+                <Button onClick={onClose} variant="outlined" disabled={isCalculating} className="w-full sm:w-auto">
+                  <FormattedMessage id="pathBuilder.cancel" defaultMessage="Cancel" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
