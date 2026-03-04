@@ -154,11 +154,15 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       }, "");
 
       if (!from) {
-        from = ships.find(ship => ship.id === Number(fromCandidates[1]))?.name || ""
+        fromCandidates.forEach(candidate => {
+          from = ships.find(ship => ship.id === Number(candidate))?.name || from
+        })
       }
 
       if (!to) {
-        to = ships.find(ship => ship.id === Number(toCandidates[1]))?.name || ""
+        toCandidates.forEach(candidate => {
+          from = ships.find(ship => ship.id === Number(candidate))?.name || from
+        })
       }
 
       if (!from || !to || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from)) || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to))) {
