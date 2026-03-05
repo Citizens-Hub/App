@@ -1,4 +1,5 @@
-import { Button } from '@mui/material';
+import { useState } from 'react';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import { Trash2, Download, Upload, Route, HelpCircle, Save, SaveOff } from 'lucide-react';
 import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -27,6 +28,7 @@ export default function Toolbar({
 }: ToolbarProps) {
   const hasContent = nodes.length > 0;
   const intl = useIntl();
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const actionButtonSx = {
     display: 'flex',
     alignItems: 'center',
@@ -69,96 +71,138 @@ export default function Toolbar({
   const formattedLastSavedTime = lastSavedAt
     ? new Date(lastSavedAt).toLocaleTimeString(intl.locale, { hour: '2-digit', minute: '2-digit' })
     : null;
+
+  const handleOpenClearDialog = () => {
+    setClearDialogOpen(true);
+  };
+
+  const handleCloseClearDialog = () => {
+    setClearDialogOpen(false);
+  };
+
+  const handleConfirmClear = () => {
+    onClear();
+    setClearDialogOpen(false);
+  };
   
   return (
-    <div className="p-2 sm:p-3 my-0 shadow-md flex items-center gap-1.5 sm:gap-2">
-      <Button
-        variant="outlined"
-        color="error"
-        onClick={onClear}
-        disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
-        aria-label={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
-        sx={actionButtonSx}
-      >
-        <Trash2 size={16} />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
-        </span>
-      </Button>
-      
-      <Button
-        variant="outlined"
-        onClick={onExport}
-        disabled={!hasContent}
-        title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
-        aria-label={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
-        sx={actionButtonSx}
-      >
-        <Download size={16} className='shrink-0' />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.export" defaultMessage="Export" />
-        </span>
-      </Button>
-
-      <Button
-        variant="outlined"
-        onClick={onImport}
-        title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
-        aria-label={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
-        sx={actionButtonSx}
-      >
-        <Upload size={16} className='shrink-0' />
-        <span className="xl:block hidden">
-          <FormattedMessage id="toolbar.import" defaultMessage="Import" />
-        </span>
-      </Button>
-      
-      {onOpenPathBuilder && (
+    <>
+      <div className="p-2 sm:p-3 my-0 shadow-md flex items-center gap-1.5 sm:gap-2">
         <Button
           variant="outlined"
-          onClick={onOpenPathBuilder}
-          className="joyride-path-builder-trigger"
-          title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
-          aria-label={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
-          color="primary"
+          color="error"
+          onClick={handleOpenClearDialog}
+          disabled={!hasContent}
+          title={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
+          aria-label={intl.formatMessage({ id: "toolbar.clear", defaultMessage: "Clear" })}
           sx={actionButtonSx}
         >
-          <Route size={16} className='shrink-0' />
-          <span className="xl:block hidden text-nowrap">
-            <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
+          <Trash2 size={16} />
+          <span className="xl:block hidden">
+            <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
           </span>
         </Button>
-      )}
 
-      {
-        onOpenGuide && (
+        <Button
+          variant="outlined"
+          onClick={onExport}
+          disabled={!hasContent}
+          title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
+          aria-label={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
+          sx={actionButtonSx}
+        >
+          <Download size={16} className='shrink-0' />
+          <span className="xl:block hidden">
+            <FormattedMessage id="toolbar.export" defaultMessage="Export" />
+          </span>
+        </Button>
+
+        <Button
+          variant="outlined"
+          onClick={onImport}
+          title={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
+          aria-label={intl.formatMessage({ id: "toolbar.import", defaultMessage: "Import" })}
+          sx={actionButtonSx}
+        >
+          <Upload size={16} className='shrink-0' />
+          <span className="xl:block hidden">
+            <FormattedMessage id="toolbar.import" defaultMessage="Import" />
+          </span>
+        </Button>
+
+        {onOpenPathBuilder && (
           <Button
             variant="outlined"
-            onClick={onOpenGuide}
-            title={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
-            aria-label={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
+            onClick={onOpenPathBuilder}
+            className="joyride-path-builder-trigger"
+            title={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
+            aria-label={intl.formatMessage({ id: "toolbar.pathBuilder", defaultMessage: "Path Builder" })}
+            color="primary"
             sx={actionButtonSx}
           >
-            <HelpCircle size={16} className='shrink-0' />
+            <Route size={16} className='shrink-0' />
             <span className="xl:block hidden text-nowrap">
-              <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
+              <FormattedMessage id="toolbar.pathBuilder" defaultMessage="Path Builder" />
             </span>
           </Button>
-        )
-      }
+        )}
 
-      {hasContent && (
-        <div
-          className="ml-auto flex items-center px-1 sm:px-2"
-          title={formattedLastSavedTime
-            ? `${saveStatusDisplay.label} (${formattedLastSavedTime})`
-            : saveStatusDisplay.label}
-          aria-label={saveStatusDisplay.label}
-        >
-          {saveStatusDisplay.icon}
-        </div>
-      )}
-    </div>
+        {
+          onOpenGuide && (
+            <Button
+              variant="outlined"
+              onClick={onOpenGuide}
+              title={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
+              aria-label={intl.formatMessage({ id: "toolbar.guide", defaultMessage: "Guide" })}
+              sx={actionButtonSx}
+            >
+              <HelpCircle size={16} className='shrink-0' />
+              <span className="xl:block hidden text-nowrap">
+                <FormattedMessage id="toolbar.guide" defaultMessage="Guide" />
+              </span>
+            </Button>
+          )
+        }
+
+        {hasContent && (
+          <div
+            className="ml-auto flex items-center px-1 sm:px-2"
+            title={formattedLastSavedTime
+              ? `${saveStatusDisplay.label} (${formattedLastSavedTime})`
+              : saveStatusDisplay.label}
+            aria-label={saveStatusDisplay.label}
+          >
+            {saveStatusDisplay.icon}
+          </div>
+        )}
+      </div>
+
+      <Dialog
+        open={clearDialogOpen}
+        onClose={handleCloseClearDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <FormattedMessage id="toolbar.clearConfirmTitle" defaultMessage="Clear all content?" />
+        </DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            <FormattedMessage
+              id="toolbar.clearConfirmDescription"
+              defaultMessage="This action will remove all nodes and connections and cannot be undone."
+            />
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseClearDialog}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={handleConfirmClear} variant="contained" color="error">
+            <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 } 

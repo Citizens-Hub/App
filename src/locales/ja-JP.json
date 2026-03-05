@@ -44,6 +44,8 @@
   "toolbar.export": "エクスポート",
   "toolbar.import": "インポート",
   "toolbar.pathBuilder": "パスビルダー",
+  "toolbar.clearConfirmTitle": "すべての内容をクリアしますか？",
+  "toolbar.clearConfirmDescription": "この操作で全てのノードと接続が削除され、元に戻せません。",
   "pathBuilder.title": "パスビルダー",
   "pathBuilder.joyride.title.trigger": "探索を開く",
   "pathBuilder.joyride.content.trigger": "ここをクリックすると探索機能を開き、開始艦船から目標艦船までのルートを自動生成できます。",

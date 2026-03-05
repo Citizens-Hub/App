@@ -506,6 +506,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search ships and upgrades...' })}
             value={searchTerm}
             onChange={handleSearchChange}
+            sx={{
+              '& .MuiOutlinedInput-root': { borderRadius: 0 }
+            }}
             slotProps={{
               input: {
                 startAdornment: (

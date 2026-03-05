@@ -44,6 +44,8 @@
   "toolbar.export": "匯出",
   "toolbar.import": "匯入",
   "toolbar.pathBuilder": "探索路徑",
+  "toolbar.clearConfirmTitle": "確認清空所有內容？",
+  "toolbar.clearConfirmDescription": "此操作會刪除所有節點與連線，且無法復原。",
   "pathBuilder.title": "探索路徑",
   "pathBuilder.joyride.title.trigger": "打開探索路徑",
   "pathBuilder.joyride.content.trigger": "點擊這裡打開「探索路徑」工具，自動產生由起始艦船到目標艦船的升級路線。",

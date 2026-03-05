@@ -44,6 +44,8 @@
   "toolbar.export": "Exportieren",
   "toolbar.import": "Importieren",
   "toolbar.pathBuilder": "Pfad-Ersteller",
+  "toolbar.clearConfirmTitle": "Alle Inhalte löschen?",
+  "toolbar.clearConfirmDescription": "Diese Aktion entfernt alle Knoten und Verbindungen und kann nicht rückgängig gemacht werden.",
   "pathBuilder.title": "Pfad-Ersteller",
   "pathBuilder.joyride.title.trigger": "Explore öffnen",
   "pathBuilder.joyride.content.trigger": "Klicken Sie hier, um Explore zu öffnen und automatisch eine Upgrade-Route vom Startschiff zum Zielschiff zu erstellen.",

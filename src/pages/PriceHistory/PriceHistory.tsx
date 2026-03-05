@@ -499,6 +499,9 @@ export default function PriceHistory() {
               placeholder={intl.formatMessage({ id: 'priceHistory.searchPlaceholder', defaultMessage: 'Search ships...' })}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0 }
+              }}
               slotProps={{
                 input: {
                   startAdornment: (

@@ -97,6 +97,10 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
         placeholder={intl.formatMessage({ id: 'search.ships.placeholder', defaultMessage: '搜索舰船名称...' })}
         value={searchTerm}
         onChange={handleSearchChange}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0 },
+          mb:2
+        }}
         slotProps={{
           input: {
             startAdornment: (
@@ -107,7 +111,6 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
           }
         }}
         size="small"
-        sx={{ mb: 2 }}
       />
 
       {ships.length === 0 ? (
@@ -246,6 +249,9 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
             variant="outlined"
             value={predictPrice}
             onChange={(e) => setPredictPrice(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': { borderRadius: 0 }
+            }}
             InputProps={{
               startAdornment: <InputAdornment position="start">$</InputAdornment>,
             }}

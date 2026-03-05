@@ -352,7 +352,11 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
 
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
       <TextField
-        sx={{ flexGrow: 1, mr: 2 }}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0 },
+          flexGrow: 1, 
+          mr: 2
+        }}
         variant="outlined"
         placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search equipment...' })}
         value={searchTerm}
@@ -526,6 +530,9 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                       disabled={!item.selectedForShare}
                       value={item.customPrice}
                       onChange={(e) => handleSetCustomPrice(item.id, parseFloat(e.target.value) || 0)}
+                      sx={{
+                        '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                      }}
                       slotProps={{
                         input: {
                           startAdornment: <InputAdornment position="start">{(0).toLocaleString(locale, { style: 'currency', currency: currency }).replace('0.00', '')}</InputAdornment>

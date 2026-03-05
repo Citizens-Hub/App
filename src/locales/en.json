@@ -44,6 +44,8 @@
   "toolbar.export": "Export",
   "toolbar.import": "Import",
   "toolbar.pathBuilder": "Explore",
+  "toolbar.clearConfirmTitle": "Clear all content?",
+  "toolbar.clearConfirmDescription": "This action will remove all nodes and connections and cannot be undone.",
   "pathBuilder.title": "Explore",
   "pathBuilder.joyride.title.trigger": "Open Explore",
   "pathBuilder.joyride.content.trigger": "Click here to open Explore and auto-generate an upgrade route from your starting ship to your target ship.",

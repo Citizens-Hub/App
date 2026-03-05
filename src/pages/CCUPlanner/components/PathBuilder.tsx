@@ -1431,13 +1431,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
-      fullWidth
       fullScreen
       slotProps={{
         paper: {
           sx: (theme) => ({
-            borderRadius: 0,
             ...(theme.palette.mode === 'dark'
               ? {
                 backgroundColor: '#121212',
@@ -1466,7 +1463,6 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
           overflow: 'hidden',
           backgroundColor: (theme) => (theme.palette.mode === 'dark' ? '#121212' : undefined),
           backgroundImage: (theme) => (theme.palette.mode === 'dark' ? 'none' : undefined),
-          '& .MuiButton-root': { borderRadius: 0 },
           '& .MuiChip-root': { borderRadius: 0 },
           '& .MuiOutlinedInput-root': { borderRadius: 0 }
         }}

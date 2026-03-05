@@ -345,11 +345,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
       <TextField
-        sx={{ flexGrow: 1, mr: 2 }}
         variant="outlined"
         placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search equipment...' })}
         value={searchTerm}
         onChange={handleSearchChange}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0 },
+          flexGrow: 1, 
+          mr: 2
+        }}
         slotProps={{
           input: {
             startAdornment: (
@@ -546,6 +550,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           variant="standard"
           value={listingPrice}
           onChange={(e) => setListingPrice(Number(e.target.value))}
+          sx={{
+            '& .MuiOutlinedInput-root': { borderRadius: 0 }
+          }}
           InputProps={{
             startAdornment: <InputAdornment position="start">$</InputAdornment>,
           }}
@@ -558,6 +565,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           variant="standard"
           value={listingQuantity}
           onChange={(e) => setListingQuantity(Number(e.target.value))}
+          sx={{
+            '& .MuiOutlinedInput-root': { borderRadius: 0 }
+          }}
           InputProps={{
             inputProps: { 
               min: 1, 
@@ -643,6 +653,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  sx={{
+                    '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                  }}
                   label={intl.formatMessage({ id: 'hangar.fromShip', defaultMessage: 'From Ship' })}
                   variant="outlined"
                 />
@@ -656,6 +669,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               renderInput={(params) => (
                 <TextField
                   {...params}
+                  sx={{
+                    '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                  }}
                   label={intl.formatMessage({ id: 'hangar.toShip', defaultMessage: 'To Ship' })}
                   variant="outlined"
                 />
@@ -665,6 +681,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               label={intl.formatMessage({ id: 'hangar.itemName', defaultMessage: 'Item Name' })}
               value={manualItemName}
               onChange={(e) => setManualItemName(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0 }
+              }}
               variant="outlined"
             />
             <TextField
@@ -673,8 +692,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               value={manualItemPrice}
               onChange={(e) => setManualItemPrice(Number(e.target.value))}
               variant="outlined"
-              InputProps={{
-                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0 }
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }
               }}
             />
             <TextField
@@ -683,8 +707,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               value={manualItemQuantity}
               onChange={(e) => setManualItemQuantity(Number(e.target.value))}
               variant="outlined"
-              InputProps={{
-                inputProps: { min: 1 }
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0 }
+              }}
+              slotProps={{
+                input: {
+                  inputProps: { min: 1 }
+                }
               }}
             />
             <Button

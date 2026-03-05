@@ -153,6 +153,9 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               placeholder={intl.formatMessage({ id: 'ccuPlanner.searchHangar', defaultMessage: 'Search Hangar' })}
               value={searchQuery}
               onChange={handleSearchChange}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0 }
+              }}
               slotProps={{
                 input: {
                   startAdornment: (
