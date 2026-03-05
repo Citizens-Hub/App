@@ -44,7 +44,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const pathname = useLocation().pathname;
   const { data: exchangeRateData } = useApi<{ usd: Record<string, number> }>('/api/currency');
   const exchangeRate = exchangeRateData?.usd?.[currency.toLowerCase()] || 0;
-  const isChineseLocale = locale.startsWith('zh');
+  const isChineseLocale = locale.startsWith('zh-CN');
   const isExchangeCalculatorPage = pathname.startsWith('/ccu-planner')
     || pathname.startsWith('/price-history')
     || pathname.startsWith('/hangar');
@@ -173,16 +173,6 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             </span>
           </Button>
         )}
-        {/* {
-          locale === "zh-CN" && (<Button
-            size="small"
-            sx={{
-              px: 1
-            }}
-            onClick={() => window.open("https://www.bilibili.com/opus/1064226212306485248", "_blank")}>
-            使用说明
-          </Button>)
-        } */}
         <LanguageSwitcher />
         {showExchangeCalculator && (
           <ExchangeRateCalculator
@@ -202,13 +192,6 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             }
           />
         )}
-        {/* <Button
-          color="inherit"
-          size="small"
-          onClick={() => navigate('/app-settings')}
-        >
-          {currency}
-        </Button> */}
         <IconButton
           onClick={toggleDarkMode}
           color="inherit"
