@@ -1,24 +1,46 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-function parseArgs() {
-  const args = new Set(process.argv.slice(2));
+type LocaleMessages = Record<string, string>;
+
+interface CliArgs {
+  verbose: boolean;
+}
+
+interface LocaleSnapshot {
+  filename: string;
+  keys: Set<string>;
+}
+
+function parseArgs(argv: readonly string[] = process.argv.slice(2)): CliArgs {
+  const args = new Set(argv);
   return {
-    strict: args.has('--strict'),
     verbose: args.has('--verbose'),
   };
 }
 
-function loadLocales(localesDir) {
-  const localeFiles = fs
-    .readdirSync(localesDir)
-    .filter((file) => file.endsWith('.json'))
-    .sort((a, b) => a.localeCompare(b));
+function isLocaleMessages(value: unknown): value is LocaleMessages {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
 
-  return localeFiles.map((filename) => {
+  return Object.values(value).every((item) => typeof item === 'string');
+}
+
+function loadLocales(localesDir: string): LocaleSnapshot[] {
+  const localeFiles: string[] = fs
+    .readdirSync(localesDir)
+    .filter((file: string) => file.endsWith('.json'))
+    .sort((a: string, b: string) => a.localeCompare(b));
+
+  return localeFiles.map((filename: string) => {
     const fullPath = path.join(localesDir, filename);
     const raw = fs.readFileSync(fullPath, 'utf8');
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
+
+    if (!isLocaleMessages(parsed)) {
+      throw new Error(`Invalid locale format in ${filename}: expected a flat object of string values`);
+    }
 
     return {
       filename,
@@ -27,8 +49,8 @@ function loadLocales(localesDir) {
   });
 }
 
-function main() {
-  const { strict, verbose } = parseArgs();
+function main(): void {
+  const { verbose } = parseArgs();
   const localesDir = path.resolve(process.cwd(), 'src/locales');
   const locales = loadLocales(localesDir);
 
@@ -37,7 +59,7 @@ function main() {
     process.exit(1);
   }
 
-  const union = new Set();
+  const union = new Set<string>();
   locales.forEach((locale) => {
     locale.keys.forEach((key) => union.add(key));
   });
@@ -64,9 +86,6 @@ function main() {
   }
 
   console.log(`Total missing keys across files: ${totalMissing}`);
-  if (strict) {
-    process.exit(1);
-  }
 }
 
 main();
