@@ -24,7 +24,7 @@ import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, Snackbar, useMediaQuery } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, Menu, MenuItem, Snackbar, useMediaQuery } from '@mui/material';
 import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
@@ -52,6 +52,19 @@ interface PlannerTabState {
   flowData: FlowData;
   autoSaveStatus: AutoSaveStatus;
   lastAutoSavedAt: number | null;
+}
+
+type TabCloseAction = 'current' | 'left' | 'right' | 'others' | 'all';
+
+interface TabCloseRequest {
+  action: TabCloseAction;
+  tabId: string;
+}
+
+interface TabContextMenuState {
+  mouseX: number;
+  mouseY: number;
+  tabId: string;
 }
 
 interface CcuCanvasProps {
@@ -143,7 +156,8 @@ function CcuCanvasContent() {
   const [editingTabName, setEditingTabName] = useState('');
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
-  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
+  const [pendingTabCloseRequest, setPendingTabCloseRequest] = useState<TabCloseRequest | null>(null);
+  const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState | null>(null);
 
   // Use data from context
   const {
@@ -532,23 +546,49 @@ function CcuCanvasContent() {
     });
   }, [clearAutoSaveTimer, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, withCurrentTabSnapshot]);
 
-  const closeTab = useCallback((tabId: string) => {
+  const executeTabCloseAction = useCallback((action: TabCloseAction, tabId: string) => {
     clearAutoSaveTimer();
 
     setPlannerTabs(prevTabs => {
       const syncedTabs = withCurrentTabSnapshot(prevTabs);
-      const currentIndex = syncedTabs.findIndex(tab => tab.id === tabId);
-      if (currentIndex === -1) {
+      const targetIndex = syncedTabs.findIndex(tab => tab.id === tabId);
+      if (targetIndex === -1) {
         return prevTabs;
       }
 
-      const nextTabs = syncedTabs.filter(tab => tab.id !== tabId);
+      let tabIdsToClose: string[] = [];
+      switch (action) {
+        case 'current':
+          tabIdsToClose = [tabId];
+          break;
+        case 'left':
+          tabIdsToClose = syncedTabs.slice(0, targetIndex).map(tab => tab.id);
+          break;
+        case 'right':
+          tabIdsToClose = syncedTabs.slice(targetIndex + 1).map(tab => tab.id);
+          break;
+        case 'others':
+          tabIdsToClose = syncedTabs.filter(tab => tab.id !== tabId).map(tab => tab.id);
+          break;
+        case 'all':
+          tabIdsToClose = syncedTabs.map(tab => tab.id);
+          break;
+        default:
+          tabIdsToClose = [tabId];
+      }
+
+      const closeIdSet = new Set(tabIdsToClose);
+      if (!closeIdSet.size) {
+        return prevTabs;
+      }
+
+      const nextTabs = syncedTabs.filter(tab => !closeIdSet.has(tab.id));
       if (!nextTabs.length) {
         const newTabId = createRouteTabId();
         ensureCompletedPathsStorageInitialized(newTabId);
         const newTab: PlannerTabState = {
           id: newTabId,
-          name: getNextRouteName(nextTabs),
+          name: getNextRouteName([]),
           flowData: createEmptyFlowData(),
           autoSaveStatus: 'idle',
           lastAutoSavedAt: null
@@ -560,9 +600,28 @@ function CcuCanvasContent() {
         return [newTab];
       }
 
-      const nextActiveTabId = tabId === activeTabId
-        ? (nextTabs[Math.max(currentIndex - 1, 0)]?.id || nextTabs[0].id)
-        : activeTabId;
+      let nextActiveTabId = activeTabId;
+      if (!nextTabs.some(tab => tab.id === nextActiveTabId) || closeIdSet.has(nextActiveTabId)) {
+        let preferredTabId: string | null = null;
+
+        if (action === 'left' || action === 'right' || action === 'others') {
+          preferredTabId = tabId;
+        } else if (action === 'current') {
+          const leftTabId = nextTabs[Math.max(targetIndex - 1, 0)]?.id;
+          const rightTabId = nextTabs[Math.min(targetIndex, nextTabs.length - 1)]?.id;
+          preferredTabId = leftTabId || rightTabId || null;
+        }
+
+        if (preferredTabId && nextTabs.some(tab => tab.id === preferredTabId)) {
+          nextActiveTabId = preferredTabId;
+        } else {
+          const fallbackReferenceIndex = closeIdSet.has(activeTabId)
+            ? syncedTabs.findIndex(tab => tab.id === activeTabId)
+            : targetIndex;
+          const fallbackIndex = Math.max(Math.min(fallbackReferenceIndex, nextTabs.length - 1), 0);
+          nextActiveTabId = nextTabs[fallbackIndex]?.id || nextTabs[0].id;
+        }
+      }
 
       const nextActiveTab = nextTabs.find(tab => tab.id === nextActiveTabId) || nextTabs[0];
       setActiveTabId(nextActiveTab.id);
@@ -573,21 +632,39 @@ function CcuCanvasContent() {
   }, [activeTabId, clearAutoSaveTimer, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, withCurrentTabSnapshot]);
 
   const requestCloseTab = useCallback((tabId: string) => {
-    setPendingCloseTabId(tabId);
+    setPendingTabCloseRequest({ action: 'current', tabId });
+  }, []);
+
+  const requestTabCloseAction = useCallback((action: TabCloseAction, tabId: string) => {
+    setPendingTabCloseRequest({ action, tabId });
+    setTabContextMenu(null);
+  }, []);
+
+  const openTabContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>, tabId: string) => {
+    event.preventDefault();
+    setTabContextMenu({
+      mouseX: event.clientX + 2,
+      mouseY: event.clientY - 6,
+      tabId
+    });
+  }, []);
+
+  const closeTabContextMenu = useCallback(() => {
+    setTabContextMenu(null);
   }, []);
 
   const cancelCloseTab = useCallback(() => {
-    setPendingCloseTabId(null);
+    setPendingTabCloseRequest(null);
   }, []);
 
   const confirmCloseTab = useCallback(() => {
-    if (!pendingCloseTabId) {
+    if (!pendingTabCloseRequest) {
       return;
     }
 
-    closeTab(pendingCloseTabId);
-    setPendingCloseTabId(null);
-  }, [closeTab, pendingCloseTabId]);
+    executeTabCloseAction(pendingTabCloseRequest.action, pendingTabCloseRequest.tabId);
+    setPendingTabCloseRequest(null);
+  }, [executeTabCloseAction, pendingTabCloseRequest]);
 
   const startRenameTab = useCallback((tabId: string) => {
     const tab = plannerTabs.find(item => item.id === tabId);
@@ -1441,6 +1518,28 @@ function CcuCanvasContent() {
     }
   }, [explorePathJoyrideRun, explorePathJoyrideStepIndex, pathBuilderOpen]);
 
+  const tabContextMenuIndex = tabContextMenu
+    ? plannerTabs.findIndex(tab => tab.id === tabContextMenu.tabId)
+    : -1;
+  const hasTabsOnLeft = tabContextMenuIndex > 0;
+  const hasTabsOnRight = tabContextMenuIndex >= 0 && tabContextMenuIndex < plannerTabs.length - 1;
+  const canCloseOthers = tabContextMenuIndex >= 0 && plannerTabs.length > 1;
+  const canCloseCurrent = tabContextMenuIndex >= 0;
+  const canCloseAll = plannerTabs.length > 0;
+  const tabContextMenuItemSx = {
+    minHeight: 34,
+    borderRadius: '6px',
+    px: 1.5,
+    fontSize: '0.92rem',
+    color: '#f3f4f6',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.12)'
+    },
+    '&.Mui-disabled': {
+      color: 'rgba(243, 244, 246, 0.35)'
+    }
+  };
+
   return (
     <div className="h-[100%] w-full min-w-0 flex sm:flex-row flex-col">
       <Joyride
@@ -1511,6 +1610,11 @@ function CcuCanvasContent() {
                   onDragOver={(event) => handleTabDragOver(event, tab.id)}
                   onDrop={(event) => handleTabDrop(event, tab.id)}
                   onDragEnd={handleTabDragEnd}
+                  onContextMenu={(event) => {
+                    if (!isEditing) {
+                      openTabContextMenu(event, tab.id);
+                    }
+                  }}
                   className={`relative shrink-0 flex h-full items-center justify-between border-r border-slate-300 dark:border-slate-600 px-2 gap-1 min-w-[120px] ${isActive
                     ? 'bg-white dark:bg-[#121212]'
                     : 'bg-[#eceef1] dark:bg-[#222]'
@@ -1565,6 +1669,90 @@ function CcuCanvasContent() {
             </div>
           </div>
         </div>
+
+        <Menu
+          open={Boolean(tabContextMenu)}
+          onClose={closeTabContextMenu}
+          anchorReference="anchorPosition"
+          anchorPosition={tabContextMenu ? { top: tabContextMenu.mouseY, left: tabContextMenu.mouseX } : undefined}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: 190,
+                p: 0.5,
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                backdropFilter: 'blur(6px)',
+                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)'
+              }
+            },
+            list: {
+              dense: true,
+              sx: { py: 0, gap: 1 }
+            }
+          }}
+        >
+          <MenuItem
+            sx={tabContextMenuItemSx}
+            disabled={!canCloseCurrent}
+            onClick={() => {
+              if (!tabContextMenu) {
+                return;
+              }
+              requestTabCloseAction('current', tabContextMenu.tabId);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.tabMenu.closeCurrent" defaultMessage="Close Current" />
+          </MenuItem>
+          <MenuItem
+            sx={tabContextMenuItemSx}
+            disabled={!hasTabsOnLeft}
+            onClick={() => {
+              if (!tabContextMenu) {
+                return;
+              }
+              requestTabCloseAction('left', tabContextMenu.tabId);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.tabMenu.closeLeft" defaultMessage="Close Left" />
+          </MenuItem>
+          <MenuItem
+            sx={tabContextMenuItemSx}
+            disabled={!hasTabsOnRight}
+            onClick={() => {
+              if (!tabContextMenu) {
+                return;
+              }
+              requestTabCloseAction('right', tabContextMenu.tabId);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.tabMenu.closeRight" defaultMessage="Close Right" />
+          </MenuItem>
+          <MenuItem
+            sx={tabContextMenuItemSx}
+            disabled={!canCloseOthers}
+            onClick={() => {
+              if (!tabContextMenu) {
+                return;
+              }
+              requestTabCloseAction('others', tabContextMenu.tabId);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.tabMenu.closeOthers" defaultMessage="Close Others" />
+          </MenuItem>
+          <MenuItem
+            sx={tabContextMenuItemSx}
+            disabled={!canCloseAll}
+            onClick={() => {
+              if (!tabContextMenu) {
+                return;
+              }
+              requestTabCloseAction('all', tabContextMenu.tabId);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.tabMenu.closeAll" defaultMessage="Close All" />
+          </MenuItem>
+        </Menu>
 
         <div className="relative flex-1 min-h-0" ref={reactFlowWrapper}>
           <ReactFlowProvider>
@@ -1671,7 +1859,7 @@ function CcuCanvasContent() {
       </Dialog>
 
       <Dialog
-        open={Boolean(pendingCloseTabId)}
+        open={Boolean(pendingTabCloseRequest)}
         onClose={cancelCloseTab}
         maxWidth="xs"
         fullWidth
