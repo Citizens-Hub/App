@@ -1,5 +1,6 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
+import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
 
 function isWarbondEdition(edition?: string): boolean {
   if (!edition) return false;
@@ -278,15 +279,7 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     if (hangarCcu) {
       try {
         // 计算此CCU已经使用的数量
-        const completedPaths: Array<{
-          path: {
-            edges: Array<{
-              sourceShipId: number;
-              targetShipId: number;
-              sourceType: CcuSourceType;
-            }>;
-          };
-        }> = JSON.parse(localStorage.getItem('completedPaths') || '[]');
+        const completedPaths = readStoredCompletedPathsForActiveTab();
         
         let usedCount = 0;
         completedPaths.forEach(path => {
@@ -366,15 +359,7 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     // 如果有匹配的CCU，检查是否已经用完
     try {
       // 计算此CCU已经使用的数量
-      const completedPaths: Array<{
-        path: {
-          edges: Array<{
-            sourceShipId: number;
-            targetShipId: number;
-            sourceType: CcuSourceType;
-          }>;
-        };
-      }> = JSON.parse(localStorage.getItem('completedPaths') || '[]');
+      const completedPaths = readStoredCompletedPathsForActiveTab();
       
       let usedCount = 0;
       completedPaths.forEach(path => {
