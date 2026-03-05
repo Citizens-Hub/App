@@ -684,6 +684,22 @@ function CcuCanvasContent() {
     setDragOverTabId(null);
   }, []);
 
+  const handleTabStripWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY;
+
+    if (delta === 0) {
+      return;
+    }
+
+    const previousScrollLeft = container.scrollLeft;
+    container.scrollLeft += delta;
+
+    if (container.scrollLeft !== previousScrollLeft) {
+      event.preventDefault();
+    }
+  }, []);
+
   useEffect(() => {
     if (!activeTabId) {
       return;
@@ -1426,7 +1442,7 @@ function CcuCanvasContent() {
   }, [explorePathJoyrideRun, explorePathJoyrideStepIndex, pathBuilderOpen]);
 
   return (
-    <div className="h-[100%] w-full flex sm:flex-row flex-col">
+    <div className="h-[100%] w-full min-w-0 flex sm:flex-row flex-col">
       <Joyride
         callback={handleExplorePathJoyrideCallback}
         continuous
@@ -1474,9 +1490,12 @@ function CcuCanvasContent() {
         <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="md:w-full sm:h-full w-full h-full flex-1 min-h-0 flex flex-col">
-        <div className="h-10 shrink-0 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181818]">
-          <div className="h-full flex items-stretch overflow-x-auto">
+      <div className="sm:h-full h-full flex-1 min-w-0 min-h-0 flex flex-col">
+        <div className="h-10 shrink-0 min-w-0 overflow-hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181818]">
+          <div
+            className="hide-scrollbar h-full min-w-0 flex items-stretch overflow-x-auto overflow-y-hidden"
+            onWheel={handleTabStripWheel}
+          >
             {plannerTabs.map(tab => {
               const isActive = tab.id === activeTabId;
               const isEditing = editingTabId === tab.id;
@@ -1492,7 +1511,7 @@ function CcuCanvasContent() {
                   onDragOver={(event) => handleTabDragOver(event, tab.id)}
                   onDrop={(event) => handleTabDrop(event, tab.id)}
                   onDragEnd={handleTabDragEnd}
-                  className={`relative flex h-full items-center justify-between border-r border-slate-300 dark:border-slate-600 px-2 gap-1 min-w-[120px] ${isActive
+                  className={`relative shrink-0 flex h-full items-center justify-between border-r border-slate-300 dark:border-slate-600 px-2 gap-1 min-w-[120px] ${isActive
                     ? 'bg-white dark:bg-[#121212]'
                     : 'bg-[#eceef1] dark:bg-[#222]'
                     } ${draggingTabId === tab.id ? 'opacity-55' : ''}`}
