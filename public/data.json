@@ -5,6 +5,206 @@
                 "listing": {
                     "resources": [
                         {
+                            "id": "19011",
+                            "slug": "lp865ob1a8bis",
+                            "name": "ParaMed \"Cyanosis\" Medical Device",
+                            "title": "ParaMed \"Cyanosis\" Medical Device",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/ParaMed-Cyanosis-Medical-Device",
+                            "body": null,
+                            "excerpt": "The ParaMed from CureLife is a professional-grade emergency medical device designed to stabilize patients suffering from potentially life-threatening injuries. Offering extremely accurate diagnostics and dosing, it treats more patients and offers longer relief with less risk of overdose. The \"Cyanosis\" edition features a bold blue color.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/7zlduuheerr0h/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/7zlduuheerr0h/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/7zlduuheerr0h/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 400,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 400,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/0c3d21785b6a8854a15cc099e7348d4960787522/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjResepyUY8StPqX2qwzGFGi5Tyb2BNBPpj86A)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "ParaMed \"Cyanosis\" Medical Device",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19012",
+                            "slug": "3gx7996rdu287",
+                            "name": "CureLife Field Medic Kit",
+                            "title": "CureLife Field Medic Kit",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/CureLife-Field-Medic-Kit",
+                            "body": null,
+                            "excerpt": "Medical emergencies can happen any time, any place. Be prepared with this Field Medic Kit from CureLife, which provides convenient and portable storage for a ParaMed Medical Device, Pancea MedGel refills, and additional medicine injectors. Kit comes pre-stocked with refills and injectors.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/6mwftsv5bn38h/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/6mwftsv5bn38h/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/6mwftsv5bn38h/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 400,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 400,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/52e5feeeebf5d0efb68dbe8d6c13278e1ecd6d66/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjResejRH5SurdCBx4workAd22XWLQpRtXc93U)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "CureLife Field Medic Kit",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19013",
+                            "slug": "f8o9sbfoww0fg",
+                            "name": "CureLife \"Cyanosis\" Medical Set",
+                            "title": "CureLife \"Cyanosis\" Medical Set",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/CureLife-Cyanosis-Medical-Set",
+                            "body": null,
+                            "excerpt": "Be prepared for the worst with the CureLife Medical Set, containing the ParaMed Medical Device and Field Medical Kit, both in matching blue and white ‘Cyanosis’ edition. Kit comes pre-stocked with refills and injectors.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/p0rmj44o09ods/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/p0rmj44o09ods/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/p0rmj44o09ods/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/7zlduuheerr0h/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/6mwftsv5bn38h/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 800,
+                                "discounted": 720,
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 800,
+                                "discounted": 720,
+                                "taxDescription": [],
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/30e31a450a981de5c667b034348e9e120593ceec/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjResjzqNVw9CWPk3B6T5QFFVVnzwLwBsVXmTc)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "CureLife \"Cyanosis\" Medical Set",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": true,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
                             "id": "18924",
                             "slug": "aknd9lzajdmts",
                             "name": "Pink Heart Lamp",
