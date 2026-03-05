@@ -1039,6 +1039,23 @@ function CcuCanvasContent() {
     saveFlowDataRef.current = saveFlowData;
   }, [saveFlowData]);
 
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      const isSaveShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
+      if (!isSaveShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      saveFlowDataRef.current('manual');
+    };
+
+    window.addEventListener('keydown', handleSaveShortcut);
+    return () => {
+      window.removeEventListener('keydown', handleSaveShortcut);
+    };
+  }, []);
+
   const handleClear = useCallback(() => {
     if (!activeTabId) {
       return;

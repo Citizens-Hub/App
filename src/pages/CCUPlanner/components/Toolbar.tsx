@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
-import { Trash2, Download, Upload, Route, HelpCircle, Save, SaveOff } from 'lucide-react';
+import { Download, Upload, Route, HelpCircle, Save, SaveOff } from 'lucide-react';
 import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -72,9 +72,9 @@ export default function Toolbar({
     ? new Date(lastSavedAt).toLocaleTimeString(intl.locale, { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  const handleOpenClearDialog = () => {
-    setClearDialogOpen(true);
-  };
+  // const handleOpenClearDialog = () => {
+  //   setClearDialogOpen(true);
+  // };
 
   const handleCloseClearDialog = () => {
     setClearDialogOpen(false);
@@ -88,7 +88,7 @@ export default function Toolbar({
   return (
     <>
       <div className="p-2 sm:p-3 my-0 shadow-md flex items-center gap-1.5 sm:gap-2">
-        <Button
+        {/* <Button
           variant="outlined"
           color="error"
           onClick={handleOpenClearDialog}
@@ -101,7 +101,7 @@ export default function Toolbar({
           <span className="xl:block hidden">
             <FormattedMessage id="toolbar.clear" defaultMessage="Clear" />
           </span>
-        </Button>
+        </Button> */}
 
         <Button
           variant="outlined"
