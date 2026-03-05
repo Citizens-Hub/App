@@ -8,6 +8,7 @@ import ReactFlow, {
   addEdge,
   Connection,
   Node,
+  Edge,
   ReactFlowProvider,
   Panel,
   ReactFlowInstance,
@@ -23,7 +24,7 @@ import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
-import { Alert, Dialog, DialogContent, DialogTitle, IconButton, Snackbar, useMediaQuery } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, Snackbar, useMediaQuery } from '@mui/material';
 import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
@@ -37,8 +38,21 @@ import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
 import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
+import { Plus, X } from 'lucide-react';
+import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
+import { getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
+const DEFAULT_TAB_ID = 'route-1';
+type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+
+interface PlannerTabState {
+  id: string;
+  name: string;
+  flowData: FlowData;
+  autoSaveStatus: AutoSaveStatus;
+  lastAutoSavedAt: number | null;
+}
 
 interface CcuCanvasProps {
   ships: Ship[];
@@ -49,6 +63,12 @@ interface CcuCanvasProps {
   };
   priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
+
+const createEmptyFlowData = (): FlowData => ({
+  nodes: [],
+  edges: [],
+  startShipPrices: {}
+});
 
 export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, priceHistoryMap }: CcuCanvasProps) {
   const [alert, setAlert] = useState<{
@@ -104,6 +124,8 @@ function CcuCanvasContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
   const joyrideStepRetryTimeoutRef = useRef<number | null>(null);
+  const [plannerTabs, setPlannerTabs] = useState<PlannerTabState[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string>('');
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -113,10 +135,15 @@ function CcuCanvasContent() {
   const [pathBuilderOpen, setPathBuilderOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
   const [explorePathJoyrideRun, setExplorePathJoyrideRun] = useState(false);
   const [explorePathJoyrideStepIndex, setExplorePathJoyrideStepIndex] = useState(0);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTabName, setEditingTabName] = useState('');
+  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
+  const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
 
   // Use data from context
   const {
@@ -134,6 +161,72 @@ function CcuCanvasContent() {
 
   // Get upgrade items from Redux
   const upgrades = useSelector(selectUsersHangarItems);
+
+  const getNextRouteName = useCallback((existingTabs: PlannerTabState[]): string => {
+    return intl.formatMessage(
+      { id: 'ccuPlanner.tab.defaultName', defaultMessage: 'Route {index}' },
+      { index: existingTabs.length + 1 }
+    );
+  }, [intl]);
+
+  const createRouteTabId = useCallback(() => {
+    return `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+
+  const ensureCompletedPathsStorageInitialized = useCallback((tabId: string) => {
+    const storageKey = getCompletedPathsStorageKeyForTab(tabId);
+    if (localStorage.getItem(storageKey) === null) {
+      localStorage.setItem(storageKey, '[]');
+    }
+  }, []);
+
+  const cloneEdges = useCallback((value: Edge<CcuEdgeData>[]): Edge<CcuEdgeData>[] => {
+    return value.map(edge => {
+      if (edge.data) {
+        return {
+          ...edge,
+          data: {
+            ...edge.data
+          }
+        };
+      }
+      return {
+        ...edge
+      };
+    });
+  }, []);
+
+  const persistWorkspace = useCallback((tabs: PlannerTabState[], nextActiveTabId: string) => {
+    const workspace: PlannerWorkspaceData = {
+      version: 2,
+      activeTabId: nextActiveTabId,
+      tabs: tabs.map(tab => ({
+        id: tab.id,
+        name: tab.name,
+        flowData: tab.flowData,
+        lastAutoSavedAt: tab.lastAutoSavedAt
+      }))
+    };
+
+    importExportService.saveWorkspaceToLocalStorage(workspace);
+  }, [importExportService]);
+
+  const syncCompletedPathsStorage = useCallback((tabId: string) => {
+    const completedPathStorageKey = getCompletedPathsStorageKeyForTab(tabId);
+    pathFinderService.setCompletedPathsStorageKey(completedPathStorageKey);
+    pathFinderService.loadCompletedPathsFromStorage();
+  }, []);
+
+  const loadTabIntoCanvas = useCallback((tab: PlannerTabState) => {
+    setNodes(tab.flowData.nodes);
+    setEdges(cloneEdges(tab.flowData.edges));
+    setStartShipPrices(tab.flowData.startShipPrices);
+    setAutoSaveStatus(tab.autoSaveStatus);
+    setLastAutoSavedAt(tab.lastAutoSavedAt);
+    setSelectedNode(null);
+    setSelectedPathEdgeIds([]);
+    syncCompletedPathsStorage(tab.id);
+  }, [setNodes, setEdges, cloneEdges, setSelectedPathEdgeIds, syncCompletedPathsStorage]);
 
   const clearAutoSaveTimer = useCallback(() => {
     if (autoSaveTimeoutRef.current) {
@@ -370,6 +463,274 @@ function CcuCanvasContent() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
+  const currentFlowData = useMemo<FlowData>(() => ({
+    nodes,
+    edges,
+    startShipPrices
+  }), [nodes, edges, startShipPrices]);
+
+  const withCurrentTabSnapshot = useCallback((tabs: PlannerTabState[]): PlannerTabState[] => {
+    if (!activeTabId) {
+      return tabs;
+    }
+
+    return tabs.map(tab => {
+      if (tab.id !== activeTabId) {
+        return tab;
+      }
+
+      return {
+        ...tab,
+        flowData: currentFlowData,
+        autoSaveStatus,
+        lastAutoSavedAt
+      };
+    });
+  }, [activeTabId, autoSaveStatus, currentFlowData, lastAutoSavedAt]);
+
+  const switchToTab = useCallback((targetTabId: string) => {
+    if (targetTabId === activeTabId) {
+      return;
+    }
+
+    clearAutoSaveTimer();
+    setPlannerTabs(prevTabs => {
+      const syncedTabs = withCurrentTabSnapshot(prevTabs);
+      const targetTab = syncedTabs.find(tab => tab.id === targetTabId);
+
+      if (!targetTab) {
+        return prevTabs;
+      }
+
+      setActiveTabId(targetTab.id);
+      loadTabIntoCanvas(targetTab);
+      persistWorkspace(syncedTabs, targetTab.id);
+      return syncedTabs;
+    });
+  }, [activeTabId, clearAutoSaveTimer, loadTabIntoCanvas, persistWorkspace, withCurrentTabSnapshot]);
+
+  const addTab = useCallback(() => {
+    clearAutoSaveTimer();
+
+    setPlannerTabs(prevTabs => {
+      const syncedTabs = withCurrentTabSnapshot(prevTabs);
+      const newTabId = createRouteTabId();
+      ensureCompletedPathsStorageInitialized(newTabId);
+      const newTab: PlannerTabState = {
+        id: newTabId,
+        name: getNextRouteName(syncedTabs),
+        flowData: createEmptyFlowData(),
+        autoSaveStatus: 'idle',
+        lastAutoSavedAt: null
+      };
+
+      const nextTabs = [...syncedTabs, newTab];
+      setActiveTabId(newTab.id);
+      loadTabIntoCanvas(newTab);
+      persistWorkspace(nextTabs, newTab.id);
+      return nextTabs;
+    });
+  }, [clearAutoSaveTimer, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, withCurrentTabSnapshot]);
+
+  const closeTab = useCallback((tabId: string) => {
+    clearAutoSaveTimer();
+
+    setPlannerTabs(prevTabs => {
+      const syncedTabs = withCurrentTabSnapshot(prevTabs);
+      const currentIndex = syncedTabs.findIndex(tab => tab.id === tabId);
+      if (currentIndex === -1) {
+        return prevTabs;
+      }
+
+      const nextTabs = syncedTabs.filter(tab => tab.id !== tabId);
+      if (!nextTabs.length) {
+        const newTabId = createRouteTabId();
+        ensureCompletedPathsStorageInitialized(newTabId);
+        const newTab: PlannerTabState = {
+          id: newTabId,
+          name: getNextRouteName(nextTabs),
+          flowData: createEmptyFlowData(),
+          autoSaveStatus: 'idle',
+          lastAutoSavedAt: null
+        };
+
+        setActiveTabId(newTab.id);
+        loadTabIntoCanvas(newTab);
+        persistWorkspace([newTab], newTab.id);
+        return [newTab];
+      }
+
+      const nextActiveTabId = tabId === activeTabId
+        ? (nextTabs[Math.max(currentIndex - 1, 0)]?.id || nextTabs[0].id)
+        : activeTabId;
+
+      const nextActiveTab = nextTabs.find(tab => tab.id === nextActiveTabId) || nextTabs[0];
+      setActiveTabId(nextActiveTab.id);
+      loadTabIntoCanvas(nextActiveTab);
+      persistWorkspace(nextTabs, nextActiveTab.id);
+      return nextTabs;
+    });
+  }, [activeTabId, clearAutoSaveTimer, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, withCurrentTabSnapshot]);
+
+  const requestCloseTab = useCallback((tabId: string) => {
+    setPendingCloseTabId(tabId);
+  }, []);
+
+  const cancelCloseTab = useCallback(() => {
+    setPendingCloseTabId(null);
+  }, []);
+
+  const confirmCloseTab = useCallback(() => {
+    if (!pendingCloseTabId) {
+      return;
+    }
+
+    closeTab(pendingCloseTabId);
+    setPendingCloseTabId(null);
+  }, [closeTab, pendingCloseTabId]);
+
+  const startRenameTab = useCallback((tabId: string) => {
+    const tab = plannerTabs.find(item => item.id === tabId);
+    if (!tab) {
+      return;
+    }
+
+    setEditingTabId(tabId);
+    setEditingTabName(tab.name);
+  }, [plannerTabs]);
+
+  const commitRenameTab = useCallback((tabId: string) => {
+    const nextName = editingTabName.trim();
+    if (!nextName) {
+      setEditingTabId(null);
+      setEditingTabName('');
+      return;
+    }
+
+    setPlannerTabs(prevTabs => {
+      const syncedTabs = withCurrentTabSnapshot(prevTabs);
+      const nextTabs = syncedTabs.map(tab => {
+        if (tab.id !== tabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          name: nextName
+        };
+      });
+
+      const resolvedActiveTabId = activeTabId || nextTabs[0]?.id || tabId;
+      persistWorkspace(nextTabs, resolvedActiveTabId);
+      return nextTabs;
+    });
+
+    setEditingTabId(null);
+    setEditingTabName('');
+  }, [activeTabId, editingTabName, persistWorkspace, withCurrentTabSnapshot]);
+
+  const cancelRenameTab = useCallback(() => {
+    setEditingTabId(null);
+    setEditingTabName('');
+  }, []);
+
+  const handleTabDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, tabId: string) => {
+    setDraggingTabId(tabId);
+    setDragOverTabId(tabId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tabId);
+  }, []);
+
+  const handleTabDragOver = useCallback((event: React.DragEvent<HTMLDivElement>, tabId: string) => {
+    event.preventDefault();
+    if (draggingTabId && draggingTabId !== tabId) {
+      setDragOverTabId(tabId);
+    }
+  }, [draggingTabId]);
+
+  const handleTabDrop = useCallback((event: React.DragEvent<HTMLDivElement>, targetTabId: string) => {
+    event.preventDefault();
+    const sourceTabId = draggingTabId || event.dataTransfer.getData('text/plain');
+
+    if (!sourceTabId || sourceTabId === targetTabId) {
+      setDraggingTabId(null);
+      setDragOverTabId(null);
+      return;
+    }
+
+    setPlannerTabs(prevTabs => {
+      const syncedTabs = withCurrentTabSnapshot(prevTabs);
+      const sourceIndex = syncedTabs.findIndex(tab => tab.id === sourceTabId);
+      const targetIndex = syncedTabs.findIndex(tab => tab.id === targetTabId);
+
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return prevTabs;
+      }
+
+      const reorderedTabs = [...syncedTabs];
+      const [movedTab] = reorderedTabs.splice(sourceIndex, 1);
+      reorderedTabs.splice(targetIndex, 0, movedTab);
+      const resolvedActiveTabId = activeTabId || reorderedTabs[0]?.id || movedTab.id;
+      persistWorkspace(reorderedTabs, resolvedActiveTabId);
+      return reorderedTabs;
+    });
+
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+  }, [activeTabId, draggingTabId, persistWorkspace, withCurrentTabSnapshot]);
+
+  const handleTabDragEnd = useCallback(() => {
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+
+    setPlannerTabs(prevTabs => {
+      let changed = false;
+      const nextTabs = prevTabs.map(tab => {
+        if (tab.id !== activeTabId) {
+          return tab;
+        }
+
+        if (
+          tab.flowData.nodes === nodes &&
+          tab.flowData.edges === edges &&
+          tab.flowData.startShipPrices === startShipPrices &&
+          tab.autoSaveStatus === autoSaveStatus &&
+          tab.lastAutoSavedAt === lastAutoSavedAt
+        ) {
+          return tab;
+        }
+
+        changed = true;
+        return {
+          ...tab,
+          flowData: currentFlowData,
+          autoSaveStatus,
+          lastAutoSavedAt
+        };
+      });
+
+      return changed ? nextTabs : prevTabs;
+    });
+  }, [activeTabId, autoSaveStatus, currentFlowData, edges, lastAutoSavedAt, nodes, startShipPrices]);
+
+  useEffect(() => {
+    if (!editingTabId) {
+      return;
+    }
+
+    const exists = plannerTabs.some(tab => tab.id === editingTabId);
+    if (!exists) {
+      setEditingTabId(null);
+      setEditingTabName('');
+    }
+  }, [editingTabId, plannerTabs]);
+
   const importFlowData = useCallback((jsonData: string) => {
     try {
       const importedData = importExportService.importFromJsonData(jsonData, ships, { hangarItems, wbHistory, ccus });
@@ -378,19 +739,27 @@ function CcuCanvasContent() {
         throw new Error('Import failed');
       }
 
-      setNodes(importedData.nodes);
-      setEdges(importedData.edges);
-      setStartShipPrices(importedData.startShipPrices);
+      const importedAt = Date.now();
+      clearAutoSaveTimer();
+      setPlannerTabs(prevTabs => {
+        const syncedTabs = withCurrentTabSnapshot(prevTabs);
+        const newTabId = createRouteTabId();
+        ensureCompletedPathsStorageInitialized(newTabId);
 
-      // Clean up completed paths to avoid confusion with newly imported paths
-      pathFinderService.clearCompletedPaths();
+        const newTab: PlannerTabState = {
+          id: newTabId,
+          name: getNextRouteName(syncedTabs),
+          flowData: importedData,
+          autoSaveStatus: 'saved',
+          lastAutoSavedAt: importedAt
+        };
 
-      // Refresh edge status without showing notification messages
-      refreshEdgesOnPathCompletion(false);
-
-      if (reactFlowInstance) {
-        importExportService.adjustViewToShowAllNodes(reactFlowInstance);
-      }
+        const nextTabs = [...syncedTabs, newTab];
+        setActiveTabId(newTab.id);
+        loadTabIntoCanvas(newTab);
+        persistWorkspace(nextTabs, newTab.id);
+        return nextTabs;
+      });
 
       // Display import success notification
       showAlert(
@@ -427,7 +796,7 @@ function CcuCanvasContent() {
       })
       return false;
     }
-  }, [importExportService, ships, hangarItems, wbHistory, ccus, setNodes, setEdges, refreshEdgesOnPathCompletion, reactFlowInstance, intl, showAlert]);
+  }, [importExportService, ships, hangarItems, wbHistory, ccus, clearAutoSaveTimer, withCurrentTabSnapshot, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, intl, showAlert]);
 
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
@@ -514,22 +883,33 @@ function CcuCanvasContent() {
   };
 
   const saveFlowData = useCallback((mode: 'manual' | 'auto' = 'manual') => {
-    if (!nodes.length) return;
+    if (!plannerTabs.length || !activeTabId) return;
 
-    const flowData = {
-      nodes,
-      edges,
-      startShipPrices
-    };
+    const flowData: FlowData = currentFlowData;
 
     try {
       if (mode === 'auto') {
         setAutoSaveStatus('saving');
       }
 
-      importExportService.saveToLocalStorage(flowData);
+      const savedAt = Date.now();
+      const updatedTabs = plannerTabs.map(tab => {
+        if (tab.id !== activeTabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          flowData,
+          autoSaveStatus: 'saved' as AutoSaveStatus,
+          lastAutoSavedAt: savedAt
+        };
+      });
+
+      setPlannerTabs(updatedTabs);
+      persistWorkspace(updatedTabs, activeTabId);
       setAutoSaveStatus('saved');
-      setLastAutoSavedAt(Date.now());
+      setLastAutoSavedAt(savedAt);
 
       if (mode === 'manual') {
         showAlert(
@@ -541,6 +921,16 @@ function CcuCanvasContent() {
       }
     } catch (error) {
       setAutoSaveStatus('error');
+      setPlannerTabs(prevTabs => prevTabs.map(tab => {
+        if (tab.id !== activeTabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          autoSaveStatus: 'error' as AutoSaveStatus
+        };
+      }));
       showAlert(
         intl.formatMessage(
           { id: 'ccuPlanner.error.saveFailed', defaultMessage: 'Save failed: {errorMessage}' },
@@ -549,15 +939,25 @@ function CcuCanvasContent() {
         'error'
       );
     }
-  }, [nodes, edges, startShipPrices, importExportService, showAlert, intl]);
+  }, [plannerTabs, activeTabId, currentFlowData, persistWorkspace, showAlert, intl]);
+
+  const saveFlowDataRef = useRef(saveFlowData);
+  useEffect(() => {
+    saveFlowDataRef.current = saveFlowData;
+  }, [saveFlowData]);
 
   const handleClear = useCallback(() => {
+    if (!activeTabId) {
+      return;
+    }
+
     clearAutoSaveTimer();
     setNodes([]);
     setEdges([]);
     setStartShipPrices({});
     setAutoSaveStatus('idle');
     setLastAutoSavedAt(null);
+    setSelectedPathEdgeIds([]);
 
     // Clean up completed path states
     pathFinderService.clearCompletedPaths();
@@ -565,8 +965,23 @@ function CcuCanvasContent() {
     // Refresh edge status without showing notification messages
     refreshEdgesOnPathCompletion(false);
 
-    // Use ImportExportService to clear data
-    importExportService.clearFlowData();
+    setPlannerTabs(prevTabs => {
+      const updatedTabs = prevTabs.map(tab => {
+        if (tab.id !== activeTabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          flowData: createEmptyFlowData(),
+          autoSaveStatus: 'idle' as AutoSaveStatus,
+          lastAutoSavedAt: null
+        };
+      });
+
+      persistWorkspace(updatedTabs, activeTabId);
+      return updatedTabs;
+    });
 
     // Display success notification
     showAlert(
@@ -575,7 +990,7 @@ function CcuCanvasContent() {
         defaultMessage: 'Canvas cleared successfully!'
       })
     );
-  }, [setNodes, setEdges, importExportService, intl, refreshEdgesOnPathCompletion, showAlert, clearAutoSaveTimer]);
+  }, [activeTabId, setNodes, setEdges, setSelectedPathEdgeIds, intl, refreshEdgesOnPathCompletion, showAlert, clearAutoSaveTimer, persistWorkspace]);
 
   const handleExport = useCallback(() => {
     if (!reactFlowInstance || !nodes.length) return;
@@ -598,41 +1013,82 @@ function CcuCanvasContent() {
   }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
 
   useEffect(() => {
-    // Use ImportExportService to load data
-    if (reactFlowInstance) {
-      setAutoSaveEnabled(false);
-      clearAutoSaveTimer();
-      setAutoSaveStatus('idle');
-
-      const savedData = importExportService.loadFromLocalStorage(ships, hangarItems, wbHistory, ccus);
-      if (savedData) {
-        setNodes(savedData.nodes);
-        setEdges(savedData.edges);
-        setStartShipPrices(savedData.startShipPrices);
-      }
-
-      const enableAutoSaveTimer = window.setTimeout(() => {
-        setAutoSaveEnabled(true);
-      }, AUTO_SAVE_BOOTSTRAP_DELAY_MS);
-
-      return () => {
-        window.clearTimeout(enableAutoSaveTimer);
-      };
+    if (!reactFlowInstance) {
+      return;
     }
-  }, [reactFlowInstance, setNodes, setEdges, importExportService, ships, wbHistory, ccus, hangarItems, clearAutoSaveTimer, AUTO_SAVE_BOOTSTRAP_DELAY_MS]);
+
+    setAutoSaveEnabled(false);
+    clearAutoSaveTimer();
+    setAutoSaveStatus('idle');
+
+    const loadedWorkspace = importExportService.loadWorkspaceFromLocalStorage(ships, hangarItems, wbHistory, ccus);
+    if (loadedWorkspace?.tabs.length) {
+      const initialTabs: PlannerTabState[] = loadedWorkspace.tabs.map(tab => ({
+        id: tab.id,
+        name: tab.name,
+        flowData: tab.flowData,
+        autoSaveStatus: 'idle',
+        lastAutoSavedAt: tab.lastAutoSavedAt ?? null
+      }));
+      const initialActiveTabId = initialTabs.some(tab => tab.id === loadedWorkspace.activeTabId)
+        ? loadedWorkspace.activeTabId
+        : initialTabs[0].id;
+      const initialActiveTab = initialTabs.find(tab => tab.id === initialActiveTabId) || initialTabs[0];
+
+      setPlannerTabs(initialTabs);
+      setActiveTabId(initialActiveTabId);
+      loadTabIntoCanvas(initialActiveTab);
+      persistWorkspace(initialTabs, initialActiveTabId);
+    } else {
+      const defaultTab: PlannerTabState = {
+        id: DEFAULT_TAB_ID,
+        name: getNextRouteName([]),
+        flowData: createEmptyFlowData(),
+        autoSaveStatus: 'idle',
+        lastAutoSavedAt: null
+      };
+
+      setPlannerTabs([defaultTab]);
+      setActiveTabId(defaultTab.id);
+      loadTabIntoCanvas(defaultTab);
+      persistWorkspace([defaultTab], defaultTab.id);
+    }
+
+    const enableAutoSaveTimer = window.setTimeout(() => {
+      setAutoSaveEnabled(true);
+    }, AUTO_SAVE_BOOTSTRAP_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(enableAutoSaveTimer);
+    };
+  }, [reactFlowInstance, importExportService, ships, wbHistory, ccus, hangarItems, clearAutoSaveTimer, AUTO_SAVE_BOOTSTRAP_DELAY_MS, loadTabIntoCanvas, getNextRouteName, persistWorkspace]);
 
   useEffect(() => {
-    if (!autoSaveEnabled || !nodes.length) return;
+    if (!autoSaveEnabled || !activeTabId || !nodes.length) return;
 
     clearAutoSaveTimer();
     setAutoSaveStatus('pending');
     autoSaveTimeoutRef.current = window.setTimeout(() => {
-      saveFlowData('auto');
+      saveFlowDataRef.current('auto');
       autoSaveTimeoutRef.current = null;
     }, AUTO_SAVE_IDLE_MS);
 
     return clearAutoSaveTimer;
-  }, [autoSaveEnabled, nodes, edges, startShipPrices, saveFlowData, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
+  }, [autoSaveEnabled, activeTabId, nodes, edges, startShipPrices, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
+
+  useEffect(() => {
+    if (!reactFlowInstance || !activeTabId) {
+      return;
+    }
+
+    const fitTimer = window.setTimeout(() => {
+      reactFlowInstance.fitView({ padding: 0.2, duration: 260 });
+    }, 90);
+
+    return () => {
+      window.clearTimeout(fitTimer);
+    };
+  }, [reactFlowInstance, activeTabId]);
 
   useEffect(() => {
     return () => {
@@ -734,13 +1190,92 @@ function CcuCanvasContent() {
       return;
     }
 
-    setNodes(nodes => [...nodes, ...reviewedNodes]);
-    setEdges(edges => [...edges, ...reviewedEdges]);
+    const routeMinX = Math.min(...reviewedNodes.map(node => node.position.x));
+    const routeMaxX = Math.max(...reviewedNodes.map(node => node.position.x));
+    const routeMinY = Math.min(...reviewedNodes.map(node => node.position.y));
+    const routeMaxY = Math.max(...reviewedNodes.map(node => node.position.y));
+    const routeWidth = routeMaxX - routeMinX;
+    const routeHeight = routeMaxY - routeMinY;
+    const INSERT_VERTICAL_GAP = 400;
+
+    let anchorX = 100;
+    let anchorY = 100;
+
+    if (nodes.length > 0) {
+      const existingMinX = Math.min(...nodes.map(node => node.position.x));
+      const existingMaxX = Math.max(...nodes.map(node => node.position.x));
+      const existingMaxY = Math.max(...nodes.map(node => node.position.y));
+      const existingCenterX = existingMinX + (existingMaxX - existingMinX) / 2;
+      anchorX = existingCenterX - routeWidth / 2;
+      anchorY = existingMaxY + INSERT_VERTICAL_GAP;
+    } else if (reactFlowInstance && reactFlowWrapper.current) {
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
+      const centerFlowPosition = reactFlowInstance.screenToFlowPosition({
+        x: bounds.width / 2,
+        y: bounds.height / 2
+      });
+      anchorX = centerFlowPosition.x - routeWidth / 2;
+      anchorY = centerFlowPosition.y - routeHeight / 2;
+    }
+
+    const offsetX = anchorX - routeMinX;
+    const offsetY = anchorY - routeMinY;
+
+    const existingNodeIdSet = new Set(nodes.map(node => node.id));
+    const idMapping = new Map<string, string>();
+    const idSeed = Date.now();
+
+    const positionedNodes = reviewedNodes.map((node, index) => {
+      let nextId = `ship-${node.data?.ship?.id ?? 'pb'}-${idSeed + index}`;
+      while (existingNodeIdSet.has(nextId)) {
+        nextId = `ship-${node.data?.ship?.id ?? 'pb'}-${idSeed + index}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      existingNodeIdSet.add(nextId);
+      idMapping.set(node.id, nextId);
+
+      return {
+        ...node,
+        id: nextId,
+        position: {
+          x: node.position.x + offsetX,
+          y: node.position.y + offsetY
+        },
+        data: {
+          ...node.data,
+          id: nextId
+        }
+      };
+    });
+
+    const existingEdgeIdSet = new Set(edges.map(edge => edge.id));
+    const positionedEdges = reviewedEdges.flatMap((edge, index) => {
+      const mappedSource = idMapping.get(edge.source);
+      const mappedTarget = idMapping.get(edge.target);
+      if (!mappedSource || !mappedTarget) {
+        return [];
+      }
+
+      let nextEdgeId = `edge-${mappedSource}-${mappedTarget}-${idSeed + index}`;
+      while (existingEdgeIdSet.has(nextEdgeId)) {
+        nextEdgeId = `edge-${mappedSource}-${mappedTarget}-${idSeed + index}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      existingEdgeIdSet.add(nextEdgeId);
+
+      return [{
+        ...edge,
+        id: nextEdgeId,
+        source: mappedSource,
+        target: mappedTarget
+      }];
+    });
+
+    setNodes(prevNodes => [...prevNodes, ...positionedNodes]);
+    setEdges(prevEdges => [...prevEdges, ...positionedEdges]);
 
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [setNodes, setEdges, reactFlowInstance, showAlert, intl]);
+  }, [setNodes, setEdges, reactFlowInstance, showAlert, intl, nodes, edges]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);
@@ -939,72 +1474,146 @@ function CcuCanvasContent() {
         <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
       </div>
 
-      <div className="md:w-full sm:h-full w-full h-full flex-1 relative" ref={reactFlowWrapper}>
-        <ReactFlowProvider>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            proOptions={proOptions}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={setReactFlowInstance}
-            onDrop={onDropFile}
-            onDragOver={onDragOver}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-          >
-            <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex flex-col gap-1' />
-            <MiniMap className='dark:invert-90 xl:block hidden' />
-            <Background color="#333" gap={32} />
-            <Panel position="top-right">
-              <div className='gap-2 hidden sm:flex'>
-                {/* <div className='flex flex-col gap-2 items-center justify-center'>
-                  <Crawler ships={ships} />
-                </div> */}
-                <div className='bg-white dark:bg-[#121212]'>
-                  <UserSelector />
-                </div>
-              </div>
-            </Panel>
-            <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
-              <Toolbar
-                nodes={nodes}
-                saveStatus={autoSaveStatus}
-                lastSavedAt={lastAutoSavedAt}
-                onClear={handleClear}
-                onExport={handleExport}
-                onImport={handleImport}
-                onOpenPathBuilder={handleOpenPathBuilder}
-                onOpenGuide={() => {
-                  // setGuideOpen(true)
-                  reportBi<null>({
-                    slot: BiSlots.VIEW_GUIDE,
-                    data: null
-                  })
-                  navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale.startsWith('zh') ? '-zh' : ''))
-                }}
-              />
-            </div>
-            <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
-              <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
-            </Panel>
-          </ReactFlow>
+      <div className="md:w-full sm:h-full w-full h-full flex-1 min-h-0 flex flex-col">
+        <div className="h-10 shrink-0 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181818]">
+          <div className="h-full flex items-stretch overflow-x-auto">
+            {plannerTabs.map(tab => {
+              const isActive = tab.id === activeTabId;
+              const isEditing = editingTabId === tab.id;
+              const isDropTarget = dragOverTabId === tab.id && draggingTabId && draggingTabId !== tab.id;
 
-          <RouteInfoPanel
-            selectedNode={selectedNode}
-            edges={edges}
-            nodes={nodes}
-            onClose={closeRouteInfoPanel}
-            startShipPrices={startShipPrices}
-            onStartShipPriceChange={handleStartShipPriceChange}
-            onPathCompletionChange={refreshEdgesOnPathCompletion}
-            onSelectedPathChange={handleSelectedPathChange}
-          />
-        </ReactFlowProvider>
+              return (
+                <div
+                  key={tab.id}
+                  draggable={!isEditing}
+                  onClick={() => switchToTab(tab.id)}
+                  onDoubleClick={() => startRenameTab(tab.id)}
+                  onDragStart={(event) => handleTabDragStart(event, tab.id)}
+                  onDragOver={(event) => handleTabDragOver(event, tab.id)}
+                  onDrop={(event) => handleTabDrop(event, tab.id)}
+                  onDragEnd={handleTabDragEnd}
+                  className={`relative flex h-full items-center justify-between border-r border-slate-300 dark:border-slate-600 px-2 gap-1 min-w-[120px] ${isActive
+                    ? 'bg-white dark:bg-[#121212]'
+                    : 'bg-[#eceef1] dark:bg-[#222]'
+                    } ${draggingTabId === tab.id ? 'opacity-55' : ''}`}
+                >
+                  {isDropTarget && (
+                    <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded bg-sky-500" />
+                  )}
+                  {isEditing ? (
+                    <Input
+                      autoFocus
+                      value={editingTabName}
+                      // maxLength={48}
+                      onChange={(event) => setEditingTabName(event.target.value)}
+                      onBlur={() => commitRenameTab(tab.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          commitRenameTab(tab.id);
+                        }
+                        if (event.key === 'Escape') {
+                          cancelRenameTab();
+                        }
+                      }}
+                      placeholder={intl.formatMessage({ id: 'ccuPlanner.tab.renamePlaceholder', defaultMessage: 'Tab name' })}
+                    />
+                  ) : (
+                    <div className='cursor-pointer'>
+                      {tab.name}
+                    </div>
+                  )}
+                  {!isEditing && (
+                    <div
+                      className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        requestCloseTab(tab.id);
+                      }}
+                      title={intl.formatMessage({ id: 'ccuPlanner.tab.close', defaultMessage: 'Close route tab' })}
+                    >
+                      <X size={12} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div
+              className="h-full w-10 shrink-0 flex items-center justify-center border-r border-slate-300 dark:border-slate-600 bg-[#eceef1] dark:bg-[#222] text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-[#2a2a2a] cursor-pointer"
+              onClick={addTab}
+              title={intl.formatMessage({ id: 'ccuPlanner.tab.add', defaultMessage: 'Add route tab' })}
+            >
+              <Plus size={14} />
+            </div>
+          </div>
+        </div>
+
+        <div className="relative flex-1 min-h-0" ref={reactFlowWrapper}>
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              proOptions={proOptions}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={setReactFlowInstance}
+              onDrop={onDropFile}
+              onDragOver={onDragOver}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              fitView
+            >
+              <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex gap-1' />
+              <MiniMap className='dark:invert-90 xl:block hidden' />
+              <Background color="#333" gap={32} />
+              <Panel position="top-right">
+                <div className='gap-2 hidden sm:flex'>
+                  {/* <div className='flex flex-col gap-2 items-center justify-center'>
+                    <Crawler ships={ships} />
+                  </div> */}
+                  <div className='bg-white dark:bg-[#121212]'>
+                    <UserSelector />
+                  </div>
+                </div>
+              </Panel>
+              <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
+                <Toolbar
+                  nodes={nodes}
+                  saveStatus={autoSaveStatus}
+                  lastSavedAt={lastAutoSavedAt}
+                  onClear={handleClear}
+                  onExport={handleExport}
+                  onImport={handleImport}
+                  onOpenPathBuilder={handleOpenPathBuilder}
+                  onOpenGuide={() => {
+                    // setGuideOpen(true)
+                    reportBi<null>({
+                      slot: BiSlots.VIEW_GUIDE,
+                      data: null
+                    })
+                    navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale.startsWith('zh') ? '-zh' : ''))
+                  }}
+                />
+              </div>
+              <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
+                <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
+              </Panel>
+            </ReactFlow>
+
+            <RouteInfoPanel
+              selectedNode={selectedNode}
+              edges={edges}
+              nodes={nodes}
+              onClose={closeRouteInfoPanel}
+              startShipPrices={startShipPrices}
+              onStartShipPriceChange={handleStartShipPriceChange}
+              onPathCompletionChange={refreshEdgesOnPathCompletion}
+              onSelectedPathChange={handleSelectedPathChange}
+            />
+          </ReactFlowProvider>
+        </div>
       </div>
 
       <input
@@ -1041,6 +1650,33 @@ function CcuCanvasContent() {
           <Guide />
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={Boolean(pendingCloseTabId)}
+        onClose={cancelCloseTab}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <FormattedMessage id="toolbar.clearConfirmTitle" defaultMessage="Clear all content?" />
+        </DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            <FormattedMessage
+              id="toolbar.clearConfirmDescription"
+              defaultMessage="This action will remove all nodes and connections and cannot be undone."
+            />
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelCloseTab}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={confirmCloseTab} variant="contained" color="error">
+            <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
-} 
+}

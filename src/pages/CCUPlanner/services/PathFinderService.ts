@@ -1,6 +1,11 @@
 import { Edge, Node } from 'reactflow';
 import { Ccu, CcuEdgeData, CcuSourceType, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from '../../../types';
 import { CcuSourceTypeStrategyFactory, HangarItem } from './CcuSourceTypeFactory';
+import {
+  LEGACY_COMPLETED_PATHS_STORAGE_KEY,
+  parseStoredCompletedPaths,
+  setActiveCompletedPathsStorageKey
+} from './completedPathsStorage';
 
 interface PathNode {
   nodeId: string;
@@ -82,6 +87,16 @@ export class PathFinderService {
   private nodeBestCost: Record<string, number> = {};
   // 已完成的路径存储
   private completedPaths: CompletedPath[] = [];
+  private completedPathsStorageKey = LEGACY_COMPLETED_PATHS_STORAGE_KEY;
+
+  /**
+   * 设置已完成路径存储key，用于多tab隔离
+   */
+  setCompletedPathsStorageKey(storageKey: string): void {
+    const normalizedStorageKey = storageKey.trim() || LEGACY_COMPLETED_PATHS_STORAGE_KEY;
+    this.completedPathsStorageKey = normalizedStorageKey;
+    setActiveCompletedPathsStorageKey(normalizedStorageKey);
+  }
   
   /**
    * Find all possible starting nodes (nodes with no incoming edges)
@@ -458,7 +473,7 @@ export class PathFinderService {
     
     // 清理本地存储中的数据
     try {
-      localStorage.removeItem('completedPaths');
+      localStorage.setItem(this.completedPathsStorageKey, '[]');
     } catch (error) {
       console.error('Failed to clear completed paths from storage:', error);
     }
@@ -538,7 +553,7 @@ export class PathFinderService {
         }
       }));
 
-      localStorage.setItem('completedPaths', JSON.stringify(storedPaths));
+      localStorage.setItem(this.completedPathsStorageKey, JSON.stringify(storedPaths));
     } catch (error) {
       console.error('Failed to save completed paths to storage:', error);
     }
@@ -549,9 +564,20 @@ export class PathFinderService {
    */
   loadCompletedPathsFromStorage(): void {
     try {
-      const storedPaths = localStorage.getItem('completedPaths');
-      if (storedPaths) {
-        const parsedPaths: StoredCompletedPath[] = JSON.parse(storedPaths);
+      setActiveCompletedPathsStorageKey(this.completedPathsStorageKey);
+      const primaryRaw = localStorage.getItem(this.completedPathsStorageKey);
+      const primaryPaths = parseStoredCompletedPaths(primaryRaw);
+
+      const shouldFallbackToLegacy =
+        primaryRaw === null &&
+        this.completedPathsStorageKey !== LEGACY_COMPLETED_PATHS_STORAGE_KEY;
+      const parsedPaths = (
+        shouldFallbackToLegacy
+          ? parseStoredCompletedPaths(localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY))
+          : primaryPaths
+      ) as StoredCompletedPath[];
+
+      if (parsedPaths.length > 0) {
         
         // 转换为运行时格式
         this.completedPaths = parsedPaths.filter(storedPath => storedPath.path?.startNodeId).map(storedPath => {
@@ -608,7 +634,10 @@ export class PathFinderService {
             }
           };
         });
+        return;
       }
+
+      this.completedPaths = [];
     } catch (error) {
       console.error('Failed to load completed paths from storage:', error);
       this.completedPaths = [];
