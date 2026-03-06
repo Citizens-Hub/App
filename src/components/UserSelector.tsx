@@ -30,7 +30,7 @@ export default function UserSelector() {
               onClick={() => handleUserSelect(user.id)}
               role="button"
               tabIndex={0}
-              aria-label={intl.formatMessage({ id: "userSelector.selectUser", defaultMessage: "Select user {userName}" }, { userName: user.nickname || user.username || '用户' })}
+              aria-label={intl.formatMessage({ id: "userSelector.selectUser", defaultMessage: "Select user {userName}" }, { userName: user.nickname || user.username || 'User' })}
               sx={{
                 width: 40, 
                 height: 40,
