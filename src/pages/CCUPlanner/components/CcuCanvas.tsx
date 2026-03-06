@@ -1548,13 +1548,22 @@ function CcuCanvasContent() {
     borderRadius: '6px',
     px: 1.5,
     fontSize: '0.92rem',
-    color: '#f3f4f6',
+    color: '#000000de',
+    '.dark &': {
+      color: '#f3f4f6',
+    },
     '&:hover': {
+      backgroundColor: 'rgba(0, 0, 0, 0.06)'
+    },
+    '.dark &:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.12)'
     },
     '&.Mui-disabled': {
-      color: 'rgba(243, 244, 246, 0.35)'
-    }
+      color: '#333333de',
+    },
+    '.dark &.Mui-disabled': {
+      color: 'rgba(243, 244, 246, 0.35)',
+    },
   };
 
   return (
@@ -1699,8 +1708,13 @@ function CcuCanvasContent() {
                 p: 0.5,
                 borderRadius: '8px',
                 border: '1px solid rgba(255, 255, 255, 0.16)',
+                backgroundColor: '#ffffff',
                 backdropFilter: 'blur(6px)',
-                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)'
+                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
+                '.dark &': {
+                  backgroundColor: '#1b1b1b',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                }
               }
             },
             list: {
