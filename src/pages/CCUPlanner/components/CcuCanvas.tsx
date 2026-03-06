@@ -7,6 +7,8 @@ import ReactFlow, {
   useEdgesState,
   addEdge,
   Connection,
+  NodeChange,
+  EdgeChange,
   Node,
   Edge,
   ReactFlowProvider,
@@ -40,10 +42,11 @@ import { BiSlots, reportBi } from '@/report';
 import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
 import { Plus, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
-import { getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
+import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
+const MAX_HISTORY_STEPS = 100;
 type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
 interface PlannerTabState {
@@ -82,6 +85,180 @@ const createEmptyFlowData = (): FlowData => ({
   edges: [],
   startShipPrices: {}
 });
+
+interface FlowStepDiff {
+  nodeIdsAdded: string[];
+  nodeIdsRemoved: string[];
+  nodeIdsUpdated: string[];
+  edgeIdsAdded: string[];
+  edgeIdsRemoved: string[];
+  edgeIdsUpdated: string[];
+  startShipPriceKeysAdded: string[];
+  startShipPriceKeysRemoved: string[];
+  startShipPriceKeysUpdated: string[];
+}
+
+interface FlowHistoryEntry {
+  snapshot: FlowData;
+  diff: FlowStepDiff;
+  recordedAt: number;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const sanitizeForDiff = (value: unknown): unknown => {
+  if (typeof value === 'function' || value === undefined) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => sanitizeForDiff(item))
+      .filter(item => item !== undefined);
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const result: Record<string, unknown> = {};
+  Object.entries(value).forEach(([key, val]) => {
+    if (key === 'incomingEdges' || key === 'outgoingEdges') {
+      return;
+    }
+
+    const sanitized = sanitizeForDiff(val);
+    if (sanitized !== undefined) {
+      result[key] = sanitized;
+    }
+  });
+
+  return result;
+};
+
+const NODE_DIFF_IGNORED_KEYS = new Set([
+  'selected',
+  'dragging',
+  'positionAbsolute',
+  'width',
+  'height',
+  'measured',
+]);
+
+const EDGE_DIFF_IGNORED_KEYS = new Set(['selected']);
+
+const normalizeNodeForDiff = (node: Node): unknown => {
+  const filteredNode = Object.fromEntries(
+    Object.entries(node).filter(([key]) => !NODE_DIFF_IGNORED_KEYS.has(key))
+  );
+
+  return sanitizeForDiff(filteredNode);
+};
+
+const normalizeEdgeForDiff = (edge: Edge<CcuEdgeData>): unknown => {
+  const filteredEdge = Object.fromEntries(
+    Object.entries(edge).filter(([key]) => !EDGE_DIFF_IGNORED_KEYS.has(key))
+  );
+
+  return sanitizeForDiff(filteredEdge);
+};
+
+const getEntityDiff = <T extends { id: string }>(
+  beforeItems: T[],
+  afterItems: T[],
+  normalize: (item: T) => unknown
+): { added: string[]; removed: string[]; updated: string[] } => {
+  const beforeMap = new Map<string, string>();
+  const afterMap = new Map<string, string>();
+
+  beforeItems.forEach(item => {
+    beforeMap.set(item.id, JSON.stringify(normalize(item)));
+  });
+
+  afterItems.forEach(item => {
+    afterMap.set(item.id, JSON.stringify(normalize(item)));
+  });
+
+  const added: string[] = [];
+  const removed: string[] = [];
+  const updated: string[] = [];
+
+  afterMap.forEach((_value, id) => {
+    if (!beforeMap.has(id)) {
+      added.push(id);
+    }
+  });
+
+  beforeMap.forEach((_value, id) => {
+    if (!afterMap.has(id)) {
+      removed.push(id);
+      return;
+    }
+
+    if (beforeMap.get(id) !== afterMap.get(id)) {
+      updated.push(id);
+    }
+  });
+
+  return {
+    added,
+    removed,
+    updated
+  };
+};
+
+const buildFlowStepDiff = (before: FlowData, after: FlowData): FlowStepDiff => {
+  const nodeDiff = getEntityDiff(before.nodes, after.nodes, normalizeNodeForDiff);
+  const edgeDiff = getEntityDiff(before.edges, after.edges, normalizeEdgeForDiff);
+
+  const beforePriceKeys = Object.keys(before.startShipPrices);
+  const afterPriceKeys = Object.keys(after.startShipPrices);
+  const beforePriceKeySet = new Set(beforePriceKeys);
+  const afterPriceKeySet = new Set(afterPriceKeys);
+
+  const startShipPriceKeysAdded = afterPriceKeys.filter(key => !beforePriceKeySet.has(key));
+  const startShipPriceKeysRemoved = beforePriceKeys.filter(key => !afterPriceKeySet.has(key));
+  const startShipPriceKeysUpdated = beforePriceKeys.filter(
+    key => afterPriceKeySet.has(key) && before.startShipPrices[key] !== after.startShipPrices[key]
+  );
+
+  return {
+    nodeIdsAdded: nodeDiff.added,
+    nodeIdsRemoved: nodeDiff.removed,
+    nodeIdsUpdated: nodeDiff.updated,
+    edgeIdsAdded: edgeDiff.added,
+    edgeIdsRemoved: edgeDiff.removed,
+    edgeIdsUpdated: edgeDiff.updated,
+    startShipPriceKeysAdded,
+    startShipPriceKeysRemoved,
+    startShipPriceKeysUpdated
+  };
+};
+
+const hasFlowStepDiff = (diff: FlowStepDiff): boolean => {
+  return (
+    diff.nodeIdsAdded.length > 0 ||
+    diff.nodeIdsRemoved.length > 0 ||
+    diff.nodeIdsUpdated.length > 0 ||
+    diff.edgeIdsAdded.length > 0 ||
+    diff.edgeIdsRemoved.length > 0 ||
+    diff.edgeIdsUpdated.length > 0 ||
+    diff.startShipPriceKeysAdded.length > 0 ||
+    diff.startShipPriceKeysRemoved.length > 0 ||
+    diff.startShipPriceKeysUpdated.length > 0
+  );
+};
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName.toLowerCase();
+  return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+};
 
 export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, priceHistoryMap }: CcuCanvasProps) {
   const [alert, setAlert] = useState<{
@@ -137,10 +314,15 @@ function CcuCanvasContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
   const joyrideStepRetryTimeoutRef = useRef<number | null>(null);
+  const historyByTabRef = useRef<Record<string, FlowHistoryEntry[]>>({});
+  const historyBaselineByTabRef = useRef<Record<string, FlowData>>({});
+  const skipHistoryRecordingRef = useRef(false);
+  const isNodeDragInProgressRef = useRef(false);
+  const hasWorkspaceInitializedRef = useRef(false);
   const [plannerTabs, setPlannerTabs] = useState<PlannerTabState[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, applyNodesChange] = useNodesState([]);
+  const [edges, setEdges, applyEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [startShipPrices, setStartShipPrices] = useState<Record<string, number | string>>({});
@@ -210,6 +392,44 @@ function CcuCanvasContent() {
     });
   }, []);
 
+  const cloneNodes = useCallback((value: Node[]): Node[] => {
+    return value.map(node => {
+      const clonedNode: Node = {
+        ...node,
+        position: {
+          ...node.position
+        },
+        data: node.data
+          ? {
+            ...node.data
+          }
+          : node.data
+      };
+
+      if (node.positionAbsolute) {
+        clonedNode.positionAbsolute = {
+          ...node.positionAbsolute
+        };
+      }
+
+      return clonedNode;
+    });
+  }, []);
+
+  const cloneStartShipPrices = useCallback((value: Record<string, number | string>) => {
+    return {
+      ...value
+    };
+  }, []);
+
+  const cloneFlowData = useCallback((value: FlowData): FlowData => {
+    return {
+      nodes: cloneNodes(value.nodes),
+      edges: cloneEdges(value.edges),
+      startShipPrices: cloneStartShipPrices(value.startShipPrices)
+    };
+  }, [cloneEdges, cloneNodes, cloneStartShipPrices]);
+
   const persistWorkspace = useCallback((tabs: PlannerTabState[], nextActiveTabId: string) => {
     const workspace: PlannerWorkspaceData = {
       version: 2,
@@ -232,15 +452,18 @@ function CcuCanvasContent() {
   }, []);
 
   const loadTabIntoCanvas = useCallback((tab: PlannerTabState) => {
-    setNodes(tab.flowData.nodes);
-    setEdges(cloneEdges(tab.flowData.edges));
-    setStartShipPrices(tab.flowData.startShipPrices);
+    const clonedFlowData = cloneFlowData(tab.flowData);
+    skipHistoryRecordingRef.current = true;
+    setNodes(clonedFlowData.nodes);
+    setEdges(clonedFlowData.edges);
+    setStartShipPrices(clonedFlowData.startShipPrices);
     setAutoSaveStatus(tab.autoSaveStatus);
     setLastAutoSavedAt(tab.lastAutoSavedAt);
     setSelectedNode(null);
     setSelectedPathEdgeIds([]);
+    historyBaselineByTabRef.current[tab.id] = clonedFlowData;
     syncCompletedPathsStorage(tab.id);
-  }, [setNodes, setEdges, cloneEdges, setSelectedPathEdgeIds, syncCompletedPathsStorage]);
+  }, [setNodes, setEdges, cloneFlowData, setSelectedPathEdgeIds, syncCompletedPathsStorage]);
 
   const clearAutoSaveTimer = useCallback(() => {
     if (autoSaveTimeoutRef.current) {
@@ -277,6 +500,29 @@ function CcuCanvasContent() {
       [nodeId]: price
     }));
   }, []);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const hasDragInProgress = changes.some(
+      change => change.type === 'position' && 'dragging' in change && change.dragging === true
+    );
+    const hasDragEnd = changes.some(
+      change => change.type === 'position' && 'dragging' in change && change.dragging === false
+    );
+
+    if (hasDragInProgress && !hasDragEnd) {
+      isNodeDragInProgressRef.current = true;
+    }
+
+    if (hasDragEnd) {
+      isNodeDragInProgressRef.current = false;
+    }
+
+    applyNodesChange(changes);
+  }, [applyNodesChange]);
+
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    applyEdgesChange(changes);
+  }, [applyEdgesChange]);
 
   // Handle connection creation
   const onConnect = useCallback(
@@ -482,6 +728,62 @@ function CcuCanvasContent() {
     edges,
     startShipPrices
   }), [nodes, edges, startShipPrices]);
+
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+
+    const nextSnapshot = cloneFlowData(currentFlowData);
+    const previousSnapshot = historyBaselineByTabRef.current[activeTabId];
+
+    if (skipHistoryRecordingRef.current) {
+      historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
+      skipHistoryRecordingRef.current = false;
+      return;
+    }
+
+    if (isNodeDragInProgressRef.current) {
+      return;
+    }
+
+    if (!previousSnapshot) {
+      historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
+      return;
+    }
+
+    const diff = buildFlowStepDiff(previousSnapshot, nextSnapshot);
+    if (hasFlowStepDiff(diff)) {
+      const tabHistory = historyByTabRef.current[activeTabId] || [];
+      const nextTabHistory = tabHistory.length >= MAX_HISTORY_STEPS
+        ? [...tabHistory.slice(1), { snapshot: previousSnapshot, diff, recordedAt: Date.now() }]
+        : [...tabHistory, { snapshot: previousSnapshot, diff, recordedAt: Date.now() }];
+
+      historyByTabRef.current[activeTabId] = nextTabHistory;
+    }
+
+    historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
+  }, [activeTabId, cloneFlowData, currentFlowData]);
+
+  useEffect(() => {
+    const tabIds = new Set(plannerTabs.map(tab => tab.id));
+    Object.keys(historyByTabRef.current).forEach(tabId => {
+      if (!tabIds.has(tabId)) {
+        delete historyByTabRef.current[tabId];
+      }
+    });
+    Object.keys(historyBaselineByTabRef.current).forEach(tabId => {
+      if (!tabIds.has(tabId)) {
+        delete historyBaselineByTabRef.current[tabId];
+      }
+    });
+
+    if (!hasWorkspaceInitializedRef.current) {
+      return;
+    }
+
+    cleanupCompletedPathsStorageForTabIds(plannerTabs.map(tab => tab.id));
+  }, [plannerTabs]);
 
   const withCurrentTabSnapshot = useCallback((tabs: PlannerTabState[]): PlannerTabState[] => {
     if (!activeTabId) {
@@ -1034,25 +1336,94 @@ function CcuCanvasContent() {
     }
   }, [plannerTabs, activeTabId, currentFlowData, persistWorkspace, showAlert, intl]);
 
+  const handleUndo = useCallback(() => {
+    if (!activeTabId) {
+      return;
+    }
+
+    const tabHistory = historyByTabRef.current[activeTabId];
+    if (!tabHistory || tabHistory.length === 0) {
+      return;
+    }
+
+    const lastStep = tabHistory[tabHistory.length - 1];
+    historyByTabRef.current[activeTabId] = tabHistory.slice(0, -1);
+
+    const restoredFlow = cloneFlowData(lastStep.snapshot);
+    const nextStatus: AutoSaveStatus = restoredFlow.nodes.length > 0 ? 'pending' : 'idle';
+
+    clearAutoSaveTimer();
+    skipHistoryRecordingRef.current = true;
+    isNodeDragInProgressRef.current = false;
+    historyBaselineByTabRef.current[activeTabId] = restoredFlow;
+
+    setNodes(restoredFlow.nodes);
+    setEdges(restoredFlow.edges);
+    setStartShipPrices(restoredFlow.startShipPrices);
+    setSelectedPathEdgeIds([]);
+    setSelectedNode(null);
+    setAutoSaveStatus(nextStatus);
+    refreshEdgesOnPathCompletion(false);
+
+    setPlannerTabs(prevTabs => {
+      const nextTabs = prevTabs.map(tab => {
+        if (tab.id !== activeTabId) {
+          return tab;
+        }
+
+        return {
+          ...tab,
+          flowData: restoredFlow,
+          autoSaveStatus: nextStatus
+        };
+      });
+
+      persistWorkspace(nextTabs, activeTabId);
+      return nextTabs;
+    });
+  }, [
+    activeTabId,
+    clearAutoSaveTimer,
+    cloneFlowData,
+    persistWorkspace,
+    refreshEdgesOnPathCompletion,
+    setEdges,
+    setNodes,
+    setSelectedPathEdgeIds,
+    setStartShipPrices
+  ]);
+
   const saveFlowDataRef = useRef(saveFlowData);
   useEffect(() => {
     saveFlowDataRef.current = saveFlowData;
   }, [saveFlowData]);
 
+  const undoFlowDataRef = useRef(handleUndo);
   useEffect(() => {
-    const handleSaveShortcut = (event: KeyboardEvent) => {
+    undoFlowDataRef.current = handleUndo;
+  }, [handleUndo]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
       const isSaveShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
-      if (!isSaveShortcut) {
+      if (isSaveShortcut) {
+        event.preventDefault();
+        saveFlowDataRef.current('manual');
+        return;
+      }
+
+      const isUndoShortcut = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z';
+      if (!isUndoShortcut || isEditableTarget(event.target)) {
         return;
       }
 
       event.preventDefault();
-      saveFlowDataRef.current('manual');
+      undoFlowDataRef.current();
     };
 
-    window.addEventListener('keydown', handleSaveShortcut);
+    window.addEventListener('keydown', handleShortcut);
     return () => {
-      window.removeEventListener('keydown', handleSaveShortcut);
+      window.removeEventListener('keydown', handleShortcut);
     };
   }, []);
 
@@ -1145,6 +1516,7 @@ function CcuCanvasContent() {
         : initialTabs[0].id;
       const initialActiveTab = initialTabs.find(tab => tab.id === initialActiveTabId) || initialTabs[0];
 
+      hasWorkspaceInitializedRef.current = true;
       setPlannerTabs(initialTabs);
       setActiveTabId(initialActiveTabId);
       loadTabIntoCanvas(initialActiveTab);
@@ -1158,6 +1530,7 @@ function CcuCanvasContent() {
         lastAutoSavedAt: null
       };
 
+      hasWorkspaceInitializedRef.current = true;
       setPlannerTabs([defaultTab]);
       setActiveTabId(defaultTab.id);
       loadTabIntoCanvas(defaultTab);
@@ -1791,6 +2164,8 @@ function CcuCanvasContent() {
               nodes={nodes}
               edges={edges}
               proOptions={proOptions}
+              nodesFocusable={false}
+              edgesFocusable={false}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}

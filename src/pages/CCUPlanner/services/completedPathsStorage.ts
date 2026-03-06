@@ -2,6 +2,7 @@ import { CcuSourceType } from '../../../types';
 
 export const LEGACY_COMPLETED_PATHS_STORAGE_KEY = 'completedPaths';
 const ACTIVE_COMPLETED_PATHS_STORAGE_KEY = 'ccu-planner-active-completed-paths-key';
+const COMPLETED_PATHS_STORAGE_KEY_PREFIX = 'completedPaths:';
 
 export interface StoredCompletedPathUsageEdge {
   sourceShipId: number;
@@ -68,4 +69,41 @@ export function readStoredCompletedPathsForActiveTab(): StoredCompletedPathUsage
   }
 
   return readStoredCompletedPathsByStorageKey(LEGACY_COMPLETED_PATHS_STORAGE_KEY);
+}
+
+export function cleanupCompletedPathsStorageForTabIds(tabIds: string[]): void {
+  try {
+    const validStorageKeys = new Set(
+      tabIds
+        .map(getCompletedPathsStorageKeyForTab)
+        .filter(storageKey => storageKey.startsWith(COMPLETED_PATHS_STORAGE_KEY_PREFIX))
+    );
+
+    const staleKeys: string[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(COMPLETED_PATHS_STORAGE_KEY_PREFIX)) {
+        continue;
+      }
+
+      if (!validStorageKeys.has(key)) {
+        staleKeys.push(key);
+      }
+    }
+
+    staleKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    const activeStorageKey = localStorage.getItem(ACTIVE_COMPLETED_PATHS_STORAGE_KEY);
+    if (activeStorageKey?.startsWith(COMPLETED_PATHS_STORAGE_KEY_PREFIX) && !validStorageKeys.has(activeStorageKey)) {
+      const firstValidKey = validStorageKeys.values().next().value;
+      localStorage.setItem(
+        ACTIVE_COMPLETED_PATHS_STORAGE_KEY,
+        firstValidKey || LEGACY_COMPLETED_PATHS_STORAGE_KEY
+      );
+    }
+  } catch (error) {
+    console.error('Failed to cleanup stale completed-path storage keys:', error);
+  }
 }
