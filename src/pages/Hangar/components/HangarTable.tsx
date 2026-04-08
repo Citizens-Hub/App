@@ -817,7 +817,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         <Link
                           to={
                             item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
-                              `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}1`
+                              `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}`
                           }
                           target="_blank"
                           className="flex items-center gap-2"
