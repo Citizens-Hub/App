@@ -207,7 +207,7 @@ const OrderDetail = () => {
               name: ccu.name,
               pageId,
               type: 'normal',
-              url: `https://robertsspaceindustries.com/en/account/pledges?page=${pageId}&pagesize=1`
+              url: `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(pageId / 10)}`
             });
             remainingToOpen--;
           });

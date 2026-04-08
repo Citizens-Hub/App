@@ -817,7 +817,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         <Link
                           to={
                             item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
-                              `https://robertsspaceindustries.com/en/account/pledges?page=${item.pageId}&pagesize=1`
+                              `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}1`
                           }
                           target="_blank"
                           className="flex items-center gap-2"
@@ -923,7 +923,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 const lineTotal = groupedItem.value * quantity;
                                 const detailHangarUrl = groupedItem.isBuyBack
                                   ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${groupedItem.pageId}&product-type=upgrade&pagesize=1`
-                                  : `https://robertsspaceindustries.com/en/account/pledges?page=${groupedItem.pageId}&pagesize=1`;
+                                  : `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil((groupedItem.pageId || 0) / 10)}`;
 
                                 return (
                                   <Box
