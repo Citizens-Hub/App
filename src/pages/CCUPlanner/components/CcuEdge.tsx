@@ -37,6 +37,7 @@ export default function CcuEdge({
     wbHistory,
     hangarItems,
     importItems,
+    exchangeRates,
     selectedPathEdgeIds
   } = useCcuPlanner();
 
@@ -130,6 +131,31 @@ export default function CcuEdge({
     priceHistoryMap: priceHistoryMap,
   });
 
+  const officialUpgradePriceUsd = data.targetShip?.msrp && data.sourceShip?.msrp
+    ? (data.targetShip.msrp - data.sourceShip.msrp) / 100
+    : null;
+
+  const priceForSavingsUsd = (() => {
+    if (currency === 'USD') {
+      return price;
+    }
+
+    const rate = exchangeRates[currency.toLowerCase()];
+    if (!rate) {
+      return null;
+    }
+
+    return price / rate;
+  })();
+
+  const savingsUsd = officialUpgradePriceUsd !== null && priceForSavingsUsd !== null
+    ? officialUpgradePriceUsd - priceForSavingsUsd
+    : null;
+
+  const savingsPercent = officialUpgradePriceUsd && savingsUsd !== null && savingsUsd > 0
+    ? Math.floor((savingsUsd / officialUpgradePriceUsd) * 100)
+    : null;
+
   const ccuAvailable = ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;
 
   return (
@@ -163,11 +189,10 @@ export default function CcuEdge({
             className={`${labelBgColor} text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1`}
           >
             {
-              data.targetShip?.msrp && 
-              data.sourceShip?.msrp && 
-              price * 100 < data.targetShip.msrp - data.sourceShip.msrp && 
+              savingsUsd !== null &&
+              savingsPercent !== null &&
               <div className='absolute bottom-8 left-[50%] -translate-x-[50%] dark:text-amber-300 text-amber-500 text-nowrap flex items-center gap-1 '>
-                <BadgeDollarSign className='w-3 h-3' /> Save {Math.floor(((data.targetShip.msrp - data.sourceShip.msrp) / 100 - price) / ((data.targetShip.msrp - data.sourceShip.msrp) / 100) * 100)}% (-${(data.targetShip.msrp - data.sourceShip.msrp) / 100 - price})
+                <BadgeDollarSign className='w-3 h-3' /> Save {savingsPercent}% (-{savingsUsd.toLocaleString(locale, { style: 'currency', currency: 'USD' })})
               </div>
             }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}

@@ -11,6 +11,13 @@ export interface CcuEdgeCreationOptions {
   priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
+export type CcuEdgePriceContext = Pick<
+  CcuEdgeCreationOptions,
+  'ccus' | 'wbHistory' | 'hangarItems' | 'importItems' | 'priceHistoryMap'
+> & {
+  currency?: string;
+};
+
 /**
  * CCU Edge Service - handles the creation and update of CCU edges
  */
@@ -87,7 +94,8 @@ export class CcuEdgeService {
   public updateEdgeData(
     originalData: CcuEdgeData, 
     sourceType: CcuSourceType, 
-    customPrice?: number
+    customPrice?: number,
+    priceContext?: CcuEdgePriceContext
   ): CcuEdgeData {
     const sourceShip = originalData.sourceShip;
     const targetShip = originalData.targetShip;
@@ -95,6 +103,8 @@ export class CcuEdgeService {
     if (!sourceShip || !targetShip) {
       return originalData;
     }
+
+    const officialPrice = (targetShip.msrp - sourceShip.msrp) / 100;
     
     // Get the strategy corresponding to the source type
     const strategy = this.factory.getStrategy(sourceType);
@@ -110,8 +120,16 @@ export class CcuEdgeService {
     } 
     // Otherwise, try to use the strategy to calculate the price
     else {
-      const priceInfo = strategy.calculatePrice(sourceShip, targetShip);
-      if (priceInfo.price !== originalData.price / 100) {
+      const priceInfo = strategy.calculatePrice(sourceShip, targetShip, {
+        ccus: priceContext?.ccus || [],
+        wbHistory: priceContext?.wbHistory || [],
+        hangarItems: priceContext?.hangarItems || [],
+        importItems: priceContext?.importItems || [],
+        priceHistoryMap: priceContext?.priceHistoryMap || {},
+        currency: priceContext?.currency
+      });
+
+      if (priceInfo.price !== officialPrice) {
         updatedData.customPrice = priceInfo.price;
       } else {
         delete updatedData.customPrice;

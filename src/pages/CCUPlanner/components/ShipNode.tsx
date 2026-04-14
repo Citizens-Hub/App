@@ -31,7 +31,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { locale } = intl;
   
   // Get data and services from context
-  const { ccus, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
+  const { ccus, wbHistory, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
   
@@ -117,7 +117,14 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         const sourceId = edge.source;
         
         if (edge.data) {
-          const updatedData = edgeService.updateEdgeData(edge.data, sourceType);
+          const updatedData = edgeService.updateEdgeData(edge.data, sourceType, undefined, {
+            ccus,
+            wbHistory,
+            hangarItems,
+            importItems,
+            priceHistoryMap,
+            currency
+          });
           onUpdateEdge(sourceId, id, updatedData);
           
           newEdgeSettings.customPrice = updatedData.customPrice;
@@ -254,7 +261,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   className="w-full text-sm z-50"
                   size="small"
                   native
-                  value={edgeSettings[edge.id]?.sourceType}
+                  value={edgeSettings[edge.id]?.sourceType ?? edge.data?.sourceType ?? CcuSourceType.OFFICIAL}
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
