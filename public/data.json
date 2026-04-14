@@ -5,6 +5,206 @@
                 "listing": {
                     "resources": [
                         {
+                            "id": "19111",
+                            "slug": "vr5i2asyg7679",
+                            "name": "CC’s Conversions Azrael ‘Sapphire’ Helmet ",
+                            "title": "CC’s Conversions Azrael ‘Sapphire’ Helmet ",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/CC-s-Conversions-Azrael-Sapphire-Helmet",
+                            "body": null,
+                            "excerpt": "When flying through the dangerous reaches of space, it's common for brave pilots to routinely face down death. Now, with the Azrael helmet from CC's Conversions, you can look the part with the grim visage of a skull peering out from beneath the visor of this otherwise normal-looking helmet.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/v6hnhbtqik8o0/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/v6hnhbtqik8o0/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/v6hnhbtqik8o0/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 600,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 600,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/276b857ed43a7230df56fb08ae7101b16b5700f6/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjReskYgZpoEBYFDP8R6LLcrgbmDs8firKnroG)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "CC’s Conversions Azrael ‘Sapphire’ Helmet ",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19110",
+                            "slug": "uxg7cawk0svnt",
+                            "name": "PSX Pistol Case",
+                            "title": "PSX Pistol Case",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/PSX-Pistol-Case",
+                            "body": null,
+                            "excerpt": "Remain discreet yet ready with this sleek case capable of holding a pistol and several attachments. It features a hard outer shell and an inside lined with a special rigid polyurethane foam designed to securely hold a wide variety of attachments. Case includes a Behring S-38 Pistol and accessories.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/trjkecqhlcxts/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/trjkecqhlcxts/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/trjkecqhlcxts/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 700,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 700,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/606f163955ffa6d199144f3e819bc76300c2981f/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjReskPM6rUxrWp9szP37jDAmKCENsyeNPdbre)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "PSX Pistol Case",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19109",
+                            "slug": "p8lelugq009yz",
+                            "name": "Contractor’s Kit",
+                            "title": "Contractor’s Kit",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/Contractor-s-Kit",
+                            "body": null,
+                            "excerpt": "Take on “jobs” around the ‘verse in a professional and discreet manner with the Contractor’s Kit, featuring the dramatic CC’s Conversions Azrael ‘Sapphire’ Helmet and convenient PSX Pistol Case stocked with a Behring S-38 Pistol and accessories.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/4yhp1eahbftee/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/4yhp1eahbftee/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/4yhp1eahbftee/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/v6hnhbtqik8o0/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/trjkecqhlcxts/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 1300,
+                                "discounted": 1170,
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 1300,
+                                "discounted": 1170,
+                                "taxDescription": [],
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/e4156d1675e9a8c85034ba8a31ac99925e2bc521/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjReseZ6EQbRL164hK83AeGw8HZumfxaBK43Vp)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "Contractor’s Kit",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": true,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
                             "id": "19011",
                             "slug": "lp865ob1a8bis",
                             "name": "ParaMed \"Cyanosis\" Medical Device",
