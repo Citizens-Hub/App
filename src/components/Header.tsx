@@ -57,7 +57,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
 
   // useEffect(() => {
   //   window.addEventListener("beforeunload", leaveListener)
-    
+
   //   return () => window.removeEventListener("beforeunload", leaveListener)
   // }, [])
 
@@ -85,10 +85,28 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
     });
   };
 
+  const currentNavItem = findNavItemByPath(pathname);
+  const currentPageName = intl.formatMessage({
+    id: currentNavItem?.name || "navigation.home",
+    defaultMessage: "Home",
+  });
+  const appName = intl.formatMessage({
+    id: "navigate.title",
+    defaultMessage: "Citizens' Hub",
+  });
+
   useEffect(() => {
-    const currentNavItem = findNavItemByPath(pathname);
-    document.title = "Citizens' Hub - " + intl.formatMessage({ id: currentNavItem?.name || "navigation.home" })
-  }, [intl, pathname])
+    document.title = intl.formatMessage(
+      {
+        id: "header.documentTitle",
+        defaultMessage: "{appName} - {pageName}",
+      },
+      {
+        appName,
+        pageName: currentPageName,
+      },
+    );
+  }, [appName, currentPageName, intl])
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -148,9 +166,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             {" > "}
           </span>
         }
-        <span className="hidden md:block">{intl.formatMessage({
-          id: findNavItemByPath(pathname)?.name || "navigation.home", defaultMessage: "Home"
-        })}</span>
+        <span className="hidden md:block">{currentPageName}</span>
       </div>
       <HeaderAd />
       <div className="flex items-center gap-2 justify-end">
@@ -368,6 +384,15 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             </div>
           </div>
           <div className="text-center text-sm text-gray-500 dark:text-gray-300">
+            <div className="text-md mb-2">
+              <Link className="text-blue-500 block" href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" >
+                STAR-47BR-3ZWH
+              </Link>
+              <FormattedMessage
+                id="header.referralSupport"
+                defaultMessage="Use this referral code to support us"
+              />
+            </div>
             This is an unofficial <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link> application, not affiliated with the Cloud Imperium group of companies.
             <span className="dark:hidden">
               <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
