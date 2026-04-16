@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch, Slider } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch, Slider, Tooltip } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -287,6 +287,16 @@ function formatUsdByLocale(value: number, locale: string): string {
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
+  });
+}
+
+function formatCreditAmountByLocale(value: number, locale: string): string {
+  const roundedValue = Number(value.toFixed(2));
+  const hasFraction = Math.abs(roundedValue - Math.round(roundedValue)) > 1e-6;
+
+  return roundedValue.toLocaleString(locale, {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -630,6 +640,18 @@ function getRequiredStoreCreditAmount(edges: MarketRouteEdge[]): number {
   return Number(total.toFixed(2));
 }
 
+function getRequiredCashAmount(edges: MarketRouteEdge[]): number {
+  const total = edges.reduce((sum, edge) => (
+    edge.sourceType === CcuSourceType.THIRD_PARTY
+      || edge.sourceType === CcuSourceType.AVAILABLE_WB
+      || edge.sourceType === CcuSourceType.OFFICIAL_WB
+      ? sum + edge.cost
+      : sum
+  ), 0);
+
+  return Number(total.toFixed(2));
+}
+
 function findMatchingCreditPoolOptions(
   creditListing: ListingItem | undefined,
   requiredAmount: number,
@@ -691,13 +713,17 @@ function findMatchingCreditPoolOptions(
       continue;
     }
 
-    const betterTotal = bestTotal === null || total < bestTotal;
-    const equalTotalBetterPrice = bestTotal !== null
-      && total === bestTotal
-      && (state.price < bestPrice - 1e-6
-        || (Math.abs(state.price - bestPrice) <= 1e-6 && state.count < bestCount));
+    const isLowerPrice = state.price < bestPrice - 1e-6;
+    const isSamePrice = Math.abs(state.price - bestPrice) <= 1e-6;
+    const isCloserAmount = bestTotal === null || total < bestTotal;
+    const isSameAmountWithFewerPacks = bestTotal !== null && total === bestTotal && state.count < bestCount;
 
-    if (betterTotal || equalTotalBetterPrice) {
+    if (
+      bestTotal === null
+      || isLowerPrice
+      || (isSamePrice && isCloserAmount)
+      || (isSamePrice && isSameAmountWithFewerPacks)
+    ) {
       bestTotal = total;
       bestPrice = state.price;
       bestCount = state.count;
@@ -1156,6 +1182,11 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     [marketRoute]
   );
 
+  const marketRouteRequiredCash = useMemo(
+    () => marketRoute ? getRequiredCashAmount(marketRoute.edges) : 0,
+    [marketRoute]
+  );
+
   const marketRouteCreditApiPath = useMemo(() => {
     if (step !== 'review' || !hasMarketAssistedRoute || marketRouteRequiredStoreCredit <= 0) {
       return null;
@@ -1183,20 +1214,39 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     [marketRouteCreditListing, marketRouteRequiredStoreCredit]
   );
 
+  const marketRouteCreditDiscountSavings = useMemo(() => {
+    if (!marketRouteSelectedCreditOptions?.length) {
+      return 0;
+    }
+
+    const faceValueTotal = marketRouteSelectedCreditOptions.reduce((sum, option) => sum + option.amount, 0);
+    const quotedPriceTotal = marketRouteSelectedCreditOptions.reduce((sum, option) => sum + option.price, 0);
+
+    return Number((faceValueTotal - quotedPriceTotal).toFixed(2));
+  }, [marketRouteSelectedCreditOptions]);
+
   const marketRouteSavingsVsDirectUpgrade = useMemo(() => {
     if (!marketRoute) {
       return null;
     }
 
-    return directUpgradeCost - marketRoute.totalCost;
+    return Number((directUpgradeCost - marketRoute.totalCost).toFixed(2));
   }, [directUpgradeCost, marketRoute]);
+
+  const marketRouteTotalSavings = useMemo(() => {
+    if (marketRouteSavingsVsDirectUpgrade === null) {
+      return null;
+    }
+
+    return Number((marketRouteSavingsVsDirectUpgrade + marketRouteCreditDiscountSavings).toFixed(2));
+  }, [marketRouteCreditDiscountSavings, marketRouteSavingsVsDirectUpgrade]);
 
   const marketRouteHeadline = useMemo(() => {
     if (!marketRoute || !reviewTargetShip) {
       return '';
     }
 
-    if (marketRouteSavingsVsDirectUpgrade !== null && marketRouteSavingsVsDirectUpgrade > 0) {
+    if (marketRouteTotalSavings !== null && marketRouteTotalSavings > 0) {
       return intl.formatMessage(
         {
           id: 'pathBuilder.marketRouteHeadlineBetter',
@@ -1204,7 +1254,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         },
         {
           target: reviewTargetShip.name,
-          difference: formatUsdByLocale(marketRouteSavingsVsDirectUpgrade, intl.locale)
+          difference: formatUsdByLocale(marketRouteTotalSavings, intl.locale)
         }
       );
     }
@@ -1218,7 +1268,34 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         target: reviewTargetShip.name
       }
     );
-  }, [intl, marketRoute, marketRouteSavingsVsDirectUpgrade, reviewTargetShip]);
+  }, [intl, marketRoute, marketRouteTotalSavings, reviewTargetShip]);
+
+  const marketRouteHeadlineTooltip = useMemo(() => {
+    if (
+      !reviewTargetShip
+      || marketRouteTotalSavings === null
+      || marketRouteTotalSavings <= 0
+    ) {
+      return '';
+    }
+
+    return intl.formatMessage(
+      {
+        id: 'pathBuilder.marketRouteHeadlineBreakdown',
+        defaultMessage: 'Route savings {routeSavings} + Store Credit discount savings {creditSavings}'
+      },
+      {
+        routeSavings: formatUsdByLocale(marketRouteSavingsVsDirectUpgrade || 0, intl.locale),
+        creditSavings: formatUsdByLocale(marketRouteCreditDiscountSavings, intl.locale),
+      }
+    );
+  }, [
+    intl,
+    marketRouteCreditDiscountSavings,
+    marketRouteSavingsVsDirectUpgrade,
+    marketRouteTotalSavings,
+    reviewTargetShip,
+  ]);
 
   const marketRouteCanvasResult = useMemo<ReviewedPathBuildResult | null>(() => {
     if (!marketRoute || marketRoute.edges.length === 0) {
@@ -1662,6 +1739,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
   const formatUsd = useCallback((value: number): string => {
     return formatUsdByLocale(value, intl.locale);
+  }, [intl.locale]);
+
+  const formatCreditAmount = useCallback((value: number): string => {
+    return formatCreditAmountByLocale(value, intl.locale);
   }, [intl.locale]);
 
   const formatDate = useCallback((ts: number): string => {
@@ -3040,9 +3121,16 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                               defaultMessage="Market-Assisted Route"
                             />
                           </div> */}
-                          <div className="mt-1 text-sm font-semibold leading-6 text-emerald-950 dark:text-emerald-50">
-                            {marketRouteHeadline}
-                          </div>
+                          <Tooltip
+                            title={marketRouteHeadlineTooltip}
+                            disableHoverListener={!marketRouteHeadlineTooltip}
+                            arrow
+                            placement="top-start"
+                          >
+                            <div className="mt-1 text-sm font-semibold leading-6 text-emerald-950 dark:text-emerald-50">
+                              {marketRouteHeadline}
+                            </div>
+                          </Tooltip>
                         </div>
                         <IconButton
                           onClick={() => setMarketRouteWindowOpen(false)}
@@ -3071,30 +3159,36 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             <FormattedMessage
                               id="pathBuilder.marketRouteSummary"
                               defaultMessage="{steps, number} steps"
-                              values={{ steps: marketRoute.edges.length, cost: formatUsd(marketRoute.totalCost) }}
+                              values={{
+                                steps: marketRoute.edges.length,
+                                cash: formatUsd(marketRouteRequiredCash),
+                                credit: formatCreditAmount(marketRouteRequiredStoreCredit),
+                              }}
                             />
                           </span>
-                          <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
-                            <FormattedMessage
-                              id="pathBuilder.marketRouteHangarCount"
-                              defaultMessage="Hangar {count}"
-                              values={{ count: marketRoute.hangarCount }}
-                            />
-                          </span>
-                          <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
-                            <FormattedMessage
-                              id="pathBuilder.marketRouteMarketCount"
-                              defaultMessage="Market {count}"
-                              values={{ count: marketRoute.marketCount }}
-                            />
-                          </span>
-                          <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
-                            <FormattedMessage
-                              id="pathBuilder.marketRouteOfficialCount"
-                              defaultMessage="Official fallback {count}"
-                              values={{ count: marketRoute.officialCount }}
-                            />
-                          </span>
+                          <div className='flex gap-2 flex-wrap'>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteHangarCount"
+                                defaultMessage="Hangar {count}"
+                                values={{ count: marketRoute.hangarCount }}
+                              />
+                            </span>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteMarketCount"
+                                defaultMessage="Market {count}"
+                                values={{ count: marketRoute.marketCount }}
+                              />
+                            </span>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteOfficialCount"
+                                defaultMessage="Official fallback {count}"
+                                values={{ count: marketRoute.officialCount }}
+                              />
+                            </span>
+                          </div>
                         </div>
                         <div className="mt-3">
                           <Button
