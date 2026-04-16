@@ -59,7 +59,8 @@ const Market: React.FC = () => {
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
   const [showBundles, setShowBundles] = useState(true);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
-  const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
+  // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
+  const [showAlert, setShowAlert] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];

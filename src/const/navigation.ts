@@ -84,7 +84,8 @@ export const navigation = [
   {
     name: "navigation.reseller",
     path: "/reseller",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    requireReseller: true
   },
   {
     name: "navigation.graphql",
