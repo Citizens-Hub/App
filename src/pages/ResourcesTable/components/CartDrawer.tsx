@@ -60,7 +60,7 @@ export default function CartDrawer({
     >
       <Box sx={{ width: { xs: '100%', sm: 450 }, p: 2 }}>
         <Typography variant="h6" gutterBottom className='flex justify-between items-center'>
-          我的清单
+          <span>我的清单</span>
           <IconButton onClick={onClose}>
             <Close />
           </IconButton>
@@ -131,7 +131,7 @@ export default function CartDrawer({
                 onClick={copyCartToClipboard}
                 disabled={cart.length === 0}
               >
-                复制清单
+                <span>复制清单</span>
               </Button>
             </Box>
           </>

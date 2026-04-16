@@ -50,7 +50,7 @@ export default function PriceDisplay({ resource, exchangeRate, isMobile = false 
         }
       </Typography>
       <Typography variant="caption" color="text.secondary" className="flex gap-2">
-        ~
+        <span>~</span>
         <span>
           {(currentPrice * exchangeRate / 100).toLocaleString("zh-CN", {style:"currency", currency:"CNY"})}
         </span>

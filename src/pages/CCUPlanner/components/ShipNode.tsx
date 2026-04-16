@@ -200,8 +200,9 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         </div>
 
         <div className="text-sm text-gray-600 mb-2">
-          <span className="font-medium">{ship.manufacturer.name}</span> ·
-          <span className="ml-1">{ship.type}</span>
+          <span className="font-medium">{ship.manufacturer.name}</span>
+          <span className="mx-1">·</span>
+          <span>{ship.type}</span>
         </div>
 
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg">
@@ -244,9 +245,11 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                   <FormattedMessage id="shipNode.ccuSource" defaultMessage="CCU Source" />
                 </span>
                 <span className='flex flex-row items-center gap-1 dark:text-white'>
-                  {edge.data?.sourceShip?.name ||
-                    intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
-                  }
+                  <span>
+                    {edge.data?.sourceShip?.name ||
+                      intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
+                    }
+                  </span>
                   <IconButton size='small' onClick={(e) => {
                     e.stopPropagation();
                     onDeleteEdge?.(edge.id);

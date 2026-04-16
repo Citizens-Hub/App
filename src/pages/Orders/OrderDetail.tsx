@@ -299,7 +299,8 @@ export default function OrderDetail() {
                 <FormattedMessage id="orderDetail.itemsCount" defaultMessage="Items Count" />
               </Typography>
               <Typography variant="body2">
-                {activeItemsCount} / {totalItemsCount} <FormattedMessage id="orderDetail.active" defaultMessage="active" />
+                <span>{activeItemsCount} / {totalItemsCount} </span>
+                <span><FormattedMessage id="orderDetail.active" defaultMessage="active" /></span>
               </Typography>
             </div>
           </div>
@@ -446,15 +447,18 @@ export default function OrderDetail() {
                           <div className="flex justify-center items-center">
                             {item.quantity === itemCancelledQty ? (
                               <div className="flex items-center text-red-500">
-                                <X className='w-4 h-4 mr-1' /> 0/{item.quantity}
+                                <X className='w-4 h-4 mr-1' />
+                                <span>0/{item.quantity}</span>
                               </div>
                             ) : itemCancelledQty > 0 ? (
                               <div className="flex items-center text-orange-500">
-                                <Info className='w-4 h-4 mr-1' /> {activeQty}/{item.quantity}
+                                <Info className='w-4 h-4 mr-1' />
+                                <span>{activeQty}/{item.quantity}</span>
                               </div>
                             ) : (
                               <div className="flex items-center text-green-500">
-                                <Check className='w-4 h-4 mr-1' /> {item.quantity}
+                                <Check className='w-4 h-4 mr-1' />
+                                <span>{item.quantity}</span>
                               </div>
                             )}
                           </div>

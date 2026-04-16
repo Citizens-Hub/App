@@ -940,7 +940,11 @@ export default function MarketDetail() {
                   </div>
                 )}
                 <div className='text-sm text-slate-500 dark:text-slate-400'>
-                  <FormattedMessage id="market.available" defaultMessage="Available Stock" />: <span className='font-semibold text-[#1d4ed8]'>{availableStock}</span>
+                  <span>
+                    <span><FormattedMessage id="market.available" defaultMessage="Available Stock" /></span>
+                    <span>:</span>
+                  </span>
+                  <span className='font-semibold text-[#1d4ed8]'> {availableStock}</span>
                 </div>
               </div>
 

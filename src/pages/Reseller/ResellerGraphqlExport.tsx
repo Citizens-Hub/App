@@ -153,7 +153,7 @@ export default function ResellerGraphqlExport() {
           disabled={loading}
           sx={{ mt: 2 }}
         >
-          {loading ? '请求中...' : '请求并下载 JSON'}
+          <span>{loading ? '请求中...' : '请求并下载 JSON'}</span>
         </Button>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

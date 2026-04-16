@@ -591,23 +591,27 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
         <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 2 }}>
           <Typography variant="h6" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <FormattedMessage id="hangar.totalValue" defaultMessage="Hangar value:" />
-            {filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+            <span>
+              {filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+            </span>
           </Typography>
           <Typography variant="h6" color="secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <FormattedMessage id="hangar.totalMsrp" defaultMessage="MSRP:" />
-            {(filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => {
-              // Calculate upgrade value if exists
-              const upgradeValue = item.to?.msrp && item.from?.msrp ? item.to.msrp - item.from.msrp : 0;
-              
-              // Calculate ships value if exists
-              const shipsValue = item.ships?.reduce((shipSum, ship) => {
-                if (!ship?.name) return shipSum;
-                const matchingShip = ships.find(s => s.name.toUpperCase().trim() === ship.name?.toUpperCase().trim());
-                return shipSum + (matchingShip?.msrp || 0);
-              }, 0) || 0;
+            <span>
+              {(filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => {
+                // Calculate upgrade value if exists
+                const upgradeValue = item.to?.msrp && item.from?.msrp ? item.to.msrp - item.from.msrp : 0;
+                
+                // Calculate ships value if exists
+                const shipsValue = item.ships?.reduce((shipSum, ship) => {
+                  if (!ship?.name) return shipSum;
+                  const matchingShip = ships.find(s => s.name.toUpperCase().trim() === ship.name?.toUpperCase().trim());
+                  return shipSum + (matchingShip?.msrp || 0);
+                }, 0) || 0;
 
-              return sum + upgradeValue * (item.quantity || 1) + shipsValue;
-            }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                return sum + upgradeValue * (item.quantity || 1) + shipsValue;
+              }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+            </span>
           </Typography>
         </Box>
         <TableContainer sx={{ mb: 2 }}>
@@ -685,7 +689,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           />
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
                             <span className='text-white text-sm flex items-center justify-center gap-2'>
-                              {item.insurance === "LTI" && <span className="text-red-500">LTI</span>} {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
+                              {item.insurance === "LTI" && <span className="text-red-500">LTI</span>}
+                              {item.isBuyBack && <span><FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" /></span>}
+                              <span>{item.name}</span>
                             </span>
                           </div>
                         </div>
@@ -697,16 +703,19 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           <>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
-                              {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                               <span className='text-gray-500 mx-2 dark:text-gray-400'>-</span>
-                              {(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span>{(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             </span>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                              {(item.groupedItems && item.groupedItems.length > 1 ? (item.totalCost || 0) : item.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span>{(item.groupedItems && item.groupedItems.length > 1 ? (item.totalCost || 0) : item.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                               {item.groupedItems && item.groupedItems.length > 1 ? (
                                 <span className='text-gray-500 mx-2'>
-                                  (<FormattedMessage id="hangar.avgCost" defaultMessage="Avg:" /> {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                                  <span>(</span>
+                                  <span><FormattedMessage id="hangar.avgCost" defaultMessage="Avg:" /></span>
+                                  <span> {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                                  <span>)</span>
                                 </span>
                               ) : null}
                               {!item.hasMultipleValues && item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
@@ -761,11 +770,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           <>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
-                              {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             </span>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                              {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                              <span>{item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             </span>
                             {/* {'insurance' in item && item.insurance && (
                               <span className='text-md text-blue-500 font-bold'>
@@ -787,13 +796,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 defaultMessage="{count} owners"
                                 values={{ count: item.ownerCount }}
                               />
-                            ) : (users.find(user => user.id === item.belongsTo)?.nickname || '-')}
+                            ) : (<span>{users.find(user => user.id === item.belongsTo)?.nickname || '-'}</span>)}
                           </span>
                         </span>
                         {item.quantity && <span className='text-md font-bold flex flex-col'>
                           <span className='text-gray-500 dark:text-gray-400 flex items-center gap-2'>
                             <Archive className='w-4 h-4' />
-                            {item.quantity}
+                            <span>{item.quantity}</span>
                           </span>
                         </span>}
                         {item.type === 'Bundle' && (
@@ -811,7 +820,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
+                    <TableCell sx={{ textWrap: 'nowrap' }}>
+                      {item.isBuyBack && <span><FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" /></span>}
+                      <span>{item.isBuyBack ? ` ${item.type}` : item.type}</span>
+                    </TableCell>
                     <TableCell sx={{ textWrap: 'nowrap' }}>
                       {!!item.pageId &&
                         <Link
@@ -859,14 +871,14 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                       <span className="text-md font-bold">{bundleShip.name}</span>
                                       {shipInfo?.msrp && (
                                         <Typography variant="caption" color="text.secondary">
-                                          <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />{' '}
-                                          {(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
+                                          <span><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
+                                          <span> {(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}</span>
                                         </Typography>
                                       )}
                                       {bundleShip.insurance && (
                                         <Typography variant="caption" display="block" color="primary">
-                                          <FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" />{' '}
-                                          {bundleShip.insurance}
+                                          <span><FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" /></span>
+                                          <span> {bundleShip.insurance}</span>
                                         </Typography>
                                       )}
                                     </div>
@@ -942,18 +954,18 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                   >
                                     <span className='text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2'>
                                       <CircleUser className='w-4 h-4' />
-                                      {ownerName}
+                                      <span>{ownerName}</span>
                                     </span>
                                     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                       <span className='text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2'>
                                         <Archive className='w-4 h-4' />
-                                        x{quantity}
+                                        <span>{`x${quantity}`}</span>
                                       </span>
                                       <span className='text-sm text-blue-500 font-bold'>
-                                        {groupedItem.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                        <span>{groupedItem.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                                         <span className='text-gray-500 mx-1'>/ea</span>
                                         <span className='text-gray-500 mx-1'>·</span>
-                                        {lineTotal.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                        <span>{lineTotal.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                                       </span>
                                       {!!groupedItem.pageId && (
                                         <Link

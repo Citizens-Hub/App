@@ -229,7 +229,7 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 className={`flex flex-col w-full items-center justify-center pt-2 pb-1 gap-2 border-b border-gray-200 dark:border-gray-800 last:border-b-0 ${upgrade.isBuyBack ? "bg-gray-100 dark:bg-gray-900" : upgrade.isSubscription ? "bg-gray-100 dark:bg-gray-800" : ""}`}
               >
                 <div className="text-xs text-gray-400 text-left px-2 w-full">
-                  {upgrade.isBuyBack && <FormattedMessage id="ccuPlanner.buyback" defaultMessage="Buyback" />}
+                  {upgrade.isBuyBack && <span><FormattedMessage id="ccuPlanner.buyback" defaultMessage="Buyback" /></span>}
                   {upgrade.isSubscription &&
                     <span className="text-xs text-gray-400">
                       <FormattedMessage id="ccuPlanner.subscription" defaultMessage="Subscription" />
@@ -239,7 +239,8 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                     <span className="text-xs text-gray-400">
                       <FormattedMessage id="ccuPlanner.hangar" defaultMessage="Hangar" />
                     </span>
-                  }:&nbsp;
+                  }
+                  <span>:&nbsp;</span>
                   <span className="text-xs text-gray-400">
                     {upgrade.name}
                   </span>
@@ -284,7 +285,10 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                       </span>
                     }
                   </span>
-                  <span>↓ <FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="upgrade to" /></span>
+                  <span>
+                    <span>↓ </span>
+                    <span><FormattedMessage id="ccuPlanner.upgradeTo" defaultMessage="upgrade to" /></span>
+                  </span>
                   <span className="flex items-center gap-1">
                     <FormattedMessage id="ccuPlanner.cost" defaultMessage="花费" />
                     <span className="text-blue-400 font-bold">{upgrade.value.toLocaleString('en-US', { style: 'currency', currency: upgrade.isSubscription ? importItems[0].currency : "USD" })}</span>

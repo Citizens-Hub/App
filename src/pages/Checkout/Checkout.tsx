@@ -437,7 +437,11 @@ export default function Checkout() {
                             </>
                           )}
                           <Typography variant="body2" color="text.secondary">
-                            <FormattedMessage id="checkout.quantity" defaultMessage="Quantity" />: {item.quantity}
+                            <span>
+                              <span><FormattedMessage id="checkout.quantity" defaultMessage="Quantity" /></span>
+                              <span>:</span>
+                            </span>
+                            <span> {item.quantity}</span>
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
@@ -489,7 +493,9 @@ export default function Checkout() {
                 {isServiceFeeFree && <span className="text-green-600">(waived)</span>}
                 {isServiceFeeFree ? (
                   <span style={{ textDecoration: 'line-through', marginLeft: '8px' }}>US$0.99</span>
-                ) : 'US$0.99'}
+                ) : (
+                  <span>US$0.99</span>
+                )}
               </Typography>
             </Box>
 
@@ -504,7 +510,8 @@ export default function Checkout() {
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  *<FormattedMessage id="checkout.taxes" defaultMessage="Taxes not included" />
+                  <span>*</span>
+                  <span><FormattedMessage id="checkout.taxes" defaultMessage="Taxes not included" /></span>
                 </Typography>
               </Box>
             </Box>

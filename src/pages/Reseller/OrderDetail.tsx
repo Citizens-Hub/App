@@ -303,7 +303,8 @@ const OrderDetail = () => {
             />
           </div>
           <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-            <FormattedMessage id="orders.total" defaultMessage="总价" /> ${total.toFixed(2)}
+            <span><FormattedMessage id="orders.total" defaultMessage="总价" /></span>
+            <span> ${total.toFixed(2)}</span>
           </Typography>
         </div>
 
@@ -322,7 +323,8 @@ const OrderDetail = () => {
               <FormattedMessage id="orders.itemsAvailability" defaultMessage="商品数量" />
             </Typography>
             <Typography variant="body1">
-              {availableItems} / {totalItems} <FormattedMessage id="orders.available" defaultMessage="有效" />
+              <span>{availableItems} / {totalItems} </span>
+              <span><FormattedMessage id="orders.available" defaultMessage="有效" /></span>
             </Typography>
           </div>
 

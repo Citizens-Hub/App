@@ -501,7 +501,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                               </Typography>
                               {msrpDelta !== null && (
                                 <Typography variant="body2" color="text.secondary">
-                                  <FormattedMessage id="hangar.msrp" defaultMessage="MSRP" />:
+                                  <span>
+                                    <span><FormattedMessage id="hangar.msrp" defaultMessage="MSRP" /></span>
+                                    <span>:</span>
+                                  </span>
                                   <span className='text-blue-500 ml-1'>
                                     US${((item.fromMsrp || 0) / 100).toFixed(2)} - US${((item.toMsrp || 0) / 100).toFixed(2)}
                                   </span>
@@ -531,7 +534,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                           )}
 
                           <Typography variant="body2" color="text.secondary">
-                            <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />: {item.stock}
+                            <span>
+                              <span><FormattedMessage id="hangar.quantity" defaultMessage="Quantity" /></span>
+                              <span>:</span>
+                            </span>
+                            <span> {item.stock}</span>
                           </Typography>
 
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

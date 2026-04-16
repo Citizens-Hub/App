@@ -314,7 +314,11 @@ export default function Share() {
               <FormattedMessage id="share.errorTitle" defaultMessage="Loading Failed" />
             </Typography>
             <Typography variant="body1" sx={{ mt: 1 }}>
-              <FormattedMessage id="share.error" defaultMessage="Error message" />: {error}
+              <span>
+                <span><FormattedMessage id="share.error" defaultMessage="Error message" /></span>
+                <span>:</span>
+              </span>
+              <span> {error}</span>
             </Typography>
           </Alert>
         </Container>

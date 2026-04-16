@@ -163,7 +163,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             >
               {intl.formatMessage({ id: "navigation.home", defaultMessage: "Home" })}
             </Link>
-            {" > "}
+            <span>{" > "}</span>
           </span>
         }
         <span className="hidden md:block">{currentPageName}</span>
@@ -388,19 +388,23 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <Link className="text-blue-500 block" href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" >
                 STAR-47BR-3ZWH
               </Link>
-              <FormattedMessage
-                id="header.referralSupport"
-                defaultMessage="Use this referral code to support us"
-              />
+              <span>
+                <FormattedMessage
+                  id="header.referralSupport"
+                  defaultMessage="Use this referral code to support us"
+                />
+              </span>
             </div>
-            This is an unofficial <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link> application, not affiliated with the Cloud Imperium group of companies.
+            <span>This is an unofficial </span>
+            <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link>
+            <span> application, not affiliated with the Cloud Imperium group of companies.</span>
             <span className="dark:hidden">
               <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
             </span>
             <span className="hidden dark:block">
               <Avatar src="/MadeByTheCommunity_Black.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
             </span>
-            &copy; {new Date().getFullYear()} Citizens' Hub
+            <span>&copy; {new Date().getFullYear()} Citizens' Hub</span>
             <div className="text-black dark:text-white text-xs mt-1">App version: {import.meta.env.VITE_PUBLIC_RELEASE_VERSION}</div>
             <div className="text-black dark:text-white text-xs mt-1 scale-80">Build ({__BUILD_TIME__})</div>
           </div>

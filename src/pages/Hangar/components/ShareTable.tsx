@@ -380,11 +380,13 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         onClick={handleUpload}
         disabled={uploading || selectedCount === 0}
       >
-        {uploading ?
-          <FormattedMessage id="hangar.uploading" defaultMessage="上传中..." /> :
-          <FormattedMessage id="hangar.shareItems" defaultMessage="分享物品" />
-        }
-        {selectedCount > 0 && ` (${selectedCount})`}
+        <span>
+          {uploading ?
+            <FormattedMessage id="hangar.uploading" defaultMessage="上传中..." /> :
+            <FormattedMessage id="hangar.shareItems" defaultMessage="分享物品" />
+          }
+        </span>
+        {selectedCount > 0 && <span>{` (${selectedCount})`}</span>}
       </Button>
     </Box>
 
@@ -484,13 +486,13 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                     <div className='flex flex-col gap-2'>
                       <span className='text-md text-blue-500 font-bold'>
                         <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
-                        {(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                        <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                         <span className='text-gray-500 mx-2 dark:text-gray-400'>-</span>
-                        {(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                        <span>{(item.to.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                       </span>
                       <span className='text-md text-blue-500 font-bold'>
                         <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                        {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                        <span>{item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                         {item.to.msrp - item.from.msrp !== item.value * 100 && <span className='text-gray-500 mx-2'>
                           {`${((item.to.msrp - item.from.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}`}
                         </span>}
@@ -518,11 +520,15 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                         </span>
                       </span>
                       <span className='text-md font-bold flex items-center gap-2 text-gray-500 dark:text-gray-400'>
-                        <Inbox className='w-4 h-4' /> {item.quantity}
+                        <Inbox className='w-4 h-4' />
+                        <span>{item.quantity}</span>
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell sx={{ textWrap: 'nowrap' }}>{item.isBuyBack && <FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" />} {item.type}</TableCell>
+                  <TableCell sx={{ textWrap: 'nowrap' }}>
+                    {item.isBuyBack && <span><FormattedMessage id="hangar.buyBack" defaultMessage="Buy Back" /></span>}
+                    <span>{item.isBuyBack ? ` ${item.type}` : item.type}</span>
+                  </TableCell>
                   <TableCell>
                     <TextField
                       type="number"

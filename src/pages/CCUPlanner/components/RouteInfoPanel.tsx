@@ -609,7 +609,7 @@ export default function RouteInfoPanel({
           <span className='text-black dark:text-white'>
             <FormattedMessage id="routeInfoPanel.shipValue" defaultMessage="Ship Value:" />
           </span>
-          {(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+          <span>{(selectedNode.data.ship.msrp / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
         </div>
       </div>
 
@@ -821,13 +821,15 @@ export default function RouteInfoPanel({
                         <div className='flex justify-between gap-4'>
                           <div className="text-sm">
                             <span className='mr-1'>
-                              <FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" />:
+                              <span><FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" /></span>
+                              <span>:</span>
                             </span>
                             <span className="text-blue-400">{completePath.totalUsdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                           </div>
                           <div className="text-sm">
                             <span className="text-black dark:text-white mr-1">
-                              <FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" />:
+                              <span><FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" /></span>
+                              <span>:</span>
                             </span>
                             <span className="text-blue-400">{completePath.totalThirdPartyPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
                           </div>
@@ -836,7 +838,8 @@ export default function RouteInfoPanel({
                         <div className='flex gap-4 items-center justify-between'>
                           <div className="text-sm">
                             <span className="text-black dark:text-white mr-1">
-                              <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
+                              <span><FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" /></span>
+                              <span>:</span>
                             </span>
                             <span className="text-blue-400">
                               <span>{(completePath.totalUsdPrice + completePath.totalThirdPartyPrice / exchangeRate).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
@@ -844,18 +847,19 @@ export default function RouteInfoPanel({
                           </div>
                           {
                             currency !== 'USD' && <div className="text-sm text-gray-400">
-                              (~
+                              <span>(~</span>
                               <span className="text-blue-400">
                                 {(completePath.totalUsdPrice * exchangeRate + completePath.totalThirdPartyPrice).toLocaleString(locale, { style: 'currency', currency })}
                               </span>
-                              )
+                              <span>)</span>
                             </div>
                           }
                         </div>
                         <div className='flex justify-between gap-4'>
                           <div className="text-sm">
                             <span className="text-black dark:text-white mr-1">
-                              <FormattedMessage id="routeInfoPanel.conciergeCost" defaultMessage="Concierge cost" />:
+                              <span><FormattedMessage id="routeInfoPanel.conciergeCost" defaultMessage="Concierge cost" /></span>
+                              <span>:</span>
                             </span>
                             <span className="text-sm">
                               <span className="text-blue-400">
@@ -868,7 +872,8 @@ export default function RouteInfoPanel({
                         <div className='flex flex-col justify-between gap-2'>
                           <div className="text-sm text-left">
                             <span className="text-black dark:text-white mr-1">
-                              <FormattedMessage id="routeInfoPanel.newInvestment" defaultMessage="New Investment" />:
+                              <span><FormattedMessage id="routeInfoPanel.newInvestment" defaultMessage="New Investment" /></span>
+                              <span>:</span>
                             </span>
                             <Tooltip arrow title={
                               <span style={{ fontSize: '14px' }}>
@@ -880,18 +885,25 @@ export default function RouteInfoPanel({
                           </div>
                           <div className="text-sm flex justify-between">
                             <span>
-                              <span className='mr-1'><FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" />:</span>
+                              <span className='mr-1'>
+                                <span><FormattedMessage id="routeInfoPanel.fromRsi" defaultMessage="From RSI store" /></span>
+                                <span>:</span>
+                              </span>
                               <span className="text-blue-400">{newUsdCost.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             </span>
                             <span>
-                              <span className='mr-1'><FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" />:</span>
+                              <span className='mr-1'>
+                                <span><FormattedMessage id="routeInfoPanel.tpCost" defaultMessage="Third-party" /></span>
+                                <span>:</span>
+                              </span>
                               <span className="text-blue-400">{newCnyCost.toLocaleString(locale, { style: 'currency', currency: currency })}</span>
                             </span>
                           </div>
                           <div className='flex gap-4 items-center justify-between'>
                             <div className="text-sm">
                               <span className="text-black dark:text-white mr-1">
-                                <FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" />:
+                                <span><FormattedMessage id="routeInfoPanel.total" defaultMessage="Total" /></span>
+                                <span>:</span>
                               </span>
                               <span className="text-blue-400">
                                 <span>{(newUsdCost + newCnyCost / exchangeRate).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
@@ -899,11 +911,11 @@ export default function RouteInfoPanel({
                             </div>
                             {
                               currency !== 'USD' && <div className="text-sm text-gray-400">
-                                (~
+                                <span>(~</span>
                                 <span className="text-blue-400">
                                   {(newUsdCost * exchangeRate + newCnyCost).toLocaleString(locale, { style: 'currency', currency })}
                                 </span>
-                                )
+                                <span>)</span>
                               </div>
                             }
                           </div>
@@ -980,15 +992,15 @@ export default function RouteInfoPanel({
                                     className="w-8 h-8 rounded object-cover"
                                   />
                                   <span className="text-gray-400">
-                                    <FormattedMessage id="routeInfoPanel.from" defaultMessage="From" />
-                                    {' '}
+                                    <span><FormattedMessage id="routeInfoPanel.from" defaultMessage="From" /></span>
+                                    <span> </span>
                                     <span className='text-black dark:text-white'>{pathEdge.sourceNode.data?.ship?.name}</span>
                                   </span>
                                 </div>
                                 <div className='flex gap-4'>
                                   <span className="text-gray-400">
-                                    <FormattedMessage id="routeInfoPanel.to" defaultMessage="To" />
-                                    {' '}
+                                    <span><FormattedMessage id="routeInfoPanel.to" defaultMessage="To" /></span>
+                                    <span> </span>
                                     <span className='text-black dark:text-white'>{pathEdge.targetNode.data?.ship?.name}</span>
                                   </span>
                                   <img
@@ -1006,34 +1018,38 @@ export default function RouteInfoPanel({
                                     (() => {
                                       return ccuSourceTypeFactory.getStrategy(sourceType).getDisplayName(intl);
                                     })()
-                                  }</span>{' '}
-                                  <FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" />
+                                  }</span>
+                                  <span><FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" /></span>
                                 </span>
 
                                 {
                                   isPriceUnavailable ? (
                                     <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                      <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                      <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
+                                      <span>:</span>
                                       <span className="text-red-600 dark:text-red-400">Not available</span>
                                     </span>
                                   ) : (
                                     <>
                                       {sourceType === CcuSourceType.SUBSCRIPTION ? (
                                         <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                          <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                          <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
+                                          <span>:</span>
                                           <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
                                         </span>
                                       ) : (
                                         <>{(sourceType !== CcuSourceType.THIRD_PARTY) ? (
                                           <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                            <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                            <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
+                                            <span>:</span>
                                             <span className="text-black dark:text-white">
                                               {usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
                                             </span>
                                           </span>
                                         ) : (
                                           <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                            <FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" />:
+                                            <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
+                                            <span>:</span>
                                             <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
                                           </span>
                                         )}</>

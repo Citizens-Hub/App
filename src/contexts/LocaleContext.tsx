@@ -73,7 +73,7 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
 
   return (
     <LocaleContext.Provider value={value}>
-      <IntlProvider locale={locale} messages={messages[locale]} defaultLocale="zh-CN">
+      <IntlProvider locale={locale} messages={messages[locale]} defaultLocale="zh-CN" textComponent="span">
         {children}
       </IntlProvider>
     </LocaleContext.Provider>

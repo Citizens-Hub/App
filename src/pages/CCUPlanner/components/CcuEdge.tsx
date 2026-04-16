@@ -192,7 +192,9 @@ export default function CcuEdge({
               savingsUsd !== null &&
               savingsPercent !== null &&
               <div className='absolute bottom-8 left-[50%] -translate-x-[50%] dark:text-amber-300 text-amber-500 text-nowrap flex items-center gap-1 '>
-                <BadgeDollarSign className='w-3 h-3' /> Save {savingsPercent}% (-{savingsUsd.toLocaleString(locale, { style: 'currency', currency: 'USD' })})
+                <BadgeDollarSign className='w-3 h-3' />
+                <span>Save {savingsPercent}%</span>
+                <span>(-{savingsUsd.toLocaleString(locale, { style: 'currency', currency: 'USD' })})</span>
               </div>
             }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}

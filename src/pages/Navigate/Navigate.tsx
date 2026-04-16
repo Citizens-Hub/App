@@ -29,12 +29,15 @@ export default function Navigate() {
         </div>
 
         <div className='text-lg sm:text-3xl text-center text-gray-100 flex gap-2 m-auto text-nowrap mt-6'>
-          <Link to="/ccu-planner" style={{ color: 'inherit' }}><FormattedMessage id="navigate.ccuPlanner" defaultMessage="CCU Planner" /></Link> |
+          <Link to="/ccu-planner" style={{ color: 'inherit' }}><FormattedMessage id="navigate.ccuPlanner" defaultMessage="CCU Planner" /></Link>
+          <span>|</span>
           <Link to="/store-preview" style={{ color: 'inherit' }}><FormattedMessage id="navigate.storePreview" defaultMessage="Store Preview" /></Link>
         </div>
         <div className='text-xs sm:text-lg text-center text-gray-200 m-auto text-nowrap mt-4'>
-          © {new Date().getFullYear()} <FormattedMessage id="navigate.title" defaultMessage="Star Citizen Tools" />
-          &nbsp;|&nbsp;<Link to="/privacy" style={{ color: 'inherit' }}><FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" /></Link>
+          <span>© {new Date().getFullYear()} </span>
+          <span><FormattedMessage id="navigate.title" defaultMessage="Star Citizen Tools" /></span>
+          <span>&nbsp;|&nbsp;</span>
+          <Link to="/privacy" style={{ color: 'inherit' }}><FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" /></Link>
         </div>
       </div>
     </div>

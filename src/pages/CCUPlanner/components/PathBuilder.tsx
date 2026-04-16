@@ -1886,7 +1886,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 {isCalculating ? (
                   <span className="flex items-center gap-2">
                     <CircularProgress size={16} color="inherit" />
-                    {intl.formatMessage({ id: 'pathBuilder.calculating', defaultMessage: 'Calculating...' })}
+                    <span>{intl.formatMessage({ id: 'pathBuilder.calculating', defaultMessage: 'Calculating...' })}</span>
                   </span>
                 ) : (
                   <FormattedMessage id="pathBuilder.createPath" defaultMessage="Create path" />

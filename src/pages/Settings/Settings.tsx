@@ -500,7 +500,7 @@ export default function Settings() {
                       {
                         users.map((user) => (
                           <div key={user.id} className='flex flex-row items-center gap-2 justify-between'>
-                            {user.nickname || user.username}
+                            <span>{user.nickname || user.username}</span>
                             <Button variant="contained" color="error" aria-label={intl.formatMessage({ id: "settings.clearUserData", defaultMessage: "Clear User Data" }, { userName: user.nickname || user.username })} onClick={() => {
                               setSelectedUserToClear(user.id);
                               setClearUserDataDialog(true);
