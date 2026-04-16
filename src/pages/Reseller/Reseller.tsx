@@ -2,6 +2,7 @@ import { Typography } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import StoreTable from './components/StoreTable';
+import CreditInventoryCard from './components/CreditInventoryCard';
 import { useHangarData } from '@/hooks';
 import OrdersTable from './components/OrdersTable';
 import { useNavigate } from 'react-router';
@@ -41,7 +42,12 @@ export default function Reseller() {
 
       <div className='p-4 w-full h-[calc(100vh-128px-65px)] overflow-y-auto sm:mt-28'>
         {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
-          {currentPage === Page.MyStore && <StoreTable ships={ships} />}
+          {currentPage === Page.MyStore && (
+            <>
+              <CreditInventoryCard />
+              <StoreTable ships={ships} />
+            </>
+          )}
           {currentPage === Page.MyOrders && <OrdersTable />}
         </>)}
       </div>

@@ -17,9 +17,18 @@ type MarketDisplayItem = {
   toImageUrl?: string;
   description?: string;
   externalRef?: string;
+  creditAmount?: number;
+  discountRateBps?: number;
+  sellerCount?: number;
+  creditOptions?: Array<{
+    amount: number;
+    price: number;
+    discountRateBps: number;
+    sellerCount: number;
+  }>;
 };
 
-export const MARKET_ITEM_PLACEHOLDER = 'https://via.placeholder.com/280x160?text=No+Image';
+export const MARKET_ITEM_PLACEHOLDER = '/imgs/credit.webp';
 
 export function toLargeRsiImage(url?: string) {
   if (!url) return '';
@@ -65,6 +74,7 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
 export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource {
   const visual = getMarketItemVisual(item, ships);
   const availableStock = item.stock - item.lockedStock;
+  const effectiveAvailableStock = item.itemType === 'credit' ? Number.MAX_SAFE_INTEGER : availableStock;
   const primaryImage = visual.thumbnail || MARKET_ITEM_PLACEHOLDER;
 
   return {
@@ -88,7 +98,11 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
     toImageUrl: visual.toImage || undefined,
     description: item.description,
     externalRef: item.externalRef,
-    marketAvailableStock: availableStock,
+    creditAmount: item.creditAmount,
+    discountRateBps: item.discountRateBps,
+    sellerCount: item.sellerCount,
+    creditOptions: item.creditOptions,
+    marketAvailableStock: effectiveAvailableStock,
     media: {
       thumbnail: {
         storeSmall: primaryImage,
@@ -108,8 +122,8 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
       taxDescription: [],
     },
     stock: {
-      available: availableStock > 0,
-      level: availableStock > 5 ? 'high' : availableStock > 0 ? 'low' : 'none',
+      available: item.itemType === 'credit' ? true : availableStock > 0,
+      level: item.itemType === 'credit' ? 'high' : availableStock > 5 ? 'high' : availableStock > 0 ? 'low' : 'none',
     },
     isPackage: item.itemType === 'package',
   };
@@ -140,6 +154,10 @@ export function buildMarketCartItem(
     toImageUrl: visual.toImage || undefined,
     description: item.description,
     externalRef: item.externalRef,
+    creditAmount: item.creditAmount,
+    discountRateBps: item.discountRateBps,
+    sellerCount: item.sellerCount,
+    creditOptions: item.creditOptions,
     name: item.name,
     price: item.price,
     discounted: 0,
@@ -182,6 +200,10 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     toImageUrl: toImage || undefined,
     description: resource.description,
     externalRef: resource.externalRef,
+    creditAmount: resource.creditAmount,
+    discountRateBps: resource.discountRateBps,
+    sellerCount: resource.sellerCount,
+    creditOptions: resource.creditOptions,
     name: resource.name || resource.id,
     price: (resource.nativePrice?.amount || 0) / 100,
     discounted: resource.nativePrice?.discounted ? (resource.nativePrice.discounted / 100) : 0,
@@ -190,7 +212,7 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
 }
 
 function normalizeMarketItemType(value?: string): MarketItemType {
-  if (value === 'ccu' || value === 'package' || value === 'misc') {
+  if (value === 'ccu' || value === 'package' || value === 'misc' || value === 'credit') {
     return value;
   }
 

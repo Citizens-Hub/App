@@ -395,7 +395,7 @@ export default function Checkout() {
                           ) : (
                             <Box
                               component="img"
-                              sx={{ width: 120, height: 65, objectFit: 'cover' }}
+                              sx={{ width: "100%", height: "100%", objectFit: 'cover' }}
                               src={media.thumbnail || MARKET_ITEM_PLACEHOLDER}
                               alt={name}
                             />
@@ -422,7 +422,7 @@ export default function Checkout() {
                               )}
                             </>
                           )}
-                          {!isCCU && !isPackage && (
+                          {/* {!isCCU && !isPackage && (
                             <>
                               {item.description && (
                                 <Typography variant="body2" color="text.secondary">
@@ -435,7 +435,7 @@ export default function Checkout() {
                                 </Typography>
                               )}
                             </>
-                          )}
+                          )} */}
                           <Typography variant="body2" color="text.secondary">
                             <span>
                               <span><FormattedMessage id="checkout.quantity" defaultMessage="Quantity" /></span>

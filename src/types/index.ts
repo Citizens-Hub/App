@@ -19,6 +19,15 @@ export interface Resource {
   toImageUrl?: string;
   description?: string;
   externalRef?: string;
+  creditAmount?: number;
+  discountRateBps?: number;
+  sellerCount?: number;
+  creditOptions?: Array<{
+    amount: number;
+    price: number;
+    discountRateBps: number;
+    sellerCount: number;
+  }>;
   marketAvailableStock?: number;
   media: {
     thumbnail: {
@@ -260,7 +269,7 @@ export interface ImportItem {
   currency: string;
 }
 
-export type MarketItemType = 'ccu' | 'package' | 'misc';
+export type MarketItemType = 'ccu' | 'package' | 'misc' | 'credit';
 export type MarketPackageKind = 'standalone_ship' | 'bundle';
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
 
@@ -307,6 +316,15 @@ export interface ListingItem {
   sourceKind?: string | null;
   description?: string;
   externalRef?: string;
+  creditAmount?: number;
+  discountRateBps?: number;
+  sellerCount?: number;
+  creditOptions?: Array<{
+    amount: number;
+    price: number;
+    discountRateBps: number;
+    sellerCount: number;
+  }>;
   stock: number;
   lockedStock: number;
   belongsTo: string;
@@ -366,6 +384,15 @@ export interface MarketCartItem {
   toImageUrl?: string;
   description?: string;
   externalRef?: string;
+  creditAmount?: number;
+  discountRateBps?: number;
+  sellerCount?: number;
+  creditOptions?: Array<{
+    amount: number;
+    price: number;
+    discountRateBps: number;
+    sellerCount: number;
+  }>;
   // 添加显示所需的额外属性
   name?: string;
   price?: number;
@@ -408,6 +435,15 @@ export interface OrderItem {
     packageItems?: MarketPackageItem[];
     description?: string;
     externalRef?: string;
+    creditAmount?: number;
+    discountRateBps?: number;
+    sellerCount?: number;
+    creditOptions?: Array<{
+      amount: number;
+      price: number;
+      discountRateBps: number;
+      sellerCount: number;
+    }>;
   }
 }
 
@@ -448,6 +484,15 @@ export interface DetailedOrderItem extends OrderItem {
     packageItems?: MarketPackageItem[];
     description?: string;
     externalRef?: string;
+    creditAmount?: number;
+    discountRateBps?: number;
+    sellerCount?: number;
+    creditOptions?: Array<{
+      amount: number;
+      price: number;
+      discountRateBps: number;
+      sellerCount: number;
+    }>;
     belongsTo: string;
   }
 }

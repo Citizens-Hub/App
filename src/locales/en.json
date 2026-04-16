@@ -118,7 +118,7 @@
   "pathBuilder.marketRouteHint": "Build order: use hangar CCUs first, then the lowest-priced listed market CCUs, and only fall back to current official upgrades for any remaining gaps.",
   "pathBuilder.marketRouteHeadlineBetter": "Upgrade to {target} now and save {difference}",
   "pathBuilder.marketRouteHeadlineDefault": "Upgrade to {target} now",
-  "pathBuilder.marketRouteOpen": "View plan",
+  "pathBuilder.marketRouteOpen": "Instant upgrade",
   "pathBuilder.marketRouteClose": "Close floating plan",
   "pathBuilder.marketRouteCtaHint": "Inspect the full route in this floating plan, buy the required market CCUs in one click, and jump straight to the cart.",
   "pathBuilder.marketRouteAddToCart": "Buy now",

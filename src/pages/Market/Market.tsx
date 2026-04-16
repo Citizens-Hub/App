@@ -55,6 +55,7 @@ const Market: React.FC = () => {
   const [showCcus, setShowCcus] = useState(true);
   const [showPackages, setShowPackages] = useState(true);
   const [showMisc, setShowMisc] = useState(true);
+  const [showCredit, setShowCredit] = useState(true);
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
   const [showBundles, setShowBundles] = useState(true);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
@@ -67,6 +68,7 @@ const Market: React.FC = () => {
     if (showCcus) itemTypes.push('ccu');
     if (showPackages && (showStandaloneShips || showBundles)) itemTypes.push('package');
     if (showMisc) itemTypes.push('misc');
+    if (showCredit) itemTypes.push('credit');
     if (showStandaloneShips) packageKinds.push('standalone_ship');
     if (showBundles) packageKinds.push('bundle');
 
@@ -85,6 +87,7 @@ const Market: React.FC = () => {
     rowsPerPage,
     showBundles,
     showCcus,
+    showCredit,
     showInStock,
     showMisc,
     showPackages,
@@ -117,6 +120,10 @@ const Market: React.FC = () => {
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
+    if (resourceId.startsWith('credit-pool:')) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
     const item = listingItems.find((listingItem) => listingItem.skuId === resourceId);
     if (item) return getAvailableStock(item);
 
@@ -127,6 +134,9 @@ const Market: React.FC = () => {
     if (item.itemType === 'ccu') return 'CCU';
     if (item.itemType === 'package') {
       return intl.formatMessage({ id: 'market.filter.package', defaultMessage: 'Package' });
+    }
+    if (item.itemType === 'credit') {
+      return intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' });
     }
 
     return intl.formatMessage({ id: 'market.filter.misc', defaultMessage: 'Misc' });
@@ -171,6 +181,19 @@ const Market: React.FC = () => {
       }
     }
 
+    if (item.itemType === 'credit') {
+      const minAmount = item.creditOptions?.[0]?.amount;
+      const maxAmount = item.creditOptions?.[item.creditOptions.length - 1]?.amount;
+      const parts = [
+        minAmount && maxAmount ? `Supported face values US$${minAmount}-US$${maxAmount}` : null,
+        item.creditOptions?.length ? `${item.creditOptions.length} amount${item.creditOptions.length === 1 ? '' : 's'}` : null,
+      ].filter(Boolean);
+
+      if (parts.length > 0) {
+        return parts.join(' · ');
+      }
+    }
+
     return item.description || item.externalRef || item.sourceKind || '';
   };
 
@@ -212,7 +235,7 @@ const Market: React.FC = () => {
       <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
         <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
           <div className='flex items-center gap-3'>
-            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'>
+            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-neutral-50 dark:border-white/10 dark:bg-neutral-900 dark:text-slate-200 dark:hover:bg-neutral-800'>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
             </Link>
             <IconButton
@@ -292,6 +315,19 @@ const Market: React.FC = () => {
                     />
                   )}
                   label={intl.formatMessage({ id: 'market.filter.misc', defaultMessage: 'Misc' })}
+                />
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={showCredit}
+                      onChange={(event) => {
+                        setShowCredit(event.target.checked);
+                        setPage(0);
+                      }}
+                      size="small"
+                    />
+                  )}
+                  label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })}
                 />
               </FormGroup>
 
@@ -407,20 +443,21 @@ const Market: React.FC = () => {
                     const inCartQuantity = inCartItem?.quantity || 0;
                     const basePrice = getListingBasePrice(item, ships);
                     const discount = getListingDiscountPercent(item, ships);
+                    const isCredit = item.itemType === 'credit';
                     const packageShips = item.packageShips || [];
                     const packageItems = item.packageItems || [];
 
                     return (
                       <div
                         key={`${item.skuId}-${item.belongsTo}`}
-                        className='flex h-full flex-col overflow-hidden rounded border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-slate-900 dark:hover:border-gray-700'
+                        className='flex h-full flex-col overflow-hidden rounded border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                       >
                         <Link to={`/market/${encodeURIComponent(item.skuId)}`} className='block'>
                           <MarketItemMedia
                             item={item}
                             ships={ships}
                             height={240}
-                            badgeText={discount ? `${discount}% off` : null}
+                            badgeText={!isCredit && discount ? `${discount}% off` : null}
                           />
                         </Link>
 
@@ -469,7 +506,7 @@ const Market: React.FC = () => {
                             <div className='flex items-end justify-between gap-3'>
                               <div className='flex flex-col gap-1'>
                                 <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                                  US${item.price.toFixed(2)}
+                                  {isCredit ? `From US$${item.price.toFixed(2)}` : `US$${item.price.toFixed(2)}`}
                                 </div>
                                 {discount && Number(discount) > 0 && (
                                   <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
@@ -479,9 +516,13 @@ const Market: React.FC = () => {
                               </div>
                               <div className='text-right text-sm text-slate-500 dark:text-slate-400'>
                                 <div>
-                                  <FormattedMessage id="market.available" defaultMessage="Available Stock" />
+                                  {isCredit
+                                    ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
+                                    : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
                                 </div>
-                                <div className='font-semibold text-[#1d4ed8]'>{availableStock}</div>
+                                <div className='font-semibold text-[#1d4ed8]'>
+                                  {isCredit ? (item.creditOptions?.length || 0) : availableStock}
+                                </div>
                               </div>
                             </div>
 
@@ -495,7 +536,16 @@ const Market: React.FC = () => {
                                 <FormattedMessage id="market.viewDetails" defaultMessage="View details" />
                               </Link>
 
-                              {inCartItem ? (
+                              {isCredit ? (
+                                <Button
+                                  variant="outlined"
+                                  component={Link}
+                                  to={`/market/${encodeURIComponent(item.skuId)}`}
+                                  size="small"
+                                >
+                                  <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
+                                </Button>
+                              ) : inCartItem ? (
                                 <ButtonGroup size="small" aria-label="quantity">
                                   <IconButton
                                     size="small"

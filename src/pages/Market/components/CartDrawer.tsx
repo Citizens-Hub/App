@@ -128,7 +128,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                           <div className='text-gray-500'>
                             US${(item.resource.nativePrice.amount / 100).toFixed(2)}
                           </div>
-                          
+
                           {onUpdateQuantity && (
                             <ButtonGroup size="small" aria-label="quantity" sx={{ mt: 1 }}>
                               <IconButton 

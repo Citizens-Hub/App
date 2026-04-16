@@ -23,7 +23,6 @@ export const navigation = [
   {
     name: "navigation.market",
     path: "/market",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.market",
@@ -33,7 +32,6 @@ export const navigation = [
   {
     name: "navigation.orders",
     path: "/orders",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.storePreview",
@@ -43,11 +41,11 @@ export const navigation = [
     name: "navigation.appSettings",
     path: "/app-settings",
   },
-  {
-    name: "navigation.fleaMarket",
-    path: "/flea-market",
-    hidden: true,
-  },
+  // {
+  //   name: "navigation.fleaMarket",
+  //   path: "/flea-market",
+  //   hidden: true,
+  // },
   {
     name: "navigation.guide",
     path: "/guide",

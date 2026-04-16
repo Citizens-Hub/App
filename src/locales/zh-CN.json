@@ -118,7 +118,7 @@
   "pathBuilder.marketRouteHint": "构建顺序：优先消耗机库 CCU，再补当前市场最低价在列 CCU，剩余缺口才回退到当前官方在售升级。",
   "pathBuilder.marketRouteHeadlineBetter": "立即升级到 {target}，并节省 {difference}",
   "pathBuilder.marketRouteHeadlineDefault": "立即升级到 {target}",
-  "pathBuilder.marketRouteOpen": "查看补齐方案",
+  "pathBuilder.marketRouteOpen": "立即升级",
   "pathBuilder.marketRouteClose": "关闭悬浮窗",
   "pathBuilder.marketRouteCtaHint": "可在悬浮窗中查看完整补齐路径，一键购买所需市场 CCU，并自动跳转到购物车。",
   "pathBuilder.marketRouteAddToCart": "一键购买",

@@ -4,7 +4,7 @@ import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
-import { Ccu, CcuEdgeData, CcuSourceType, CcuValidityWindow, HangarItem, LowestMarketCcuGroup, LowestMarketCcuResponse, PriceHistoryEntity, Ship } from '../../../types';
+import { Ccu, CcuEdgeData, CcuSourceType, CcuValidityWindow, HangarItem, ListingItem, LowestMarketCcuGroup, LowestMarketCcuResponse, PriceHistoryEntity, Ship } from '../../../types';
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import {
@@ -99,6 +99,8 @@ interface ReviewRangeBounds {
   minTs: number;
   maxTs: number;
 }
+
+type CreditPoolOption = NonNullable<ListingItem['creditOptions']>[number];
 
 interface LtiShipSku {
   skuId: string;
@@ -620,6 +622,123 @@ function summarizeMarketRouteEdges(edges: MarketRouteEdge[]): Omit<MarketRouteRe
   });
 }
 
+function getRequiredStoreCreditAmount(edges: MarketRouteEdge[]): number {
+  const total = edges.reduce((sum, edge) => (
+    edge.sourceType === CcuSourceType.OFFICIAL ? sum + edge.cost : sum
+  ), 0);
+
+  return Number(total.toFixed(2));
+}
+
+function findMatchingCreditPoolOptions(
+  creditListing: ListingItem | undefined,
+  requiredAmount: number,
+): CreditPoolOption[] | null {
+  if (requiredAmount <= 0 || creditListing?.itemType !== 'credit' || !creditListing.creditOptions?.length) {
+    return null;
+  }
+
+  const options = [...creditListing.creditOptions]
+    .filter((option) => option.amount > 0 && option.price > 0)
+    .sort((left, right) => left.amount - right.amount || left.price - right.price);
+
+  if (!options.length) {
+    return null;
+  }
+
+  const targetAmount = Math.max(1, Math.ceil(requiredAmount - 1e-6));
+  const maxOptionAmount = options[options.length - 1].amount;
+  const searchLimit = targetAmount + maxOptionAmount;
+  const bestStates = new Map<number, { price: number; count: number; previousTotal: number; optionIndex: number }>();
+  bestStates.set(0, { price: 0, count: 0, previousTotal: -1, optionIndex: -1 });
+
+  for (let total = 0; total <= searchLimit; total += 1) {
+    const currentState = bestStates.get(total);
+    if (!currentState) {
+      continue;
+    }
+
+    options.forEach((option, optionIndex) => {
+      const nextTotal = total + option.amount;
+      if (nextTotal > searchLimit) {
+        return;
+      }
+
+      const nextState = {
+        price: Number((currentState.price + option.price).toFixed(2)),
+        count: currentState.count + 1,
+        previousTotal: total,
+        optionIndex,
+      };
+      const existingState = bestStates.get(nextTotal);
+      const shouldReplace = !existingState
+        || nextState.price < existingState.price - 1e-6
+        || (Math.abs(nextState.price - existingState.price) <= 1e-6 && nextState.count < existingState.count);
+
+      if (shouldReplace) {
+        bestStates.set(nextTotal, nextState);
+      }
+    });
+  }
+
+  let bestTotal: number | null = null;
+  let bestPrice = Number.POSITIVE_INFINITY;
+  let bestCount = Number.POSITIVE_INFINITY;
+
+  for (let total = targetAmount; total <= searchLimit; total += 1) {
+    const state = bestStates.get(total);
+    if (!state) {
+      continue;
+    }
+
+    const betterTotal = bestTotal === null || total < bestTotal;
+    const equalTotalBetterPrice = bestTotal !== null
+      && total === bestTotal
+      && (state.price < bestPrice - 1e-6
+        || (Math.abs(state.price - bestPrice) <= 1e-6 && state.count < bestCount));
+
+    if (betterTotal || equalTotalBetterPrice) {
+      bestTotal = total;
+      bestPrice = state.price;
+      bestCount = state.count;
+    }
+  }
+
+  if (bestTotal === null) {
+    return null;
+  }
+
+  const selectedOptions: CreditPoolOption[] = [];
+  let cursorTotal = bestTotal;
+  while (cursorTotal > 0) {
+    const state = bestStates.get(cursorTotal);
+    if (!state || state.optionIndex < 0 || state.previousTotal < 0) {
+      return null;
+    }
+
+    selectedOptions.push(options[state.optionIndex]);
+    cursorTotal = state.previousTotal;
+  }
+
+  return selectedOptions.reverse();
+}
+
+function buildSelectedCreditListing(
+  creditListing: ListingItem,
+  option: CreditPoolOption,
+): ListingItem {
+  return {
+    ...creditListing,
+    skuId: `credit-pool:${option.amount}`,
+    name: `Store Credit $${option.amount}`,
+    price: option.price,
+    creditAmount: option.amount,
+    discountRateBps: option.discountRateBps,
+    sellerCount: option.sellerCount,
+    creditOptions: undefined,
+  };
+}
+
 function buildCurrentMarketRoute(params: {
   startShip: Ship;
   targetShip: Ship;
@@ -837,7 +956,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const navigate = useNavigate();
   const isDevMode = import.meta.env.DEV;
   const ltiShipsEndpoint = `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/lti-ships`;
-  const { cart, addToCart } = useCartStore();
+  const { addToCart, emptyCart } = useCartStore();
   const {
     ships,
     ccus,
@@ -1032,6 +1151,37 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   );
 
   const hasMarketAssistedRoute = marketRouteMarketEdges.length > 0;
+  const marketRouteRequiredStoreCredit = useMemo(
+    () => marketRoute ? getRequiredStoreCreditAmount(marketRoute.edges) : 0,
+    [marketRoute]
+  );
+
+  const marketRouteCreditApiPath = useMemo(() => {
+    if (step !== 'review' || !hasMarketAssistedRoute || marketRouteRequiredStoreCredit <= 0) {
+      return null;
+    }
+
+    return '/api/market/item/credit-pool';
+  }, [hasMarketAssistedRoute, marketRouteRequiredStoreCredit, step]);
+
+  const {
+    data: marketRouteCreditListing,
+    error: marketRouteCreditError,
+  } = useApi<ListingItem>(marketRouteCreditApiPath, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const isMarketRouteCreditLoading = Boolean(
+    marketRouteCreditApiPath
+    && !marketRouteCreditListing
+    && !marketRouteCreditError
+  );
+
+  const marketRouteSelectedCreditOptions = useMemo(
+    () => findMatchingCreditPoolOptions(marketRouteCreditListing, marketRouteRequiredStoreCredit),
+    [marketRouteCreditListing, marketRouteRequiredStoreCredit]
+  );
 
   const marketRouteSavingsVsDirectUpgrade = useMemo(() => {
     if (!marketRoute) {
@@ -1510,9 +1660,9 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setTargetShipId('');
   }, [startShip, targetShipId, selectableShips]);
 
-  const formatUsd = (value: number): string => {
+  const formatUsd = useCallback((value: number): string => {
     return formatUsdByLocale(value, intl.locale);
-  };
+  }, [intl.locale]);
 
   const formatDate = useCallback((ts: number): string => {
     return formatDateByLocale(ts, intl.locale);
@@ -1903,6 +2053,47 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       return;
     }
 
+    const selectedCreditResources: Array<ReturnType<typeof buildMarketResource>> = [];
+    if (marketRouteRequiredStoreCredit > 0) {
+      if (isMarketRouteCreditLoading) {
+        showAlert(
+          intl.formatMessage({
+            id: 'pathBuilder.marketRouteCreditLoading',
+            defaultMessage: 'Store Credit options are still loading. Try again in a moment.'
+          }),
+          'warning'
+        );
+        return;
+      }
+
+      if (!marketRouteSelectedCreditOptions?.length || !marketRouteCreditListing) {
+        showAlert(
+          intl.formatMessage(
+            {
+              id: 'pathBuilder.marketRouteCreditUnavailable',
+              defaultMessage: 'No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}.'
+            },
+            {
+              amount: formatUsd(marketRouteRequiredStoreCredit)
+            }
+          ),
+          'warning'
+        );
+        return;
+      }
+
+      marketRouteSelectedCreditOptions.forEach((option) => {
+        selectedCreditResources.push(
+          buildMarketResource(
+            buildSelectedCreditListing(marketRouteCreditListing, option),
+            ships,
+          ),
+        );
+      });
+    }
+
+    const plannedListingQuantities = new Map<string, number>();
+
     for (const edge of marketRouteMarketEdges) {
       const listing = edge.listing;
       if (!listing) {
@@ -1910,8 +2101,10 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       }
 
       const availableStock = Math.max(listing.stock - listing.lockedStock, 0);
-      const existingQuantity = cart.find(item => item.resource.id === listing.skuId)?.quantity || 0;
-      if (availableStock <= existingQuantity) {
+      const nextQuantity = (plannedListingQuantities.get(listing.skuId) || 0) + 1;
+      plannedListingQuantities.set(listing.skuId, nextQuantity);
+
+      if (availableStock < nextQuantity) {
         showAlert(
           intl.formatMessage({
             id: 'cart.stockLimit',
@@ -1923,12 +2116,18 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       }
     }
 
+    emptyCart();
+
     marketRouteMarketEdges.forEach(edge => {
       if (!edge.listing) {
         return;
       }
 
       addToCart(buildMarketResource(edge.listing, ships));
+    });
+
+    selectedCreditResources.forEach((resource) => {
+      addToCart(resource);
     });
 
     onCreatePath(marketRouteCanvasResult, { targetMode: 'newTab' });
@@ -1942,7 +2141,23 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       }),
       'success'
     );
-  }, [addToCart, cart, intl, marketRouteCanvasResult, marketRouteMarketEdges, navigate, onClose, onCreatePath, ships, showAlert]);
+  }, [
+    addToCart,
+    emptyCart,
+    intl,
+    isMarketRouteCreditLoading,
+    marketRouteCanvasResult,
+    marketRouteCreditListing,
+    marketRouteMarketEdges,
+    marketRouteRequiredStoreCredit,
+    marketRouteSelectedCreditOptions,
+    navigate,
+    onClose,
+    onCreatePath,
+    ships,
+    showAlert,
+    formatUsd,
+  ]);
 
   const handleConfirmRoute = () => {
     if (!generatedResult || !reviewRoute) {
@@ -2890,8 +3105,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             fullWidth
                           >
                             <FormattedMessage
-                              id="pathBuilder.marketRouteAddToCart"
-                              defaultMessage="Add market CCUs to cart"
+                              id='pathBuilder.marketRouteAddToCart'
+                              defaultMessage='Add market CCUs to cart'
                             />
                           </Button>
                         </div>
@@ -2952,17 +3167,19 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                       </div>
                     </div>
                   ) : (
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={() => setMarketRouteWindowOpen(true)}
-                      className="pointer-events-auto"
-                    >
-                      <FormattedMessage
-                        id="pathBuilder.marketRouteOpen"
-                        defaultMessage="View route"
-                      />
-                    </Button>
+                    <div className='m-4'>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={() => setMarketRouteWindowOpen(true)}
+                        className="pointer-events-auto"
+                      >
+                        <FormattedMessage
+                          id="pathBuilder.marketRouteOpen"
+                          defaultMessage="Instant upgrade"
+                        />
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}

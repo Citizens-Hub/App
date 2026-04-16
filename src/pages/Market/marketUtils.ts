@@ -52,6 +52,10 @@ export function getListingBasePrice(item: ListingItem, ships: Ship[]) {
     return getPackageMsrp(item, ships);
   }
 
+  if (item.itemType === 'credit') {
+    return item.creditAmount || item.creditOptions?.[0]?.amount || 0;
+  }
+
   return 0;
 }
 
@@ -78,6 +82,10 @@ export function getListingSearchText(item: ListingItem, ships: Ship[]) {
     item.description,
     item.externalRef,
     item.sourceKind,
+    item.creditAmount ? String(item.creditAmount) : null,
+    item.discountRateBps ? String(item.discountRateBps) : null,
+    item.sellerCount ? String(item.sellerCount) : null,
+    ...(item.creditOptions || []).map((option) => String(option.amount)),
     ...(item.packageShips || []).map((ship) => ship.shipName),
     ...(item.packageItems || []).reduce<string[]>((acc, entry) => {
       acc.push(entry.itemName);
