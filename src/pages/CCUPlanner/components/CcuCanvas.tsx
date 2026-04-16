@@ -30,7 +30,7 @@ import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconB
 import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
-import PathBuilder, { ReviewedPathBuildResult } from './PathBuilder';
+import PathBuilder, { ReviewedPathBuildResult, ReviewedPathCreateOptions } from './PathBuilder';
 import UserSelector from '@/components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
@@ -1659,8 +1659,9 @@ function CcuCanvasContent() {
   }, []);
 
   // Add reviewed path from path builder
-  const handleCreatePath = useCallback((result: ReviewedPathBuildResult) => {
+  const handleCreatePath = useCallback((result: ReviewedPathBuildResult, options?: ReviewedPathCreateOptions) => {
     const { nodes: reviewedNodes, edges: reviewedEdges } = result;
+    const targetMode = options?.targetMode || 'append';
 
     if (reviewedNodes.length === 0 || reviewedEdges.length === 0) {
       showAlert(
@@ -1684,10 +1685,13 @@ function CcuCanvasContent() {
     let anchorX = 100;
     let anchorY = 100;
 
-    if (nodes.length > 0) {
-      const existingMinX = Math.min(...nodes.map(node => node.position.x));
-      const existingMaxX = Math.max(...nodes.map(node => node.position.x));
-      const existingMaxY = Math.max(...nodes.map(node => node.position.y));
+    const baseNodes = targetMode === 'append' ? nodes : [];
+    const baseEdges = targetMode === 'append' ? edges : [];
+
+    if (baseNodes.length > 0) {
+      const existingMinX = Math.min(...baseNodes.map(node => node.position.x));
+      const existingMaxX = Math.max(...baseNodes.map(node => node.position.x));
+      const existingMaxY = Math.max(...baseNodes.map(node => node.position.y));
       const existingCenterX = existingMinX + (existingMaxX - existingMinX) / 2;
       anchorX = existingCenterX - routeWidth / 2;
       anchorY = existingMaxY + INSERT_VERTICAL_GAP;
@@ -1704,7 +1708,7 @@ function CcuCanvasContent() {
     const offsetX = anchorX - routeMinX;
     const offsetY = anchorY - routeMinY;
 
-    const existingNodeIdSet = new Set(nodes.map(node => node.id));
+    const existingNodeIdSet = new Set(baseNodes.map(node => node.id));
     const idMapping = new Map<string, string>();
     const idSeed = Date.now();
 
@@ -1730,7 +1734,7 @@ function CcuCanvasContent() {
       };
     });
 
-    const existingEdgeIdSet = new Set(edges.map(edge => edge.id));
+    const existingEdgeIdSet = new Set(baseEdges.map(edge => edge.id));
     const positionedEdges = reviewedEdges.flatMap((edge, index) => {
       const mappedSource = idMapping.get(edge.source);
       const mappedTarget = idMapping.get(edge.target);
@@ -1752,13 +1756,63 @@ function CcuCanvasContent() {
       }];
     });
 
+    if (targetMode === 'newTab') {
+      clearAutoSaveTimer();
+
+      const newFlowData: FlowData = {
+        nodes: positionedNodes,
+        edges: positionedEdges,
+        startShipPrices: {}
+      };
+
+      setPlannerTabs(prevTabs => {
+        const syncedTabs = withCurrentTabSnapshot(prevTabs);
+        const newTabId = createRouteTabId();
+        ensureCompletedPathsStorageInitialized(newTabId);
+        const newTab: PlannerTabState = {
+          id: newTabId,
+          name: getNextRouteName(syncedTabs),
+          flowData: newFlowData,
+          autoSaveStatus: 'idle',
+          lastAutoSavedAt: null
+        };
+
+        const nextTabs = [...syncedTabs, newTab];
+        setActiveTabId(newTab.id);
+        loadTabIntoCanvas(newTab);
+        persistWorkspace(nextTabs, newTab.id);
+        return nextTabs;
+      });
+
+      if (reactFlowInstance) {
+        setTimeout(() => reactFlowInstance.fitView(), 100);
+      }
+      return;
+    }
+
     setNodes(prevNodes => [...prevNodes, ...positionedNodes]);
     setEdges(prevEdges => [...prevEdges, ...positionedEdges]);
 
     if (reactFlowInstance) {
       setTimeout(() => reactFlowInstance.fitView(), 100);
     }
-  }, [setNodes, setEdges, reactFlowInstance, showAlert, intl, nodes, edges]);
+  }, [
+    clearAutoSaveTimer,
+    createRouteTabId,
+    edges,
+    ensureCompletedPathsStorageInitialized,
+    getNextRouteName,
+    intl,
+    loadTabIntoCanvas,
+    nodes,
+    persistWorkspace,
+    reactFlowInstance,
+    setEdges,
+    setNodes,
+    setPlannerTabs,
+    showAlert,
+    withCurrentTabSnapshot
+  ]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
   const edgeTypes = useMemo(() => ({ ccu: CcuEdge }), []);

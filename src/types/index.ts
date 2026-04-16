@@ -326,6 +326,21 @@ export interface MarketListResponse {
   pagination: MarketListPagination;
 }
 
+export interface LowestMarketCcuGroup {
+  key: string;
+  fromShipId?: number;
+  toShipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  availableStock: number;
+  listingCount: number;
+  listing: ListingItem;
+}
+
+export interface LowestMarketCcuResponse {
+  items: LowestMarketCcuGroup[];
+}
+
 export enum OrderStatus {
   Pending = 'pending',
   Processing = 'processing',
