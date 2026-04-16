@@ -482,7 +482,7 @@ export default function MarketDetail() {
     if (!item || item.itemType !== 'package') return [];
 
     if ((item.packageShips?.length || 0) > 0) {
-      return item.packageShips || [];
+      return (item.packageShips || []).filter(ship => ship.shipId !== null);
     }
 
     if (item.shipId || item.shipName) {
