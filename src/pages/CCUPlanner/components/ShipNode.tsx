@@ -15,6 +15,7 @@ interface ShipNodeProps {
     onDeleteEdge?: (edgeId: string) => void;
     onDeleteNode?: (nodeId: string) => void;
     onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
+    onOpenShipContextMenu?: (event: React.MouseEvent<HTMLElement>, ship: Ship) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
   };
@@ -25,7 +26,7 @@ interface ShipNodeProps {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, incomingEdges = [] } = data;
+  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const { locale } = intl;
@@ -88,6 +89,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const handleDuplicateNode = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onDuplicateNode?.(ship, { x: xPos, y: yPos });
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    onOpenShipContextMenu?.(event, ship);
   };
 
   const [edgeSettings, setEdgeSettings] = useState<{
@@ -172,7 +177,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   };
 
   return (
-    <div className={`bg-gray-50 dark:bg-[#121212] border-2 border-blue-400 dark:border-sky-700 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500 dark:ring-sky-700' : ''}`}>
+    <div
+      onContextMenu={handleContextMenu}
+      className={`bg-gray-50 dark:bg-[#121212] border-2 border-blue-400 dark:border-sky-700 rounded-lg p-4 w-64 shadow-lg ${selected ? 'ring-2 ring-blue-500 dark:ring-sky-700' : ''}`}
+    >
       <Handle type="target" position={Position.Left} style={{ width: 15, height: 15, left: -8 }} />
 
       <span className="text-sm absolute left-[20px] top-[165px] text-gray-600 -translate-y-1/2">

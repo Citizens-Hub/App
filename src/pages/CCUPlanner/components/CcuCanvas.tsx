@@ -43,6 +43,7 @@ import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } 
 import { Plus, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
 import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
+import ShipInfoDialog from './ShipInfoDialog';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
@@ -68,6 +69,12 @@ interface TabContextMenuState {
   mouseX: number;
   mouseY: number;
   tabId: string;
+}
+
+interface ShipContextMenuState {
+  mouseX: number;
+  mouseY: number;
+  ship: Ship;
 }
 
 interface CcuCanvasProps {
@@ -314,6 +321,7 @@ function CcuCanvasContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
   const joyrideStepRetryTimeoutRef = useRef<number | null>(null);
+  const handleDuplicateNodeRef = useRef<((ship: Ship, position: XYPosition) => void) | null>(null);
   const historyByTabRef = useRef<Record<string, FlowHistoryEntry[]>>({});
   const historyBaselineByTabRef = useRef<Record<string, FlowData>>({});
   const skipHistoryRecordingRef = useRef(false);
@@ -340,6 +348,8 @@ function CcuCanvasContent() {
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
   const [pendingTabCloseRequest, setPendingTabCloseRequest] = useState<TabCloseRequest | null>(null);
   const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState | null>(null);
+  const [shipContextMenu, setShipContextMenu] = useState<ShipContextMenuState | null>(null);
+  const [shipInfoShip, setShipInfoShip] = useState<Ship | null>(null);
 
   // Use data from context
   const {
@@ -650,6 +660,30 @@ function CcuCanvasContent() {
     setEdges(edges => edges.filter(edge => edge.id !== edgeId));
   }, [setEdges]);
 
+  const openShipContextMenu = useCallback((event: React.MouseEvent<HTMLElement>, ship: Ship) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTabContextMenu(null);
+    setShipContextMenu({
+      mouseX: event.clientX + 2,
+      mouseY: event.clientY - 6,
+      ship
+    });
+  }, []);
+
+  const closeShipContextMenu = useCallback(() => {
+    setShipContextMenu(null);
+  }, []);
+
+  const handleOpenShipInfoDialog = useCallback((ship: Ship) => {
+    setShipInfoShip(ship);
+    setShipContextMenu(null);
+  }, []);
+
+  const handleCloseShipInfoDialog = useCallback(() => {
+    setShipInfoShip(null);
+  }, []);
+
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       setNodes(nodes => nodes.filter(node => node.id !== nodeId));
@@ -684,15 +718,22 @@ function CcuCanvasContent() {
           onUpdateEdge: updateEdgeData,
           onDeleteEdge: deleteEdge,
           onDeleteNode: handleDeleteNode,
-          onDuplicateNode: handleDuplicateNode,
+          onDuplicateNode: (targetShip: Ship, targetPosition: XYPosition) => {
+            handleDuplicateNodeRef.current?.(targetShip, targetPosition);
+          },
+          onOpenShipContextMenu: openShipContextMenu,
           ccus
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge]
+    [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge, openShipContextMenu]
   );
+
+  useEffect(() => {
+    handleDuplicateNodeRef.current = handleDuplicateNode;
+  }, [handleDuplicateNode]);
 
   useEffect(() => {
     setNodes(nodes => {
@@ -709,6 +750,7 @@ function CcuCanvasContent() {
             onDeleteEdge: deleteEdge,
             onDeleteNode: handleDeleteNode,
             onDuplicateNode: handleDuplicateNode,
+            onOpenShipContextMenu: openShipContextMenu,
             id: node.id,
             ccus,
             wbHistory
@@ -716,7 +758,7 @@ function CcuCanvasContent() {
         };
       });
     });
-  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge, wbHistory]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge, wbHistory, openShipContextMenu]);
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -944,6 +986,7 @@ function CcuCanvasContent() {
 
   const openTabContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>, tabId: string) => {
     event.preventDefault();
+    setShipContextMenu(null);
     setTabContextMenu({
       mouseX: event.clientX + 2,
       mouseY: event.clientY - 6,
@@ -1264,13 +1307,14 @@ function CcuCanvasContent() {
           onDeleteEdge: deleteEdge,
           onDeleteNode: handleDeleteNode,
           onDuplicateNode: handleDuplicateNode,
+          onOpenShipContextMenu: openShipContextMenu,
           ccus
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes]);
+  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, openShipContextMenu]);
 
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
@@ -1589,6 +1633,7 @@ function CcuCanvasContent() {
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setShipContextMenu(null);
   }, []);
 
   //MS on mobile, creates and adds the node to the canvas 
@@ -1623,6 +1668,7 @@ function CcuCanvasContent() {
         onDeleteEdge: deleteEdge,
         onDeleteNode: handleDeleteNode,
         onDuplicateNode: handleDuplicateNode,
+        onOpenShipContextMenu: openShipContextMenu,
         ccus,
         wbHistory,
       },
@@ -1639,6 +1685,7 @@ function CcuCanvasContent() {
     handleDuplicateNode,
     ccus,
     wbHistory,
+    openShipContextMenu,
     setNodes,
   ]);
 
@@ -1729,7 +1776,8 @@ function CcuCanvasContent() {
         },
         data: {
           ...node.data,
-          id: nextId
+          id: nextId,
+          onOpenShipContextMenu: openShipContextMenu
         }
       };
     });
@@ -1811,7 +1859,8 @@ function CcuCanvasContent() {
     setNodes,
     setPlannerTabs,
     showAlert,
-    withCurrentTabSnapshot
+    withCurrentTabSnapshot,
+    openShipContextMenu
   ]);
 
   const nodeTypes = useMemo(() => ({ ship: ShipNode }), []);
@@ -1992,6 +2041,7 @@ function CcuCanvasContent() {
       color: 'rgba(243, 244, 246, 0.35)',
     },
   };
+  const shipContextMenuItemSx = tabContextMenuItemSx;
 
   return (
     <div className="h-[100%] w-full min-w-0 flex sm:flex-row flex-col">
@@ -2039,7 +2089,13 @@ function CcuCanvasContent() {
       />
 
       <div className="min-w-[320px] w-full sm:w-fit sm:h-full border-r border-gray-200 dark:border-gray-800 relative">
-        <ShipSelector ships={ships} ccus={ccus} onDragStart={onShipDragStart} onMobileAdd={onMobileAdd} />
+        <ShipSelector
+          ships={ships}
+          ccus={ccus}
+          onDragStart={onShipDragStart}
+          onMobileAdd={onMobileAdd}
+          onOpenShipContextMenu={openShipContextMenu}
+        />
       </div>
 
       <div className="sm:h-full h-full flex-1 min-w-0 min-h-0 flex flex-col">
@@ -2212,6 +2268,46 @@ function CcuCanvasContent() {
           </MenuItem>
         </Menu>
 
+        <Menu
+          open={Boolean(shipContextMenu)}
+          onClose={closeShipContextMenu}
+          anchorReference="anchorPosition"
+          anchorPosition={shipContextMenu ? { top: shipContextMenu.mouseY, left: shipContextMenu.mouseX } : undefined}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: 190,
+                p: 0.5,
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                backgroundColor: '#ffffff',
+                backdropFilter: 'blur(6px)',
+                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
+                '.dark &': {
+                  backgroundColor: '#1b1b1b',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                }
+              }
+            },
+            list: {
+              dense: true,
+              sx: { py: 0, gap: 1 }
+            }
+          }}
+        >
+          <MenuItem
+            sx={shipContextMenuItemSx}
+            onClick={() => {
+              if (!shipContextMenu) {
+                return;
+              }
+              handleOpenShipInfoDialog(shipContextMenu.ship);
+            }}
+          >
+            <FormattedMessage id="ccuPlanner.shipMenu.viewInfo" defaultMessage="Ship Information" />
+          </MenuItem>
+        </Menu>
+
         <div className="relative flex-1 min-h-0" ref={reactFlowWrapper}>
           <ReactFlowProvider>
             <ReactFlow
@@ -2296,6 +2392,12 @@ function CcuCanvasContent() {
         open={pathBuilderOpen}
         onClose={handleClosePathBuilder}
         onCreatePath={handleCreatePath}
+      />
+
+      <ShipInfoDialog
+        open={Boolean(shipInfoShip)}
+        ship={shipInfoShip}
+        onClose={handleCloseShipInfoDialog}
       />
 
       <Dialog
