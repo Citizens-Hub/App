@@ -5,6 +5,21 @@ export interface Resource {
   subtitle: string;
   excerpt: string;
   type: string;
+  itemType?: MarketItemType;
+  fromShipId?: number;
+  toShipId?: number;
+  shipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  shipName?: string;
+  packageKind?: string;
+  insuranceType?: string;
+  imageUrl?: string;
+  fromImageUrl?: string;
+  toImageUrl?: string;
+  description?: string;
+  externalRef?: string;
+  marketAvailableStock?: number;
   media: {
     thumbnail: {
       storeSmall: string;
@@ -74,8 +89,53 @@ export interface CcusData {
   };
 }
 
+export interface ShipDetailComponent {
+  name?: string;
+  quantity?: number | null;
+  size?: string | null;
+  details?: string | null;
+  manufacturerName?: string | null;
+}
+
+export interface ShipDetailImage {
+  name?: string;
+  slot?: string;
+  url?: string;
+}
+
+export interface ShipDetail {
+  slug?: string;
+  title?: string;
+  url?: string;
+  body?: string;
+  excerpt?: string;
+  size?: string;
+  productionStatus?: string;
+  isCustomizable?: boolean | null;
+  purchasable?: boolean | null;
+  hasBuyingOptions?: boolean | null;
+  viewable?: boolean | null;
+  chassisId?: number | null;
+  minCrew?: number | null;
+  maxCrew?: number | null;
+  mass?: number | null;
+  length?: number | null;
+  beam?: number | null;
+  height?: number | null;
+  cargoCapacity?: number | null;
+  maxScmSpeed?: number | null;
+  afterburnerSpeed?: number | null;
+  ctm?: string;
+  weapons?: ShipDetailComponent[];
+  avionics?: ShipDetailComponent[];
+  modular?: ShipDetailComponent[];
+  propulsions?: ShipDetailComponent[];
+  thrusters?: ShipDetailComponent[];
+  imageComposer?: ShipDetailImage[];
+}
+
 export interface Ship {
-  alias: string;
+  alias?: string;
   id: number;
   name: string;
   medias: {
@@ -101,11 +161,19 @@ export interface Ship {
     unlimitedStock: boolean;
     availableStock: number;
   }[] | null;
+  details?: ShipDetail | null;
 }
 
 export interface ShipsData {
   data: {
     ships: Ship[];
+  };
+}
+
+export interface ShipResponse {
+  success: boolean;
+  data: {
+    ship: Ship;
   };
 }
 
@@ -192,6 +260,24 @@ export interface ImportItem {
   currency: string;
 }
 
+export type MarketItemType = 'ccu' | 'package' | 'misc';
+export type MarketPackageKind = 'standalone_ship' | 'bundle';
+export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
+
+export interface MarketPackageShip {
+  shipId?: number;
+  shipName: string;
+  sortOrder: number;
+}
+
+export interface MarketPackageItem {
+  itemName: string;
+  itemKind?: string;
+  imageUrl?: string;
+  withImage: boolean;
+  sortOrder: number;
+}
+
 export enum ListingType {
   WTS = 'WTS',
   WTB = 'WTB'
@@ -201,15 +287,43 @@ export interface ListingItem {
   skuId: string;
   name: string;
   price: number;
-  itemType: 'ccu' | 'ship';
-  fromShipId: number;
-  toShipId: number;
-  shipId: number;
+  itemType: MarketItemType;
+  fromShipId?: number;
+  toShipId?: number;
+  shipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  shipName?: string;
+  toSkuId?: number;
+  packageKind?: string;
+  insuranceType?: string;
+  packageShips?: MarketPackageShip[];
+  packageItems?: MarketPackageItem[];
+  imageUrl?: string;
+  fromImageUrl?: string;
+  toImageUrl?: string;
+  canGift?: boolean;
+  isBuyBack?: boolean;
+  sourceKind?: string | null;
+  description?: string;
+  externalRef?: string;
   stock: number;
   lockedStock: number;
   belongsTo: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MarketListPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface MarketListResponse {
+  items: ListingItem[];
+  pagination: MarketListPagination;
 }
 
 export enum OrderStatus {
@@ -223,10 +337,20 @@ export enum OrderStatus {
 export interface MarketCartItem {
   skuId: string;
   quantity: number;
-  itemType: 'ccu' | 'ship';
+  itemType: MarketItemType;
   fromShipId?: number;
   toShipId?: number;
   shipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  shipName?: string;
+  packageKind?: string;
+  insuranceType?: string;
+  imageUrl?: string;
+  fromImageUrl?: string;
+  toImageUrl?: string;
+  description?: string;
+  externalRef?: string;
   // 添加显示所需的额外属性
   name?: string;
   price?: number;
@@ -242,16 +366,33 @@ export interface MarketCartItem {
 }
 
 export interface OrderItem {
+  id?: number;
+  skuId?: string;
   quantity: number;
   price: number;
-  cancelledQuantity?: number;
+  cancelledQuantity?: number | null;
+  shipped?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   marketItem: {
     name: string;
     skuId: string;
-    itemType: 'ccu' | 'ship';
+    itemType: MarketItemType;
     fromShipId?: number;
     toShipId?: number;
     shipId?: number;
+    fromShipName?: string;
+    toShipName?: string;
+    shipName?: string;
+    packageKind?: string;
+    insuranceType?: string;
+    imageUrl?: string;
+    fromImageUrl?: string;
+    toImageUrl?: string;
+    packageShips?: MarketPackageShip[];
+    packageItems?: MarketPackageItem[];
+    description?: string;
+    externalRef?: string;
   }
 }
 
@@ -261,6 +402,8 @@ export interface Order {
   price: number;
   status: OrderStatus;
   createdAt: string;
+  updatedAt?: string;
+  sessionId?: string | null;
 }
 
 export interface DetailedOrderItem extends OrderItem {
@@ -274,10 +417,22 @@ export interface DetailedOrderItem extends OrderItem {
   marketItem: {
     name: string;
     skuId: string;
-    itemType: 'ccu' | 'ship';
+    itemType: MarketItemType;
     fromShipId?: number;
     toShipId?: number;
     shipId?: number;
+    fromShipName?: string;
+    toShipName?: string;
+    shipName?: string;
+    packageKind?: string;
+    insuranceType?: string;
+    imageUrl?: string;
+    fromImageUrl?: string;
+    toImageUrl?: string;
+    packageShips?: MarketPackageShip[];
+    packageItems?: MarketPackageItem[];
+    description?: string;
+    externalRef?: string;
     belongsTo: string;
   }
 }

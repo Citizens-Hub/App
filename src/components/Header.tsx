@@ -142,7 +142,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
 
   return (
     <div
-      className="flex items-center justify-between gap-2 border-b border-gray-200 w-full absolute bg-white top-0 right-0 p-3 dark:bg-[#121212] dark:border-gray-800"
+      className="fixed top-0 left-0 right-0 z-40 flex w-full items-center justify-between gap-2 border-b border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-[#121212]"
     >
       <div className="flex items-center gap-2">
         <IconButton onClick={() => setMenuOpen(!menuOpen)} aria-label={intl.formatMessage({ id: "header.toggleMenu", defaultMessage: "Toggle menu" })}>

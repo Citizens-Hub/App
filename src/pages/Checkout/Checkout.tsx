@@ -1,7 +1,7 @@
 // 导入必要的依赖
 import { useLocation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
-import { ListingItem, MarketCartItem, OrderStatus, Ship } from "@/types";  // 不需要显式导入CartItem
+import { MarketCartItem, Order as MarketOrder, Ship } from "@/types";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import {
@@ -30,27 +30,16 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ChevronsRight, ChevronDown, AlertTriangle, LogIn, Mail } from 'lucide-react';
 import { useUserSession } from "@/hooks";
 import { useCartStore } from "@/hooks/useCartStore";
-
-// 订单接口定义
-interface Order {
-  id: number;
-  userId: number;
-  price: number;
-  status: OrderStatus;
-  items: string;
-  createdAt: string;
-  updatedAt: string;
-  sessionId: string;
-}
-
-interface OrderItem {
-  skuId: string;
-  quantity: number;
-}
+import {
+  buildMarketCartItem,
+  buildMarketCartItemFromResource,
+  getMarketItemVisual,
+  MARKET_ITEM_PLACEHOLDER,
+} from '@/components/marketItemDisplay';
 
 export default function Checkout() {
   const location = useLocation();
-  const locationState = location.state as { pendingOrder?: Order, ships?: Ship[] };
+  const locationState = location.state as { pendingOrder?: MarketOrder, ships?: Ship[] };
   // cartFromState 来自商城的Redux购物车，实际类型是CartItem[]
   // 注意：系统中有两种不同的购物车实现：
   // 1. ResourcesTable使用的CartItem（本地状态，不使用Redux）
@@ -60,7 +49,6 @@ export default function Checkout() {
   const { pendingOrder, ships } = locationState || {};
   // 使用MarketCartItem类型来管理结账页面的购物车数据
   const [cart, setCart] = useState<MarketCartItem[]>([]);
-  const [listingItems, setListingItems] = useState<ListingItem[]>([]);
   const { user } = useSelector((state: RootState) => state.user);
   const navigate = useNavigate();
   const intl = useIntl();
@@ -74,103 +62,30 @@ export default function Checkout() {
   const [openLoginDialog, setOpenLoginDialog] = useState(false);
   const [openVerifyEmailDialog, setOpenVerifyEmailDialog] = useState(false);
 
-  // 更改useEffect中从cartFromState到MarketCartItem的转换逻辑
   useEffect(() => {
-    if (cartFromState && cartFromState.length > 0) {
-      // 注意：cartFromState实际上是CartItem[]类型，即{resource: Resource}[]
-      // 我们需要从CartItem中提取必要信息来创建MarketCartItem
-      const marketCartItems: MarketCartItem[] = cartFromState.map(item => {
-        // 获取原始Resource对象
-        const resource = item.resource;
-        
-        // 创建MarketCartItem，从Resource中提取所需数据
-        return {
-          skuId: resource.id,
-          quantity: item.quantity || 1, // 使用CartItem中的数量，如果不存在则默认为1
-          itemType: resource.subtitle === 'ccu' ? 'ccu' : 'ship',
-          // 添加额外字段以供显示使用
-          name: resource.name || resource.id,
-          price: (resource.nativePrice.amount / 100) || 0,
-          discounted: (resource.nativePrice.discounted > 0) ? (resource.nativePrice.discounted / 100) : 0,
-          media: resource.media || {
-            thumbnail: { storeSmall: '' },
-            list: []
-          },
-        };
-      });
-      setCart(marketCartItems);
+    if (pendingOrder?.items?.length) {
+      setCart(
+        pendingOrder.items.map((item) =>
+          buildMarketCartItem(
+            {
+              ...item.marketItem,
+              price: item.price,
+            },
+            item.quantity,
+            ships,
+          )
+        )
+      );
+      return;
     }
-  }, [cartFromState]);
 
-  useEffect(() => {
-    if (pendingOrder) {
-      fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/list`)
-        .then(response => response.json())
-        .then(data => setListingItems(data));
+    if (cartFromState?.length) {
+      setCart(cartFromState.map((item) => buildMarketCartItemFromResource(item.resource, item.quantity || 1)));
+      return;
     }
-  }, [pendingOrder]);
 
-  useEffect(() => {
-    if (pendingOrder && ships && listingItems) {
-      const orderItems = JSON.parse(pendingOrder.items) as OrderItem[];
-      const orderItemsWithShips = orderItems.map((item: OrderItem) => {
-        const listingItem = listingItems.find((listingItem: ListingItem) => listingItem.skuId === item.skuId)
-        if (!listingItem) return null;
-
-        if (!listingItem.fromShipId || !listingItem.toShipId) return null;
-
-        const fromShip = ships.find((ship: Ship) => ship.id === listingItem.fromShipId);
-        const toShip = ships.find((ship: Ship) => ship.id === listingItem.toShipId);
-
-        return { ...item, listingItem, fromShip, toShip };
-      });
-
-      // 使用类型断言明确指定结果类型
-      const marketItems: MarketCartItem[] = orderItemsWithShips
-        .filter(item => item !== null)
-        .map(item => {
-          if (!item) {
-            return null;
-          }
-          
-          const fromShipImage = item.fromShip?.medias?.productThumbMediumAndSmall || '';
-          const toShipImage = item.toShip?.medias?.productThumbMediumAndSmall || '';
-          
-          const cartItem: MarketCartItem = {
-            skuId: item.listingItem.skuId,
-            quantity: item.quantity,
-            itemType: item.listingItem.itemType === 'ccu' ? 'ccu' : 'ship',
-            // 添加额外字段以供显示使用
-            name: item.listingItem.name || item.listingItem.skuId,
-            price: item.listingItem.price || 0,
-            discounted: 0, // 默认值为0
-            media: {
-              thumbnail: {
-                storeSmall: toShipImage || fromShipImage
-              },
-              list: [
-                { slideshow: fromShipImage },
-                { slideshow: toShipImage }
-              ]
-            }
-          };
-          
-          // 仅当存在时才添加可选字段
-          if (item.fromShip?.id) {
-            cartItem.fromShipId = item.fromShip.id;
-          }
-          
-          if (item.toShip?.id) {
-            cartItem.toShipId = item.toShip.id;
-          }
-          
-          return cartItem;
-        })
-        .filter((item): item is MarketCartItem => item !== null);
-      
-      setCart(marketItems);
-    }
-  }, [pendingOrder, ships, listingItems]);
+    setCart([]);
+  }, [cartFromState, pendingOrder, ships]);
 
   const [options, setOptions] = useState<{
     proceedWhenOutOfStock: boolean;
@@ -193,21 +108,8 @@ export default function Checkout() {
     setAdvancedSettingsOpen(!advancedSettingsOpen);
   };
 
-  // 获取船只信息的辅助函数
-  const getShipDetails = (id?: number) => {
-    if (!id || !ships) return null;
-    return ships.find(ship => ship.id === id);
-  };
-
-  // 重构：添加一个从购物车项目中获取价格的辅助函数
   const getItemPrice = (item: MarketCartItem) => {
-    // 优先使用item自身的price
-    if (item.price !== undefined) {
-      return item.price;
-    }
-    // 回退到listingItems查找
-    const listingItem = listingItems.find(listing => listing.skuId === item.skuId);
-    return listingItem?.price || 0;
+    return item.price || 0;
   };
 
   // 计算总价 - 更新为使用MarketCartItem，考虑数量
@@ -367,51 +269,36 @@ export default function Checkout() {
     );
   }
 
-  // 添加一个函数来获取商品的媒体资源
   const getItemMedia = (item: MarketCartItem) => {
-    // 优先使用item自身的media
-    if (item.media) {
-      const fromImage = item.media.list?.[0]?.slideshow || '';
-      const toImage = item.media.list?.[1]?.slideshow || '';
-      const thumbnail = item.media.thumbnail?.storeSmall || toImage || fromImage;
-      return { thumbnail, fromImage, toImage };
-    }
-    
-    // 回退到从ships查找
-    let fromImageUrl = '';
-    let toImageUrl = '';
-    
-    if (ships && item.fromShipId && item.toShipId) {
-      const fromShip = getShipDetails(item.fromShipId);
-      const toShip = getShipDetails(item.toShipId);
-      
-      fromImageUrl = fromShip?.medias?.productThumbMediumAndSmall || '';
-      toImageUrl = toShip?.medias?.productThumbMediumAndSmall || '';
-    }
-    
+    const visual = getMarketItemVisual({
+      skuId: item.skuId,
+      name: item.name || item.skuId,
+      itemType: item.itemType,
+      fromShipId: item.fromShipId,
+      toShipId: item.toShipId,
+      shipId: item.shipId,
+      fromShipName: item.fromShipName,
+      toShipName: item.toShipName,
+      shipName: item.shipName,
+      packageKind: item.packageKind,
+      insuranceType: item.insuranceType,
+      imageUrl: item.imageUrl,
+      fromImageUrl: item.fromImageUrl,
+      toImageUrl: item.toImageUrl,
+    }, ships);
+
     return {
-      thumbnail: toImageUrl || fromImageUrl,
-      fromImage: fromImageUrl,
-      toImage: toImageUrl
+      thumbnail: item.media?.thumbnail?.storeSmall || visual.thumbnail || MARKET_ITEM_PLACEHOLDER,
+      fromImage: visual.fromImage,
+      toImage: visual.toImage,
+      shipName: visual.shipName,
+      fromShipName: visual.fromShipName,
+      toShipName: visual.toShipName,
     };
   };
-  
-  // 添加一个函数来获取商品的名称
-  const getItemName = (item: MarketCartItem) => {
-    // 优先使用item自身的name
-    if (item.name) {
-      return item.name;
-    }
-    // 回退到listingItems查找
-    const listingItem = listingItems.find(listing => listing.skuId === item.skuId);
-    return listingItem?.name || item.skuId;
-  };
 
-  // 获取Ship名称的辅助函数
-  const getShipName = (shipId?: number) => {
-    if (!shipId || !ships) return '';
-    const ship = ships.find(ship => ship.id === shipId);
-    return ship?.name || '';
+  const getItemName = (item: MarketCartItem) => {
+    return item.name || item.skuId;
   };
 
   return (
@@ -458,13 +345,13 @@ export default function Checkout() {
                 <TableBody>
                   {cart.map((item) => {
                     const isCCU = item.itemType === 'ccu';
+                    const isPackage = item.itemType === 'package';
                     const media = getItemMedia(item);
                     const name = getItemName(item);
                     const price = getItemPrice(item);
-                    
-                    // 获取from和to的船只名称
-                    const fromShipName = getShipName(item.fromShipId);
-                    const toShipName = getShipName(item.toShipId);
+                    const fromShipName = media.fromShipName || item.fromShipName || '';
+                    const toShipName = media.toShipName || item.toShipName || '';
+                    const shipName = media.shipName || item.shipName || '';
                     
                     return (
                       <TableRow key={item.skuId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -481,8 +368,8 @@ export default function Checkout() {
                                   height: '100%',
                                   objectFit: 'cover',
                                 }}
-                                src={media.fromImage || 'https://via.placeholder.com/120x65?text=No+Image'}
-                                alt={`From: ${fromShipName}`}
+                                src={media.fromImage || MARKET_ITEM_PLACEHOLDER}
+                                alt={`From: ${fromShipName || name}`}
                               />
                               <Box
                                 component="img"
@@ -495,8 +382,8 @@ export default function Checkout() {
                                   objectFit: 'cover',
                                   boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.2)'
                                 }}
-                                src={media.toImage || 'https://via.placeholder.com/120x65?text=No+Image'}
-                                alt={`To: ${toShipName}`}
+                                src={media.toImage || MARKET_ITEM_PLACEHOLDER}
+                                alt={`To: ${toShipName || name}`}
                               />
                               <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white'>
                                 <ChevronsRight className='w-6 h-6' />
@@ -509,7 +396,7 @@ export default function Checkout() {
                             <Box
                               component="img"
                               sx={{ width: 120, height: 65, objectFit: 'cover' }}
-                              src={media.thumbnail || 'https://via.placeholder.com/120x65?text=No+Image'}
+                              src={media.thumbnail || MARKET_ITEM_PLACEHOLDER}
                               alt={name}
                             />
                           )}
@@ -520,6 +407,34 @@ export default function Checkout() {
                             <Typography variant="body2" color="text.secondary">
                               {fromShipName} → {toShipName}
                             </Typography>
+                          )}
+                          {!isCCU && isPackage && (
+                            <>
+                              {shipName && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {shipName}
+                                </Typography>
+                              )}
+                              {(item.packageKind || item.insuranceType) && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {[item.packageKind, item.insuranceType].filter(Boolean).join(' · ')}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                          {!isCCU && !isPackage && (
+                            <>
+                              {item.description && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {item.description}
+                                </Typography>
+                              )}
+                              {item.externalRef && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {item.externalRef}
+                                </Typography>
+                              )}
+                            </>
                           )}
                           <Typography variant="body2" color="text.secondary">
                             <FormattedMessage id="checkout.quantity" defaultMessage="Quantity" />: {item.quantity}

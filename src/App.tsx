@@ -29,6 +29,7 @@ const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
 const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
+const MarketDetail = lazy(() => import('./pages/Market/MarketDetail'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
 const Reseller = lazy(() => import('./pages/Reseller/Reseller'));
@@ -171,6 +172,7 @@ function App() {
               <Route path="/share/hangar/:userId" element={<Share />} />
 
               <Route path="/market" element={<Market />} />
+              <Route path="/market/:skuId" element={<MarketDetail />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:orderId" element={<OrderDetail />} />

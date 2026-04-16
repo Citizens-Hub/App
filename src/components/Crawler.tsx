@@ -94,7 +94,9 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
   // MARK: Hangar
 
-  const shipWithAlias = ships.filter(ship => ship.alias)
+  const shipWithAlias = ships.filter(
+    (ship): ship is Ship & { alias: string } => typeof ship.alias === "string" && ship.alias.length > 0
+  )
 
   const normalizeShipName = useCallback((shipName: string) => shipName.toLowerCase().trim(), []);
 

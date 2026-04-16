@@ -17,6 +17,7 @@ import {
 import { useRelatedOrdersData } from '@/hooks/swr/orders';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
+import { OrderItem as MarketOrderItem } from '@/types';
 
 // Order delivery status
 const deliveryStatus: Record<string, string> = {
@@ -24,18 +25,6 @@ const deliveryStatus: Record<string, string> = {
   delivered: 'success',
   pending: 'default',
 };
-
-// Define item type for better type safety
-interface OrderItem {
-  id: number;
-  quantity: number;
-  cancelledQuantity: number | null;
-  price: number;
-  shipped: boolean;
-  marketItem: {
-    name: string;
-  };
-}
 
 const OrdersTable: React.FC = () => {
   const intl = useIntl();
@@ -59,7 +48,7 @@ const OrdersTable: React.FC = () => {
   };
 
   // Calculate order total
-  const calculateTotal = (items: OrderItem[]) => {
+  const calculateTotal = (items: MarketOrderItem[]) => {
     return items.reduce((sum, item) => {
       const effectiveQuantity = item.quantity - (item.cancelledQuantity || 0);
       return sum + (effectiveQuantity * item.price);
@@ -78,10 +67,10 @@ const OrdersTable: React.FC = () => {
   }
 
   // Get delivery status for display
-  const getDeliveryStatus = (items: OrderItem[]) => {
-    if (items.every(item => item.shipped)) {
+  const getDeliveryStatus = (items: MarketOrderItem[]) => {
+    if (items.every(item => Boolean(item.shipped))) {
       return 'delivered';
-    } else if (items.some(item => item.shipped)) {
+    } else if (items.some(item => Boolean(item.shipped))) {
       return 'delivering';
     }
     return 'pending';
@@ -157,7 +146,7 @@ const OrdersTable: React.FC = () => {
                     <Box>
                       {order.items.map((item, index) => (
                         <Tooltip
-                          key={item.id}
+                          key={item.id || `${order.id}-${item.marketItem.skuId}-${index}`}
                           title={
                             <Box>
                               <Typography variant="body2">{item.marketItem.name}</Typography>
@@ -202,9 +191,9 @@ const OrdersTable: React.FC = () => {
                   <TableCell align="right">
                     <Chip
                       label={
-                        order.items.every(item => item.shipped) 
+                        order.items.every(item => Boolean(item.shipped)) 
                           ? <FormattedMessage id="orders.delivered" defaultMessage="Delivered" />
-                          : order.items.some(item => item.shipped)
+                          : order.items.some(item => Boolean(item.shipped))
                             ? <FormattedMessage id="orders.delivering" defaultMessage="Delivering" />
                             : <FormattedMessage id="orders.notShipped" defaultMessage="Not Shipped" />
                       }

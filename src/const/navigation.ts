@@ -26,6 +26,11 @@ export const navigation = [
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
+    name: "navigation.market",
+    path: "/market/:item",
+    hidden: true,
+  },
+  {
     name: "navigation.orders",
     path: "/orders",
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",

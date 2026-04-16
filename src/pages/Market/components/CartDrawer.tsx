@@ -144,7 +144,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                               <IconButton 
                                 size="small"
                                 onClick={() => handleQuantityChange(item.resource.id, (item.quantity || 1) + 1)}
-                                disabled={(item.quantity || Infinity) >= (getAvailableStock?.(item.resource.id) || Infinity)}
+                                disabled={(item.quantity ?? Infinity) >= (getAvailableStock?.(item.resource.id) ?? Infinity)}
                               >
                                 <Plus className="w-4 h-4" />
                               </IconButton>

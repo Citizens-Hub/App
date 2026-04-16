@@ -26,6 +26,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useState, useEffect, useMemo } from 'react';
 import { Check, ChevronsRight, Info, Loader2, X } from "lucide-react";
 import { useOrdersData } from '@/hooks';
+import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 
 export default function Orders() {
   const { ships, orders, loading, error } = useOrdersData();
@@ -51,9 +52,14 @@ export default function Orders() {
       const orderItems = order.items;
       if (orderItems?.some((item) => {
         const marketItem = item.marketItem;
-        const shipInfo = ships.find(ship => ship.skus?.some(sku => sku.id === Number(marketItem.skuId)));
-        return shipInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          marketItem.name?.toLowerCase().includes(searchTerm.toLowerCase());
+        return [
+          marketItem.name,
+          marketItem.fromShipName,
+          marketItem.toShipName,
+          marketItem.shipName,
+          marketItem.packageKind,
+          marketItem.insuranceType,
+        ].filter(Boolean).some((value) => value!.toLowerCase().includes(searchTerm.toLowerCase()));
       })) {
         return true;
       }
@@ -289,16 +295,8 @@ export default function Orders() {
                   // 获取第一个商品的详情用于显示图片
                   const firstItem = orderItems?.length > 0 ? orderItems[0] : null;
                   const marketItem = firstItem?.marketItem;
-
-                  const fromShipId = marketItem?.fromShipId;
-                  const toShipId = marketItem?.toShipId;
-                  const shipId = marketItem?.shipId;
-
-                  const fromShip = fromShipId ? ships.find(ship => ship.id === fromShipId) : null;
-                  const toShip = toShipId ? ships.find(ship => ship.id === toShipId) : null;
-                  const ship = shipId ? ships.find(ship => ship.id === shipId) : null;
-
-                  const isCCU = marketItem?.itemType === 'ccu' && fromShip && toShip;
+                  const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+                  const isCCU = marketItem?.itemType === 'ccu';
 
                   return (
                     <TableRow
@@ -321,7 +319,7 @@ export default function Orders() {
                         #{order.id}
                       </TableCell>
                       <TableCell>
-                        {isCCU ? (
+                        {isCCU && visual ? (
                           <Box sx={{ position: 'relative', width: 280, height: 160, overflow: 'hidden' }}>
                             <Box
                               component="img"
@@ -333,8 +331,8 @@ export default function Orders() {
                                 height: '100%',
                                 objectFit: 'cover',
                               }}
-                              src={fromShip?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
-                              alt={fromShip?.name || ''}
+                              src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
+                              alt={visual.fromShipName || marketItem?.name || ''}
                             />
                             <Box
                               component="img"
@@ -347,8 +345,8 @@ export default function Orders() {
                                 objectFit: 'cover',
                                 boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                               }}
-                              src={toShip?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
-                              alt={toShip?.name || ''}
+                              src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
+                              alt={visual.toShipName || marketItem?.name || ''}
                             />
                             <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
                               <ChevronsRight className='w-8 h-8' />
@@ -358,7 +356,7 @@ export default function Orders() {
                           <Box
                             component="img"
                             sx={{ width: 280, height: 160, objectFit: 'cover' }}
-                            src={(toShip || ship)?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
+                            src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
                             alt={marketItem?.name || ''}
                           />
                         )}

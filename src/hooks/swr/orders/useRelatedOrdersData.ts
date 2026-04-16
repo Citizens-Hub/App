@@ -1,35 +1,6 @@
 import { useState } from 'react';
 import { useAuthApi } from '../useApi';
-
-// 订单项类型
-interface OrderItem {
-  id: number;
-  quantity: number;
-  cancelledQuantity: number | null;
-  price: number;
-  shipped: boolean;
-  createdAt: string;
-  updatedAt: string;
-  marketItem: {
-    name: string;
-    skuId: string;
-    itemType: string;
-    fromShipId: number | null;
-    toShipId: number | null;
-    shipId: number | null;
-    belongsTo: string;
-  };
-}
-
-// 订单类型
-interface Order {
-  id: number;
-  belongsTo: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  items: OrderItem[];
-}
+import { Order } from '@/types';
 
 // 分页信息类型
 interface Pagination {

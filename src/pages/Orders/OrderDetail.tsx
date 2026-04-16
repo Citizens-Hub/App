@@ -24,6 +24,7 @@ import { Check, ChevronsRight, Info, X } from "lucide-react";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { useOrderData } from '@/hooks';
+import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -345,15 +346,9 @@ export default function OrderDetail() {
                 <TableBody>
                   {orderItems.map((item: DetailedOrderItem, index: number) => {
                     const marketItem = item.marketItem;
-                    const fromShipId = marketItem?.fromShipId;
-                    const toShipId = marketItem?.toShipId;
-                    const shipId = marketItem?.shipId;
-
-                    const fromShip = fromShipId ? ships.find(ship => ship.id === fromShipId) : null;
-                    const toShip = toShipId ? ships.find(ship => ship.id === toShipId) : null;
-                    const ship = shipId ? ships.find(ship => ship.id === shipId) : null;
-
-                    const isCCU = marketItem?.itemType === 'ccu' && fromShip && toShip;
+                    const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+                    const isCCU = marketItem?.itemType === 'ccu';
+                    const isPackage = marketItem?.itemType === 'package';
                     const itemCancelledQty = item?.cancelledQuantity || 0;
                     const activeQty = item.quantity - itemCancelledQty;
 
@@ -366,7 +361,7 @@ export default function OrderDetail() {
                         }}
                       >
                         <TableCell>
-                          {isCCU ? (
+                          {isCCU && visual ? (
                             <Box sx={{ position: 'relative', width: 280, height: 160, overflow: 'hidden' }}>
                               <Box
                                 component="img"
@@ -378,8 +373,8 @@ export default function OrderDetail() {
                                   height: '100%',
                                   objectFit: 'cover',
                                 }}
-                                src={fromShip?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
-                                alt={fromShip?.name || ''}
+                                src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
+                                alt={visual.fromShipName || marketItem?.name || ''}
                               />
                               <Box
                                 component="img"
@@ -392,8 +387,8 @@ export default function OrderDetail() {
                                   objectFit: 'cover',
                                   boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                                 }}
-                                src={toShip?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
-                                alt={toShip?.name || ''}
+                                src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
+                                alt={visual.toShipName || marketItem?.name || ''}
                               />
                               <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
                                 <ChevronsRight className='w-8 h-8' />
@@ -403,13 +398,46 @@ export default function OrderDetail() {
                             <Box
                               component="img"
                               sx={{ width: 280, height: 160, objectFit: 'cover' }}
-                              src={(toShip || ship)?.medias?.productThumbMediumAndSmall || 'https://via.placeholder.com/280x160?text=No+Image'}
+                              src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
                               alt={marketItem?.name || ''}
                             />
                           )}
                         </TableCell>
                         <TableCell>
                           <Typography fontWeight="medium">{marketItem?.name}</Typography>
+                          {isCCU && visual?.fromShipName && visual?.toShipName && (
+                            <Typography variant="body2" color="text.secondary">
+                              {visual.fromShipName} → {visual.toShipName}
+                            </Typography>
+                          )}
+                          {isPackage && (
+                            <>
+                              {visual?.shipName && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {visual.shipName}
+                                </Typography>
+                              )}
+                              {(marketItem?.packageKind || marketItem?.insuranceType) && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {[marketItem?.packageKind, marketItem?.insuranceType].filter(Boolean).join(' · ')}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                          {marketItem?.itemType === 'misc' && (
+                            <>
+                              {marketItem?.description && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {marketItem.description}
+                                </Typography>
+                              )}
+                              {marketItem?.externalRef && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {marketItem.externalRef}
+                                </Typography>
+                              )}
+                            </>
+                          )}
                           <Typography variant="caption" color="text.secondary">
                             {marketItem?.belongsTo && `${marketItem.belongsTo}`}
                           </Typography>
