@@ -23,6 +23,7 @@ export const navigation = [
   {
     name: "navigation.market",
     path: "/market",
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.market",
@@ -32,6 +33,7 @@ export const navigation = [
   {
     name: "navigation.orders",
     path: "/orders",
+    hidden: true,
   },
   {
     name: "navigation.storePreview",

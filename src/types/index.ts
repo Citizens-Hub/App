@@ -668,9 +668,17 @@ export interface BlogComment {
   updatedAt: string;
 }
 
-export interface CreateBlogCommentRequest {
-  content: string;
+export type CaptchaProvider = 'turnstile' | 'tencent';
+
+export interface CaptchaVerificationPayload {
+  captchaProvider: CaptchaProvider;
   turnstileToken?: string;
+  tencentCaptchaTicket?: string;
+  tencentCaptchaRandstr?: string;
+}
+
+export interface CreateBlogCommentRequest extends CaptchaVerificationPayload {
+  content: string;
 }
 
 export interface BlogCommentsResponse {

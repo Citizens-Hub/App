@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -16,30 +16,17 @@ import { FormattedMessage } from 'react-intl';
 import { useDispatch } from 'react-redux';
 import { login, User } from '@/store/userStore';
 import { md5 } from 'js-md5';
-import { Helmet } from 'react-helmet';
 import { useGoogleLogin } from '@react-oauth/google';
 import GoogleIcon from '@/icons/GoogleIcon';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
+import type { CaptchaVerificationPayload } from '@/types';
 
 interface LoginResponse {
   success: boolean;
   message: string;
   user: User;
   token: string;
-}
-
-// 声明全局Turnstile回调函数
-declare global {
-  interface Window {
-    onTurnstileVerify?: (token: string) => void;
-    onTurnstileExpire?: () => void;
-    onTurnstileError?: () => void;
-    onloadTurnstileCallback?: () => void;
-    turnstile?: {
-      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
-      reset: (widgetId: string) => void;
-    };
-  }
 }
 
 const Auth = ({ action }: { action: 'login' | 'register' }) => {
@@ -49,12 +36,12 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [captchaPayload, setCaptchaPayload] = useState<CaptchaVerificationPayload | null>(null);
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   const [passwordStrengthError, setPasswordStrengthError] = useState(false);
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState(true);
+  const captchaRef = useRef<CaptchaWidgetHandle>(null);
 
   const googleLogin = useGoogleLogin({
     onSuccess: tokenResponse => {
@@ -90,57 +77,6 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
   const navigate = useNavigate();
 
-  // 加载Turnstile脚本
-  useEffect(() => {
-    // 设置全局回调函数
-    window.onTurnstileVerify = (token: string) => {
-      setTurnstileToken(token);
-      // setError('');
-    };
-
-    window.onTurnstileExpire = () => {
-      setTurnstileToken(null);
-    };
-
-    window.onTurnstileError = () => {
-      setError('人机验证发生错误，请重试');
-      setTurnstileToken(null);
-    };
-
-    window.onloadTurnstileCallback = () => {
-      if (window.turnstile) {
-        const widgetId = window.turnstile.render('#turnstile-container', {
-          sitekey: import.meta.env.VITE_PUBLIC_TURNSTILE_SITE_KEY,
-          callback: (token: string) => {
-            if (window.onTurnstileVerify) {
-              window.onTurnstileVerify(token);
-            }
-          },
-          'expired-callback': () => {
-            if (window.onTurnstileExpire) {
-              window.onTurnstileExpire();
-            }
-          },
-          'error-callback': () => {
-            if (window.onTurnstileError) {
-              window.onTurnstileError();
-            }
-          }
-        });
-        setTurnstileWidgetId(widgetId);
-      }
-    };
-
-    // 清理函数
-    return () => {
-      // 安全地移除全局回调
-      window.onTurnstileVerify = undefined;
-      window.onTurnstileExpire = undefined;
-      window.onTurnstileError = undefined;
-      window.onloadTurnstileCallback = undefined;
-    };
-  }, []);
-
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -160,15 +96,20 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       const isEmailValid = validateEmail(email);
       const isPasswordValid = validatePassword(password);
       const isPasswordsMatch = password === confirmPassword;
-      return isEmailValid && isPasswordValid && isPasswordsMatch && !!turnstileToken;
+      return isEmailValid && isPasswordValid && isPasswordsMatch && !!captchaPayload;
     }
-    return !!email && !!password && !!turnstileToken;
+    return !!email && !!password && !!captchaPayload;
+  };
+
+  const resetCaptcha = () => {
+    captchaRef.current?.reset();
+    setCaptchaPayload(null);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!turnstileToken) {
+    if (!captchaPayload) {
       setError('please complete the captcha');
       return;
     }
@@ -185,7 +126,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         body: JSON.stringify({
           email,
           password,
-          turnstileToken
+          ...captchaPayload
         }),
       });
 
@@ -205,19 +146,11 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         }, 500);
       } else {
         setError(data.message);
-        // 重置 Turnstile
-        if (window.turnstile && turnstileWidgetId) {
-          window.turnstile.reset(turnstileWidgetId);
-          setTurnstileToken(null);
-        }
+        resetCaptcha();
       }
     } catch (err) {
       setError(`${err}`);
-      // 重置 Turnstile
-      if (window.turnstile && turnstileWidgetId) {
-        window.turnstile.reset(turnstileWidgetId);
-        setTurnstileToken(null);
-      }
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -225,7 +158,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!turnstileToken) {
+    if (!captchaPayload) {
       setError('please complete the captcha');
       return;
     }
@@ -273,7 +206,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         body: JSON.stringify({
           email,
           password,
-          turnstileToken
+          ...captchaPayload
         }),
       });
 
@@ -283,19 +216,11 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         navigate('/login');
       } else {
         setError(data.message || '注册失败，请检查您的凭据');
-        // 重置 Turnstile
-        if (window.turnstile && turnstileWidgetId) {
-          window.turnstile.reset(turnstileWidgetId);
-          setTurnstileToken(null);
-        }
+        resetCaptcha();
       }
     } catch (err) {
       setError(`注册失败: ${err}`);
-      // 重置 Turnstile
-      if (window.turnstile && turnstileWidgetId) {
-        window.turnstile.reset(turnstileWidgetId);
-        setTurnstileToken(null);
-      }
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -303,9 +228,6 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
   return (
     <Container maxWidth="sm">
-      <Helmet>
-        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
-      </Helmet>
       <BackgroundVideo />
       {showAlert && (
         <Alert 
@@ -418,9 +340,15 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
               />
             )}
 
-            {/* Cloudflare Turnstile */}
             <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'left' }}>
-              <div id="turnstile-container"></div>
+              <CaptchaWidget
+                ref={captchaRef}
+                onChange={setCaptchaPayload}
+                onError={() => {
+                  setCaptchaPayload(null);
+                  setError('Captcha verification failed. Please try again.');
+                }}
+              />
             </Box>
 
             {error && (
@@ -434,7 +362,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
               fullWidth
               variant="contained"
               sx={{ mt: 2, mb: 2 }}
-              disabled={loading || !turnstileToken || (action === 'register' && !isFormValid())}
+              disabled={loading || !captchaPayload || (action === 'register' && !isFormValid())}
             >
               {loading ? (
                 <CircularProgress size={24} />

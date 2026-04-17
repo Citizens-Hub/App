@@ -1,6 +1,6 @@
 import { Button, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
-import { Route, BrowserRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
+import { Route, BrowserRouter, HashRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from '@/components/Header'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store'
@@ -38,6 +38,7 @@ const ResellerGraphqlExport = lazy(() => import('./pages/Reseller/ResellerGraphq
 const BlogList = lazy(() => import('./pages/Blog/BlogList'));
 const BlogPostDetail = lazy(() => import('./pages/Blog/BlogPostDetail'));
 const BlogPostForm = lazy(() => import('./pages/Blog/BlogPostForm'));
+const Router = import.meta.env.VITE_PUBLIC_CN_MIRROR === 'true' ? HashRouter : BrowserRouter;
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -154,7 +155,7 @@ function App() {
     <SWRConfig value={swrConfig}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
+        <Router>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
           <Suspense fallback={<LoadingFallback />}>
@@ -222,7 +223,7 @@ function App() {
               </div>
             )
           } */}
-        </BrowserRouter>
+        </Router>
       </ThemeProvider>
     </SWRConfig>
   )

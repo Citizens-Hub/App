@@ -57,7 +57,14 @@ const publicRoutes = [
 ];
 
 // Base URL for the site
-const baseUrl = process.env.VITE_PUBLIC_BASE_URL || 'https://citizenshub.app';
+const isCnMirror = process.env.VITE_PUBLIC_CN_MIRROR === 'true';
+const baseUrl = (process.env.VITE_PUBLIC_BASE_URL || 'https://citizenshub.app').replace(/\/+$/, '');
+
+const getRouteUrl = (path: string): string => {
+  return isCnMirror
+    ? `${baseUrl}/#${path}`
+    : `${baseUrl}${path}`;
+};
 
 // Get current date in YYYY-MM-DD format
 const getCurrentDate = (): string => {
@@ -69,7 +76,7 @@ const generateSitemap = (): string => {
   const urls = publicRoutes
     .map((route) => {
       return `  <url>
-    <loc>${baseUrl}${route.path}</loc>
+    <loc>${getRouteUrl(route.path)}</loc>
     <lastmod>${getCurrentDate()}</lastmod>
     <changefreq>${route.changefreq}</changefreq>
     <priority>${route.priority}</priority>
@@ -132,7 +139,7 @@ const main = async () => {
 
   console.log(`✅ Sitemap generated successfully at ${outputPath}`);
   console.log(`   Generated ${publicRoutes.length} URLs`);
+  console.log(`   Route mode: ${isCnMirror ? 'hash' : 'browser'}`);
 };
 
 main();
-

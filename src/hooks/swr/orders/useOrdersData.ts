@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import { useApi, useAuthApi } from '../useApi';
 import { Order, Ship, ShipsData, UserRole } from '@/types';
 
+const EMPTY_ORDERS: Order[] = [];
+const EMPTY_SHIPS: Ship[] = [];
+
 // 用户信息类型
 interface UserInfo {
   id: string;
@@ -36,7 +39,7 @@ export default function useOrdersData() {
 
   // 处理和排序船只数据
   const ships = useMemo(() => {
-    if (!shipsData) return [];
+    if (!shipsData) return EMPTY_SHIPS;
     return [...shipsData.data.ships].sort((a: Ship, b: Ship) => a.msrp - b.msrp);
   }, [shipsData]);
 
@@ -47,7 +50,7 @@ export default function useOrdersData() {
 
   return { 
     ships, 
-    orders: ordersData || [],
+    orders: ordersData ?? EMPTY_ORDERS,
     userInfo: userInfoData || null,
     loading, 
     error 

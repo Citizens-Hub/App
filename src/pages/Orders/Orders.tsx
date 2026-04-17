@@ -36,7 +36,6 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filteredOrders, setFilteredOrders] = useState(orders);
 
   const getOrderItemName = (marketItem?: { name?: string; skuId?: string } | null) => (
     marketItem?.name
@@ -48,9 +47,7 @@ export default function Orders() {
   );
 
   // 使用useMemo过滤订单
-  const filteredOrdersList = useMemo(() => {
-    if (!orders) return [];
-    
+  const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (searchTerm === '') return true;
 
@@ -76,12 +73,17 @@ export default function Orders() {
 
       return false;
     });
-  }, [intl, orders, searchTerm]);
+  }, [orders, searchTerm]);
   
   useEffect(() => {
-    setFilteredOrders(filteredOrdersList);
     setPage(0);
-  }, [filteredOrdersList]);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredOrders.length / rowsPerPage) - 1);
+
+    setPage((currentPage) => currentPage > maxPage ? maxPage : currentPage);
+  }, [filteredOrders.length, rowsPerPage]);
 
   // 处理搜索
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
