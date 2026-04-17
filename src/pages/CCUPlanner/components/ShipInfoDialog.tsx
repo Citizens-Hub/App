@@ -1,5 +1,6 @@
 import { Alert, Box, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, Link } from '@mui/material';
 import { Close, OpenInNew } from '@mui/icons-material';
+import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import RsiIcon from '@/components/RsiIcon';
@@ -335,7 +336,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const detailedShip = data?.data.ship || ship;
   const isLoading = Boolean(requestPath && !data && !error);
   const detail = detailedShip?.details;
-  const description = stripRichText(detail?.body || detail?.excerpt);
+  const descriptionMarkdown = (detail?.body || detail?.excerpt || '').trim();
   const imageUrl = resolveShipImage(detailedShip);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
   const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer?.name);
@@ -533,7 +534,21 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
                   <FormattedMessage id="ccuPlanner.shipInfo.description" defaultMessage="Description" />
                 </div>
                 <div className="rounded border border-black/10 bg-black/[0.02] p-4 text-sm leading-7 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200">
-                  {description || (
+                  {descriptionMarkdown ? (
+                    <MarkdownPreview
+                      source={descriptionMarkdown}
+                      skipHtml={false}
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: 'inherit',
+                        fontSize: '0.875rem',
+                        lineHeight: '1.75',
+                      }}
+                      wrapperElement={{
+                        'data-color-mode': document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                      }}
+                    />
+                  ) : (
                     <span className="text-slate-500 dark:text-slate-400">
                       <FormattedMessage id="ccuPlanner.shipInfo.noDescription" defaultMessage="No ship description available." />
                     </span>
