@@ -1,7 +1,8 @@
-import { useEffect, useState, } from 'react';
+import { ChangeEvent, useEffect, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearUpgrades, setCurrency } from '@/store/upgradesStore';
 import { clearAllImportData } from '@/store/importStore';
+import { login } from '@/store/userStore';
 import { RootState } from '@/store';
 import {
   Typography,
@@ -38,6 +39,7 @@ enum Page {
 export default function Settings() {
   const intl = useIntl();
   const dispatch = useDispatch();
+  const apiBaseUrl = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
   const users = useSelector((state: RootState) => state.upgrades.users);
   const { user } = useSelector((state: RootState) => state.user);
 
@@ -72,6 +74,7 @@ export default function Settings() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [clearImportDialog, setClearImportDialog] = useState(false);
 
@@ -125,6 +128,82 @@ export default function Settings() {
     setSnackbarOpen(true);
     
     setClearImportDialog(false);
+  };
+
+  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setIsAvatarUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${apiBaseUrl}/api/user/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: formData,
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+        avatar?: string;
+        avatarUrl?: string;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || intl.formatMessage({
+          id: 'settings.avatarUploadFailed',
+          defaultMessage: 'Avatar upload failed'
+        }));
+      }
+
+      const nextAvatar = result.avatarUrl || result.avatar;
+      if (!nextAvatar) {
+        throw new Error(intl.formatMessage({
+          id: 'settings.avatarUploadFailed',
+          defaultMessage: 'Avatar upload failed'
+        }));
+      }
+
+      setProfileData((prev) => ({
+        ...prev,
+        avatar: nextAvatar
+      }));
+      dispatch(login({
+        ...user,
+        avatar: nextAvatar,
+      }));
+
+      setErrorMessage(null);
+      setSuccessMessage(intl.formatMessage({
+        id: 'settings.avatarUploadSuccess',
+        defaultMessage: 'Avatar uploaded successfully'
+      }));
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error(error);
+      setSuccessMessage(null);
+      setErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.avatarUploadFailed',
+              defaultMessage: 'Avatar upload failed'
+            })
+      );
+      setSnackbarOpen(true);
+    } finally {
+      setIsAvatarUploading(false);
+    }
   };
 
   return (
@@ -191,10 +270,40 @@ export default function Settings() {
                         <FormattedMessage id="settings.avatarDescription" defaultMessage="The avatar you want to display to others." />
                       </Typography>
                     </div>
-                    <Avatar
-                      src={profileData?.avatar || ''}
-                      sx={{ width: '40px', height: '40px' }}
-                    />
+                    <div className='flex flex-col items-end gap-2'>
+                      <div className='flex flex-row items-center gap-3'>
+                        <Avatar
+                          src={profileData?.avatar || ''}
+                          sx={{ width: '56px', height: '56px' }}
+                        />
+                        <Button
+                          component="label"
+                          variant="outlined"
+                          disabled={isAvatarUploading}
+                        >
+                          {isAvatarUploading ? (
+                            <>
+                              <CircularProgress size={16} sx={{ mr: 1 }} />
+                              <FormattedMessage id="settings.avatarUploading" defaultMessage="Uploading..." />
+                            </>
+                          ) : (
+                            <FormattedMessage id="settings.uploadAvatar" defaultMessage="Upload Avatar" />
+                          )}
+                          <input
+                            hidden
+                            accept="image/*"
+                            type="file"
+                            onChange={handleAvatarUpload}
+                          />
+                        </Button>
+                      </div>
+                      <Typography variant="caption" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.avatarUploadHint"
+                          defaultMessage="Supports image files up to 5MB."
+                        />
+                      </Typography>
+                    </div>
                   </div>
                   <div className='flex flex-row items-center gap-2 justify-between'>
                     <div>
@@ -318,11 +427,11 @@ export default function Settings() {
                   <Button 
                     variant="contained" 
                     color="primary" 
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isAvatarUploading}
                     aria-label={intl.formatMessage({ id: "settings.save", defaultMessage: "Save" })}
                     onClick={() => {
                       setIsSubmitting(true);
-                      fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/profile`, {
+                      fetch(`${apiBaseUrl}/api/user/profile`, {
                         method: 'PUT',
                         body: JSON.stringify(profileData),
                         headers: {
@@ -337,6 +446,13 @@ export default function Settings() {
                         return res.json();
                       })
                       .then(() => {
+                        if (profileData.avatar) {
+                          dispatch(login({
+                            ...user,
+                            avatar: profileData.avatar,
+                          }));
+                        }
+                        setErrorMessage(null);
                         setSuccessMessage(intl.formatMessage({
                           id: 'settings.profileSaved',
                           defaultMessage: '个人资料保存成功'
@@ -344,6 +460,7 @@ export default function Settings() {
                         setSnackbarOpen(true);
                       })
                       .catch(err => {
+                        setSuccessMessage(null);
                         setErrorMessage(intl.formatMessage({
                           id: 'settings.profileSaveFailed',
                           defaultMessage: '个人资料保存失败'

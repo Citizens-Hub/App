@@ -135,7 +135,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       if (data.success) {
         dispatch(login({
           ...data.user,
-          avatar: `https://www.gravatar.com/avatar/${md5(data.user.email)}`,
+          avatar: data.user.avatar || `https://www.gravatar.com/avatar/${md5(data.user.email)}`,
           token: data.token,
         }));
 
