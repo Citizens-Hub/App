@@ -339,7 +339,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const descriptionMarkdown = (detail?.body || detail?.excerpt || '').trim();
   const imageUrl = resolveShipImage(detailedShip);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
-  const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer?.name);
+  const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer);
   const localizedType = localizeShipType(locale, detailedShip?.type);
   const localizedSize = localizeShipSize(locale, detail?.size);
   const localizedStatus = localizeShipStatus(locale, detailedShip);
