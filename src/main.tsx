@@ -90,19 +90,21 @@ export function parseComponentStack(componentStack: string): string[] {
     .filter(Boolean)
 }
 
-const logError = async (error: Error) => {
-  if (isDynamicImportError(error)) return
+const logError = (error: unknown) => {
+  if (!(error instanceof Error) || isDynamicImportError(error)) return
 
-  const jsStack = error.stack
-    ? await parseJsStack(error.stack)
-    : null
+  void (async () => {
+    const jsStack = error.stack
+      ? await parseJsStack(error.stack)
+      : null
 
-  reportError({
-    errorType: 'Render Error',
-    errorMessage: String(error),
-    appVersion: __BUILD_TIME__,
-    callStack: jsStack || ""
-  })
+    reportError({
+      errorType: 'Render Error',
+      errorMessage: String(error),
+      appVersion: __BUILD_TIME__,
+      callStack: jsStack || ""
+    })
+  })()
 }
 
 createRoot(document.getElementById('root')!).render(

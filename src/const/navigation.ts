@@ -33,7 +33,7 @@ export const navigation = [
   {
     name: "navigation.orders",
     path: "/orders",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    hidden: true,
   },
   {
     name: "navigation.storePreview",
@@ -43,11 +43,11 @@ export const navigation = [
     name: "navigation.appSettings",
     path: "/app-settings",
   },
-  {
-    name: "navigation.fleaMarket",
-    path: "/flea-market",
-    hidden: true,
-  },
+  // {
+  //   name: "navigation.fleaMarket",
+  //   path: "/flea-market",
+  //   hidden: true,
+  // },
   {
     name: "navigation.guide",
     path: "/guide",
@@ -86,7 +86,8 @@ export const navigation = [
   {
     name: "navigation.reseller",
     path: "/reseller",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    requireReseller: true
   },
   {
     name: "navigation.graphql",

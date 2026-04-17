@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch, Slider } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Button, Chip, CircularProgress, Autocomplete, TextField, Switch, Slider, Tooltip } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { Edge, Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CcuEdgeData, CcuSourceType, CcuValidityWindow, PriceHistoryEntity, Ship } from '../../../types';
+import { useNavigate } from 'react-router';
+import { Ccu, CcuEdgeData, CcuSourceType, CcuValidityWindow, HangarItem, ListingItem, LowestMarketCcuGroup, LowestMarketCcuResponse, PriceHistoryEntity, Ship } from '../../../types';
 import { ChevronsRight } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import {
@@ -15,6 +16,9 @@ import {
   PathGraphResult
 } from '../services/PathBuilderService';
 import PriceHistoryChart from '../../../components/PriceHistoryChart';
+import { useApi } from '@/hooks/swr/useApi';
+import { useCartStore } from '@/hooks/useCartStore';
+import { buildMarketResource } from '@/components/marketItemDisplay';
 
 interface AutoPathNodeData {
   ship: Ship;
@@ -28,10 +32,14 @@ export interface ReviewedPathBuildResult {
   mismatchMessage?: string | null;
 }
 
+export interface ReviewedPathCreateOptions {
+  targetMode?: 'append' | 'newTab';
+}
+
 interface PathBuilderProps {
   open: boolean;
   onClose: () => void;
-  onCreatePath: (result: ReviewedPathBuildResult) => void;
+  onCreatePath: (result: ReviewedPathBuildResult, options?: ReviewedPathCreateOptions) => void;
 }
 
 type ReviewPathEdge = AutoPathReviewEdge;
@@ -51,6 +59,36 @@ interface GroupedSkuValidityWindow {
   windows: CcuValidityWindow[];
 }
 
+interface MarketRouteEdge {
+  key: string;
+  sourceShip: Ship;
+  targetShip: Ship;
+  sourceType: CcuSourceType;
+  cost: number;
+  listing?: LowestMarketCcuGroup['listing'];
+}
+
+interface MarketRouteScore {
+  availableWbCount: number;
+  officialCount: number;
+  marketCount: number;
+  hangarCount: number;
+  warbondCost: number;
+  totalCost: number;
+  stepCount: number;
+}
+
+interface MarketRouteResult {
+  edges: MarketRouteEdge[];
+  totalCost: number;
+  officialCount: number;
+  marketCount: number;
+  hangarCount: number;
+}
+
+const MARKET_ROUTE_NODE_GAP_X = 420;
+const MARKET_ROUTE_NODE_Y = 120;
+
 interface OverlayPricePeriod {
   startTs: number;
   endTs: number | null;
@@ -61,6 +99,8 @@ interface ReviewRangeBounds {
   minTs: number;
   maxTs: number;
 }
+
+type CreditPoolOption = NonNullable<ListingItem['creditOptions']>[number];
 
 interface LtiShipSku {
   skuId: string;
@@ -247,6 +287,16 @@ function formatUsdByLocale(value: number, locale: string): string {
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
+  });
+}
+
+function formatCreditAmountByLocale(value: number, locale: string): string {
+  const roundedValue = Number(value.toFixed(2));
+  const hasFraction = Math.abs(roundedValue - Math.round(roundedValue)) > 1e-6;
+
+  return roundedValue.toLocaleString(locale, {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -490,12 +540,452 @@ function buildStartShipStandardPricePeriods(history?: PriceHistoryEntity['histor
   return periods;
 }
 
+function hasCurrentOfficialSku(ship: Ship, ccus: Ccu[]): boolean {
+  const ccuTarget = ccus.find(entry => entry.id === ship.id);
+  return Boolean(ccuTarget?.skus.some(sku => sku.available && sku.price === ship.msrp));
+}
+
+function getCurrentWarbondPriceCents(ship: Ship, ccus: Ccu[]): number | null {
+  const ccuWarbondPrices = ccus.find(entry => entry.id === ship.id)?.skus
+    .filter(sku => sku.available && sku.price < ship.msrp)
+    .map(sku => sku.price) || [];
+
+  if (!ccuWarbondPrices.length) {
+    return null;
+  }
+
+  return Math.min(...ccuWarbondPrices);
+}
+
+function compareMarketRouteScore(left: MarketRouteScore, right: MarketRouteScore): number {
+  if (left.hangarCount !== right.hangarCount) {
+    return right.hangarCount - left.hangarCount;
+  }
+
+  if (left.availableWbCount !== right.availableWbCount) {
+    return right.availableWbCount - left.availableWbCount;
+  }
+
+  if (left.marketCount !== right.marketCount) {
+    return right.marketCount - left.marketCount;
+  }
+
+  if (left.officialCount !== right.officialCount) {
+    return right.officialCount - left.officialCount;
+  }
+
+  if (Math.abs(left.warbondCost - right.warbondCost) > 1e-6) {
+    return left.warbondCost - right.warbondCost;
+  }
+
+  if (Math.abs(left.totalCost - right.totalCost) > 1e-6) {
+    return left.totalCost - right.totalCost;
+  }
+
+  return left.stepCount - right.stepCount;
+}
+
+function mergeSequentialOfficialEdges(edges: MarketRouteEdge[]): MarketRouteEdge[] {
+  if (edges.length <= 1) {
+    return edges;
+  }
+
+  const mergedEdges: MarketRouteEdge[] = [];
+
+  edges.forEach(edge => {
+    const previousEdge = mergedEdges[mergedEdges.length - 1];
+    if (
+      previousEdge &&
+      previousEdge.sourceType === CcuSourceType.OFFICIAL &&
+      edge.sourceType === CcuSourceType.OFFICIAL
+    ) {
+      previousEdge.targetShip = edge.targetShip;
+      previousEdge.cost += edge.cost;
+      previousEdge.key = `official:${previousEdge.sourceShip.id}->${edge.targetShip.id}:merged`;
+      return;
+    }
+
+    mergedEdges.push({ ...edge });
+  });
+
+  return mergedEdges;
+}
+
+function summarizeMarketRouteEdges(edges: MarketRouteEdge[]): Omit<MarketRouteResult, 'edges'> {
+  return edges.reduce<Omit<MarketRouteResult, 'edges'>>((summary, edge) => {
+    summary.totalCost += edge.cost;
+
+    if (edge.sourceType === CcuSourceType.HANGER) {
+      summary.hangarCount += 1;
+    } else if (edge.sourceType === CcuSourceType.THIRD_PARTY) {
+      summary.marketCount += 1;
+    } else if (edge.sourceType === CcuSourceType.OFFICIAL) {
+      summary.officialCount += 1;
+    }
+
+    return summary;
+  }, {
+    totalCost: 0,
+    officialCount: 0,
+    marketCount: 0,
+    hangarCount: 0,
+  });
+}
+
+function getRequiredStoreCreditAmount(edges: MarketRouteEdge[]): number {
+  const total = edges.reduce((sum, edge) => (
+    edge.sourceType === CcuSourceType.OFFICIAL ? sum + edge.cost : sum
+  ), 0);
+
+  return Number(total.toFixed(2));
+}
+
+function getRequiredCashAmount(edges: MarketRouteEdge[]): number {
+  const total = edges.reduce((sum, edge) => (
+    edge.sourceType === CcuSourceType.THIRD_PARTY
+      || edge.sourceType === CcuSourceType.AVAILABLE_WB
+      || edge.sourceType === CcuSourceType.OFFICIAL_WB
+      ? sum + edge.cost
+      : sum
+  ), 0);
+
+  return Number(total.toFixed(2));
+}
+
+function findMatchingCreditPoolOptions(
+  creditListing: ListingItem | undefined,
+  requiredAmount: number,
+): CreditPoolOption[] | null {
+  if (requiredAmount <= 0 || creditListing?.itemType !== 'credit' || !creditListing.creditOptions?.length) {
+    return null;
+  }
+
+  const options = [...creditListing.creditOptions]
+    .filter((option) => option.amount > 0 && option.price > 0)
+    .sort((left, right) => left.amount - right.amount || left.price - right.price);
+
+  if (!options.length) {
+    return null;
+  }
+
+  const targetAmount = Math.max(1, Math.ceil(requiredAmount - 1e-6));
+  const maxOptionAmount = options[options.length - 1].amount;
+  const searchLimit = targetAmount + maxOptionAmount;
+  const bestStates = new Map<number, { price: number; count: number; previousTotal: number; optionIndex: number }>();
+  bestStates.set(0, { price: 0, count: 0, previousTotal: -1, optionIndex: -1 });
+
+  for (let total = 0; total <= searchLimit; total += 1) {
+    const currentState = bestStates.get(total);
+    if (!currentState) {
+      continue;
+    }
+
+    options.forEach((option, optionIndex) => {
+      const nextTotal = total + option.amount;
+      if (nextTotal > searchLimit) {
+        return;
+      }
+
+      const nextState = {
+        price: Number((currentState.price + option.price).toFixed(2)),
+        count: currentState.count + 1,
+        previousTotal: total,
+        optionIndex,
+      };
+      const existingState = bestStates.get(nextTotal);
+      const shouldReplace = !existingState
+        || nextState.price < existingState.price - 1e-6
+        || (Math.abs(nextState.price - existingState.price) <= 1e-6 && nextState.count < existingState.count);
+
+      if (shouldReplace) {
+        bestStates.set(nextTotal, nextState);
+      }
+    });
+  }
+
+  let bestTotal: number | null = null;
+  let bestPrice = Number.POSITIVE_INFINITY;
+  let bestCount = Number.POSITIVE_INFINITY;
+
+  for (let total = targetAmount; total <= searchLimit; total += 1) {
+    const state = bestStates.get(total);
+    if (!state) {
+      continue;
+    }
+
+    const isLowerPrice = state.price < bestPrice - 1e-6;
+    const isSamePrice = Math.abs(state.price - bestPrice) <= 1e-6;
+    const isCloserAmount = bestTotal === null || total < bestTotal;
+    const isSameAmountWithFewerPacks = bestTotal !== null && total === bestTotal && state.count < bestCount;
+
+    if (
+      bestTotal === null
+      || isLowerPrice
+      || (isSamePrice && isCloserAmount)
+      || (isSamePrice && isSameAmountWithFewerPacks)
+    ) {
+      bestTotal = total;
+      bestPrice = state.price;
+      bestCount = state.count;
+    }
+  }
+
+  if (bestTotal === null) {
+    return null;
+  }
+
+  const selectedOptions: CreditPoolOption[] = [];
+  let cursorTotal = bestTotal;
+  while (cursorTotal > 0) {
+    const state = bestStates.get(cursorTotal);
+    if (!state || state.optionIndex < 0 || state.previousTotal < 0) {
+      return null;
+    }
+
+    selectedOptions.push(options[state.optionIndex]);
+    cursorTotal = state.previousTotal;
+  }
+
+  return selectedOptions.reverse();
+}
+
+function buildSelectedCreditListing(
+  creditListing: ListingItem,
+  option: CreditPoolOption,
+): ListingItem {
+  return {
+    ...creditListing,
+    skuId: `credit-pool:${option.amount}`,
+    name: `Store Credit $${option.amount}`,
+    price: option.price,
+    creditAmount: option.amount,
+    discountRateBps: option.discountRateBps,
+    sellerCount: option.sellerCount,
+    creditOptions: undefined,
+  };
+}
+
+function buildCurrentMarketRoute(params: {
+  startShip: Ship;
+  targetShip: Ship;
+  ships: Ship[];
+  ccus: Ccu[];
+  hangarItems: HangarItem[];
+  marketGroups: LowestMarketCcuGroup[];
+}): MarketRouteResult | null {
+  const { startShip, targetShip, ships, ccus, hangarItems, marketGroups } = params;
+  const candidateShips = ships
+    .filter(ship => ship.msrp >= startShip.msrp && ship.msrp <= targetShip.msrp)
+    .sort((left, right) => left.msrp - right.msrp || left.id - right.id);
+
+  const shipById = new Map(candidateShips.map(ship => [ship.id, ship]));
+  const shipIdByName = new Map<string, number>();
+  candidateShips.forEach(ship => {
+    const key = normalizeShipName(ship.name);
+    if (!shipIdByName.has(key)) {
+      shipIdByName.set(key, ship.id);
+    }
+  });
+
+  const resolveShip = (shipId?: number, shipName?: string): Ship | null => {
+    if (typeof shipId === 'number') {
+      return shipById.get(shipId) || null;
+    }
+
+    if (shipName) {
+      const resolvedId = shipIdByName.get(normalizeShipName(shipName));
+      if (typeof resolvedId === 'number') {
+        return shipById.get(resolvedId) || null;
+      }
+    }
+
+    return null;
+  };
+
+  const outgoingEdges = new Map<number, MarketRouteEdge[]>();
+  const addEdge = (edge: MarketRouteEdge) => {
+    if (edge.targetShip.msrp <= edge.sourceShip.msrp) {
+      return;
+    }
+
+    const sourceEdges = outgoingEdges.get(edge.sourceShip.id) || [];
+    sourceEdges.push(edge);
+    outgoingEdges.set(edge.sourceShip.id, sourceEdges);
+  };
+
+  const hangarEdgeKeys = new Set<string>();
+  hangarItems.forEach((item, index) => {
+    if (!item.fromShip || !item.toShip) {
+      return;
+    }
+
+    const sourceShip = resolveShip(undefined, item.fromShip);
+    const nextShip = resolveShip(undefined, item.toShip);
+    if (!sourceShip || !nextShip) {
+      return;
+    }
+
+    const key = `${sourceShip.id}->${nextShip.id}`;
+    if (hangarEdgeKeys.has(key)) {
+      return;
+    }
+
+    hangarEdgeKeys.add(key);
+    addEdge({
+      key: `hangar:${key}:${index}`,
+      sourceShip,
+      targetShip: nextShip,
+      sourceType: CcuSourceType.HANGER,
+      cost: 0,
+    });
+  });
+
+  marketGroups.forEach(group => {
+    const sourceShip = resolveShip(group.fromShipId, group.fromShipName);
+    const nextShip = resolveShip(group.toShipId, group.toShipName);
+    if (!sourceShip || !nextShip) {
+      return;
+    }
+
+    addEdge({
+      key: `market:${group.listing.skuId}`,
+      sourceShip,
+      targetShip: nextShip,
+      sourceType: CcuSourceType.THIRD_PARTY,
+      cost: group.listing.price,
+      listing: group.listing,
+    });
+  });
+
+  const hasOfficialSkuByShipId = new Map<number, boolean>();
+  const warbondPriceByShipId = new Map<number, number | null>();
+  candidateShips.forEach(ship => {
+    hasOfficialSkuByShipId.set(ship.id, hasCurrentOfficialSku(ship, ccus));
+    warbondPriceByShipId.set(ship.id, getCurrentWarbondPriceCents(ship, ccus));
+  });
+
+  candidateShips.forEach(sourceShip => {
+    candidateShips.forEach(nextShip => {
+      if (nextShip.msrp <= sourceShip.msrp) {
+        return;
+      }
+
+      if (hasOfficialSkuByShipId.get(nextShip.id)) {
+        addEdge({
+          key: `official:${sourceShip.id}->${nextShip.id}`,
+          sourceShip,
+          targetShip: nextShip,
+          sourceType: CcuSourceType.OFFICIAL,
+          cost: Math.max(0, (nextShip.msrp - sourceShip.msrp) / 100),
+        });
+      }
+
+      const warbondPriceCents = warbondPriceByShipId.get(nextShip.id) ?? null;
+      if (warbondPriceCents === null || sourceShip.msrp >= warbondPriceCents) {
+        return;
+      }
+
+      addEdge({
+        key: `available-wb:${sourceShip.id}->${nextShip.id}:${warbondPriceCents}`,
+        sourceShip,
+        targetShip: nextShip,
+        sourceType: CcuSourceType.AVAILABLE_WB,
+        cost: Math.max(0, (warbondPriceCents - sourceShip.msrp) / 100),
+      });
+    });
+  });
+
+  const bestScoreByShipId = new Map<number, MarketRouteScore>();
+  const previousEdgeByShipId = new Map<number, { previousShipId: number; edge: MarketRouteEdge }>();
+  bestScoreByShipId.set(startShip.id, {
+    availableWbCount: 0,
+    officialCount: 0,
+    marketCount: 0,
+    hangarCount: 0,
+    warbondCost: 0,
+    totalCost: 0,
+    stepCount: 0,
+  });
+
+  candidateShips.forEach(ship => {
+    const currentScore = bestScoreByShipId.get(ship.id);
+    if (!currentScore) {
+      return;
+    }
+
+    const edges = outgoingEdges.get(ship.id) || [];
+    edges.forEach(edge => {
+      const nextScore: MarketRouteScore = {
+        availableWbCount: currentScore.availableWbCount + (edge.sourceType === CcuSourceType.AVAILABLE_WB ? 1 : 0),
+        officialCount: currentScore.officialCount + (edge.sourceType === CcuSourceType.OFFICIAL ? 1 : 0),
+        marketCount: currentScore.marketCount + (edge.sourceType === CcuSourceType.THIRD_PARTY ? 1 : 0),
+        hangarCount: currentScore.hangarCount + (edge.sourceType === CcuSourceType.HANGER ? 1 : 0),
+        warbondCost: currentScore.warbondCost + (edge.sourceType === CcuSourceType.AVAILABLE_WB ? edge.cost : 0),
+        totalCost: currentScore.totalCost + edge.cost,
+        stepCount: currentScore.stepCount + 1,
+      };
+
+      const existingScore = bestScoreByShipId.get(edge.targetShip.id);
+      if (!existingScore || compareMarketRouteScore(nextScore, existingScore) < 0) {
+        bestScoreByShipId.set(edge.targetShip.id, nextScore);
+        previousEdgeByShipId.set(edge.targetShip.id, {
+          previousShipId: ship.id,
+          edge,
+        });
+      }
+    });
+  });
+
+  const finalScore = bestScoreByShipId.get(targetShip.id);
+  if (!finalScore) {
+    return null;
+  }
+
+  const routeEdges: MarketRouteEdge[] = [];
+  const backtrackVisited = new Set<number>();
+  let cursorShipId = targetShip.id;
+
+  while (cursorShipId !== startShip.id) {
+    if (backtrackVisited.has(cursorShipId)) {
+      return null;
+    }
+
+    backtrackVisited.add(cursorShipId);
+    const previousEdge = previousEdgeByShipId.get(cursorShipId);
+    if (!previousEdge) {
+      return null;
+    }
+
+    routeEdges.push(previousEdge.edge);
+    cursorShipId = previousEdge.previousShipId;
+  }
+
+  routeEdges.reverse();
+  if (!routeEdges.length) {
+    return null;
+  }
+
+  const mergedRouteEdges = mergeSequentialOfficialEdges(routeEdges);
+  const routeSummary = summarizeMarketRouteEdges(mergedRouteEdges);
+
+  return {
+    edges: mergedRouteEdges,
+    totalCost: routeSummary.totalCost,
+    officialCount: routeSummary.officialCount,
+    marketCount: routeSummary.marketCount,
+    hangarCount: routeSummary.hangarCount,
+  };
+}
+
 export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilderProps) {
   const intl = useIntl();
+  const navigate = useNavigate();
   const isDevMode = import.meta.env.DEV;
   const ltiShipsEndpoint = `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/lti-ships`;
+  const { addToCart, emptyCart } = useCartStore();
   const {
     ships,
+    ccus,
     hangarItems,
     priceHistoryMap,
     pathBuilderService,
@@ -538,6 +1028,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
   const [ltiLoadError, setLtiLoadError] = useState(false);
   const [reviewRangeBounds, setReviewRangeBounds] = useState<ReviewRangeBounds | null>(null);
   const [reviewRangeDraftIndices, setReviewRangeDraftIndices] = useState<[number, number] | null>(null);
+  const [marketRouteWindowOpen, setMarketRouteWindowOpen] = useState(false);
   const calculateTaskRef = useRef(0);
   const baseGraphPrebuildWorkerRef = useRef<Worker | null>(null);
   const baseGraphPrebuildTaskRef = useRef(0);
@@ -649,6 +1140,207 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     if (!reviewRequest) return null;
     return ships.find(ship => ship.id === reviewRequest.targetShipId) || null;
   }, [reviewRequest, ships]);
+
+  const marketRouteApiPath = useMemo(() => {
+    if (step !== 'review' || !reviewRequest) {
+      return null;
+    }
+
+    return '/api/market/ccu/lowest';
+  }, [reviewRequest, step]);
+
+  const {
+    data: marketRouteData,
+  } = useApi<LowestMarketCcuResponse>(marketRouteApiPath, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const marketRoute = useMemo(() => {
+    if (!reviewStartShip || !reviewTargetShip) {
+      return null;
+    }
+
+    return buildCurrentMarketRoute({
+      startShip: reviewStartShip,
+      targetShip: reviewTargetShip,
+      ships,
+      ccus,
+      hangarItems,
+      marketGroups: marketRouteData?.items || [],
+    });
+  }, [ccus, hangarItems, marketRouteData?.items, reviewStartShip, reviewTargetShip, ships]);
+
+  const marketRouteMarketEdges = useMemo(
+    () => marketRoute?.edges.filter(edge => edge.sourceType === CcuSourceType.THIRD_PARTY && edge.listing) || [],
+    [marketRoute]
+  );
+
+  const hasMarketAssistedRoute = marketRouteMarketEdges.length > 0;
+  const marketRouteRequiredStoreCredit = useMemo(
+    () => marketRoute ? getRequiredStoreCreditAmount(marketRoute.edges) : 0,
+    [marketRoute]
+  );
+
+  const marketRouteRequiredCash = useMemo(
+    () => marketRoute ? getRequiredCashAmount(marketRoute.edges) : 0,
+    [marketRoute]
+  );
+
+  const marketRouteCreditApiPath = useMemo(() => {
+    if (step !== 'review' || !hasMarketAssistedRoute || marketRouteRequiredStoreCredit <= 0) {
+      return null;
+    }
+
+    return '/api/market/item/credit-pool';
+  }, [hasMarketAssistedRoute, marketRouteRequiredStoreCredit, step]);
+
+  const {
+    data: marketRouteCreditListing,
+    error: marketRouteCreditError,
+  } = useApi<ListingItem>(marketRouteCreditApiPath, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const isMarketRouteCreditLoading = Boolean(
+    marketRouteCreditApiPath
+    && !marketRouteCreditListing
+    && !marketRouteCreditError
+  );
+
+  const marketRouteSelectedCreditOptions = useMemo(
+    () => findMatchingCreditPoolOptions(marketRouteCreditListing, marketRouteRequiredStoreCredit),
+    [marketRouteCreditListing, marketRouteRequiredStoreCredit]
+  );
+
+  const marketRouteCreditDiscountSavings = useMemo(() => {
+    if (!marketRouteSelectedCreditOptions?.length) {
+      return 0;
+    }
+
+    const faceValueTotal = marketRouteSelectedCreditOptions.reduce((sum, option) => sum + option.amount, 0);
+    const quotedPriceTotal = marketRouteSelectedCreditOptions.reduce((sum, option) => sum + option.price, 0);
+
+    return Number((faceValueTotal - quotedPriceTotal).toFixed(2));
+  }, [marketRouteSelectedCreditOptions]);
+
+  const marketRouteSavingsVsDirectUpgrade = useMemo(() => {
+    if (!marketRoute) {
+      return null;
+    }
+
+    return Number((directUpgradeCost - marketRoute.totalCost).toFixed(2));
+  }, [directUpgradeCost, marketRoute]);
+
+  const marketRouteTotalSavings = useMemo(() => {
+    if (marketRouteSavingsVsDirectUpgrade === null) {
+      return null;
+    }
+
+    return Number((marketRouteSavingsVsDirectUpgrade + marketRouteCreditDiscountSavings).toFixed(2));
+  }, [marketRouteCreditDiscountSavings, marketRouteSavingsVsDirectUpgrade]);
+
+  const marketRouteHeadline = useMemo(() => {
+    if (!marketRoute || !reviewTargetShip) {
+      return '';
+    }
+
+    if (marketRouteTotalSavings !== null && marketRouteTotalSavings > 0) {
+      return intl.formatMessage(
+        {
+          id: 'pathBuilder.marketRouteHeadlineBetter',
+          defaultMessage: 'Upgrade to {target} now and save {difference}.'
+        },
+        {
+          target: reviewTargetShip.name,
+          difference: formatUsdByLocale(marketRouteTotalSavings, intl.locale)
+        }
+      );
+    }
+
+    return intl.formatMessage(
+      {
+        id: 'pathBuilder.marketRouteHeadlineDefault',
+        defaultMessage: 'Upgrade to {target} now'
+      },
+      {
+        target: reviewTargetShip.name
+      }
+    );
+  }, [intl, marketRoute, marketRouteTotalSavings, reviewTargetShip]);
+
+  const marketRouteHeadlineTooltip = useMemo(() => {
+    if (
+      !reviewTargetShip
+      || marketRouteTotalSavings === null
+      || marketRouteTotalSavings <= 0
+    ) {
+      return '';
+    }
+
+    return intl.formatMessage(
+      {
+        id: 'pathBuilder.marketRouteHeadlineBreakdown',
+        defaultMessage: 'Route savings {routeSavings} + Store Credit discount savings {creditSavings}'
+      },
+      {
+        routeSavings: formatUsdByLocale(marketRouteSavingsVsDirectUpgrade || 0, intl.locale),
+        creditSavings: formatUsdByLocale(marketRouteCreditDiscountSavings, intl.locale),
+      }
+    );
+  }, [
+    intl,
+    marketRouteCreditDiscountSavings,
+    marketRouteSavingsVsDirectUpgrade,
+    marketRouteTotalSavings,
+    reviewTargetShip,
+  ]);
+
+  const marketRouteCanvasResult = useMemo<ReviewedPathBuildResult | null>(() => {
+    if (!marketRoute || marketRoute.edges.length === 0) {
+      return null;
+    }
+
+    const nodeIds: string[] = [];
+    const routeShips: Ship[] = [marketRoute.edges[0].sourceShip];
+    marketRoute.edges.forEach(edge => {
+      routeShips.push(edge.targetShip);
+    });
+
+    const nodes: Node<AutoPathNodeData>[] = routeShips.map((ship, index) => {
+      const nodeId = `market-route-ship-${ship.id}-${index}`;
+      nodeIds.push(nodeId);
+
+      return {
+        id: nodeId,
+        type: 'ship',
+        position: {
+          x: index * MARKET_ROUTE_NODE_GAP_X,
+          y: MARKET_ROUTE_NODE_Y
+        },
+        data: {
+          ship,
+          id: nodeId
+        }
+      };
+    });
+
+    const edges: Edge<CcuEdgeData>[] = marketRoute.edges.map((edge, index) => ({
+      id: `market-route-edge-${edge.sourceShip.id}-${edge.targetShip.id}-${index}`,
+      source: nodeIds[index],
+      target: nodeIds[index + 1],
+      type: 'ccu',
+      data: {
+        price: edge.cost,
+        sourceShip: edge.sourceShip,
+        targetShip: edge.targetShip,
+        sourceType: edge.sourceType
+      }
+    }));
+
+    return { nodes, edges };
+  }, [marketRoute]);
 
   const earliestHistoryStartTs = useMemo(() => {
     let minTs = Number.POSITIVE_INFINITY;
@@ -817,7 +1509,26 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setReviewStepMismatchMessage(null);
     setReviewRangeBounds(null);
     setReviewRangeDraftIndices(null);
+    setMarketRouteWindowOpen(false);
   }, [open, terminateBaseGraphPrebuildWorker]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (step !== 'review') {
+      setMarketRouteWindowOpen(false);
+      return;
+    }
+
+    if (!hasMarketAssistedRoute) {
+      setMarketRouteWindowOpen(false);
+      return;
+    }
+
+    setMarketRouteWindowOpen(true);
+  }, [hasMarketAssistedRoute, open, step]);
 
   useEffect(() => {
     if (!open) {
@@ -1026,9 +1737,13 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setTargetShipId('');
   }, [startShip, targetShipId, selectableShips]);
 
-  const formatUsd = (value: number): string => {
+  const formatUsd = useCallback((value: number): string => {
     return formatUsdByLocale(value, intl.locale);
-  };
+  }, [intl.locale]);
+
+  const formatCreditAmount = useCallback((value: number): string => {
+    return formatCreditAmountByLocale(value, intl.locale);
+  }, [intl.locale]);
 
   const formatDate = useCallback((ts: number): string => {
     return formatDateByLocale(ts, intl.locale);
@@ -1095,6 +1810,17 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       default:
         return sourceType;
     }
+  };
+
+  const getMarketRouteTypeLabel = (sourceType: CcuSourceType): string => {
+    if (sourceType === CcuSourceType.THIRD_PARTY) {
+      return intl.formatMessage({
+        id: 'pathBuilder.marketRouteStoreLabel',
+        defaultMessage: 'Store'
+      });
+    }
+
+    return getCcuTypeLabel(sourceType);
   };
 
   const buildRequest = (): AutoPathBuildRequest | null => {
@@ -1402,6 +2128,117 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
     setExcludedSkuIds(nextExcludedSkuIds);
     void calculateRoute(reviewRequest, excludedCcus, nextExcludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
   };
+
+  const handleAddMarketRouteToCart = useCallback(() => {
+    if (!marketRouteMarketEdges.length || !marketRouteCanvasResult) {
+      return;
+    }
+
+    const selectedCreditResources: Array<ReturnType<typeof buildMarketResource>> = [];
+    if (marketRouteRequiredStoreCredit > 0) {
+      if (isMarketRouteCreditLoading) {
+        showAlert(
+          intl.formatMessage({
+            id: 'pathBuilder.marketRouteCreditLoading',
+            defaultMessage: 'Store Credit options are still loading. Try again in a moment.'
+          }),
+          'warning'
+        );
+        return;
+      }
+
+      if (!marketRouteSelectedCreditOptions?.length || !marketRouteCreditListing) {
+        showAlert(
+          intl.formatMessage(
+            {
+              id: 'pathBuilder.marketRouteCreditUnavailable',
+              defaultMessage: 'No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}.'
+            },
+            {
+              amount: formatUsd(marketRouteRequiredStoreCredit)
+            }
+          ),
+          'warning'
+        );
+        return;
+      }
+
+      marketRouteSelectedCreditOptions.forEach((option) => {
+        selectedCreditResources.push(
+          buildMarketResource(
+            buildSelectedCreditListing(marketRouteCreditListing, option),
+            ships,
+          ),
+        );
+      });
+    }
+
+    const plannedListingQuantities = new Map<string, number>();
+
+    for (const edge of marketRouteMarketEdges) {
+      const listing = edge.listing;
+      if (!listing) {
+        continue;
+      }
+
+      const availableStock = Math.max(listing.stock - listing.lockedStock, 0);
+      const nextQuantity = (plannedListingQuantities.get(listing.skuId) || 0) + 1;
+      plannedListingQuantities.set(listing.skuId, nextQuantity);
+
+      if (availableStock < nextQuantity) {
+        showAlert(
+          intl.formatMessage({
+            id: 'cart.stockLimit',
+            defaultMessage: 'Cannot add more than available stock'
+          }),
+          'warning'
+        );
+        return;
+      }
+    }
+
+    emptyCart();
+
+    marketRouteMarketEdges.forEach(edge => {
+      if (!edge.listing) {
+        return;
+      }
+
+      addToCart(buildMarketResource(edge.listing, ships));
+    });
+
+    selectedCreditResources.forEach((resource) => {
+      addToCart(resource);
+    });
+
+    onCreatePath(marketRouteCanvasResult, { targetMode: 'newTab' });
+    setMarketRouteWindowOpen(false);
+    onClose();
+    navigate('/checkout');
+    showAlert(
+      intl.formatMessage({
+        id: 'market.addedToCart',
+        defaultMessage: 'Added to cart'
+      }),
+      'success'
+    );
+  }, [
+    addToCart,
+    emptyCart,
+    intl,
+    isMarketRouteCreditLoading,
+    marketRouteCanvasResult,
+    marketRouteCreditListing,
+    marketRouteMarketEdges,
+    marketRouteRequiredStoreCredit,
+    marketRouteSelectedCreditOptions,
+    navigate,
+    onClose,
+    onCreatePath,
+    ships,
+    showAlert,
+    formatUsd,
+  ]);
 
   const handleConfirmRoute = () => {
     if (!generatedResult || !reviewRoute) {
@@ -1896,7 +2733,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
           </div>
         ) : (
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-auto touch-pan-y xl:overflow-hidden p-2 sm:p-4 pb-3 sm:pb-4 flex flex-col gap-3 sm:gap-4">
+            <div className="relative flex-1 min-h-0 overflow-auto xl:overflow-hidden touch-pan-y p-2 sm:p-4 pb-3 sm:pb-4 flex flex-col gap-3 sm:gap-4">
               {/* {isCalculating && (
                 <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 dark:text-gray-200 dark:bg-neutral-900 dark:border-neutral-700 p-2">
                   <CircularProgress size={16} />
@@ -2015,8 +2852,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                 </div>
               )}
 
-              <div className="xl:flex-1 min-h-0 flex flex-col gap-3 sm:gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-1">
-                <div className="flex flex-col gap-3 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
+              <div className="flex flex-col gap-3 sm:gap-4 xl:min-h-0 xl:flex-1 xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-1">
+                <div className="flex flex-col gap-3 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 xl:min-h-0 xl:overflow-hidden">
                   {reviewRoute ? (
                     <>
                       <div className="text-sm font-medium">
@@ -2040,7 +2877,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         />
                       </div>
 
-                      <div className="overflow-visible xl:min-h-0 xl:overflow-auto pr-0 sm:pr-1 flex flex-col gap-2">
+                      <div className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
                         {reviewRoute.edges.map((item, index) => {
                           const stepKey = `${item.key}-${index}`;
                           const officialUpgradeCost = Math.max(0, (item.targetShip.msrp - item.sourceShip.msrp) / 100);
@@ -2206,14 +3043,14 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 overflow-visible xl:min-h-0 xl:overflow-hidden">
+                <div className="flex flex-col gap-2 border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 sm:p-3 xl:min-h-0 xl:overflow-auto">
                   <div className="text-sm font-medium">
                     <FormattedMessage
                       id="pathBuilder.excludedTitle"
                       defaultMessage="Excluded items"
                     />
                   </div>
-                  <div className="xl:flex-1 xl:min-h-0 overflow-visible xl:overflow-auto pr-0 sm:pr-1 flex flex-col gap-3">
+                  <div className="flex flex-col gap-3">
                     {excludedSkuIds.length > 0 && (
                       <div className="flex flex-col gap-2">
                         <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -2271,6 +3108,175 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                   </div>
                 </div>
               </div>
+
+              {reviewRequest && reviewStartShip && reviewTargetShip && hasMarketAssistedRoute && marketRoute && (
+                <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 flex justify-end sm:inset-x-4 sm:bottom-4">
+                  {marketRouteWindowOpen ? (
+                    <div className="pointer-events-auto flex max-h-[min(72vh,680px)] w-full max-w-[460px] flex-col overflow-hidden border border-emerald-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] dark:border-emerald-800 dark:bg-[#121212]">
+                      <div className="flex items-start justify-between gap-3 border-b border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                        <div className="min-w-0">
+                          {/* <div className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
+                            <FormattedMessage
+                              id="pathBuilder.marketRouteTitle"
+                              defaultMessage="Market-Assisted Route"
+                            />
+                          </div> */}
+                          <Tooltip
+                            title={marketRouteHeadlineTooltip}
+                            disableHoverListener={!marketRouteHeadlineTooltip}
+                            arrow
+                            placement="top-start"
+                          >
+                            <div className="mt-1 text-sm font-semibold leading-6 text-emerald-950 dark:text-emerald-50">
+                              {marketRouteHeadline}
+                            </div>
+                          </Tooltip>
+                        </div>
+                        <IconButton
+                          onClick={() => setMarketRouteWindowOpen(false)}
+                          size="small"
+                          aria-label={intl.formatMessage({ id: 'pathBuilder.marketRouteClose', defaultMessage: 'Close' })}
+                        >
+                          <Close fontSize="small" />
+                        </IconButton>
+                      </div>
+
+                      <div className="border-b border-gray-200 p-3 dark:border-neutral-700">
+                        {/* <div className="text-xs text-gray-600 dark:text-gray-300">
+                          <FormattedMessage
+                            id="pathBuilder.marketRouteHint"
+                            defaultMessage="Priority order: hangar CCUs first, then cheapest listed market CCUs, and only then current official SKU upgrades."
+                          />
+                        </div> */}
+                        {/* <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          <FormattedMessage
+                            id="pathBuilder.marketRouteCtaHint"
+                            defaultMessage="Inspect the floating plan here and add every required market CCU to the cart in one click."
+                          />
+                        </div> */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="border border-emerald-200 bg-emerald-50/70 px-2 py-[2px] text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
+                            <FormattedMessage
+                              id="pathBuilder.marketRouteSummary"
+                              defaultMessage="{steps, number} steps"
+                              values={{
+                                steps: marketRoute.edges.length,
+                                cash: formatUsd(marketRouteRequiredCash),
+                                credit: formatCreditAmount(marketRouteRequiredStoreCredit),
+                              }}
+                            />
+                          </span>
+                          <div className='flex gap-2 flex-wrap'>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteHangarCount"
+                                defaultMessage="Hangar {count}"
+                                values={{ count: marketRoute.hangarCount }}
+                              />
+                            </span>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteMarketCount"
+                                defaultMessage="Market {count}"
+                                values={{ count: marketRoute.marketCount }}
+                              />
+                            </span>
+                            <span className="border border-gray-200 bg-gray-50 px-2 py-[2px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                              <FormattedMessage
+                                id="pathBuilder.marketRouteOfficialCount"
+                                defaultMessage="Official fallback {count}"
+                                values={{ count: marketRoute.officialCount }}
+                              />
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={handleAddMarketRouteToCart}
+                            disabled={marketRouteMarketEdges.length === 0}
+                            fullWidth
+                          >
+                            <FormattedMessage
+                              id='pathBuilder.marketRouteAddToCart'
+                              defaultMessage='Add market CCUs to cart'
+                            />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-auto p-3">
+                        <div className="flex flex-col gap-3">
+                          {marketRoute.edges.map((edge, index) => (
+                            <div
+                              key={`${edge.key}-${index}`}
+                              className="flex flex-col gap-3 border border-gray-200 bg-gray-50/70 p-3 dark:border-neutral-700 dark:bg-neutral-900"
+                            >
+                              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {index + 1}. {edge.sourceShip.name} -&gt; {edge.targetShip.name}
+                              </div>
+
+                              <UpgradePreview
+                                fromShip={edge.sourceShip}
+                                toShip={edge.targetShip}
+                                className="h-[104px] w-full shrink-0"
+                              />
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`text-xs px-2 py-[2px] ${getCcuTypeStyle(edge.sourceType)}`}>
+                                  {getMarketRouteTypeLabel(edge.sourceType)}
+                                </span>
+                                <span className="text-xs px-2 py-[2px] border border-gray-200 bg-white text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                                  {formatUsd(edge.cost)}
+                                </span>
+                                {/* {edge.listing && (
+                                  <span className="text-xs px-2 py-[2px] border border-gray-200 bg-white text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                                    SKU {edge.listing.skuId}
+                                  </span>
+                                )} */}
+                              </div>
+
+                              {/* <div className="text-xs text-gray-600 dark:text-gray-300">
+                                {edge.listing ? (
+                                  <FormattedMessage
+                                    id="pathBuilder.marketRouteListingHint"
+                                    defaultMessage="This step can be purchased immediately from the market at the current lowest listed price."
+                                  />
+                                ) : edge.sourceType === CcuSourceType.HANGER ? (
+                                  <FormattedMessage
+                                    id="pathBuilder.marketRouteHangarHint"
+                                    defaultMessage="This step will be covered by a hangar CCU you already own."
+                                  />
+                                ) : (
+                                  <FormattedMessage
+                                    id="pathBuilder.marketRouteOfficialHint"
+                                    defaultMessage="This step falls back to the current official upgrade because no suitable market listing is available."
+                                  />
+                                )}
+                              </div> */}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className='m-4'>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={() => setMarketRouteWindowOpen(true)}
+                        className="pointer-events-auto"
+                      >
+                        <FormattedMessage
+                          id="pathBuilder.marketRouteOpen"
+                          defaultMessage="Instant upgrade"
+                        />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-0 sm:mt-3 border-t border-gray-200 dark:border-neutral-700 dark:bg-[#121212] p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-end gap-2">
@@ -2310,6 +3316,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
           </div>
         )}
       </DialogContent>
+
     </Dialog>
   );
 }

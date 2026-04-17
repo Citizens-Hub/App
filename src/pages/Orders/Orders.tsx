@@ -36,12 +36,18 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filteredOrders, setFilteredOrders] = useState(orders);
+
+  const getOrderItemName = (marketItem?: { name?: string; skuId?: string } | null) => (
+    marketItem?.name
+    || marketItem?.skuId
+    || intl.formatMessage({
+      id: 'orders.unavailableItem',
+      defaultMessage: 'Unavailable or delisted item'
+    })
+  );
 
   // 使用useMemo过滤订单
-  const filteredOrdersList = useMemo(() => {
-    if (!orders) return [];
-    
+  const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (searchTerm === '') return true;
 
@@ -53,12 +59,13 @@ export default function Orders() {
       if (orderItems?.some((item) => {
         const marketItem = item.marketItem;
         return [
-          marketItem.name,
-          marketItem.fromShipName,
-          marketItem.toShipName,
-          marketItem.shipName,
-          marketItem.packageKind,
-          marketItem.insuranceType,
+          marketItem?.name,
+          marketItem?.skuId,
+          marketItem?.fromShipName,
+          marketItem?.toShipName,
+          marketItem?.shipName,
+          marketItem?.packageKind,
+          marketItem?.insuranceType,
         ].filter(Boolean).some((value) => value!.toLowerCase().includes(searchTerm.toLowerCase()));
       })) {
         return true;
@@ -66,12 +73,17 @@ export default function Orders() {
 
       return false;
     });
-  }, [searchTerm, orders, ships]);
+  }, [orders, searchTerm]);
   
   useEffect(() => {
-    setFilteredOrders(filteredOrdersList);
     setPage(0);
-  }, [filteredOrdersList]);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredOrders.length / rowsPerPage) - 1);
+
+    setPage((currentPage) => currentPage > maxPage ? maxPage : currentPage);
+  }, [filteredOrders.length, rowsPerPage]);
 
   // 处理搜索
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,6 +307,7 @@ export default function Orders() {
                   // 获取第一个商品的详情用于显示图片
                   const firstItem = orderItems?.length > 0 ? orderItems[0] : null;
                   const marketItem = firstItem?.marketItem;
+                  const firstItemName = getOrderItemName(marketItem);
                   const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
                   const isCCU = marketItem?.itemType === 'ccu';
 
@@ -332,7 +345,7 @@ export default function Orders() {
                                 objectFit: 'cover',
                               }}
                               src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.fromShipName || marketItem?.name || ''}
+                              alt={visual.fromShipName || firstItemName}
                             />
                             <Box
                               component="img"
@@ -346,7 +359,7 @@ export default function Orders() {
                                 boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                               }}
                               src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.toShipName || marketItem?.name || ''}
+                              alt={visual.toShipName || firstItemName}
                             />
                             <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
                               <ChevronsRight className='w-8 h-8' />
@@ -357,7 +370,7 @@ export default function Orders() {
                             component="img"
                             sx={{ width: 280, height: 160, objectFit: 'cover' }}
                             src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
-                            alt={marketItem?.name || ''}
+                            alt={firstItemName}
                           />
                         )}
                       </TableCell>
@@ -365,7 +378,7 @@ export default function Orders() {
                         <div className='flex flex-col gap-2'>
                           {orderItems?.slice(0, 4).map((item, index: number) => {
                             const marketItem = item.marketItem;
-                            const itemName = marketItem?.name;
+                            const itemName = getOrderItemName(marketItem);
 
                             return (
                               <div className="flex items-center" key={index}>

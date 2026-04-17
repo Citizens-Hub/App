@@ -32,10 +32,11 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.user);
   const isMobile = window.innerWidth < 768;
-
-  if (!order) {
-    return <div>Order not found</div>;
-  }
+  const getOrderItemName = (marketItem?: { name?: string; skuId?: string } | null) => (
+    marketItem?.name
+    || marketItem?.skuId
+    || 'Unavailable or delisted item'
+  );
 
   // Handle view receipt
   const handleViewReceipt = () => {
@@ -347,9 +348,11 @@ export default function OrderDetail() {
                 <TableBody>
                   {orderItems.map((item: DetailedOrderItem, index: number) => {
                     const marketItem = item.marketItem;
+                    const itemName = getOrderItemName(marketItem);
                     const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
                     const isCCU = marketItem?.itemType === 'ccu';
                     const isPackage = marketItem?.itemType === 'package';
+                    const isCredit = marketItem?.itemType === 'credit';
                     const itemCancelledQty = item?.cancelledQuantity || 0;
                     const activeQty = item.quantity - itemCancelledQty;
 
@@ -375,7 +378,7 @@ export default function OrderDetail() {
                                   objectFit: 'cover',
                                 }}
                                 src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
-                                alt={visual.fromShipName || marketItem?.name || ''}
+                                alt={visual.fromShipName || itemName}
                               />
                               <Box
                                 component="img"
@@ -389,7 +392,7 @@ export default function OrderDetail() {
                                   boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                                 }}
                                 src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                                alt={visual.toShipName || marketItem?.name || ''}
+                                alt={visual.toShipName || itemName}
                               />
                               <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
                                 <ChevronsRight className='w-8 h-8' />
@@ -400,12 +403,12 @@ export default function OrderDetail() {
                               component="img"
                               sx={{ width: 280, height: 160, objectFit: 'cover' }}
                               src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
-                              alt={marketItem?.name || ''}
+                              alt={itemName}
                             />
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography fontWeight="medium">{marketItem?.name}</Typography>
+                          <Typography fontWeight="medium">{itemName}</Typography>
                           {isCCU && visual?.fromShipName && visual?.toShipName && (
                             <Typography variant="body2" color="text.secondary">
                               {visual.fromShipName} → {visual.toShipName}
@@ -425,7 +428,7 @@ export default function OrderDetail() {
                               )}
                             </>
                           )}
-                          {marketItem?.itemType === 'misc' && (
+                          {(marketItem?.itemType === 'misc' || isCredit) && (
                             <>
                               {marketItem?.description && (
                                 <Typography variant="body2" color="text.secondary">
@@ -438,6 +441,14 @@ export default function OrderDetail() {
                                 </Typography>
                               )}
                             </>
+                          )}
+                          {!marketItem?.name && (
+                            <Typography variant="body2" color="text.secondary">
+                              <FormattedMessage
+                                id="orderDetail.unavailableItem"
+                                defaultMessage="This product is no longer listed in the marketplace, but the order record is preserved."
+                              />
+                            </Typography>
                           )}
                           <Typography variant="caption" color="text.secondary">
                             {marketItem?.belongsTo && `${marketItem.belongsTo}`}
@@ -475,7 +486,13 @@ export default function OrderDetail() {
                         </TableCell>
                         <TableCell align="center">
                           {
-                            item.shipped ? (
+                            item.quantity === itemCancelledQty ? (
+                              <Chip
+                                size="small"
+                                color="error"
+                                label={<FormattedMessage id="orderDetail.canceled" defaultMessage="Canceled" />}
+                              />
+                            ) : item.shipped ? (
                               <Chip
                                 size="small"
                                 color="success"

@@ -11,9 +11,10 @@ interface ShipSelectorProps {
   ccus: Ccu[];
   onDragStart: (event: React.DragEvent<HTMLDivElement>, ship: Ship) => void;
   onMobileAdd: (ship: Ship) => void;
+  onOpenShipContextMenu?: (event: React.MouseEvent<HTMLElement>, ship: Ship) => void;
 }
 
-export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd }: ShipSelectorProps) {
+export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, onOpenShipContextMenu }: ShipSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
   const [showHistoryWB, setShowHistoryWB] = useState(false);
@@ -151,6 +152,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd }: 
               key={ship.id}
               draggable
               onDragStart={(event) => onDragStart(event, ship)}
+              onContextMenu={(event) => onOpenShipContextMenu?.(event, ship)}
               className="p-2 cursor-move transition-colors hover:bg-amber-100 dark:hover:bg-gray-900 flex justify-between items-center w-full"
             >
               <div className="flex items-center text-left">

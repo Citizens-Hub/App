@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useBlogPost } from '@/hooks/swr/blog/useBlogPost';
 import { useDeleteBlogPost } from '@/hooks/swr/blog/useDeleteBlogPost';
@@ -15,20 +15,8 @@ import { RootState } from '@/store';
 import { UserRole } from '@/types';
 import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Snackbar, Alert, IconButton, Box } from '@mui/material';
 import { Helmet } from 'react-helmet';
-
-// Declare global Turnstile callback functions
-declare global {
-  interface Window {
-    onTurnstileVerify?: (token: string) => void;
-    onTurnstileExpire?: () => void;
-    onTurnstileError?: () => void;
-    onloadTurnstileCallback?: () => void;
-    turnstile?: {
-      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
-      reset: (widgetId: string) => void;
-    };
-  }
-}
+import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
+import type { CaptchaVerificationPayload } from '@/types';
 
 export default function BlogPostDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -55,61 +43,9 @@ export default function BlogPostDetail() {
     message: '',
     severity: 'success',
   });
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
-  const [turnstileError, setTurnstileError] = useState<string>('');
-
-  // Load Turnstile script
-  useEffect(() => {
-    if (!canComment) return;
-
-    // Set global callback functions
-    window.onTurnstileVerify = (token: string) => {
-      setTurnstileToken(token);
-      setTurnstileError('');
-    };
-
-    window.onTurnstileExpire = () => {
-      setTurnstileToken(null);
-    };
-
-    window.onTurnstileError = () => {
-      setTurnstileError(intl.formatMessage({ id: 'blog.comment.turnstileError', defaultMessage: 'Captcha verification failed. Please try again.' }));
-      setTurnstileToken(null);
-    };
-
-    window.onloadTurnstileCallback = () => {
-      if (window.turnstile) {
-        const widgetId = window.turnstile.render('#turnstile-comment-container', {
-          sitekey: import.meta.env.VITE_PUBLIC_TURNSTILE_SITE_KEY,
-          callback: (token: string) => {
-            if (window.onTurnstileVerify) {
-              window.onTurnstileVerify(token);
-            }
-          },
-          'expired-callback': () => {
-            if (window.onTurnstileExpire) {
-              window.onTurnstileExpire();
-            }
-          },
-          'error-callback': () => {
-            if (window.onTurnstileError) {
-              window.onTurnstileError();
-            }
-          }
-        });
-        setTurnstileWidgetId(widgetId);
-      }
-    };
-
-    // Cleanup function
-    return () => {
-      window.onTurnstileVerify = undefined;
-      window.onTurnstileExpire = undefined;
-      window.onTurnstileError = undefined;
-      window.onloadTurnstileCallback = undefined;
-    };
-  }, [canComment, intl]);
+  const [captchaPayload, setCaptchaPayload] = useState<CaptchaVerificationPayload | null>(null);
+  const [captchaError, setCaptchaError] = useState<string>('');
+  const captchaRef = useRef<CaptchaWidgetHandle>(null);
 
   if (isLoading) {
     return (
@@ -167,11 +103,16 @@ export default function BlogPostDetail() {
     setDeleteDialogOpen(false);
   };
 
+  const resetCaptcha = () => {
+    captchaRef.current?.reset();
+    setCaptchaPayload(null);
+  };
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!data?.post || !commentContent.trim()) return;
 
-    if (!turnstileToken) {
+    if (!captchaPayload) {
       setSnackbar({
         open: true,
         message: intl.formatMessage({ id: 'blog.comment.captchaRequired', defaultMessage: 'Please complete the captcha verification' }),
@@ -183,14 +124,10 @@ export default function BlogPostDetail() {
     try {
       await createComment(data.post.id, {
         content: commentContent.trim(),
-        turnstileToken
+        ...captchaPayload
       });
       setCommentContent('');
-      setTurnstileToken(null);
-      // Reset Turnstile
-      if (window.turnstile && turnstileWidgetId) {
-        window.turnstile.reset(turnstileWidgetId);
-      }
+      resetCaptcha();
       mutateComments();
       setSnackbar({
         open: true,
@@ -203,11 +140,7 @@ export default function BlogPostDetail() {
         message: intl.formatMessage({ id: 'blog.comment.createError', defaultMessage: 'Failed to post comment' }),
         severity: 'error',
       });
-      // Reset Turnstile on error
-      if (window.turnstile && turnstileWidgetId) {
-        window.turnstile.reset(turnstileWidgetId);
-        setTurnstileToken(null);
-      }
+      resetCaptcha();
     }
   };
 
@@ -286,7 +219,6 @@ export default function BlogPostDetail() {
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={metaImage} />
         <link rel="canonical" href={pageUrl} />
-        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" async defer></script>
       </Helmet>
       <div className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto pb-[120px]">
         <article className="max-w-4xl mx-auto text-left">
@@ -382,20 +314,33 @@ export default function BlogPostDetail() {
                     helperText={createCommentError?.message}
                   />
                 </div>
-                {turnstileError && (
+                {captchaError && (
                   <div className="mb-2 text-sm text-red-600 dark:text-red-400">
-                    {turnstileError}
+                    {captchaError}
                   </div>
                 )}
                 <div className="flex justify-between items-start">
                   <Box sx={{ mb: 2, display: 'flex', justifyContent: 'left' }}>
-                    <div id="turnstile-comment-container"></div>
+                    <CaptchaWidget
+                      ref={captchaRef}
+                      enabled={canComment}
+                      onChange={(payload) => {
+                        setCaptchaPayload(payload);
+                        if (payload) {
+                          setCaptchaError('');
+                        }
+                      }}
+                      onError={() => {
+                        setCaptchaPayload(null);
+                        setCaptchaError(intl.formatMessage({ id: 'blog.comment.turnstileError', defaultMessage: 'Captcha verification failed. Please try again.' }));
+                      }}
+                    />
                   </Box>
                   <Button
                     type="submit"
                     variant="outlined"
                     startIcon={creatingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    disabled={!commentContent.trim() || creatingComment || !turnstileToken}
+                    disabled={!commentContent.trim() || creatingComment || !captchaPayload}
                   >
                     {creatingComment ? (
                       <FormattedMessage id="blog.comment.submitting" defaultMessage="Submitting..." />
@@ -559,4 +504,3 @@ export default function BlogPostDetail() {
     </>
   );
 }
-

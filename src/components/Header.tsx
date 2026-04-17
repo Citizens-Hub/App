@@ -322,6 +322,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               {navigation.filter(item => {
                 if (item.hidden) return false
                 if (item.requireAdmin) return user.role === UserRole.Admin
+                if (item.requireReseller) return [UserRole.Admin, UserRole.Reseller].includes(user.role)
                 return true
               }).map((item) => (
                 <Link

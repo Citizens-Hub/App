@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -10,13 +10,16 @@ import {
   CircularProgress,
   Divider,
   IconButton,
+  MenuItem,
   Snackbar,
+  TextField,
   Typography,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
 import useSWR from 'swr';
+import RsiIcon from '@/components/RsiIcon';
 import { useApi, useMarketItemData } from '@/hooks';
 import {
   CartItem as CartItemType,
@@ -32,6 +35,10 @@ import {
   MARKET_ITEM_PLACEHOLDER,
   toLargeRsiImage,
 } from '@/components/marketItemDisplay';
+import {
+  getShipMetricIconPath,
+  resolveShipFocusIconPath,
+} from '@/data/rsiIcons';
 import { useCartStore } from '@/hooks/useCartStore';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
@@ -43,15 +50,18 @@ interface UserProfileResponse {
   user: ProfileData;
 }
 
-function DetailField({ label, value }: { label: string; value?: string | null }) {
+function DetailField({ label, value }: { label: string; value?: string | null; }) {
   if (!value) return null;
 
   return (
-    <div className='flex flex-col gap-1 rounded border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]'>
-      <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
-        {label}
+    <div className='flex items-start gap-3 rounded border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]'>
+      {/* <RsiIcon src={iconSrc} className='mt-0.5 h-5 w-5' /> */}
+      <div className='min-w-0 flex-1'>
+        <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+          {label}
+        </div>
+        <div className='text-sm text-slate-800 dark:text-slate-100'>{value}</div>
       </div>
-      <div className='text-sm text-slate-800 dark:text-slate-100'>{value}</div>
     </div>
   );
 }
@@ -135,11 +145,13 @@ type ShipComparisonRow = {
   fromValue: string;
   toValue: string;
   changed: boolean;
+  iconSrc?: string | null;
 };
 
 type ShipSpecRow = {
   label: string;
   value: string;
+  iconSrc?: string | null;
 };
 
 function ShipComparisonTable({
@@ -155,7 +167,7 @@ function ShipComparisonTable({
     <div className='overflow-hidden rounded border border-gray-200 dark:border-gray-800'>
       <div className='overflow-x-auto'>
         <table className='min-w-full border-collapse text-sm'>
-          <thead className='bg-slate-50 dark:bg-slate-950/70'>
+          <thead className='bg-neutral-50 dark:bg-neutral-950/70'>
             <tr>
               <th className='border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-gray-800 dark:text-slate-400'>
                 <FormattedMessage id="market.detail.compare.metric" defaultMessage="Metric" />
@@ -177,7 +189,10 @@ function ShipComparisonTable({
                   : 'bg-white dark:bg-transparent'}
               >
                 <td className='border-b border-gray-200 px-4 py-3 font-medium text-slate-900 dark:border-gray-800 dark:text-slate-100'>
-                  {row.label}
+                  <div className='flex items-center gap-2'>
+                    <RsiIcon src={row.iconSrc} className='h-4 w-4' />
+                    <span>{row.label}</span>
+                  </div>
                 </td>
                 <td className='border-b border-gray-200 px-4 py-3 text-slate-700 dark:border-gray-800 dark:text-slate-300'>
                   {row.fromValue}
@@ -222,8 +237,11 @@ function ShipSpecsTable({
           <tbody>
             {visibleRows.map((row) => (
               <tr key={row.label} className='bg-white dark:bg-transparent'>
-                <td className='w-[180px] border-b border-gray-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 dark:border-gray-800 dark:bg-slate-950/70 dark:text-slate-100'>
-                  {row.label}
+                <td className='w-[180px] border-b border-gray-200 bg-neutral-50 px-4 py-3 font-medium text-slate-900 dark:border-gray-800 dark:bg-neutral-950/70 dark:text-slate-100'>
+                  <div className='flex items-center gap-2'>
+                    <RsiIcon src={row.iconSrc} className='h-4 w-4' />
+                    <span>{row.label}</span>
+                  </div>
                 </td>
                 <td className='border-b border-gray-200 px-4 py-3 text-slate-700 dark:border-gray-800 dark:text-slate-300'>
                   {row.value}
@@ -269,47 +287,57 @@ function ShipIntroductionCard({
     {
       label: intl.formatMessage({ id: 'market.detail.compare.focus', defaultMessage: 'Role / Focus' }),
       value: normalizeComparisonValue(ship?.focus),
+      iconSrc: resolveShipFocusIconPath(ship?.focus),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.type', defaultMessage: 'Type' }),
       value: normalizeComparisonValue(titleCaseShipValue(ship?.type)),
+      iconSrc: getShipMetricIconPath('type', ship?.type),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.size', defaultMessage: 'Size' }),
       value: normalizeComparisonValue(titleCaseShipValue(ship?.details?.size)),
+      iconSrc: getShipMetricIconPath('size'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.status', defaultMessage: 'Status' }),
       value: normalizeComparisonValue(formatShipStatus(ship)),
+      iconSrc: getShipMetricIconPath('status'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.crew', defaultMessage: 'Crew' }),
       value: normalizeComparisonValue(formatCrewRange(ship?.details?.minCrew, ship?.details?.maxCrew)),
+      iconSrc: getShipMetricIconPath('crew'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.cargo', defaultMessage: 'Cargo' }),
       value: normalizeComparisonValue(ship?.details?.cargoCapacity != null ? `${formatMetricValue(ship.details.cargoCapacity)} SCU` : ''),
+      iconSrc: getShipMetricIconPath('cargo'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.scmSpeed', defaultMessage: 'SCM Speed' }),
       value: normalizeComparisonValue(ship?.details?.maxScmSpeed != null ? `${formatMetricValue(ship.details.maxScmSpeed)} m/s` : ''),
+      iconSrc: getShipMetricIconPath('scmSpeed'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.afterburner', defaultMessage: 'Afterburner' }),
       value: normalizeComparisonValue(ship?.details?.afterburnerSpeed != null ? `${formatMetricValue(ship.details.afterburnerSpeed)} m/s` : ''),
+      iconSrc: getShipMetricIconPath('afterburner'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.dimensions', defaultMessage: 'Dimensions' }),
       value: normalizeComparisonValue(buildDimensionSummary(ship)),
+      iconSrc: getShipMetricIconPath('dimensions'),
     },
     {
       label: intl.formatMessage({ id: 'ships.msrp', defaultMessage: 'MSRP' }),
       value: normalizeComparisonValue(formatUsdValue(ship?.msrp, intl.locale)),
+      iconSrc: getShipMetricIconPath('msrp'),
     },
   ];
 
   return (
-    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-slate-950'>
+    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
       <div className='flex flex-col'>
         <Box
           component="img"
@@ -323,8 +351,8 @@ function ShipIntroductionCard({
             <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
               {eyebrow}
             </div>
-            <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
-              {title}
+            <div className='flex items-center gap-2 text-2xl font-semibold text-slate-900 dark:text-slate-100'>
+              <span>{title}</span>
             </div>
             {metadata.length > 0 && (
               <div className='flex flex-wrap gap-2'>
@@ -399,7 +427,7 @@ function PackageContentCard({
   const filteredMetadata = metadata.filter(Boolean);
 
   return (
-    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-slate-950'>
+    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
       {imageUrl ? (
         <Box
           component="img"
@@ -408,7 +436,7 @@ function PackageContentCard({
           alt={title}
         />
       ) : (
-        <div className='flex h-40 items-center justify-center bg-slate-100 px-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:bg-slate-900 dark:text-slate-500'>
+        <div className='flex h-40 items-center justify-center bg-neutral-100 px-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:bg-neutral-900 dark:text-slate-500'>
           {eyebrow}
         </div>
       )}
@@ -506,7 +534,7 @@ export default function MarketDetail() {
   const { shipDetailsById: packageShipDetailsById, isLoading: packageShipDetailsLoading } = usePackageShipDetails(packageShipDetailIds);
 
   const { data: sellerProfileResponse } = useApi<UserProfileResponse>(
-    item ? `/api/user/profile/${item.belongsTo}` : null,
+    item && item.itemType !== 'credit' ? `/api/user/profile/${item.belongsTo}` : null,
   );
   const { data: fromShipResponse } = useApi<ShipResponse>(
     item?.itemType === 'ccu' && item.fromShipId ? `/api/ship?id=${item.fromShipId}` : null,
@@ -516,9 +544,80 @@ export default function MarketDetail() {
   );
 
   const seller = sellerProfileResponse?.user;
+  const [selectedCreditAmount, setSelectedCreditAmount] = useState<number | ''>('');
+  const resolvedCreditOptions = useMemo(() => {
+    if (item?.itemType !== 'credit') {
+      return [];
+    }
+
+    if (item.creditOptions?.length) {
+      return item.creditOptions;
+    }
+
+    if (
+      typeof item.creditAmount === 'number'
+      && typeof item.discountRateBps === 'number'
+      && typeof item.sellerCount === 'number'
+    ) {
+      return [{
+        amount: item.creditAmount,
+        price: item.price,
+        discountRateBps: item.discountRateBps,
+        sellerCount: item.sellerCount,
+      }];
+    }
+
+    return [];
+  }, [item]);
+
+  useEffect(() => {
+    if (item?.itemType !== 'credit' || !resolvedCreditOptions.length) {
+      setSelectedCreditAmount('');
+      return;
+    }
+
+    setSelectedCreditAmount((currentValue) => {
+      if (typeof currentValue === 'number' && resolvedCreditOptions.some((option) => option.amount === currentValue)) {
+        return currentValue;
+      }
+
+      return resolvedCreditOptions[0].amount;
+    });
+  }, [item, resolvedCreditOptions]);
+
+  const selectedCreditOption = useMemo(() => {
+    if (item?.itemType !== 'credit') {
+      return null;
+    }
+
+    return resolvedCreditOptions.find((option) => option.amount === selectedCreditAmount) || resolvedCreditOptions[0] || null;
+  }, [item, resolvedCreditOptions, selectedCreditAmount]);
 
   const handleAddToCart = () => {
     if (!item) return;
+
+    if (item.itemType === 'credit') {
+      if (!selectedCreditOption) {
+        return;
+      }
+
+      const cartItem: Resource = buildMarketResource({
+        ...item,
+        skuId: `credit-pool:${selectedCreditOption.amount}`,
+        name: `Store Credit $${selectedCreditOption.amount}`,
+        price: selectedCreditOption.price,
+        creditAmount: selectedCreditOption.amount,
+        discountRateBps: selectedCreditOption.discountRateBps,
+        sellerCount: selectedCreditOption.sellerCount,
+        creditOptions: undefined,
+      }, ships);
+
+      addToCart(cartItem);
+      setSnackbarMessage(intl.formatMessage({ id: 'market.addedToCart', defaultMessage: 'Added to cart' }));
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      return;
+    }
 
     const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
     const availableStock = getAvailableStock(item);
@@ -542,6 +641,10 @@ export default function MarketDetail() {
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
+    if (item?.itemType === 'credit' && resourceId.startsWith('credit-pool:')) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
     if (item?.skuId === resourceId) {
       return getAvailableStock(item);
     }
@@ -581,10 +684,22 @@ export default function MarketDetail() {
   }
 
   const visual = getMarketItemVisual(item, ships);
-  const availableStock = getAvailableStock(item);
-  const basePrice = getListingBasePrice(item, ships);
-  const discount = getListingDiscountPercent(item, ships);
-  const inCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+  const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(item);
+  const displayPrice = item.itemType === 'credit'
+    ? (selectedCreditOption?.price || item.price)
+    : item.price;
+  const basePrice = item.itemType === 'credit'
+    ? (selectedCreditOption?.amount || getListingBasePrice(item, ships))
+    : getListingBasePrice(item, ships);
+  const discount = item.itemType === 'credit'
+    ? (selectedCreditOption && selectedCreditOption.amount > displayPrice
+        ? (((selectedCreditOption.amount - displayPrice) / selectedCreditOption.amount) * 100).toFixed(2)
+        : null)
+    : getListingDiscountPercent(item, ships);
+  const selectedCreditSkuId = selectedCreditOption ? `credit-pool:${selectedCreditOption.amount}` : item.skuId;
+  const inCartItem = cart.find((cartItem: CartItemType) =>
+    cartItem.resource.id === (item.itemType === 'credit' ? selectedCreditSkuId : item.skuId),
+  );
   const inCartQuantity = inCartItem?.quantity || 0;
   const fromShipInfo = fromShipResponse?.data.ship || visual.fromShip;
   const toShipInfo = toShipResponse?.data.ship || visual.toShip;
@@ -602,60 +717,70 @@ export default function MarketDetail() {
       fromValue: normalizeComparisonValue(fromShipInfo?.focus),
       toValue: normalizeComparisonValue(toShipInfo?.focus),
       changed: normalizeComparisonValue(fromShipInfo?.focus) !== normalizeComparisonValue(toShipInfo?.focus),
+      iconSrc: resolveShipFocusIconPath(toShipInfo?.focus || fromShipInfo?.focus),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.type', defaultMessage: 'Type' }),
       fromValue: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.type)),
       toValue: normalizeComparisonValue(titleCaseShipValue(toShipInfo?.type)),
       changed: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.type)) !== normalizeComparisonValue(titleCaseShipValue(toShipInfo?.type)),
+      iconSrc: getShipMetricIconPath('type', toShipInfo?.type || fromShipInfo?.type),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.size', defaultMessage: 'Size' }),
       fromValue: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.details?.size)),
       toValue: normalizeComparisonValue(titleCaseShipValue(toShipInfo?.details?.size)),
       changed: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.details?.size)) !== normalizeComparisonValue(titleCaseShipValue(toShipInfo?.details?.size)),
+      iconSrc: getShipMetricIconPath('size'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.compare.status', defaultMessage: 'Status' }),
       fromValue: normalizeComparisonValue(formatShipStatus(fromShipInfo)),
       toValue: normalizeComparisonValue(formatShipStatus(toShipInfo)),
       changed: normalizeComparisonValue(formatShipStatus(fromShipInfo)) !== normalizeComparisonValue(formatShipStatus(toShipInfo)),
+      iconSrc: getShipMetricIconPath('status'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.crew', defaultMessage: 'Crew' }),
       fromValue: normalizeComparisonValue(formatCrewRange(fromShipInfo?.details?.minCrew, fromShipInfo?.details?.maxCrew)),
       toValue: normalizeComparisonValue(formatCrewRange(toShipInfo?.details?.minCrew, toShipInfo?.details?.maxCrew)),
       changed: normalizeComparisonValue(formatCrewRange(fromShipInfo?.details?.minCrew, fromShipInfo?.details?.maxCrew)) !== normalizeComparisonValue(formatCrewRange(toShipInfo?.details?.minCrew, toShipInfo?.details?.maxCrew)),
+      iconSrc: getShipMetricIconPath('crew'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.cargo', defaultMessage: 'Cargo' }),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(fromShipInfo.details.cargoCapacity)} SCU` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(toShipInfo.details.cargoCapacity)} SCU` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(fromShipInfo.details.cargoCapacity)} SCU` : '') !== normalizeComparisonValue(toShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(toShipInfo.details.cargoCapacity)} SCU` : ''),
+      iconSrc: getShipMetricIconPath('cargo'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.scmSpeed', defaultMessage: 'SCM Speed' }),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(fromShipInfo.details.maxScmSpeed)} m/s` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(toShipInfo.details.maxScmSpeed)} m/s` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(fromShipInfo.details.maxScmSpeed)} m/s` : '') !== normalizeComparisonValue(toShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(toShipInfo.details.maxScmSpeed)} m/s` : ''),
+      iconSrc: getShipMetricIconPath('scmSpeed'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.afterburner', defaultMessage: 'Afterburner' }),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(fromShipInfo.details.afterburnerSpeed)} m/s` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(toShipInfo.details.afterburnerSpeed)} m/s` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(fromShipInfo.details.afterburnerSpeed)} m/s` : '') !== normalizeComparisonValue(toShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(toShipInfo.details.afterburnerSpeed)} m/s` : ''),
+      iconSrc: getShipMetricIconPath('afterburner'),
     },
     {
       label: intl.formatMessage({ id: 'market.detail.dimensions', defaultMessage: 'Dimensions' }),
       fromValue: normalizeComparisonValue(buildDimensionSummary(fromShipInfo)),
       toValue: normalizeComparisonValue(buildDimensionSummary(toShipInfo)),
       changed: normalizeComparisonValue(buildDimensionSummary(fromShipInfo)) !== normalizeComparisonValue(buildDimensionSummary(toShipInfo)),
+      iconSrc: getShipMetricIconPath('dimensions'),
     },
     {
       label: intl.formatMessage({ id: 'ships.msrp', defaultMessage: 'MSRP' }),
       fromValue: normalizeComparisonValue(formatUsdValue(fromShipInfo?.msrp, intl.locale)),
       toValue: normalizeComparisonValue(formatUsdValue(toShipInfo?.msrp, intl.locale)),
       changed: normalizeComparisonValue(formatUsdValue(fromShipInfo?.msrp, intl.locale)) !== normalizeComparisonValue(formatUsdValue(toShipInfo?.msrp, intl.locale)),
+      iconSrc: getShipMetricIconPath('msrp'),
     },
   ];
   const packageShips = normalizedPackageShips;
@@ -678,12 +803,17 @@ export default function MarketDetail() {
             <Typography variant="body2" color="text.secondary">
               {item.itemType === 'ccu'
                 ? `${visual.fromShipName || item.fromShipName || '-'} → ${visual.toShipName || item.toShipName || '-'}`
+                : item.itemType === 'credit'
+                  ? [
+                      selectedCreditOption?.amount ? `Selected face value US$${selectedCreditOption.amount}` : null,
+                      resolvedCreditOptions.length ? `${resolvedCreditOptions.length} amount${resolvedCreditOptions.length === 1 ? '' : 's'}` : null,
+                    ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
                 : [visual.shipName || item.shipName, item.packageKind, item.insuranceType].filter(Boolean).join(' · ') || item.description || item.externalRef || ''}
             </Typography>
           </div>
 
           <div className='flex items-center gap-3'>
-            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'>
+            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-neutral-50 dark:border-white/10 dark:bg-neutral-900 dark:text-slate-200 dark:hover:bg-neutral-800'>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
             </Link>
             <IconButton
@@ -699,21 +829,31 @@ export default function MarketDetail() {
 
         <div className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,_1fr)_360px]'>
           <div className='flex flex-col gap-6'>
-            <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-slate-900'>
+            <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
               <MarketItemMedia
                 item={item}
                 ships={ships}
                 height={460}
-                badgeText={discount ? `${discount}% off` : null}
+                badgeText={item.itemType === 'credit' ? null : (discount ? `${discount}% off` : null)}
               />
             </div>
 
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-              <DetailField label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })} value={item.itemType} />
-              <DetailField label={intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })} value={item.insuranceType || '-'} />
+              <DetailField
+                label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
+                value={item.itemType}
+              />
+              <DetailField
+                label={item.itemType === 'credit'
+                  ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
+                  : intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}
+                value={item.itemType === 'credit'
+                  ? (selectedCreditOption?.amount ? `US$${selectedCreditOption.amount}` : '-')
+                  : (item.insuranceType || '-')}
+              />
             </div>
 
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-slate-900'>
+            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
                 <FormattedMessage id="market.detail.productInfo" defaultMessage="Product Details" />
               </Typography>
@@ -860,7 +1000,7 @@ export default function MarketDetail() {
                               defaultMessage="Additional Included Items"
                             />
                           </Typography>
-                          <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-slate-950'>
+                          <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
                             {packageItemsWithoutImage.map((entry, index) => (
                               <div
                                 key={`${item.skuId}-textonly-${entry.sortOrder}-${entry.itemName}`}
@@ -920,6 +1060,26 @@ export default function MarketDetail() {
                 </div>
               )}
 
+              {item.itemType === 'credit' && (
+                <div className='flex flex-col gap-4'>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <DetailField
+                      label={intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })}
+                      value={selectedCreditOption?.amount ? `US$${selectedCreditOption.amount}` : '-'}
+                    />
+                    <DetailField
+                      label={intl.formatMessage({ id: 'market.credit.eligibleSellers', defaultMessage: 'Eligible Sellers' })}
+                      value={typeof selectedCreditOption?.sellerCount === 'number' ? String(selectedCreditOption.sellerCount) : '-'}
+                    />
+                  </div>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedCreditOption
+                      ? `US$20 + ${(selectedCreditOption.discountRateBps / 10000).toFixed(2)} x (US$${selectedCreditOption.amount} - US$20)`
+                      : (item.externalRef || item.description)}
+                  </Typography>
+                </div>
+              )}
+
               {item.description && (
                 <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
                   {item.description}
@@ -929,10 +1089,10 @@ export default function MarketDetail() {
           </div>
 
           <div className='flex flex-col gap-6 xl:sticky xl:top-4 xl:self-start'>
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-slate-900'>
+            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <div className='flex flex-col gap-3'>
                 <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
-                  US${item.price.toFixed(2)}
+                  {item.itemType === 'credit' ? `US$${displayPrice.toFixed(2)}` : `US$${item.price.toFixed(2)}`}
                 </div>
                 {discount && Number(discount) > 0 && (
                   <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
@@ -941,16 +1101,51 @@ export default function MarketDetail() {
                 )}
                 <div className='text-sm text-slate-500 dark:text-slate-400'>
                   <span>
-                    <span><FormattedMessage id="market.available" defaultMessage="Available Stock" /></span>
+                    <span>
+                      {item.itemType === 'credit'
+                        ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
+                        : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
+                    </span>
                     <span>:</span>
                   </span>
-                  <span className='font-semibold text-[#1d4ed8]'> {availableStock}</span>
+                  <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock}</span>
                 </div>
               </div>
 
               <Divider sx={{ my: 3 }} />
 
-              {inCartItem ? (
+              {item.itemType === 'credit' && (
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label={intl.formatMessage({ id: 'market.credit.selectAmount', defaultMessage: 'Select amount' })}
+                  value={selectedCreditOption?.amount || ''}
+                  onChange={(event) => setSelectedCreditAmount(Number(event.target.value))}
+                  sx={{ mb: 3 }}
+                >
+                  {resolvedCreditOptions.map((option) => (
+                    <MenuItem key={option.amount} value={option.amount}>
+                      {`US$${option.amount} -> US$${option.price.toFixed(2)}`}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+
+              {item.itemType === 'credit' ? (
+                <div className='flex flex-col gap-3'>
+                  <Button
+                    variant="outlined"
+                    onClick={handleAddToCart}
+                    disabled={!selectedCreditOption}
+                  >
+                    <FormattedMessage id="market.credit.addSelectedAmount" defaultMessage="Add selected amount" />
+                  </Button>
+                  <Button variant="outlined" onClick={openCart}>
+                    <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
+                  </Button>
+                </div>
+              ) : inCartItem ? (
                 <div className='flex flex-col gap-3'>
                   <ButtonGroup size="small" aria-label="quantity">
                     <IconButton
@@ -1001,16 +1196,21 @@ export default function MarketDetail() {
               )}
             </div>
 
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-slate-900'>
+            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                <FormattedMessage id="market.sellerInfo" defaultMessage="Seller" />
+                <FormattedMessage
+                  id={item.itemType === 'credit' ? 'market.credit.poolInfo' : 'market.sellerInfo'}
+                  defaultMessage={item.itemType === 'credit' ? 'Credit Pool' : 'Seller'}
+                />
               </Typography>
 
               <div className='flex items-center gap-3'>
-                <Avatar src={seller?.avatar || ''} alt={seller?.name || item.belongsTo} sx={{ width: 56, height: 56 }} />
+                <Avatar src={item.itemType === 'credit' ? '' : (seller?.avatar || '')} alt={seller?.name || item.belongsTo} sx={{ width: 56, height: 56 }} />
                 <div className='flex flex-col'>
                   <div className='text-base font-semibold text-slate-900 dark:text-slate-100'>
-                    {seller?.name || `Seller ${item.belongsTo}`}
+                    {item.itemType === 'credit'
+                      ? intl.formatMessage({ id: 'market.credit.poolTitle', defaultMessage: 'Assigned after payment' })
+                      : (seller?.name || `Seller ${item.belongsTo}`)}
                   </div>
                 </div>
               </div>
@@ -1022,19 +1222,30 @@ export default function MarketDetail() {
               )} */}
 
               <div className='mt-4 flex flex-col gap-2'>
-                {seller?.sharedHangar && (
-                  <Button variant="outlined" onClick={() => navigate(`/share/hangar/${item.belongsTo}`)}>
-                    <FormattedMessage id="market.viewSellerHangar" defaultMessage="View seller hangar" />
-                  </Button>
-                )}
-                {seller?.homepage && (
-                  <Button variant="text" component="a" href={seller.homepage} target="_blank" rel="noreferrer">
-                    <FormattedMessage id="market.visitHomepage" defaultMessage="Visit homepage" />
-                  </Button>
+                {item.itemType === 'credit' ? (
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage
+                      id="market.credit.poolDescription"
+                      defaultMessage="One eligible seller is assigned automatically after payment. The order will not be split across multiple sellers."
+                    />
+                  </Typography>
+                ) : (
+                  <>
+                    {seller?.sharedHangar && (
+                      <Button variant="outlined" onClick={() => navigate(`/share/hangar/${item.belongsTo}`)}>
+                        <FormattedMessage id="market.viewSellerHangar" defaultMessage="View seller hangar" />
+                      </Button>
+                    )}
+                    {seller?.homepage && (
+                      <Button variant="text" component="a" href={seller.homepage} target="_blank" rel="noreferrer">
+                        <FormattedMessage id="market.visitHomepage" defaultMessage="Visit homepage" />
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
 
-              {seller?.contacts && (
+              {item.itemType !== 'credit' && seller?.contacts && (
                 <div className='mt-4 rounded border border-dashed border-black/10 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200'>
                   {seller.contacts}
                 </div>
