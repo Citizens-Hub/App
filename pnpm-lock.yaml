@@ -21,8 +21,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.1.0)
       '@eduarte/chc':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.2.1
+        version: 0.2.1
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.1.2)(react@19.1.0)
@@ -286,8 +286,8 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@eduarte/chc@0.2.0':
-    resolution: {integrity: sha512-UkzVd+KPes1+Cw7i8Nd0IRZ2NwfH66nzKyQTu1TLjocT0Ly8Lexu7cmTQhRJ3kkRJBAHAa1mEBu+yCtoUjpSWA==}
+  '@eduarte/chc@0.2.1':
+    resolution: {integrity: sha512-C1HtM0Ay8YudGASAcPWK3/iaTPhJw4ca3a3igg7vYioTZNKGnJvT0FcI0kmKHia8VjRcPDoqlPeUzkhr7nOXXg==}
 
   '@emotion/babel-plugin@11.13.5':
     resolution: {integrity: sha512-pxHCpT2ex+0q+HH91/zsdHkw/lXd468DIN2zvfvLtPKLLMo6gQj7oLObq8PhkrxOZb/gGCq03S3Z7PDhS8pduQ==}
@@ -3170,7 +3170,7 @@ snapshots:
       react: 19.1.0
       tslib: 2.8.1
 
-  '@eduarte/chc@0.2.0': {}
+  '@eduarte/chc@0.2.1': {}
 
   '@emotion/babel-plugin@11.13.5':
     dependencies:
