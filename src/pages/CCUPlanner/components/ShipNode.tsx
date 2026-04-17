@@ -6,6 +6,8 @@ import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useLocale } from '@/contexts/LocaleContext';
+import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface ShipNodeProps {
@@ -29,7 +31,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
-  const { locale } = intl;
+  const { locale } = useLocale();
   
   // Get data and services from context
   const { ccus, wbHistory, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
@@ -38,6 +40,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   
   const skus = ccus.find(c => c.id === ship.id)?.skus
   const wb = skus?.find(sku => sku.price !== ship.msrp)
+  const localizedStatus = localizeShipStatus(locale, ship);
+  const localizedType = localizeShipType(locale, ship.type);
   const history = priceHistoryMap[ship.id]?.history || [];
   const historicalWb = history
     .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && entry.edition?.toLowerCase().includes('warbond'))
@@ -191,7 +195,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         <div className="w-full h-30 object-cover rounded-sm mb-12 relative">
           <div className="absolute top-2 right-2 flex flex-row gap-2">
             {wb && <div className="text-sm text-white bg-orange-400 rounded-sm py-0.5 px-2">WB</div>}
-            {ship.flyableStatus !== 'Flyable' && <div className="text-sm text-white bg-sky-400 rounded-sm py-0.5 px-2">{ship.flyableStatus}</div>}
+            {ship.flyableStatus !== 'Flyable' && <div className="text-sm text-white bg-sky-400 rounded-sm py-0.5 px-2">{localizedStatus}</div>}
           </div>
           <img
             src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
@@ -210,7 +214,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         <div className="text-sm text-gray-600 mb-2">
           <span className="font-medium">{ship.manufacturer.name}</span>
           <span className="mx-1">·</span>
-          <span>{ship.type}</span>
+          <span>{localizedType}</span>
         </div>
 
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg">

@@ -3,6 +3,7 @@ import { Close, OpenInNew } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import RsiIcon from '@/components/RsiIcon';
+import { useLocale } from '@/contexts/LocaleContext';
 import { useApi } from '@/hooks';
 import { MARKET_ITEM_PLACEHOLDER, toLargeRsiImage } from '@/components/marketItemDisplay';
 import {
@@ -12,6 +13,14 @@ import {
   resolveShipComponentIconPath,
   resolveShipTypeIconPath,
 } from '@/data/rsiIcons';
+import {
+  localizeShipComponentManufacturer,
+  localizeShipComponentName,
+  localizeShipComponentSize,
+} from '@/data/shipComponentI18n';
+import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
+import { getShipMetadataEntry, localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
+import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import { Ship, ShipDetailComponent, ShipResponse } from '@/types';
 
 interface ShipInfoDialogProps {
@@ -19,6 +28,10 @@ interface ShipInfoDialogProps {
   ship: Ship | null;
   onClose: () => void;
 }
+
+const TBD_STRIPED_BACKGROUND_IMAGE = 'repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.18) 0px, rgba(148, 163, 184, 0.18) 12px, rgba(255, 255, 255, 0) 12px, rgba(255, 255, 255, 0) 24px)';
+
+type DetailFieldVariant = 'default' | 'tbd';
 
 function toAbsoluteRsiUrl(url?: string | null) {
   if (!url) return '';
@@ -33,17 +46,6 @@ function stripRichText(value?: string | null) {
     .replace(/^\s*[*-]\s+/gm, '')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function titleCaseShipValue(value?: string | null) {
-  if (!value) return '';
-
-  return value
-    .replace(/[-_]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
-    .join(' ');
 }
 
 function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
@@ -75,10 +77,6 @@ function formatUsdValue(value?: number | null, locale = 'en-US') {
   return (value / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' });
 }
 
-function formatShipStatus(ship?: Ship | null) {
-  return ship?.flyableStatus || titleCaseShipValue(ship?.details?.productionStatus);
-}
-
 function resolveShipImage(ship?: Ship | null) {
   const detailImage = ship?.details?.imageComposer?.find((entry) => entry.slot === 'thumbnail')?.url;
 
@@ -88,17 +86,69 @@ function resolveShipImage(ship?: Ship | null) {
     || MARKET_ITEM_PLACEHOLDER;
 }
 
-function DetailField({ label, value, iconSrc }: { label: string; value?: string | null; iconSrc?: string | null }) {
+function DetailField({
+  label,
+  value,
+  iconSrc,
+  variant = 'default',
+}: {
+  label: string;
+  value?: string | null;
+  iconSrc?: string | null;
+  variant?: DetailFieldVariant;
+}) {
   if (!value || value === '-') return null;
 
+  const isTbd = variant === 'tbd';
+
   return (
-    <div className="flex items-start gap-3 rounded border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]">
+    <div
+      className={`flex items-start gap-3 rounded border p-3 ${
+        isTbd
+          ? 'border-slate-300 bg-slate-100/90 dark:border-slate-700 dark:bg-slate-900/70'
+          : 'border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]'
+      }`}
+      style={isTbd ? { backgroundImage: TBD_STRIPED_BACKGROUND_IMAGE } : undefined}
+    >
       <RsiIcon src={iconSrc} className="mt-0.5 h-5 w-5" />
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
           {label}
         </div>
-        <div className="text-sm text-slate-800 dark:text-slate-100">
+        <div className={`text-sm ${isTbd ? 'font-medium text-slate-700 dark:text-slate-100' : 'text-slate-800 dark:text-slate-100'}`}>
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturedShipField({
+  label,
+  value,
+  logoSrc,
+}: {
+  label: string;
+  value?: string | null;
+  logoSrc?: string | null;
+}) {
+  if (!value || value === '-') return null;
+
+  return (
+    <div className="relative min-h-[112px] overflow-hidden">
+      {logoSrc && (
+        <img
+          src={logoSrc}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-1/2 max-h-[140%] w-auto max-w-[70%] -translate-y-1/2 object-contain opacity-[0.2] dark:invert dark:opacity-[0.2]"
+        />
+      )}
+      <div className="relative z-10 flex h-full flex-col justify-between gap-5 py-1">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="max-w-[22rem] text-lg font-semibold leading-tight text-slate-900 dark:text-slate-50">
           {value}
         </div>
       </div>
@@ -108,6 +158,15 @@ function DetailField({ label, value, iconSrc }: { label: string; value?: string 
 
 interface MergedShipDetailComponent extends ShipDetailComponent {
   showQuantity: boolean;
+  occurrenceCount: number;
+  unitQuantity: number;
+}
+
+interface CoreField {
+  label: string;
+  value?: string | null;
+  iconSrc?: string | null;
+  variant?: DetailFieldVariant;
 }
 
 function getComponentQuantity(component: ShipDetailComponent) {
@@ -125,37 +184,67 @@ function buildShipComponentKey(component: ShipDetailComponent) {
   ].join('|');
 }
 
+function isMannedTurretComponent(component: ShipDetailComponent) {
+  return stripRichText(component.details).toLowerCase() === 'manned';
+}
+
+function formatWeaponQuantity(component: MergedShipDetailComponent) {
+  if (component.occurrenceCount > 1 && component.unitQuantity > 1) {
+    return `${component.occurrenceCount}x${component.unitQuantity}`;
+  }
+
+  if (component.showQuantity && component.quantity) {
+    return `${component.quantity}x`;
+  }
+
+  return '';
+}
+
+function formatWeaponTitle(locale: string, component: MergedShipDetailComponent) {
+  const quantityPrefix = formatWeaponQuantity(component);
+  const localizedName = localizeShipComponentName(locale, component.name) || component.name || '-';
+  const localizedSize = localizeShipComponentSize(locale, component.size);
+
+  return `${quantityPrefix ? `${quantityPrefix} ` : ''}${localizedName}${localizedSize ? `(${localizedSize})` : ''}`;
+}
+
+function isWeaponStyleSection(sectionKey: ShipComponentSectionKey) {
+  return sectionKey === 'weapons' || sectionKey === 'turrets';
+}
+
 function mergeShipComponents(components: ShipDetailComponent[]): MergedShipDetailComponent[] {
-  const merged: Array<MergedShipDetailComponent & { occurrenceCount: number; hasExplicitQuantity: boolean }> = [];
+  const merged: Array<MergedShipDetailComponent & { hasExplicitQuantity: boolean }> = [];
   const indexByKey = new Map<string, number>();
 
   components.forEach((component) => {
     const key = buildShipComponentKey(component);
     const existingIndex = indexByKey.get(key);
     const normalizedDetails = stripRichText(component.details) || undefined;
+    const unitQuantity = getComponentQuantity(component);
 
     if (existingIndex == null) {
       indexByKey.set(key, merged.length);
       merged.push({
         ...component,
         details: normalizedDetails,
-        quantity: getComponentQuantity(component),
+        quantity: unitQuantity,
         showQuantity: false,
         occurrenceCount: 1,
+        unitQuantity,
         hasExplicitQuantity: component.quantity != null,
       });
       return;
     }
 
     const current = merged[existingIndex];
-    current.quantity = (current.quantity || 0) + getComponentQuantity(component);
+    current.quantity = (current.quantity || 0) + unitQuantity;
     current.occurrenceCount += 1;
     current.hasExplicitQuantity = current.hasExplicitQuantity || component.quantity != null;
   });
 
-  return merged.map(({ occurrenceCount, hasExplicitQuantity, ...component }) => ({
+  return merged.map(({ hasExplicitQuantity, ...component }) => ({
     ...component,
-    showQuantity: occurrenceCount > 1 || hasExplicitQuantity,
+    showQuantity: component.occurrenceCount > 1 || hasExplicitQuantity,
   }));
 }
 
@@ -163,10 +252,12 @@ function ShipComponentSection({
   title,
   sectionKey,
   components,
+  locale,
 }: {
   title: string;
   sectionKey: ShipComponentSectionKey;
   components?: ShipDetailComponent[];
+  locale: string;
 }) {
   const visibleComponents = (components || []).filter((component) => {
     return Boolean(component.name || component.details || component.manufacturerName);
@@ -186,12 +277,19 @@ function ShipComponentSection({
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {mergedComponents.slice(0, 12).map((component, index) => {
+          const isWeaponSection = isWeaponStyleSection(sectionKey);
           const metadata = [
-            component.showQuantity && component.quantity ? `x${component.quantity}` : '',
-            component.size || '',
-            component.manufacturerName || '',
+            !isWeaponSection && component.showQuantity && component.quantity ? `x${component.quantity}` : '',
+            !isWeaponSection ? localizeShipComponentSize(locale, component.size) : '',
+            localizeShipComponentManufacturer(locale, component.manufacturerName),
           ].filter(Boolean);
           const componentIconSrc = resolveShipComponentIconPath(sectionKey, component);
+          const localizedName = isWeaponSection
+            ? formatWeaponTitle(locale, component)
+            : localizeShipComponentName(locale, component.name) || component.name || '-';
+          const detailText = isMannedTurretComponent(component) && sectionKey === 'turrets'
+            ? ''
+            : stripRichText(component.details);
 
           return (
             <div
@@ -202,16 +300,16 @@ function ShipComponentSection({
                 <RsiIcon src={componentIconSrc} className="mt-0.5 h-5 w-5" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {component.name || '-'}
+                    {localizedName}
                   </div>
                   {metadata.length > 0 && (
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {metadata.join(' · ')}
                     </div>
                   )}
-                  {component.details && (
+                  {detailText && (
                     <div className="mt-2 text-xs leading-6 text-slate-700 dark:text-slate-300">
-                      {stripRichText(component.details)}
+                      {detailText}
                     </div>
                   )}
                 </div>
@@ -226,6 +324,7 @@ function ShipComponentSection({
 
 export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogProps) {
   const intl = useIntl();
+  const { locale } = useLocale();
   const requestPath = open && ship ? `/api/ship?id=${ship.id}` : null;
   const { data, error } = useApi<ShipResponse>(requestPath, {
     revalidateOnFocus: false,
@@ -239,66 +338,78 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const description = stripRichText(detail?.body || detail?.excerpt);
   const imageUrl = resolveShipImage(detailedShip);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
+  const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer?.name);
+  const localizedType = localizeShipType(locale, detailedShip?.type);
+  const localizedSize = localizeShipSize(locale, detail?.size);
+  const localizedStatus = localizeShipStatus(locale, detailedShip);
+  const localizedFocus = localizeShipFocus(locale, detailedShip?.focus);
+  const statusEntry = getShipMetadataEntry('status', detailedShip?.flyableStatus || detail?.productionStatus);
+  const isTbdStatus = statusEntry.canonicalKey === 'tbd';
+  const weaponComponents = (detail?.weapons || []).filter((component) => !isMannedTurretComponent(component));
+  const turretComponents = (detail?.weapons || []).filter((component) => isMannedTurretComponent(component));
 
   const metadata = [
-    detailedShip?.manufacturer?.name,
-    detailedShip?.focus,
-    titleCaseShipValue(detailedShip?.type),
-    titleCaseShipValue(detail?.size),
-    formatShipStatus(detailedShip),
-  ].filter(Boolean) as string[];
+    { key: 'type', value: localizedType },
+    { key: 'size', value: localizedSize },
+    { key: 'status', value: localizedStatus, isStriped: isTbdStatus },
+  ].filter((entry) => Boolean(entry.value));
 
-  const coreFields = [
+  const featuredFields = [
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.manufacturer', defaultMessage: 'Manufacturer' }),
+      label: localizeShipDataLabel(locale, 'manufacturer'),
       value: detailedShip?.manufacturer?.name || '',
+      logoSrc: manufacturerLogoSrc,
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.focus', defaultMessage: 'Role / Focus' }),
-      value: detailedShip?.focus || '',
+      label: localizeShipDataLabel(locale, 'focus'),
+      value: localizedFocus,
     },
+  ];
+
+  const coreFields: CoreField[] = [
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.type', defaultMessage: 'Type' }),
-      value: titleCaseShipValue(detailedShip?.type),
+      label: localizeShipDataLabel(locale, 'type'),
+      value: localizedType,
       iconSrc: resolveShipTypeIconPath(detailedShip?.type),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.size', defaultMessage: 'Size' }),
-      value: titleCaseShipValue(detail?.size),
+      label: localizeShipDataLabel(locale, 'size'),
+      value: localizedSize,
       iconSrc: getRsiIconPath('shipSize'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.status', defaultMessage: 'Status' }),
-      value: formatShipStatus(detailedShip),
+      label: localizeShipDataLabel(locale, 'status'),
+      value: localizedStatus,
       iconSrc: getRsiIconPath('gameStatus'),
+      variant: isTbdStatus ? 'tbd' : 'default',
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.crew', defaultMessage: 'Crew' }),
+      label: localizeShipDataLabel(locale, 'crew'),
       value: formatCrewRange(detail?.minCrew, detail?.maxCrew),
       iconSrc: getRsiIconPath('shipCrew'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.cargo', defaultMessage: 'Cargo' }),
+      label: localizeShipDataLabel(locale, 'cargo'),
       value: detail?.cargoCapacity != null ? `${formatMetricValue(detail.cargoCapacity)} SCU` : '',
       iconSrc: getRsiIconPath('shipCapacity'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.scmSpeed', defaultMessage: 'SCM Speed' }),
+      label: localizeShipDataLabel(locale, 'scmSpeed'),
       value: detail?.maxScmSpeed != null ? `${formatMetricValue(detail.maxScmSpeed)} m/s` : '',
       iconSrc: getRsiIconPath('shipSpeed'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.afterburner', defaultMessage: 'Afterburner' }),
+      label: localizeShipDataLabel(locale, 'afterburner'),
       value: detail?.afterburnerSpeed != null ? `${formatMetricValue(detail.afterburnerSpeed)} m/s` : '',
       iconSrc: getRsiIconPath('shipSpeed'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.dimensions', defaultMessage: 'Dimensions' }),
+      label: localizeShipDataLabel(locale, 'dimensions'),
       value: buildDimensionSummary(detailedShip),
       iconSrc: getRsiIconPath('shipSize'),
     },
     {
-      label: intl.formatMessage({ id: 'ships.msrp', defaultMessage: 'MSRP' }),
+      label: localizeShipDataLabel(locale, 'msrp'),
       value: formatUsdValue(detailedShip?.msrp, intl.locale),
       iconSrc: getRsiIconPath('uec'),
     },
@@ -370,14 +481,50 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
               {metadata.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {metadata.map((entry) => (
-                    <Chip key={`${detailedShip.id}-${entry}`} label={entry} size="small" variant="outlined" />
+                    <Chip
+                      key={`${detailedShip.id}-${entry.key}`}
+                      label={entry.value}
+                      size="small"
+                      variant={entry.isStriped ? 'filled' : 'outlined'}
+                      sx={entry.isStriped ? (theme) => ({
+                        border: '1px solid',
+                        borderColor: theme.palette.mode === 'dark' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(100, 116, 139, 0.28)',
+                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.78)' : 'rgba(241, 245, 249, 0.95)',
+                        backgroundImage: TBD_STRIPED_BACKGROUND_IMAGE,
+                        color: theme.palette.mode === 'dark' ? theme.palette.grey[100] : theme.palette.grey[800],
+                        '& .MuiChip-label': {
+                          fontWeight: 600,
+                        },
+                      }) : undefined}
+                    />
                   ))}
                 </div>
               )}
 
+              <div className="grid gap-6 border-y border-black/10 py-5 md:grid-cols-2 md:gap-0 dark:border-white/10">
+                {featuredFields.reverse().map((field, index) => (
+                  <div
+                    key={field.label}
+                    className={index === 0 ? 'md:pr-8' : 'md:border-l md:border-black/10 md:pl-8 dark:md:border-white/10'}
+                  >
+                    <FeaturedShipField
+                      label={field.label}
+                      value={field.value}
+                      logoSrc={field.logoSrc}
+                    />
+                  </div>
+                ))}
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {coreFields.map((field) => (
-                  <DetailField key={field.label} label={field.label} value={field.value} iconSrc={field.iconSrc} />
+                  <DetailField
+                    key={field.label}
+                    label={field.label}
+                    value={field.value}
+                    iconSrc={field.iconSrc}
+                    variant={field.variant}
+                  />
                 ))}
               </div>
 
@@ -395,29 +542,40 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
               </section>
 
               <ShipComponentSection
+                sectionKey="turrets"
+                title={localizeShipDataLabel(locale, 'turrets')}
+                components={turretComponents}
+                locale={locale}
+              />
+              <ShipComponentSection
                 sectionKey="weapons"
-                title={intl.formatMessage({ id: 'ccuPlanner.shipInfo.weapons', defaultMessage: 'Weapons' })}
-                components={detail?.weapons}
+                title={localizeShipDataLabel(locale, 'weapons')}
+                components={weaponComponents}
+                locale={locale}
               />
               <ShipComponentSection
                 sectionKey="avionics"
-                title={intl.formatMessage({ id: 'ccuPlanner.shipInfo.avionics', defaultMessage: 'Avionics' })}
+                title={localizeShipDataLabel(locale, 'avionics')}
                 components={detail?.avionics}
+                locale={locale}
               />
               <ShipComponentSection
                 sectionKey="modular"
-                title={intl.formatMessage({ id: 'ccuPlanner.shipInfo.modular', defaultMessage: 'Modular' })}
+                title={localizeShipDataLabel(locale, 'modular')}
                 components={detail?.modular}
+                locale={locale}
               />
               <ShipComponentSection
                 sectionKey="propulsions"
-                title={intl.formatMessage({ id: 'ccuPlanner.shipInfo.propulsions', defaultMessage: 'Propulsions' })}
+                title={localizeShipDataLabel(locale, 'propulsions')}
                 components={detail?.propulsions}
+                locale={locale}
               />
               <ShipComponentSection
                 sectionKey="thrusters"
-                title={intl.formatMessage({ id: 'ccuPlanner.shipInfo.thrusters', defaultMessage: 'Thrusters' })}
+                title={localizeShipDataLabel(locale, 'thrusters')}
                 components={detail?.thrusters}
+                locale={locale}
               />
             </div>
           </div>

@@ -1,12 +1,13 @@
 import { MarketItemType } from '@/types';
 
-export type ShipComponentSectionKey = 'weapons' | 'avionics' | 'modular' | 'propulsions' | 'thrusters';
+export type ShipComponentSectionKey = 'weapons' | 'turrets' | 'avionics' | 'modular' | 'propulsions' | 'thrusters';
 export type ShipMetricKey = 'type' | 'size' | 'status' | 'crew' | 'cargo' | 'scmSpeed' | 'afterburner' | 'dimensions' | 'msrp';
 
 const ICON_BASE_PATH = '/rsi-icons';
 
 const SECTION_ICON_KEYS: Record<ShipComponentSectionKey, string> = {
   weapons: 'weapons',
+  turrets: 'turrets',
   avionics: 'computer',
   modular: 'utilityItems',
   propulsions: 'quantumDrives',

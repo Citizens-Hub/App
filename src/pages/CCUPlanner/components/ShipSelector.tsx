@@ -4,6 +4,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router';
 import { Button, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
 import { InfoOutlined, Search } from '@mui/icons-material';
+import { useLocale } from '@/contexts/LocaleContext';
+import { localizeShipFocus, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 
 interface ShipSelectorProps {
@@ -20,6 +22,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
   const [showHistoryWB, setShowHistoryWB] = useState(false);
   const [onlyShowAvailable, setOnlyShowAvailable] = useState(false);
   const intl = useIntl();
+  const { locale } = useLocale();
   const { priceHistoryMap } = useCcuPlanner();
   const isMobile = useMediaQuery('(max-width: 644px)');
 
@@ -28,10 +31,14 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
     let filtered = ships;
 
     if (searchTerm) {
+      const normalizedSearchTerm = searchTerm.toLowerCase();
       filtered = ships.filter(ship =>
-        ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ship.manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ship.type.toLowerCase().includes(searchTerm.toLowerCase())
+        ship.name.toLowerCase().includes(normalizedSearchTerm) ||
+        ship.manufacturer.name.toLowerCase().includes(normalizedSearchTerm) ||
+        ship.type.toLowerCase().includes(normalizedSearchTerm) ||
+        localizeShipType(locale, ship.type).toLowerCase().includes(normalizedSearchTerm) ||
+        localizeShipFocus(locale, ship.focus).toLowerCase().includes(normalizedSearchTerm) ||
+        localizeShipStatus(locale, ship).toLowerCase().includes(normalizedSearchTerm)
       );
     }
 
@@ -167,7 +174,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
                       ccus.find(c => c.id === ship.id)?.skus.find(s => s.price < ship.msrp) ? <div className="text-xs text-white bg-orange-400 rounded-sm px-1">WB</div> :
                         priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp) && showHistoryWB && <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
                     }
-                    {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{ship.flyableStatus}</div>}
+                    {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{localizeShipStatus(locale, ship)}</div>}
                     <h3 className="font-medium">{ship.name}</h3>
                   </div>
                   {

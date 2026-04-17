@@ -6,6 +6,7 @@ import { Ship } from "@/types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { addPredict, removePredict } from "@/store/upgradesStore";
+import { localizeShipDataLabel } from "@/data/shipDetailLabelI18n";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
 
@@ -139,7 +140,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                     <FormattedMessage id="ships.manufacturer" defaultMessage="Manufacturer" />
                   </TableCell>
                   <TableCell width="150px" sx={{ textWrap: 'nowrap' }}>
-                    <FormattedMessage id="ships.msrp" defaultMessage="MSRP" />
+                    {localizeShipDataLabel(locale, 'msrp')}
                   </TableCell>
                   <TableCell width="170px" sx={{ textWrap: 'nowrap' }}>
                     <FormattedMessage id="ships.prediction" defaultMessage="Predicted Price" />

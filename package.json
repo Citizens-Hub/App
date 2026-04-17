@@ -7,6 +7,7 @@
     "dev": "vite --host",
     "generate:sitemap": "tsx scripts/generate-sitemap.ts",
     "check:locales": "tsx scripts/check-locales.ts",
+    "check:ship-metadata": "node --experimental-strip-types scripts/check-ship-metadata.ts",
     "check:translation-risks": "node scripts/find-translation-risks.js",
     "prebuild": "tsx scripts/generate-sitemap.ts",
     "build:ccu-wasm": "bash scripts/build-ccu-pathfinder-c-wasm.sh",

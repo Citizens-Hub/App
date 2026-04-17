@@ -20,6 +20,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
 import useSWR from 'swr';
 import RsiIcon from '@/components/RsiIcon';
+import { useLocale } from '@/contexts/LocaleContext';
 import { useApi, useMarketItemData } from '@/hooks';
 import {
   CartItem as CartItemType,
@@ -39,6 +40,8 @@ import {
   getShipMetricIconPath,
   resolveShipFocusIconPath,
 } from '@/data/rsiIcons';
+import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
+import { localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCartStore } from '@/hooks/useCartStore';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
@@ -81,17 +84,6 @@ function stripRichText(value?: string | null) {
     .trim();
 }
 
-function titleCaseShipValue(value?: string | null) {
-  if (!value) return '';
-
-  return value
-    .replace(/[-_]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
-    .join(' ');
-}
-
 function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
   if (minCrew == null && maxCrew == null) return '';
   if (minCrew != null && maxCrew != null) {
@@ -119,10 +111,6 @@ function buildDimensionSummary(ship?: Ship | null) {
 function formatUsdValue(value?: number | null, locale = 'en-US') {
   if (!value) return '';
   return (value / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' });
-}
-
-function formatShipStatus(ship?: Ship | null) {
-  return ship?.flyableStatus || titleCaseShipValue(ship?.details?.productionStatus);
 }
 
 function normalizeComparisonValue(value?: string | null) {
@@ -269,68 +257,73 @@ function ShipIntroductionCard({
   fallbackDescription?: string;
 }) {
   const intl = useIntl();
+  const { locale } = useLocale();
   const title = ship?.name || fallbackName || '-';
   const imageUrl = resolveShipImage(ship, fallbackImage);
   const description = stripRichText(ship?.details?.body || ship?.details?.excerpt) || fallbackDescription || '';
+  const localizedType = localizeShipType(locale, ship?.type);
+  const localizedSize = localizeShipSize(locale, ship?.details?.size);
+  const localizedStatus = localizeShipStatus(locale, ship);
+  const localizedFocus = localizeShipFocus(locale, ship?.focus);
   const metadata = [
     ship?.manufacturer?.name,
-    ship?.focus,
-    titleCaseShipValue(ship?.type),
-    titleCaseShipValue(ship?.details?.size),
-    formatShipStatus(ship),
+    localizedFocus,
+    localizedType,
+    localizedSize,
+    localizedStatus,
   ].filter(Boolean) as string[];
   const specRows: ShipSpecRow[] = [
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.manufacturer', defaultMessage: 'Manufacturer' }),
+      label: localizeShipDataLabel(locale, 'manufacturer'),
       value: normalizeComparisonValue(ship?.manufacturer?.name),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.focus', defaultMessage: 'Role / Focus' }),
-      value: normalizeComparisonValue(ship?.focus),
+      label: localizeShipDataLabel(locale, 'focus'),
+      value: normalizeComparisonValue(localizedFocus),
       iconSrc: resolveShipFocusIconPath(ship?.focus),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.type', defaultMessage: 'Type' }),
-      value: normalizeComparisonValue(titleCaseShipValue(ship?.type)),
+      label: localizeShipDataLabel(locale, 'type'),
+      value: normalizeComparisonValue(localizedType),
       iconSrc: getShipMetricIconPath('type', ship?.type),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.size', defaultMessage: 'Size' }),
-      value: normalizeComparisonValue(titleCaseShipValue(ship?.details?.size)),
+      label: localizeShipDataLabel(locale, 'size'),
+      value: normalizeComparisonValue(localizedSize),
       iconSrc: getShipMetricIconPath('size'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.status', defaultMessage: 'Status' }),
-      value: normalizeComparisonValue(formatShipStatus(ship)),
+      label: localizeShipDataLabel(locale, 'status'),
+      value: normalizeComparisonValue(localizedStatus),
       iconSrc: getShipMetricIconPath('status'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.crew', defaultMessage: 'Crew' }),
+      label: localizeShipDataLabel(locale, 'crew'),
       value: normalizeComparisonValue(formatCrewRange(ship?.details?.minCrew, ship?.details?.maxCrew)),
       iconSrc: getShipMetricIconPath('crew'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.cargo', defaultMessage: 'Cargo' }),
+      label: localizeShipDataLabel(locale, 'cargo'),
       value: normalizeComparisonValue(ship?.details?.cargoCapacity != null ? `${formatMetricValue(ship.details.cargoCapacity)} SCU` : ''),
       iconSrc: getShipMetricIconPath('cargo'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.scmSpeed', defaultMessage: 'SCM Speed' }),
+      label: localizeShipDataLabel(locale, 'scmSpeed'),
       value: normalizeComparisonValue(ship?.details?.maxScmSpeed != null ? `${formatMetricValue(ship.details.maxScmSpeed)} m/s` : ''),
       iconSrc: getShipMetricIconPath('scmSpeed'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.afterburner', defaultMessage: 'Afterburner' }),
+      label: localizeShipDataLabel(locale, 'afterburner'),
       value: normalizeComparisonValue(ship?.details?.afterburnerSpeed != null ? `${formatMetricValue(ship.details.afterburnerSpeed)} m/s` : ''),
       iconSrc: getShipMetricIconPath('afterburner'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.dimensions', defaultMessage: 'Dimensions' }),
+      label: localizeShipDataLabel(locale, 'dimensions'),
       value: normalizeComparisonValue(buildDimensionSummary(ship)),
       iconSrc: getShipMetricIconPath('dimensions'),
     },
     {
-      label: intl.formatMessage({ id: 'ships.msrp', defaultMessage: 'MSRP' }),
+      label: localizeShipDataLabel(locale, 'msrp'),
       value: normalizeComparisonValue(formatUsdValue(ship?.msrp, intl.locale)),
       iconSrc: getShipMetricIconPath('msrp'),
     },
@@ -498,6 +491,7 @@ function TextOnlyPackageItemRow({
 
 export default function MarketDetail() {
   const intl = useIntl();
+  const { locale } = useLocale();
   const navigate = useNavigate();
   const { skuId } = useParams();
   const decodedSkuId = decodeURIComponent(skuId || '');
@@ -705,78 +699,86 @@ export default function MarketDetail() {
   const toShipInfo = toShipResponse?.data.ship || visual.toShip;
   const currentShipName = fromShipInfo?.name || visual.fromShipName || item.fromShipName || '-';
   const upgradedShipName = toShipInfo?.name || visual.toShipName || item.toShipName || '-';
+  const fromShipType = localizeShipType(locale, fromShipInfo?.type);
+  const toShipType = localizeShipType(locale, toShipInfo?.type);
+  const fromShipSize = localizeShipSize(locale, fromShipInfo?.details?.size);
+  const toShipSize = localizeShipSize(locale, toShipInfo?.details?.size);
+  const fromShipStatus = localizeShipStatus(locale, fromShipInfo);
+  const toShipStatus = localizeShipStatus(locale, toShipInfo);
+  const fromShipFocus = localizeShipFocus(locale, fromShipInfo?.focus);
+  const toShipFocus = localizeShipFocus(locale, toShipInfo?.focus);
   const comparisonRows: ShipComparisonRow[] = [
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.manufacturer', defaultMessage: 'Manufacturer' }),
+      label: localizeShipDataLabel(locale, 'manufacturer'),
       fromValue: normalizeComparisonValue(fromShipInfo?.manufacturer?.name),
       toValue: normalizeComparisonValue(toShipInfo?.manufacturer?.name),
       changed: normalizeComparisonValue(fromShipInfo?.manufacturer?.name) !== normalizeComparisonValue(toShipInfo?.manufacturer?.name),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.focus', defaultMessage: 'Role / Focus' }),
-      fromValue: normalizeComparisonValue(fromShipInfo?.focus),
-      toValue: normalizeComparisonValue(toShipInfo?.focus),
-      changed: normalizeComparisonValue(fromShipInfo?.focus) !== normalizeComparisonValue(toShipInfo?.focus),
+      label: localizeShipDataLabel(locale, 'focus'),
+      fromValue: normalizeComparisonValue(fromShipFocus),
+      toValue: normalizeComparisonValue(toShipFocus),
+      changed: normalizeComparisonValue(fromShipFocus) !== normalizeComparisonValue(toShipFocus),
       iconSrc: resolveShipFocusIconPath(toShipInfo?.focus || fromShipInfo?.focus),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.type', defaultMessage: 'Type' }),
-      fromValue: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.type)),
-      toValue: normalizeComparisonValue(titleCaseShipValue(toShipInfo?.type)),
-      changed: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.type)) !== normalizeComparisonValue(titleCaseShipValue(toShipInfo?.type)),
+      label: localizeShipDataLabel(locale, 'type'),
+      fromValue: normalizeComparisonValue(fromShipType),
+      toValue: normalizeComparisonValue(toShipType),
+      changed: normalizeComparisonValue(fromShipType) !== normalizeComparisonValue(toShipType),
       iconSrc: getShipMetricIconPath('type', toShipInfo?.type || fromShipInfo?.type),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.size', defaultMessage: 'Size' }),
-      fromValue: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.details?.size)),
-      toValue: normalizeComparisonValue(titleCaseShipValue(toShipInfo?.details?.size)),
-      changed: normalizeComparisonValue(titleCaseShipValue(fromShipInfo?.details?.size)) !== normalizeComparisonValue(titleCaseShipValue(toShipInfo?.details?.size)),
+      label: localizeShipDataLabel(locale, 'size'),
+      fromValue: normalizeComparisonValue(fromShipSize),
+      toValue: normalizeComparisonValue(toShipSize),
+      changed: normalizeComparisonValue(fromShipSize) !== normalizeComparisonValue(toShipSize),
       iconSrc: getShipMetricIconPath('size'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.compare.status', defaultMessage: 'Status' }),
-      fromValue: normalizeComparisonValue(formatShipStatus(fromShipInfo)),
-      toValue: normalizeComparisonValue(formatShipStatus(toShipInfo)),
-      changed: normalizeComparisonValue(formatShipStatus(fromShipInfo)) !== normalizeComparisonValue(formatShipStatus(toShipInfo)),
+      label: localizeShipDataLabel(locale, 'status'),
+      fromValue: normalizeComparisonValue(fromShipStatus),
+      toValue: normalizeComparisonValue(toShipStatus),
+      changed: normalizeComparisonValue(fromShipStatus) !== normalizeComparisonValue(toShipStatus),
       iconSrc: getShipMetricIconPath('status'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.crew', defaultMessage: 'Crew' }),
+      label: localizeShipDataLabel(locale, 'crew'),
       fromValue: normalizeComparisonValue(formatCrewRange(fromShipInfo?.details?.minCrew, fromShipInfo?.details?.maxCrew)),
       toValue: normalizeComparisonValue(formatCrewRange(toShipInfo?.details?.minCrew, toShipInfo?.details?.maxCrew)),
       changed: normalizeComparisonValue(formatCrewRange(fromShipInfo?.details?.minCrew, fromShipInfo?.details?.maxCrew)) !== normalizeComparisonValue(formatCrewRange(toShipInfo?.details?.minCrew, toShipInfo?.details?.maxCrew)),
       iconSrc: getShipMetricIconPath('crew'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.cargo', defaultMessage: 'Cargo' }),
+      label: localizeShipDataLabel(locale, 'cargo'),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(fromShipInfo.details.cargoCapacity)} SCU` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(toShipInfo.details.cargoCapacity)} SCU` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(fromShipInfo.details.cargoCapacity)} SCU` : '') !== normalizeComparisonValue(toShipInfo?.details?.cargoCapacity != null ? `${formatMetricValue(toShipInfo.details.cargoCapacity)} SCU` : ''),
       iconSrc: getShipMetricIconPath('cargo'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.scmSpeed', defaultMessage: 'SCM Speed' }),
+      label: localizeShipDataLabel(locale, 'scmSpeed'),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(fromShipInfo.details.maxScmSpeed)} m/s` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(toShipInfo.details.maxScmSpeed)} m/s` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(fromShipInfo.details.maxScmSpeed)} m/s` : '') !== normalizeComparisonValue(toShipInfo?.details?.maxScmSpeed != null ? `${formatMetricValue(toShipInfo.details.maxScmSpeed)} m/s` : ''),
       iconSrc: getShipMetricIconPath('scmSpeed'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.afterburner', defaultMessage: 'Afterburner' }),
+      label: localizeShipDataLabel(locale, 'afterburner'),
       fromValue: normalizeComparisonValue(fromShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(fromShipInfo.details.afterburnerSpeed)} m/s` : ''),
       toValue: normalizeComparisonValue(toShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(toShipInfo.details.afterburnerSpeed)} m/s` : ''),
       changed: normalizeComparisonValue(fromShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(fromShipInfo.details.afterburnerSpeed)} m/s` : '') !== normalizeComparisonValue(toShipInfo?.details?.afterburnerSpeed != null ? `${formatMetricValue(toShipInfo.details.afterburnerSpeed)} m/s` : ''),
       iconSrc: getShipMetricIconPath('afterburner'),
     },
     {
-      label: intl.formatMessage({ id: 'market.detail.dimensions', defaultMessage: 'Dimensions' }),
+      label: localizeShipDataLabel(locale, 'dimensions'),
       fromValue: normalizeComparisonValue(buildDimensionSummary(fromShipInfo)),
       toValue: normalizeComparisonValue(buildDimensionSummary(toShipInfo)),
       changed: normalizeComparisonValue(buildDimensionSummary(fromShipInfo)) !== normalizeComparisonValue(buildDimensionSummary(toShipInfo)),
       iconSrc: getShipMetricIconPath('dimensions'),
     },
     {
-      label: intl.formatMessage({ id: 'ships.msrp', defaultMessage: 'MSRP' }),
+      label: localizeShipDataLabel(locale, 'msrp'),
       fromValue: normalizeComparisonValue(formatUsdValue(fromShipInfo?.msrp, intl.locale)),
       toValue: normalizeComparisonValue(formatUsdValue(toShipInfo?.msrp, intl.locale)),
       changed: normalizeComparisonValue(formatUsdValue(fromShipInfo?.msrp, intl.locale)) !== normalizeComparisonValue(formatUsdValue(toShipInfo?.msrp, intl.locale)),
@@ -962,7 +964,7 @@ export default function MarketDetail() {
                               imageUrl={shipImage}
                               eyebrow={intl.formatMessage({ id: 'market.detail.ship', defaultMessage: 'Ship' })}
                               title={ship.shipName}
-                              subtitle={shipInfo?.manufacturer?.name || shipInfo?.type || null}
+                              subtitle={shipInfo?.manufacturer?.name || localizeShipType(locale, shipInfo?.type) || null}
                               metadata={[
                                 msrpText
                                   ? intl.formatMessage(
