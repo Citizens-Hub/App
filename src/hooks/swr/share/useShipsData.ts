@@ -47,7 +47,7 @@ export default function useShipsData() {
    * 通过ID获取船只名称，如果不存在则返回ID字符串
    */
   const getShipNameById = (id: number): string => {
-    return shipsMap[id]?.name || `Ship #${id}`;
+    return shipsMap[id]?.localizedName || shipsMap[id]?.name || `Ship #${id}`;
   };
 
   /**

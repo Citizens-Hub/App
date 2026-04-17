@@ -10,6 +10,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import Crawler from "@/components/Crawler";
 import { Gift } from "lucide-react";
 import { selectImportItems } from "@/store/importStore";
+import { getShipDisplayName, matchesShipNameQuery } from "@/utils/shipDisplay";
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -38,6 +39,9 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     setExtensionModalOpen(true);
   };
 
+  const findShipByName = (name: string) => ships.find(
+    ship => ship.name.toUpperCase().trim() === name.toUpperCase().trim(),
+  );
 
   // Merge local upgrades and imported upgrade data
   const allUpgrades = [
@@ -64,12 +68,17 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   ];
 
   const filteredUpgrades = allUpgrades.filter(upgrade => {
-    const from = upgrade.parsed.from.toLowerCase();
-    const to = upgrade.parsed.to.toLowerCase();
     const query = searchQuery.toLowerCase();
+    const fromShip = findShipByName(upgrade.parsed.from);
+    const toShip = findShipByName(upgrade.parsed.to);
 
     // Apply text search filtering
-    const matchesSearch = from.includes(query) || to.includes(query) || upgrade.name.toLowerCase().includes(query);
+    const matchesSearch =
+      upgrade.parsed.from.toLowerCase().includes(query)
+      || upgrade.parsed.to.toLowerCase().includes(query)
+      || upgrade.name.toLowerCase().includes(query)
+      || matchesShipNameQuery(fromShip, query)
+      || matchesShipNameQuery(toShip, query);
 
     // Apply type filtering
     const isNormal = !upgrade.isBuyBack && !upgrade.isSubscription;
@@ -97,8 +106,8 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
       }
 
       // Then sort by upgrade to ship value from low to high
-      const toShipA = ships.find(ship => ship.name.toUpperCase().trim() === a.parsed.to.toUpperCase().trim());
-      const toShipB = ships.find(ship => ship.name.toUpperCase().trim() === b.parsed.to.toUpperCase().trim());
+      const toShipA = findShipByName(a.parsed.to);
+      const toShipB = findShipByName(b.parsed.to);
 
       if (toShipA && toShipB) {
         return toShipA.msrp - toShipB.msrp;
@@ -216,8 +225,8 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
               const from = upgrade.parsed.from
               const to = upgrade.parsed.to
 
-              const fromShip = ships.find(ship => ship.name.toUpperCase().trim() === from.toUpperCase().trim())
-              const toShip = ships.find(ship => ship.name.toUpperCase().trim() === to.toUpperCase().trim())
+              const fromShip = findShipByName(from)
+              const toShip = findShipByName(to)
 
               if (!fromShip || !toShip) {
                 console.warn("ship not found", upgrade)
@@ -254,12 +263,12 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                   <div className="flex items-center text-left">
                     <img
                       src={fromShip.medias.productThumbMediumAndSmall}
-                      alt={fromShip.name}
+                      alt={getShipDisplayName(fromShip) || fromShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{fromShip.name}</h3>
+                        <h3 className="font-medium">{getShipDisplayName(fromShip)}</h3>
                       </div>
                       <div className="text-xs text-gray-400">{fromShip.manufacturer.name}</div>
                       <div className="text-sm text-blue-400 font-bold flex items-center gap-2">
@@ -306,12 +315,12 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                   <div className="flex items-center text-left">
                     <img
                       src={toShip.medias.productThumbMediumAndSmall}
-                      alt={toShip.name}
+                      alt={getShipDisplayName(toShip) || toShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{toShip.name}</h3>
+                        <h3 className="font-medium">{getShipDisplayName(toShip)}</h3>
                       </div>
                       <div className="text-xs text-gray-400">{toShip.manufacturer.name}</div>
                       <div className="text-sm text-blue-400 font-bold flex items-center gap-2">

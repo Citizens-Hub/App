@@ -43,6 +43,7 @@ import {
 import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
 import { localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCartStore } from '@/hooks/useCartStore';
+import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
 import { findShip, getAvailableStock, getListingBasePrice, getListingDiscountPercent } from './marketUtils';
@@ -369,15 +370,17 @@ function ShipIntroductionCard({
   );
 }
 
-function usePackageShipDetails(shipIds: number[]) {
+function usePackageShipDetails(shipIds: number[], locale: ReturnType<typeof useLocale>['locale']) {
   const idsKey = shipIds.join(',');
+  const localizedRequestPaths = shipIds.map((shipId) => appendShipLocaleToPath(`/api/ship?id=${shipId}`, locale));
 
   const { data, isLoading } = useSWR<Record<number, Ship>>(
-    idsKey ? ['market-package-ship-details', idsKey] : null,
+    idsKey ? ['market-package-ship-details', idsKey, locale] : null,
     async () => {
       const results = await Promise.allSettled(
-        shipIds.map(async (shipId) => {
-          const response = await fetch(`${API_BASE_URL}/api/ship?id=${shipId}`);
+        shipIds.map(async (shipId, index) => {
+          const requestPath = localizedRequestPaths[index];
+          const response = await fetch(`${API_BASE_URL}${requestPath}`);
 
           if (!response.ok) {
             throw new Error(`Failed to load ship ${shipId}`);
@@ -525,7 +528,7 @@ export default function MarketDetail() {
     )).sort((a, b) => a - b),
     [normalizedPackageShips],
   );
-  const { shipDetailsById: packageShipDetailsById, isLoading: packageShipDetailsLoading } = usePackageShipDetails(packageShipDetailIds);
+  const { shipDetailsById: packageShipDetailsById, isLoading: packageShipDetailsLoading } = usePackageShipDetails(packageShipDetailIds, locale);
 
   const { data: sellerProfileResponse } = useApi<UserProfileResponse>(
     item && item.itemType !== 'credit' ? `/api/user/profile/${item.belongsTo}` : null,

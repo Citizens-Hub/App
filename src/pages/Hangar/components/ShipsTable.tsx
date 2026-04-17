@@ -43,6 +43,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
   // 过滤和排序数据
   const filteredShips = ships.filter(ship =>
     ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ship.localizedName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (ship.manufacturer && ship.manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -165,7 +166,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1" fontWeight="bold">
-                        {ship.name}
+                        {ship.localizedName || ship.name}
                       </Typography>
                     </TableCell>
                     <TableCell>{ship.manufacturer ? ship.manufacturer.name : '-'}</TableCell>

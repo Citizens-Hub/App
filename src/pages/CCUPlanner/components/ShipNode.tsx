@@ -9,6 +9,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 
 interface ShipNodeProps {
   data: {
@@ -32,6 +33,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const { locale } = useLocale();
+  const shipDisplayName = getShipDisplayName(ship);
   
   // Get data and services from context
   const { ccus, wbHistory, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
@@ -199,13 +201,13 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           </div>
           <img
             src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-            alt={ship.name}
+            alt={shipDisplayName || ship.name}
             className="w-full h-full object-cover"
           />
         </div>
 
         <div className="flex flex-row items-center gap-2 mb-1">
-          <h3 className="text-xl font-bold">{ship.name}</h3>
+          <h3 className="text-xl font-bold">{shipDisplayName}</h3>
           <IconButton size="small" onClick={handleDuplicateNode}>
             <Copy className="w-3 h-3" />
           </IconButton>
@@ -258,7 +260,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
                 </span>
                 <span className='flex flex-row items-center gap-1 dark:text-white'>
                   <span>
-                    {edge.data?.sourceShip?.name ||
+                    {getShipDisplayName(edge.data?.sourceShip) ||
+                      edge.data?.sourceShip?.name ||
                       intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
                     }
                   </span>

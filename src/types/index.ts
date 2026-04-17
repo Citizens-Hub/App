@@ -147,6 +147,7 @@ export interface Ship {
   alias?: string;
   id: number;
   name: string;
+  localizedName?: string;
   medias: {
     productThumbMediumAndSmall: string;
     slideShow: string;
@@ -183,6 +184,93 @@ export interface ShipResponse {
   success: boolean;
   data: {
     ship: Ship;
+  };
+}
+
+export interface ShipNameTranslationItem {
+  shipId: number;
+  shipName: string;
+}
+
+export interface ShipNameTranslationsResponse {
+  success: boolean;
+  locale: string;
+  translations: ShipNameTranslationItem[];
+}
+
+export type ShipTranslationLocale = 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE' | 'en';
+export type ShipTranslationField = 'shipName' | 'manufacturerName' | 'title' | 'excerpt' | 'body';
+
+export interface ShipTranslationPayload {
+  shipName?: string | null;
+  manufacturerName?: string | null;
+  title?: string | null;
+  excerpt?: string | null;
+  body?: string | null;
+}
+
+export interface ShipTranslation extends ShipTranslationPayload {
+  shipId: number;
+  locale: ShipTranslationLocale | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ShipTranslationListItem {
+  shipId: number;
+  slug: string;
+  source: {
+    shipName: string;
+    manufacturerName: string;
+    title: string;
+    excerpt: string;
+    body: string;
+  };
+  translation: ShipTranslation | null;
+}
+
+export interface ShipTranslationListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  locale: string;
+  list: ShipTranslationListItem[];
+}
+
+export interface ShipTranslationDetailResponse {
+  success: boolean;
+  data: {
+    shipId: number;
+    slug: string;
+    source: {
+      shipName: string;
+      manufacturerName: string;
+      title: string;
+      excerpt: string;
+      body: string;
+    };
+    translations: Array<ShipTranslation | null>;
+  };
+}
+
+export interface ShipTranslationUpsertResponse {
+  success: boolean;
+  deleted?: boolean;
+  data: {
+    shipId: number;
+    locale: string;
+    translation: ShipTranslation | null;
+  };
+}
+
+export interface ShipTranslationDraftResponse {
+  success: boolean;
+  data: {
+    locale: string;
+    field: ShipTranslationField;
+    model: string;
+    value: string | null;
   };
 }
 

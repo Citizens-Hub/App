@@ -19,6 +19,7 @@ import PriceHistoryChart from '../../../components/PriceHistoryChart';
 import { useApi } from '@/hooks/swr/useApi';
 import { useCartStore } from '@/hooks/useCartStore';
 import { buildMarketResource } from '@/components/marketItemDisplay';
+import { getShipDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
 
 interface AutoPathNodeData {
   ship: Ship;
@@ -76,6 +77,19 @@ interface MarketRouteScore {
   warbondCost: number;
   totalCost: number;
   stepCount: number;
+}
+
+function filterShipOptions(options: Ship[], inputValue: string) {
+  const query = inputValue.trim().toLowerCase();
+  if (!query) {
+    return options;
+  }
+
+  return options.filter((option) =>
+    matchesShipNameQuery(option, query)
+    || option.manufacturer.name.toLowerCase().includes(query)
+    || option.type.toLowerCase().includes(query),
+  );
 }
 
 interface MarketRouteResult {
@@ -1253,7 +1267,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
           defaultMessage: 'Upgrade to {target} now and save {difference}.'
         },
         {
-          target: reviewTargetShip.name,
+          target: getShipDisplayName(reviewTargetShip),
           difference: formatUsdByLocale(marketRouteTotalSavings, intl.locale)
         }
       );
@@ -1265,7 +1279,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         defaultMessage: 'Upgrade to {target} now'
       },
       {
-        target: reviewTargetShip.name
+        target: getShipDisplayName(reviewTargetShip)
       }
     );
   }, [intl, marketRoute, marketRouteTotalSavings, reviewTargetShip]);
@@ -1462,7 +1476,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
             id: 'pathBuilder.startShipStandardPriceOverlay',
             defaultMessage: '{ship} standard price'
           },
-          { ship: item.sourceShip.name }
+          { ship: getShipDisplayName(item.sourceShip) }
         ),
         periods,
         color: 'rgb(71, 85, 105)',
@@ -1598,7 +1612,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
 
           optionMap.set(key, {
             key,
-            displayName: matchedShip?.name || displayName,
+            displayName: getShipDisplayName(matchedShip) || displayName,
             ship: matchedShip || null,
             warbondUrl: warbondSku.url,
             warbondPrice
@@ -2089,7 +2103,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
       return;
     }
 
-    const label = `${edge.sourceShip.name} -> ${edge.targetShip.name} (${edge.sourceType}, ${formatUsd(edge.cost)})`;
+    const label = `${getShipDisplayName(edge.sourceShip)} -> ${getShipDisplayName(edge.targetShip)} (${edge.sourceType}, ${formatUsd(edge.cost)})`;
     const nextExcludedCcus = [...excludedCcus, { key: edge.key, label }];
     setExcludedCcus(nextExcludedCcus);
     void calculateRoute(reviewRequest, nextExcludedCcus, excludedSkuIds, requiredHangarCcuKeys, { perfStep: 'review' });
@@ -2326,7 +2340,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         value={startShip || null}
                         onChange={(_, value) => setStartShipId(value?.id ?? '')}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                        getOptionLabel={(option) => option.name}
+                        getOptionLabel={(option) => getShipDisplayName(option) || option.name}
+                        filterOptions={(options, state) => filterShipOptions(options, state.inputValue)}
                         noOptionsText={intl.formatMessage({ id: 'pathBuilder.noShips', defaultMessage: 'No ships found' })}
                         slotProps={{
                           listbox: {
@@ -2339,7 +2354,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             <div className="flex items-center gap-3 w-full py-1">
                               <ShipImage ship={option} className="w-12 h-12" />
                               <div className="min-w-0">
-                                <div className="text-sm font-medium truncate">{option.name}</div>
+                                <div className="text-sm font-medium truncate">{getShipDisplayName(option)}</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {(option.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
                                 </div>
@@ -2363,7 +2378,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           <div className="flex items-center gap-3">
                             <ShipImage ship={startShip} className="w-16 h-12" />
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold truncate">{startShip.name}</div>
+                              <div className="text-sm font-semibold truncate">{getShipDisplayName(startShip)}</div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">{startShip.manufacturer.name}</div>
                             </div>
                           </div>
@@ -2486,7 +2501,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                         value={targetShip || null}
                         onChange={(_, value) => setTargetShipId(value?.id ?? '')}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                        getOptionLabel={(option) => option.name}
+                        getOptionLabel={(option) => getShipDisplayName(option) || option.name}
+                        filterOptions={(options, state) => filterShipOptions(options, state.inputValue)}
                         noOptionsText={intl.formatMessage({ id: 'pathBuilder.noShips', defaultMessage: 'No ships found' })}
                         slotProps={{
                           listbox: { style: { maxHeight: 320 } },
@@ -2497,7 +2513,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                             <div className="flex items-center gap-3 w-full py-1">
                               <ShipImage ship={option} className="w-12 h-12" />
                               <div className="min-w-0">
-                                <div className="text-sm font-medium truncate">{option.name}</div>
+                                <div className="text-sm font-medium truncate">{getShipDisplayName(option)}</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {(option.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}
                                 </div>
@@ -2521,7 +2537,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                           <div className="flex items-center gap-3">
                             <ShipImage ship={targetShip} className="w-16 h-12" />
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold truncate">{targetShip.name}</div>
+                              <div className="text-sm font-semibold truncate">{getShipDisplayName(targetShip)}</div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">{targetShip.manufacturer.name}</div>
                             </div>
                           </div>
@@ -2777,7 +2793,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     <div className="flex items-center gap-3">
                       <ShipImage ship={reviewStartShip} className="w-[72px] h-12" />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">{reviewStartShip.name}</div>
+                        <div className="text-sm font-medium truncate">{getShipDisplayName(reviewStartShip)}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{formatUsd(reviewStartShip.msrp / 100)}</div>
                       </div>
                     </div>
@@ -2790,7 +2806,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                     <div className="flex items-center gap-3">
                       <ShipImage ship={reviewTargetShip} className="w-[72px] h-12" />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">{reviewTargetShip.name}</div>
+                        <div className="text-sm font-medium truncate">{getShipDisplayName(reviewTargetShip)}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{formatUsd(reviewTargetShip.msrp / 100)}</div>
                       </div>
                     </div>
@@ -2895,7 +2911,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                               <div className="grid grid-cols-1 xl:grid-cols-[360px_250px_minmax(0,1fr)] gap-3 sm:gap-4 xl:gap-5">
                                 <div className='flex flex-col gap-3 sm:gap-4'>
                                   <div className="text-sm font-semibold">
-                                    {index + 1}. {item.sourceShip.name} -&gt; {item.targetShip.name}
+                                    {index + 1}. {getShipDisplayName(item.sourceShip)} -&gt; {getShipDisplayName(item.targetShip)}
                                   </div>
 
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -2995,7 +3011,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                                     <FormattedMessage
                                       id="pathBuilder.stepPriceHistoryTitle"
                                       defaultMessage="{ship} price history"
-                                      values={{ ship: item.targetShip.name }}
+                                      values={{ ship: getShipDisplayName(item.targetShip) }}
                                     />
                                   </div>
 
@@ -3215,7 +3231,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
                               className="flex flex-col gap-3 border border-gray-200 bg-gray-50/70 p-3 dark:border-neutral-700 dark:bg-neutral-900"
                             >
                               <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {index + 1}. {edge.sourceShip.name} -&gt; {edge.targetShip.name}
+                                {index + 1}. {getShipDisplayName(edge.sourceShip)} -&gt; {getShipDisplayName(edge.targetShip)}
                               </div>
 
                               <UpgradePreview

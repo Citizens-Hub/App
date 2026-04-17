@@ -34,6 +34,11 @@ const generateSlug = (name: string): string => {
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 };
 
+const getDisplayShipName = (ship?: { localizedName?: string; name: string } | null) => {
+  if (!ship) return '';
+  return ship.localizedName || ship.name;
+};
+
 export default function PriceHistory() {
   const intl = useIntl();
   const theme = useTheme();
@@ -96,6 +101,7 @@ export default function PriceHistory() {
     if (searchTerm) {
       filtered = filtered.filter(ship =>
         ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ship.localizedName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         ship.manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         ship.type.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -483,7 +489,7 @@ export default function PriceHistory() {
           {
             ships.map((ship) => (
               <Link to={`/price-history/${generateSlug(ship.name)}`} key={ship.id}>
-                {ship.name}
+                {getDisplayShipName(ship)}
               </Link>
             ))
           }
@@ -571,7 +577,7 @@ export default function PriceHistory() {
                 >
                   <div
                     role="button"
-                    aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "{shipName}'s price history" }, { shipName: ship.name })}
+                    aria-label={intl.formatMessage({ id: "priceHistory.viewHistory", defaultMessage: "{shipName}'s price history" }, { shipName: getDisplayShipName(ship) })}
                     onClick={() => handleShipSelect(ship.id)}
                     className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                   >
@@ -589,7 +595,7 @@ export default function PriceHistory() {
                             <span className='text-xs text-white bg-orange-400 rounded px-1'>WB</span>
                           )}
                           <Typography variant="body2" className='font-medium truncate'>
-                            {ship.name}
+                            {getDisplayShipName(ship)}
                           </Typography>
                         </div>
                         <div className='text-gray-500 dark:text-gray-400 text-left text-sm'>
@@ -629,7 +635,7 @@ export default function PriceHistory() {
                                 ? 'Disable standard SKU listing reminder for {shipName}'
                                 : 'Enable standard SKU listing reminder for {shipName}',
                             },
-                            { shipName: ship.name }
+                            { shipName: getDisplayShipName(ship) }
                           )}
                         >
                           <span>
@@ -638,7 +644,7 @@ export default function PriceHistory() {
                               color={isStandardSkuReminderEnabled ? 'primary' : 'default'}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                handleToggleStandardSkuReminder(ship.id, ship.name);
+                                handleToggleStandardSkuReminder(ship.id, getDisplayShipName(ship));
                               }}
                               disabled={subscriptionLoading || !isLoggedIn || !isEmailVerified}
                               aria-label={intl.formatMessage(
@@ -650,7 +656,7 @@ export default function PriceHistory() {
                                     ? 'Disable standard SKU listing reminder for {shipName}'
                                     : 'Enable standard SKU listing reminder for {shipName}',
                                 },
-                                { shipName: ship.name }
+                                { shipName: getDisplayShipName(ship) }
                               )}
                             >
                               {isStandardSkuReminderEnabled ? (
@@ -663,7 +669,7 @@ export default function PriceHistory() {
                         </Tooltip>
                         <AddToWatchlistButton
                           shipId={ship.id}
-                          shipName={ship.name}
+                          shipName={getDisplayShipName(ship)}
                           size="small"
                         />
                       </div>
@@ -680,7 +686,7 @@ export default function PriceHistory() {
           {selectedShip ? (
             <div className='flex flex-col h-full p-4'>
               {/* <Typography variant="h5" className='mb-2'>
-              {selectedShip.name}
+              {getDisplayShipName(selectedShip)}
             </Typography>
             <Typography variant="body2" className='text-gray-500 dark:text-gray-400 mb-2'>
               {selectedShip.manufacturer.name}
@@ -705,7 +711,7 @@ export default function PriceHistory() {
                 )}
                 {/* <AddToWatchlistButton
                 shipId={selectedShip.id}
-                shipName={selectedShip.name}
+                shipName={getDisplayShipName(selectedShip)}
                 size="small"
               /> */}
               </div>
@@ -715,11 +721,11 @@ export default function PriceHistory() {
                 <div className='flex-[1] min-w-0 overflow-y-auto flex flex-col gap-2'>
                   <PriceHistoryTimeline 
                     history={selectedPriceHistory?.history || null} 
-                    ariaLabel={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: selectedShip.name })}
+                    ariaLabel={intl.formatMessage({ id: 'priceHistory.timeline.label', defaultMessage: 'Price history timeline for {shipName}' }, { shipName: getDisplayShipName(selectedShip) })}
                   />
                 </div>
 
-                <div className='flex-[5] min-w-0 flex flex-col' role="figure" aria-label={intl.formatMessage({ id: 'priceHistory.chart.label', defaultMessage: 'Price history chart for {shipName}' }, { shipName: selectedShip.name })}>
+                <div className='flex-[5] min-w-0 flex flex-col' role="figure" aria-label={intl.formatMessage({ id: 'priceHistory.chart.label', defaultMessage: 'Price history chart for {shipName}' }, { shipName: getDisplayShipName(selectedShip) })}>
                   <PriceHistoryChart history={selectedPriceHistory?.history || null} currentMsrp={selectedShip.msrp} shipName={selectedShip.name} />
                 </div>
               </div>

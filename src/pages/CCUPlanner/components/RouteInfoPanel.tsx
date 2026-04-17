@@ -11,6 +11,7 @@ import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import pathFinderCWasmService from '../services/PathFinderCWasmService';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -88,6 +89,7 @@ export default function RouteInfoPanel({
   const intl = useIntl();
   const { locale } = intl;
   const ccuSourceTypeFactory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
+  const selectedShipDisplayName = getShipDisplayName(selectedNode?.data.ship);
 
   useEffect(() => {
     pathFinderService.loadCompletedPathsFromStorage();
@@ -589,7 +591,7 @@ export default function RouteInfoPanel({
   return (
     <div className="absolute right-0 top-0 w-full sm:w-fit sm:min-w-[450px] h-full bg-white dark:bg-[#121212] border-l border-gray-200 dark:border-gray-800 p-4 shadow-lg overflow-y-auto z-10">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">{selectedNode.data.ship.name}</h3>
+        <h3 className="text-xl font-bold">{selectedShipDisplayName}</h3>
         <Button
           variant="text"
           color="error"
@@ -602,7 +604,7 @@ export default function RouteInfoPanel({
       <div className="mb-4">
         <img
           src={selectedNode.data.ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-          alt={selectedNode.data.ship.name}
+          alt={selectedShipDisplayName || selectedNode.data.ship.name}
           className="mb-2 m-auto w-[360px]"
         />
         <div className="text-blue-400 font-bold py-1 px-3 rounded text-lg flex gap-2 w-full justify-center">
@@ -928,10 +930,10 @@ export default function RouteInfoPanel({
                           <div className="flex items-center gap-2 mb-2">
                             <img
                               src={startShip.medias.productThumbMediumAndSmall}
-                              alt={startShip.name}
+                              alt={getShipDisplayName(startShip) || startShip.name}
                               className="w-8 h-8 rounded object-cover"
                             />
-                            <span className="font-medium">{startShip.name}</span>
+                            <span className="font-medium">{getShipDisplayName(startShip)}</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <label className="text-sm text-gray-600 dark:text-gray-400">
@@ -988,24 +990,24 @@ export default function RouteInfoPanel({
                                 <div className='flex gap-4'>
                                   <img
                                     src={pathEdge.sourceNode.data?.ship?.medias?.productThumbMediumAndSmall || pathEdge.sourceNode.data?.ship?.medias?.slideShow}
-                                    alt={pathEdge.sourceNode.data?.ship?.name}
+                                    alt={getShipDisplayName(pathEdge.sourceNode.data?.ship) || pathEdge.sourceNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />
                                   <span className="text-gray-400">
                                     <span><FormattedMessage id="routeInfoPanel.from" defaultMessage="From" /></span>
                                     <span> </span>
-                                    <span className='text-black dark:text-white'>{pathEdge.sourceNode.data?.ship?.name}</span>
+                                    <span className='text-black dark:text-white'>{getShipDisplayName(pathEdge.sourceNode.data?.ship) || pathEdge.sourceNode.data?.ship?.name}</span>
                                   </span>
                                 </div>
                                 <div className='flex gap-4'>
                                   <span className="text-gray-400">
                                     <span><FormattedMessage id="routeInfoPanel.to" defaultMessage="To" /></span>
                                     <span> </span>
-                                    <span className='text-black dark:text-white'>{pathEdge.targetNode.data?.ship?.name}</span>
+                                    <span className='text-black dark:text-white'>{getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}</span>
                                   </span>
                                   <img
                                     src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
-                                    alt={pathEdge.targetNode.data?.ship?.name}
+                                    alt={getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />
                                 </div>

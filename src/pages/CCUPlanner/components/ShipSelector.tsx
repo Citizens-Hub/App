@@ -34,6 +34,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
       const normalizedSearchTerm = searchTerm.toLowerCase();
       filtered = ships.filter(ship =>
         ship.name.toLowerCase().includes(normalizedSearchTerm) ||
+        ship.localizedName?.toLowerCase().includes(normalizedSearchTerm) ||
         ship.manufacturer.name.toLowerCase().includes(normalizedSearchTerm) ||
         ship.type.toLowerCase().includes(normalizedSearchTerm) ||
         localizeShipType(locale, ship.type).toLowerCase().includes(normalizedSearchTerm) ||
@@ -175,7 +176,7 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
                         priceHistoryMap[ship.id]?.history.sort((a, b) => b.ts - a.ts).find(h => h.msrp !== h.baseMsrp) && showHistoryWB && <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
                     }
                     {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{localizeShipStatus(locale, ship)}</div>}
-                    <h3 className="font-medium">{ship.name}</h3>
+                    <h3 className="font-medium">{ship.localizedName || ship.name}</h3>
                   </div>
                   {
                     !ccus.find(c => c.id === ship.id) && <div className="text-xs text-white bg-red-300 dark:bg-pink-700 rounded-sm w-fit px-1">
