@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
-import { Button, IconButton, Input, Select } from '@mui/material';
+import { Button, IconButton, Input, Select, Tooltip } from '@mui/material';
+import { InfoOutlined } from '@mui/icons-material';
 import { Copy, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
@@ -25,6 +26,7 @@ interface ShipNodeProps {
     onDeleteEdge?: (edgeId: string) => void;
     onDeleteNode?: (nodeId: string) => void;
     onDuplicateNode?: (ship: Ship, position: XYPosition) => void;
+    onOpenShipInfo?: (ship: Ship) => void;
     onOpenShipContextMenu?: (event: React.MouseEvent<HTMLElement>, ship: Ship) => void;
     incomingEdges?: Edge<CcuEdgeData>[];
     id: string;
@@ -43,7 +45,7 @@ interface ShipNodeSourceSelectionOption {
 }
 
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
-  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipContextMenu, incomingEdges = [] } = data;
+  const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipInfo, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const { locale } = useLocale();
@@ -259,6 +261,11 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     onDuplicateNode?.(ship, { x: xPos, y: yPos });
   };
 
+  const handleOpenShipInfo = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    onOpenShipInfo?.(ship);
+  };
+
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     onOpenShipContextMenu?.(event, ship);
   };
@@ -377,6 +384,15 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
         <div className="flex flex-row items-center gap-2 mb-1">
           <h3 className="text-xl font-bold">{shipDisplayName}</h3>
+          <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}>
+            <IconButton
+              size="small"
+              aria-label={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}
+              onClick={handleOpenShipInfo}
+            >
+              <InfoOutlined className="w-4 h-4" />
+            </IconButton>
+          </Tooltip>
           <IconButton size="small" onClick={handleDuplicateNode}>
             <Copy className="w-3 h-3" />
           </IconButton>

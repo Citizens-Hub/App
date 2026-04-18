@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuEdgeData, Ccu, WbHistoryData, PriceHistoryEntity } from '@/types';
+import { Ship, CcuEdgeData, Ccu, WbHistoryData, PriceHistoryEntity, UserRole } from '@/types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
@@ -44,6 +44,8 @@ import { Plus, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
 import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
 import ShipInfoDialog from './ShipInfoDialog';
+import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslationEditorDialog';
+import { RootState } from '@/store';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
@@ -350,6 +352,7 @@ function CcuCanvasContent() {
   const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState | null>(null);
   const [shipContextMenu, setShipContextMenu] = useState<ShipContextMenuState | null>(null);
   const [shipInfoShip, setShipInfoShip] = useState<Ship | null>(null);
+  const [shipTranslationShip, setShipTranslationShip] = useState<Ship | null>(null);
 
   // Use data from context
   const {
@@ -367,6 +370,8 @@ function CcuCanvasContent() {
 
   // Get upgrade items from Redux
   const upgrades = useSelector(selectUsersHangarItems);
+  const { user } = useSelector((state: RootState) => state.user);
+  const isAdmin = user.role === UserRole.Admin;
 
   const getNextRouteName = useCallback((existingTabs: PlannerTabState[]): string => {
     return intl.formatMessage(
@@ -684,6 +689,15 @@ function CcuCanvasContent() {
     setShipInfoShip(null);
   }, []);
 
+  const handleOpenShipTranslationDialog = useCallback((ship: Ship) => {
+    setShipTranslationShip(ship);
+    setShipContextMenu(null);
+  }, []);
+
+  const handleCloseShipTranslationDialog = useCallback(() => {
+    setShipTranslationShip(null);
+  }, []);
+
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       setNodes(nodes => nodes.filter(node => node.id !== nodeId));
@@ -721,6 +735,7 @@ function CcuCanvasContent() {
           onDuplicateNode: (targetShip: Ship, targetPosition: XYPosition) => {
             handleDuplicateNodeRef.current?.(targetShip, targetPosition);
           },
+          onOpenShipInfo: handleOpenShipInfoDialog,
           onOpenShipContextMenu: openShipContextMenu,
           ccus
         },
@@ -728,7 +743,7 @@ function CcuCanvasContent() {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge, openShipContextMenu]
+    [setNodes, updateEdgeData, handleDeleteNode, ccus, deleteEdge, handleOpenShipInfoDialog, openShipContextMenu]
   );
 
   useEffect(() => {
@@ -750,6 +765,7 @@ function CcuCanvasContent() {
             onDeleteEdge: deleteEdge,
             onDeleteNode: handleDeleteNode,
             onDuplicateNode: handleDuplicateNode,
+            onOpenShipInfo: handleOpenShipInfoDialog,
             onOpenShipContextMenu: openShipContextMenu,
             id: node.id,
             ccus,
@@ -758,7 +774,7 @@ function CcuCanvasContent() {
         };
       });
     });
-  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge, wbHistory, openShipContextMenu]);
+  }, [edges, setNodes, updateEdgeData, handleDeleteNode, handleDuplicateNode, ccus, deleteEdge, wbHistory, handleOpenShipInfoDialog, openShipContextMenu]);
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1307,6 +1323,7 @@ function CcuCanvasContent() {
           onDeleteEdge: deleteEdge,
           onDeleteNode: handleDeleteNode,
           onDuplicateNode: handleDuplicateNode,
+          onOpenShipInfo: handleOpenShipInfoDialog,
           onOpenShipContextMenu: openShipContextMenu,
           ccus
         },
@@ -1314,7 +1331,7 @@ function CcuCanvasContent() {
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, openShipContextMenu]);
+  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, handleOpenShipInfoDialog, openShipContextMenu]);
 
   const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
@@ -1668,6 +1685,7 @@ function CcuCanvasContent() {
         onDeleteEdge: deleteEdge,
         onDeleteNode: handleDeleteNode,
         onDuplicateNode: handleDuplicateNode,
+        onOpenShipInfo: handleOpenShipInfoDialog,
         onOpenShipContextMenu: openShipContextMenu,
         ccus,
         wbHistory,
@@ -1685,6 +1703,7 @@ function CcuCanvasContent() {
     handleDuplicateNode,
     ccus,
     wbHistory,
+    handleOpenShipInfoDialog,
     openShipContextMenu,
     setNodes,
   ]);
@@ -1777,6 +1796,7 @@ function CcuCanvasContent() {
         data: {
           ...node.data,
           id: nextId,
+          onOpenShipInfo: handleOpenShipInfoDialog,
           onOpenShipContextMenu: openShipContextMenu
         }
       };
@@ -2094,6 +2114,7 @@ function CcuCanvasContent() {
           ccus={ccus}
           onDragStart={onShipDragStart}
           onMobileAdd={onMobileAdd}
+          onOpenShipInfo={handleOpenShipInfoDialog}
           onOpenShipContextMenu={openShipContextMenu}
         />
       </div>
@@ -2295,6 +2316,19 @@ function CcuCanvasContent() {
             }
           }}
         >
+          {isAdmin && (
+            <MenuItem
+              sx={shipContextMenuItemSx}
+              onClick={() => {
+                if (!shipContextMenu) {
+                  return;
+                }
+                handleOpenShipTranslationDialog(shipContextMenu.ship);
+              }}
+            >
+              <FormattedMessage id="ccuPlanner.shipMenu.editTranslation" defaultMessage="Edit Ship Translation" />
+            </MenuItem>
+          )}
           <MenuItem
             sx={shipContextMenuItemSx}
             onClick={() => {
@@ -2398,6 +2432,12 @@ function CcuCanvasContent() {
         open={Boolean(shipInfoShip)}
         ship={shipInfoShip}
         onClose={handleCloseShipInfoDialog}
+      />
+
+      <ShipTranslationEditorDialog
+        open={Boolean(shipTranslationShip)}
+        shipId={shipTranslationShip?.id ?? null}
+        onClose={handleCloseShipTranslationDialog}
       />
 
       <Dialog

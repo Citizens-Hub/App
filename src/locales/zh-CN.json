@@ -51,6 +51,7 @@
   "ccuPlanner.tabMenu.closeOthers": "关闭其他",
   "ccuPlanner.tabMenu.closeAll": "关闭全部",
   "ccuPlanner.shipMenu.viewInfo": "舰船信息",
+  "ccuPlanner.shipMenu.editTranslation": "修改舰船翻译",
   "ccuPlanner.shipInfo.openOnRsi": "在 RSI 打开",
   "ccuPlanner.shipInfo.loadFailed": "舰船详情接口请求失败，当前显示的是已加载到页面中的基础舰船数据。",
   "ccuPlanner.shipInfo.description": "简介",

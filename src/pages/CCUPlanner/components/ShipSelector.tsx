@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Ccu, Ship } from '@/types';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router';
-import { Button, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
+import { Button, IconButton, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
 import { InfoOutlined, Search } from '@mui/icons-material';
 import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipFocus, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
@@ -13,10 +13,11 @@ interface ShipSelectorProps {
   ccus: Ccu[];
   onDragStart: (event: React.DragEvent<HTMLDivElement>, ship: Ship) => void;
   onMobileAdd: (ship: Ship) => void;
+  onOpenShipInfo?: (ship: Ship) => void;
   onOpenShipContextMenu?: (event: React.MouseEvent<HTMLElement>, ship: Ship) => void;
 }
 
-export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, onOpenShipContextMenu }: ShipSelectorProps) {
+export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, onOpenShipInfo, onOpenShipContextMenu }: ShipSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredShips, setFilteredShips] = useState<Ship[]>(ships);
   const [showHistoryWB, setShowHistoryWB] = useState(false);
@@ -89,6 +90,12 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
     onMobileAdd(ship);
     setSearchTerm('');
   }
+
+  const handleOpenShipInfo = (event: React.MouseEvent<HTMLButtonElement>, ship: Ship) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenShipInfo?.(ship);
+  };
 
   return (
     <div className="md:h-full h-auto overflow-y-auto w-full mx-1 sm:m-0">
@@ -200,7 +207,23 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
                   </div>
                 </div>
               </div>
-              {isMobile && <Button variant="outlined" onClick={() => { handleMobileShipSelection(ship) }}>+</Button>}
+              <div className="flex items-center gap-1">
+                {onOpenShipInfo && (
+                  <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}>
+                    <IconButton
+                      size="small"
+                      draggable={false}
+                      aria-label={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onDragStart={(event) => event.preventDefault()}
+                      onClick={(event) => handleOpenShipInfo(event, ship)}
+                    >
+                      <InfoOutlined fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {isMobile && <Button variant="outlined" onClick={() => { handleMobileShipSelection(ship) }}>+</Button>}
+              </div>
             </div>
           ))}
         </div>

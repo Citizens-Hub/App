@@ -51,6 +51,7 @@
   "ccuPlanner.tabMenu.closeOthers": "他を閉じる",
   "ccuPlanner.tabMenu.closeAll": "すべて閉じる",
   "ccuPlanner.shipMenu.viewInfo": "艦船情報",
+  "ccuPlanner.shipMenu.editTranslation": "艦船翻訳を編集",
   "ccuPlanner.shipInfo.openOnRsi": "RSIで開く",
   "ccuPlanner.shipInfo.loadFailed": "艦船詳細 API の取得に失敗したため、現在利用可能な基本データを表示しています。",
   "ccuPlanner.shipInfo.description": "説明",

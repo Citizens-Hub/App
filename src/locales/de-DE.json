@@ -51,6 +51,7 @@
   "ccuPlanner.tabMenu.closeOthers": "Andere schließen",
   "ccuPlanner.tabMenu.closeAll": "Alle schließen",
   "ccuPlanner.shipMenu.viewInfo": "Schiffsinformationen",
+  "ccuPlanner.shipMenu.editTranslation": "Schiffsübersetzung bearbeiten",
   "ccuPlanner.shipInfo.openOnRsi": "Auf RSI öffnen",
   "ccuPlanner.shipInfo.loadFailed": "Die Anfrage an die Schiff-Detail-API ist fehlgeschlagen. Es werden die bereits verfügbaren Basisdaten angezeigt.",
   "ccuPlanner.shipInfo.description": "Beschreibung",

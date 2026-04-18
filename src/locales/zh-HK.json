@@ -51,6 +51,7 @@
   "ccuPlanner.tabMenu.closeOthers": "關閉其他",
   "ccuPlanner.tabMenu.closeAll": "關閉全部",
   "ccuPlanner.shipMenu.viewInfo": "艦船資訊",
+  "ccuPlanner.shipMenu.editTranslation": "修改艦船翻譯",
   "ccuPlanner.shipInfo.openOnRsi": "在 RSI 開啟",
   "ccuPlanner.shipInfo.loadFailed": "艦船詳情 API 請求失敗，現在顯示的是頁面上已載入的基礎艦船資料。",
   "ccuPlanner.shipInfo.description": "簡介",
