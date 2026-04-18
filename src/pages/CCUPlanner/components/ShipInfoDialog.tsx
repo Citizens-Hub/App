@@ -23,6 +23,7 @@ import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
 import { getShipMetadataEntry, localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import { Ship, ShipDetailComponent, ShipResponse } from '@/types';
+import ShipModelPreview from './ShipModelPreview';
 
 interface ShipInfoDialogProps {
   open: boolean;
@@ -516,6 +517,13 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
                   </div>
                 ))}
               </div>
+
+              {detail?.ctm && (
+                <ShipModelPreview
+                  open={open}
+                  shipId={detailedShip?.id}
+                />
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {coreFields.map((field) => (
