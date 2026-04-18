@@ -22,12 +22,11 @@ interface SpecialShipPricing {
   validityWindows?: CcuValidityWindow[];
 }
 
-interface SourceSkuPriceConstraintParams {
+interface HistoricalUpgradePricingParams {
   sourceShipId: number;
   targetPriceCents: number;
   targetValidityWindows: CcuValidityWindow[];
   priceHistoryMap: Record<number, PriceHistoryEntity>;
-  enforceSimultaneousIncrease?: boolean;
 }
 
 interface SourceStandardPriceWindow {
@@ -35,6 +34,11 @@ interface SourceStandardPriceWindow {
   priceCents: number;
   startTs: number;
   endTs: number | null;
+}
+
+interface HistoricalUpgradePricingOption {
+  sourcePriceCents: number;
+  validityWindows: CcuValidityWindow[];
 }
 
 interface PathLayoutOptions {
@@ -1887,47 +1891,56 @@ export class PathBuilderService {
     });
   }
 
-  private _getSourceHighestStandardPriceByTs(
-    sourceStandardWindows: SourceStandardPriceWindow[],
-    tsInclusive: number
-  ): number | null {
-    const candidatePrices = sourceStandardWindows
-      .filter(sourceWindow => sourceWindow.startTs <= tsInclusive)
-      .map(sourceWindow => sourceWindow.priceCents);
-    if (!candidatePrices.length) {
+  private _mergeValidityWindowEnd(leftEnd: number | null, rightEnd: number | null): number | null {
+    if (leftEnd === null || rightEnd === null) {
       return null;
     }
-    return Math.max(...candidatePrices);
+    return Math.max(leftEnd, rightEnd);
   }
 
-  private _hasSourceEffectiveIncreaseAtTs(
-    sourceStandardWindows: SourceStandardPriceWindow[],
-    ts: number
-  ): boolean {
-    const previousPrices = sourceStandardWindows
-      .filter(sourceWindow => sourceWindow.startTs < ts)
-      .map(sourceWindow => sourceWindow.priceCents);
-    const atTsPrices = sourceStandardWindows
-      .filter(sourceWindow => sourceWindow.startTs === ts)
-      .map(sourceWindow => sourceWindow.priceCents);
-    if (!atTsPrices.length) {
-      return false;
+  private _mergeSkuValidityWindows(windows: CcuValidityWindow[]): CcuValidityWindow[] {
+    if (!windows.length) {
+      return [];
     }
 
-    const previousMax = previousPrices.length ? Math.max(...previousPrices) : Number.NEGATIVE_INFINITY;
-    const atTsMax = Math.max(...atTsPrices);
-    return atTsMax > previousMax;
+    const sortedWindows = [...windows].sort((a, b) => {
+      if (a.sku !== b.sku) {
+        return a.sku - b.sku;
+      }
+      if (a.startTs !== b.startTs) {
+        return a.startTs - b.startTs;
+      }
+      const aEnd = a.endTs ?? Number.POSITIVE_INFINITY;
+      const bEnd = b.endTs ?? Number.POSITIVE_INFINITY;
+      return aEnd - bEnd;
+    });
+
+    const mergedWindows: CcuValidityWindow[] = [];
+    sortedWindows.forEach(window => {
+      const previousWindow = mergedWindows[mergedWindows.length - 1];
+      if (!previousWindow || previousWindow.sku !== window.sku) {
+        mergedWindows.push({ ...window });
+        return;
+      }
+
+      const previousEnd = previousWindow.endTs;
+      if (previousEnd === null || window.startTs <= previousEnd) {
+        previousWindow.endTs = this._mergeValidityWindowEnd(previousEnd, window.endTs);
+        return;
+      }
+
+      mergedWindows.push({ ...window });
+    });
+
+    return mergedWindows;
   }
 
-  private _getLowestHistoricalUpgradeCostUsd(params: {
-    sourceShipId: number;
-    targetPriceCents: number;
-    targetValidityWindows: CcuValidityWindow[];
-    priceHistoryMap: Record<number, PriceHistoryEntity>;
-  }): number | null {
+  private _collectHistoricalUpgradePricingOptions(
+    params: HistoricalUpgradePricingParams
+  ): HistoricalUpgradePricingOption[] {
     const { sourceShipId, targetPriceCents, targetValidityWindows, priceHistoryMap } = params;
     if (!targetValidityWindows.length) {
-      return null;
+      return [];
     }
 
     const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
@@ -1935,114 +1948,41 @@ export class PathBuilderService {
       history: sourceHistory
     });
     if (!sourceStandardWindows.length) {
-      return null;
+      return [];
     }
 
-    const candidateCosts = targetValidityWindows
-      .map(targetWindow => {
-        const pricePointTs = this._getWindowEvaluationTs(
-          targetWindow.startTs,
-          targetWindow.endTs,
-          Number.POSITIVE_INFINITY
-        );
-        const sourceEffectivePrice = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, pricePointTs);
-        if (sourceEffectivePrice === null || sourceEffectivePrice >= targetPriceCents) {
-          return null;
+    const optionsBySourcePrice = new Map<number, CcuValidityWindow[]>();
+    targetValidityWindows.forEach(targetWindow => {
+      const targetWindowEndTs = targetWindow.endTs ?? Number.POSITIVE_INFINITY;
+      sourceStandardWindows.forEach(sourceWindow => {
+        if (sourceWindow.priceCents >= targetPriceCents) {
+          return;
         }
 
-        const costUsd = (targetPriceCents - sourceEffectivePrice) / 100;
-        return costUsd > 0 ? costUsd : null;
-      })
-      .filter((value): value is number => typeof value === 'number');
+        const sourceWindowEndTs = sourceWindow.endTs ?? Number.POSITIVE_INFINITY;
+        const overlapStartTs = Math.max(targetWindow.startTs, sourceWindow.startTs);
+        const overlapEndTs = Math.min(targetWindowEndTs, sourceWindowEndTs);
+        if (Number.isFinite(overlapEndTs) && overlapStartTs >= overlapEndTs) {
+          return;
+        }
 
-    if (!candidateCosts.length) {
-      return null;
-    }
-
-    return Math.min(...candidateCosts);
-  }
-
-  private _getWindowEvaluationTs(startTs: number, endTs: number | null, fallbackEndTs: number): number {
-    if (endTs === null) {
-      return fallbackEndTs;
-    }
-    // Treat validity window end as exclusive.
-    return Math.max(startTs, endTs - 1);
-  }
-
-  private _filterTargetValidityWindowsBySourceSkuPrice(params: SourceSkuPriceConstraintParams): CcuValidityWindow[] {
-    const {
-      sourceShipId,
-      targetPriceCents,
-      targetValidityWindows,
-      priceHistoryMap,
-      enforceSimultaneousIncrease = false
-    } = params;
-
-    const sourceHistory = priceHistoryMap[sourceShipId]?.history || [];
-    const hasHistorySkuData = sourceHistory.some(entry =>
-      entry.change === '+' &&
-      typeof entry.sku === 'number' &&
-      typeof entry.msrp === 'number'
-    );
-    if (!hasHistorySkuData) {
-      return [];
-    }
-
-    const sourceStandardWindows = this._collectSourceStandardPriceWindows({
-      history: sourceHistory
+        const priceWindows = optionsBySourcePrice.get(sourceWindow.priceCents) || [];
+        priceWindows.push({
+          sku: targetWindow.sku,
+          startTs: overlapStartTs,
+          endTs: Number.isFinite(overlapEndTs) ? overlapEndTs : null
+        });
+        optionsBySourcePrice.set(sourceWindow.priceCents, priceWindows);
+      });
     });
-    if (!sourceStandardWindows.length) {
-      return [];
-    }
 
-    return targetValidityWindows.flatMap(targetWindow => {
-      const targetWindowStartTs = targetWindow.startTs;
-      const sourceHighestAtWindowStart = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, targetWindowStartTs);
-      if (sourceHighestAtWindowStart === null || sourceHighestAtWindowStart >= targetPriceCents) {
-        return [];
-      }
-
-      let effectiveTargetWindowEndTs = targetWindow.endTs;
-      const firstHigherSourceTs = sourceStandardWindows
-        .filter(sourceWindow =>
-          sourceWindow.startTs > targetWindowStartTs
-          && sourceWindow.priceCents > targetPriceCents
-          && (targetWindow.endTs === null || sourceWindow.startTs < targetWindow.endTs)
-        )
-        .map(sourceWindow => sourceWindow.startTs)
-        .sort((a, b) => a - b)[0];
-      if (typeof firstHigherSourceTs === 'number') {
-        effectiveTargetWindowEndTs = firstHigherSourceTs;
-      }
-
-      if (effectiveTargetWindowEndTs !== null && effectiveTargetWindowEndTs <= targetWindowStartTs) {
-        return [];
-      }
-
-      const effectiveTargetWindowEvalTs = this._getWindowEvaluationTs(
-        targetWindowStartTs,
-        effectiveTargetWindowEndTs,
-        Number.POSITIVE_INFINITY
-      );
-      const sourceHighestAtWindowEnd = this._getSourceHighestStandardPriceByTs(sourceStandardWindows, effectiveTargetWindowEvalTs);
-      if (sourceHighestAtWindowEnd !== null && sourceHighestAtWindowEnd > targetPriceCents) {
-        return [];
-      }
-
-      if (
-        enforceSimultaneousIncrease
-        && targetWindow.endTs !== null
-        && this._hasSourceEffectiveIncreaseAtTs(sourceStandardWindows, targetWindow.endTs)
-      ) {
-        return [];
-      }
-
-      return [{
-        ...targetWindow,
-        endTs: effectiveTargetWindowEndTs
-      }];
-    });
+    return Array.from(optionsBySourcePrice.entries())
+      .map(([sourcePriceCents, validityWindows]) => ({
+        sourcePriceCents,
+        validityWindows: this._mergeSkuValidityWindows(validityWindows)
+      }))
+      .filter(option => option.validityWindows.length > 0)
+      .sort((left, right) => right.sourcePriceCents - left.sourcePriceCents);
   }
 
   private _isWbVariantName(shipName: string): boolean {
@@ -2196,7 +2136,7 @@ export class PathBuilderService {
     ccus: Ccu[];
     priceHistoryMap: Record<number, PriceHistoryEntity>;
     specialPricingMap: Record<string, SpecialShipPricing> | undefined;
-  }): CcuEdgeData | null {
+  }): CcuEdgeData[] {
     const { sourceShipNode, targetShipNode, stepShips, ccus, priceHistoryMap, specialPricingMap } = params;
     const priceDifference = targetShipNode.data.ship.msrp - sourceShipNode.data.ship.msrp;
     const edgeData: CcuEdgeData = {
@@ -2216,45 +2156,39 @@ export class PathBuilderService {
           specialPricing.sourceType === CcuSourceType.PRICE_INCREASE) &&
         specialPricing.validityWindows?.length
       ) {
-        const constrainedWindows = this._filterTargetValidityWindowsBySourceSkuPrice({
+        const pricingOptions = this._collectHistoricalUpgradePricingOptions({
           sourceShipId: sourceShipNode.data.ship.id,
           targetPriceCents: specialPricing.priceCents,
           targetValidityWindows: specialPricing.validityWindows,
-          priceHistoryMap,
-          enforceSimultaneousIncrease: specialPricing.sourceType === CcuSourceType.PRICE_INCREASE
-        });
-
-        if (!constrainedWindows.length) {
-          return null;
-        }
-
-        const actualPrice = this._getLowestHistoricalUpgradeCostUsd({
-          sourceShipId: sourceShipNode.data.ship.id,
-          targetPriceCents: specialPricing.priceCents,
-          targetValidityWindows: constrainedWindows,
           priceHistoryMap
         });
-        if (actualPrice === null || actualPrice <= 0) {
-          return null;
-        }
 
-        edgeData.validityWindows = constrainedWindows;
-        edgeData.sourceType = specialPricing.sourceType;
-        edgeData.customPrice = Math.max(0, actualPrice);
-        return edgeData;
+        return pricingOptions.flatMap(pricingOption => {
+          const actualPrice = (specialPricing.priceCents - pricingOption.sourcePriceCents) / 100;
+          if (actualPrice <= 0) {
+            return [];
+          }
+
+          return [{
+            ...edgeData,
+            validityWindows: pricingOption.validityWindows,
+            sourceType: specialPricing.sourceType,
+            customPrice: Math.max(0, actualPrice)
+          }];
+        });
       }
 
       const actualPrice = specialPricing.priceCents / 100 - sourceShipNode.data.ship.msrp / 100;
       if (actualPrice <= 0) {
-        return null;
+        return [];
       }
 
-      edgeData.sourceType = specialPricing.sourceType;
-      edgeData.customPrice = Math.max(0, actualPrice);
-      if (specialPricing.validityWindows?.length && !edgeData.validityWindows) {
-        edgeData.validityWindows = specialPricing.validityWindows;
-      }
-      return edgeData;
+      return [{
+        ...edgeData,
+        sourceType: specialPricing.sourceType,
+        customPrice: Math.max(0, actualPrice),
+        validityWindows: specialPricing.validityWindows?.length ? specialPricing.validityWindows : undefined
+      }];
     }
 
     if (targetShipNameInPath && this._isPriceIncreaseVariantName(targetShipNameInPath)) {
@@ -2270,12 +2204,12 @@ export class PathBuilderService {
       if (historicalPrice && historicalPrice !== targetShipNode.data.ship.msrp) {
         const actualPrice = historicalPrice / 100 - sourceShipNode.data.ship.msrp / 100;
         if (actualPrice <= 0) {
-          return null;
+          return [];
         }
         edgeData.sourceType = CcuSourceType.PRICE_INCREASE;
         edgeData.customPrice = Math.max(0, actualPrice);
       }
-      return edgeData;
+      return [edgeData];
     }
 
     if (targetShipNameInPath && this._isWbVariantName(targetShipNameInPath)) {
@@ -2285,12 +2219,12 @@ export class PathBuilderService {
       if (wbPrice && wbPrice !== targetShipNode.data.ship.msrp) {
         const actualPrice = wbPrice / 100 - sourceShipNode.data.ship.msrp / 100;
         if (actualPrice <= 0) {
-          return null;
+          return [];
         }
         edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
         edgeData.customPrice = Math.max(0, actualPrice);
       }
-      return edgeData;
+      return [edgeData];
     }
 
     const targetShipSkus = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus;
@@ -2299,13 +2233,13 @@ export class PathBuilderService {
     if (targetWb && sourceShipNode.data.ship.msrp < targetWb.price) {
       const actualPrice = targetWb.price / 100 - sourceShipNode.data.ship.msrp / 100;
       if (actualPrice <= 0) {
-        return null;
+        return [];
       }
       edgeData.sourceType = CcuSourceType.AVAILABLE_WB;
       edgeData.customPrice = Math.max(0, actualPrice);
     }
 
-    return edgeData;
+    return [edgeData];
   }
 
   private _pushAutoPathEdge(params: {
@@ -2346,22 +2280,40 @@ export class PathBuilderService {
 
     levelShips.forEach((level, index) => {
       level.forEach(targetShipNode => {
-        for (let i = index - 1; i >= 0; i--) {
-          const sourceShips = levelShips[i].filter(sourceShipNode => {
+        const targetShipInPath = stepShips[1].find(s => this._getShipVariantKey(s) === targetShipNode.data.plannerShipKey);
+        const targetSpecialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
+        const isHistoricalTargetPricing = !!(
+          targetSpecialPricing &&
+          (
+            targetSpecialPricing.sourceType === CcuSourceType.HISTORICAL
+            || targetSpecialPricing.sourceType === CcuSourceType.PRICE_INCREASE
+          )
+        );
+        const candidateLevelIndexes = isHistoricalTargetPricing
+          ? [
+            ...Array.from({ length: index }, (_, offset) => index - 1 - offset),
+            index,
+            ...Array.from({ length: levelShips.length - index - 1 }, (_, offset) => index + 1 + offset)
+          ]
+          : Array.from({ length: index }, (_, offset) => index - 1 - offset);
+
+        for (const candidateLevelIndex of candidateLevelIndexes) {
+          const sourceShips = levelShips[candidateLevelIndex].filter(sourceShipNode => {
+            if (sourceShipNode.id === targetShipNode.id) {
+              return false;
+            }
+
             const originShip = stepShips[1].find(s => this._getShipVariantKey(s) === sourceShipNode.data.plannerShipKey);
-            const targetShipInPath = stepShips[1].find(s => this._getShipVariantKey(s) === targetShipNode.data.plannerShipKey);
-            const targetSpecialPricing = targetShipInPath ? this._getSpecialShipPricing(targetShipInPath, specialPricingMap) : undefined;
             const targetShipCost = this._getShipPrice(targetShipInPath || targetShipNode.data.ship, ccus, [], priceHistoryMap, specialPricingMap);
-            const isHistoricalTargetPricing = targetSpecialPricing
-              && (
-                targetSpecialPricing.sourceType === CcuSourceType.HISTORICAL
-                || targetSpecialPricing.sourceType === CcuSourceType.PRICE_INCREASE
-              );
 
             const exactMatchCCU = (buildConstraintAwareGraph || preferHangarCcu) && hangarItems.some(upgrade =>
               upgrade.fromShip?.toUpperCase() === sourceShipNode.data.ship.name.trim().toUpperCase() &&
               upgrade.toShip?.toUpperCase() === targetShipNode.data.ship.name.trim().toUpperCase()
             );
+
+            if (isHistoricalTargetPricing && sourceShipNode.data.ship.msrp >= targetShipNode.data.ship.msrp && !exactMatchCCU) {
+              return false;
+            }
 
             if (!isHistoricalTargetPricing && sourceShipNode.data.ship.msrp >= targetShipCost && !exactMatchCCU) {
               return false;
@@ -2390,7 +2342,7 @@ export class PathBuilderService {
                 return from === sourceShipNode.data.ship.name.trim().toUpperCase() && to === targetShipNode.data.ship.name.trim().toUpperCase();
               });
 
-              const nonHangarEdgeData = this._buildNonHangarEdgeData({
+              const nonHangarEdgeDataList = this._buildNonHangarEdgeData({
                 sourceShipNode,
                 targetShipNode,
                 stepShips,
@@ -2410,15 +2362,15 @@ export class PathBuilderService {
                 : null;
 
               if (buildConstraintAwareGraph) {
-                if (nonHangarEdgeData) {
+                nonHangarEdgeDataList.forEach((nonHangarEdgeData, optionIndex) => {
                   this._pushAutoPathEdge({
                     sourceShipNode,
                     targetShipNode,
                     edgeData: nonHangarEdgeData,
                     newEdges,
-                    idSuffix: 'base'
+                    idSuffix: `base-${optionIndex}`
                   });
-                }
+                });
 
                 if (hangarEdgeData) {
                   this._pushAutoPathEdge({
@@ -2432,6 +2384,7 @@ export class PathBuilderService {
                 return;
               }
 
+              const nonHangarEdgeData = nonHangarEdgeDataList[0] || null;
               const selectedEdgeData = hangarEdgeData && preferHangarCcu
                 ? hangarEdgeData
                 : nonHangarEdgeData;

@@ -10,6 +10,13 @@ import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { getShipDisplayName } from '@/utils/shipDisplay';
+import {
+  CcuConcretePricingOption,
+  findMatchingConcretePricingOption,
+  getAvailableWbPricingOptions,
+  getHistoricalPricingOptions,
+  getPriceIncreasePricingOptions
+} from '../services/CcuPriceOptions';
 
 interface ShipNodeProps {
   data: {
@@ -28,6 +35,13 @@ interface ShipNodeProps {
   selected?: boolean;
 }
 
+interface ShipNodeSourceSelectionOption {
+  value: string;
+  sourceType: CcuSourceType;
+  label: string;
+  pricingOption?: CcuConcretePricingOption;
+}
+
 export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
   const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
@@ -39,21 +53,167 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
   const { ccus, wbHistory, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
 
   const { currency } = useSelector((state: RootState) => state.upgrades);
-  
-  const skus = ccus.find(c => c.id === ship.id)?.skus
-  const wb = skus?.find(sku => sku.price !== ship.msrp)
   const localizedStatus = localizeShipStatus(locale, ship);
   const localizedType = localizeShipType(locale, ship.type);
-  const history = priceHistoryMap[ship.id]?.history || [];
-  const historicalWb = history
-    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && entry.edition?.toLowerCase().includes('warbond'))
-    .sort((a, b) => a.msrp! - b.msrp!)[0];
-  const priceIncrease = history
-    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && !entry.edition?.toLowerCase().includes('warbond'))
-    .sort((a, b) => a.msrp! - b.msrp!)[0];
+  const hasAvailableWb = (ccus.find(c => c.id === ship.id)?.skus || []).some(
+    sku => sku.available && sku.price !== ship.msrp
+  );
 
   // Track initialized edge IDs
   const initializedEdgesRef = useRef<Set<string>>(new Set());
+  const [edgeSettings, setEdgeSettings] = useState<{
+    [key: string]: {
+      sourceType: CcuSourceType;
+      customPrice?: number | string;
+      selectedTargetPriceCents?: number;
+      selectedSourcePriceCents?: number;
+    }
+  }>({});
+
+  const formatUsd = (amount: number) => amount.toLocaleString(locale, { style: 'currency', currency: 'USD' });
+
+  const buildBasicOptionValue = (sourceType: CcuSourceType) => `basic:${sourceType}`;
+
+  const findHangarItem = (edge: Edge<CcuEdgeData>) => hangarItems.find(item =>
+    item.fromShip &&
+    item.toShip &&
+    item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() &&
+    item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
+  );
+
+  const findSubscriptionItem = (edge: Edge<CcuEdgeData>) => importItems.find(item =>
+    item.from === edge.data?.sourceShip?.id &&
+    item.to === edge.data?.targetShip?.id
+  );
+
+  const buildSelectableOptions = (edge: Edge<CcuEdgeData>): ShipNodeSourceSelectionOption[] => {
+    const sourceShip = edge.data?.sourceShip;
+    const targetShip = edge.data?.targetShip;
+    const options: ShipNodeSourceSelectionOption[] = [{
+      value: buildBasicOptionValue(CcuSourceType.OFFICIAL),
+      sourceType: CcuSourceType.OFFICIAL,
+      label: intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" })
+    }];
+
+    if (!sourceShip || !targetShip) {
+      return options;
+    }
+
+    const pricingContext = {
+      sourceShip,
+      targetShip,
+      ccus,
+      priceHistoryMap
+    };
+    const subscriptionItem = findSubscriptionItem(edge);
+    const hangarItem = findHangarItem(edge);
+
+    if (subscriptionItem) {
+      options.push({
+        value: buildBasicOptionValue(CcuSourceType.SUBSCRIPTION),
+        sourceType: CcuSourceType.SUBSCRIPTION,
+        label: intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "Subscription" })
+      });
+    }
+
+    getAvailableWbPricingOptions(pricingContext).forEach(option => {
+      options.push({
+        value: option.key,
+        sourceType: option.sourceType,
+        pricingOption: option,
+        label: `${intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: ${formatUsd((option.targetPriceCents || 0) / 100)} (+${formatUsd(option.customPrice)})`
+      });
+    });
+
+    getHistoricalPricingOptions(pricingContext).forEach(option => {
+      options.push({
+        value: option.key,
+        sourceType: option.sourceType,
+        pricingOption: option,
+        label: `${intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical WB" })}: ${formatUsd((option.targetPriceCents || 0) / 100)} / ${formatUsd((option.sourcePriceCents || 0) / 100)} (+${formatUsd(option.customPrice)})`
+      });
+    });
+
+    getPriceIncreasePricingOptions(pricingContext).forEach(option => {
+      options.push({
+        value: option.key,
+        sourceType: option.sourceType,
+        pricingOption: option,
+        label: `${intl.formatMessage({ id: "shipNode.priceIncrease", defaultMessage: "Price Increase" })}: ${formatUsd((option.targetPriceCents || 0) / 100)} / ${formatUsd((option.sourcePriceCents || 0) / 100)} (+${formatUsd(option.customPrice)})`
+      });
+    });
+
+    if (hangarItem) {
+      options.push({
+        value: buildBasicOptionValue(CcuSourceType.HANGER),
+        sourceType: CcuSourceType.HANGER,
+        label: `${intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}: ${hangarItem.price?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`
+      });
+    }
+
+    options.push({
+      value: buildBasicOptionValue(CcuSourceType.OFFICIAL_WB),
+      sourceType: CcuSourceType.OFFICIAL_WB,
+      label: intl.formatMessage({ id: "shipNode.manualOfficialWB", defaultMessage: "Manual: Official WB CCU" })
+    });
+
+    options.push({
+      value: buildBasicOptionValue(CcuSourceType.THIRD_PARTY),
+      sourceType: CcuSourceType.THIRD_PARTY,
+      label: intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" })
+    });
+
+    return options;
+  };
+
+  const getSelectedOptionValue = (
+    edge: Edge<CcuEdgeData>,
+    selectableOptions: ShipNodeSourceSelectionOption[]
+  ): string => {
+    const currentSettings = edgeSettings[edge.id];
+    const sourceType = currentSettings?.sourceType ?? edge.data?.sourceType ?? CcuSourceType.OFFICIAL;
+
+    if (
+      sourceType === CcuSourceType.AVAILABLE_WB ||
+      sourceType === CcuSourceType.HISTORICAL ||
+      sourceType === CcuSourceType.PRICE_INCREASE
+    ) {
+      const sourceShip = edge.data?.sourceShip;
+      const targetShip = edge.data?.targetShip;
+
+      if (sourceShip && targetShip) {
+        const resolvedCustomPrice = currentSettings?.customPrice === '' || currentSettings?.customPrice === undefined
+          ? edge.data?.customPrice
+          : Number(currentSettings.customPrice);
+        const matchedOption = findMatchingConcretePricingOption({
+          sourceType,
+          sourceShip,
+          targetShip,
+          ccus,
+          priceHistoryMap,
+          selectedTargetPriceCents: currentSettings?.selectedTargetPriceCents ?? edge.data?.selectedTargetPriceCents,
+          selectedSourcePriceCents: currentSettings?.selectedSourcePriceCents ?? edge.data?.selectedSourcePriceCents,
+          customPrice: resolvedCustomPrice
+        });
+
+        if (matchedOption) {
+          return matchedOption.key;
+        }
+      }
+
+      const fallbackTypedOption = selectableOptions.find(option => option.sourceType === sourceType);
+      if (fallbackTypedOption) {
+        return fallbackTypedOption.value;
+      }
+    }
+
+    const basicValue = buildBasicOptionValue(sourceType);
+    if (selectableOptions.some(option => option.value === basicValue)) {
+      return basicValue;
+    }
+
+    return selectableOptions[0]?.value || buildBasicOptionValue(CcuSourceType.OFFICIAL);
+  };
 
   // Initialize edge settings - only initialize new edges once
   useEffect(() => {
@@ -67,7 +227,9 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           if (!initializedEdgesRef.current.has(edge.id) && edge.data) {
             newSettings[edge.id] = {
               sourceType: edge.data.sourceType || CcuSourceType.OFFICIAL,
-              customPrice: edge.data.customPrice
+              customPrice: edge.data.customPrice,
+              selectedTargetPriceCents: edge.data.selectedTargetPriceCents,
+              selectedSourcePriceCents: edge.data.selectedSourcePriceCents
             };
             initializedEdgesRef.current.add(edge.id);
             hasChanges = true;
@@ -101,22 +263,22 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
     onOpenShipContextMenu?.(event, ship);
   };
 
-  const [edgeSettings, setEdgeSettings] = useState<{
-    [key: string]: {
-      sourceType: CcuSourceType;
-      customPrice?: number | string;
-    }
-  }>({});
-
-  const handleSourceTypeChange = (edgeId: string, sourceType: CcuSourceType) => {
+  const handleSourceTypeChange = (
+    edgeId: string,
+    selectedOption: ShipNodeSourceSelectionOption
+  ) => {
     const edge = incomingEdges.find(e => e.id === edgeId);
+    const sourceType = selectedOption.sourceType;
 
     setEdgeSettings(prevSettings => {
       const currentEdgeSettings = prevSettings[edgeId] || {};
       
       const newEdgeSettings = {
         ...currentEdgeSettings,
-        sourceType
+        sourceType,
+        customPrice: selectedOption.pricingOption?.customPrice,
+        selectedTargetPriceCents: selectedOption.pricingOption?.targetPriceCents,
+        selectedSourcePriceCents: selectedOption.pricingOption?.sourcePriceCents
       };
 
       const newSettings = {
@@ -128,7 +290,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         const sourceId = edge.source;
         
         if (edge.data) {
-          const updatedData = edgeService.updateEdgeData(edge.data, sourceType, undefined, {
+          const updatedData = edgeService.updateEdgeData(edge.data, {
+            sourceType,
+            selectedOption: selectedOption.pricingOption
+          }, {
             ccus,
             wbHistory,
             hangarItems,
@@ -139,6 +304,8 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           onUpdateEdge(sourceId, id, updatedData);
           
           newEdgeSettings.customPrice = updatedData.customPrice;
+          newEdgeSettings.selectedTargetPriceCents = updatedData.selectedTargetPriceCents;
+          newEdgeSettings.selectedSourcePriceCents = updatedData.selectedSourcePriceCents;
         }
       }
 
@@ -170,8 +337,10 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
           // Use CcuEdgeService to update edge data
           const updatedData = edgeService.updateEdgeData(
             edge.data,
-            currentSourceType,
-            Number(price)
+            {
+              sourceType: currentSourceType,
+              customPrice: Number(price)
+            }
           );
           
           onUpdateEdge(sourceId, id, updatedData);
@@ -196,7 +365,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
       <div className="flex flex-col items-center">
         <div className="w-full h-30 object-cover rounded-sm mb-12 relative">
           <div className="absolute top-2 right-2 flex flex-row gap-2">
-            {wb && <div className="text-sm text-white bg-orange-400 rounded-sm py-0.5 px-2">WB</div>}
+            {hasAvailableWb && <div className="text-sm text-white bg-orange-400 rounded-sm py-0.5 px-2">WB</div>}
             {ship.flyableStatus !== 'Flyable' && <div className="text-sm text-white bg-sky-400 rounded-sm py-0.5 px-2">{localizedStatus}</div>}
           </div>
           <img
@@ -252,114 +421,84 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
             <FormattedMessage id="shipNode.upgradePathSettings" defaultMessage="Upgrade Path Settings" />
           </h4>
 
-          {incomingEdges.map(edge => (
-            <div key={edge.id} className="mb-3 p-2 rounded">
-              <div className="text-sm text-black mb-1 flex flex-row items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  <FormattedMessage id="shipNode.ccuSource" defaultMessage="CCU Source" />
-                </span>
-                <span className='flex flex-row items-center gap-1 dark:text-white'>
-                  <span>
-                    {getShipDisplayName(edge.data?.sourceShip) ||
-                      edge.data?.sourceShip?.name ||
-                      intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
-                    }
+          {incomingEdges.map(edge => {
+            const selectableOptions = buildSelectableOptions(edge);
+            const selectedValue = getSelectedOptionValue(edge, selectableOptions);
+            const selectedSourceType = selectableOptions.find(option => option.value === selectedValue)?.sourceType
+              || edgeSettings[edge.id]?.sourceType
+              || edge.data?.sourceType
+              || CcuSourceType.OFFICIAL;
+
+            return (
+              <div key={edge.id} className="mb-3 p-2 rounded">
+                <div className="text-sm text-black mb-1 flex flex-row items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <FormattedMessage id="shipNode.ccuSource" defaultMessage="CCU Source" />
                   </span>
-                  <IconButton size='small' onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteEdge?.(edge.id);
-                  }}>
-                    <X className='w-4 h-4' />
-                  </IconButton>
-                </span>
-              </div>
+                  <span className='flex flex-row items-center gap-1 dark:text-white'>
+                    <span>
+                      {getShipDisplayName(edge.data?.sourceShip) ||
+                        edge.data?.sourceShip?.name ||
+                        intl.formatMessage({ id: "ccuPlanner.noData", defaultMessage: "Unknown Ship" })
+                      }
+                    </span>
+                    <IconButton size='small' onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteEdge?.(edge.id);
+                    }}>
+                      <X className='w-4 h-4' />
+                    </IconButton>
+                  </span>
+                </div>
 
-              <div className="mb-2">
-                <Select
-                  className="w-full text-sm z-50"
-                  size="small"
-                  native
-                  value={edgeSettings[edge.id]?.sourceType ?? edge.data?.sourceType ?? CcuSourceType.OFFICIAL}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value as string;
-                    handleSourceTypeChange(edge.id, selectedValue as CcuSourceType);
-                  }}
-                >
-                  <option value={CcuSourceType.OFFICIAL}>
-                    {intl.formatMessage({ id: "shipNode.official", defaultMessage: "Official" })}
-                  </option>
-                  {importItems.find(item => item.from === edge?.data?.sourceShip?.id && item.to === edge?.data?.targetShip?.id) && (
-                    <option value={CcuSourceType.SUBSCRIPTION}>
-                      {intl.formatMessage({ id: "shipNode.subscription", defaultMessage: "Subscription" })}
-                    </option>
-                  )}
-                  {wb && Number(edge?.data?.sourceShip?.msrp) < wb.price && (
-                    <option value={CcuSourceType.AVAILABLE_WB}>
-                      {intl.formatMessage({ id: "shipNode.availableWB", defaultMessage: "WB" })}: {(wb.price / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(wb.price / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
-                    </option>
-                  )}
-                  {historicalWb && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(historicalWb.msrp) / 100 && (
-                    <option value={CcuSourceType.HISTORICAL}>
-                      {intl.formatMessage({ id: "shipNode.historical", defaultMessage: "Historical WB" })}: {(Number(historicalWb.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(historicalWb.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
-                    </option>
-                  )}
-                  {priceIncrease && priceIncrease.msrp! < ship.msrp && Number(edge?.data?.sourceShip?.msrp) / 100 < Number(priceIncrease.msrp) / 100 && (
-                    <option value={CcuSourceType.PRICE_INCREASE}>
-                      {intl.formatMessage({ id: "shipNode.priceIncrease", defaultMessage: "Price Increase" })}: {(Number(priceIncrease.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })} (+{(Number(priceIncrease.msrp) / 100 - Number(edge?.data?.sourceShip?.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })})
-                    </option>
-                  )}
-                  {
-                    hangarItems.find(item => 
-                      item.fromShip && item.toShip &&
-                      item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() && 
-                      item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
-                    ) && <option value={CcuSourceType.HANGER}>
-                      {intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" })}:&nbsp;
-                      {hangarItems.find(item => 
-                        item.fromShip && item.toShip &&
-                        item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() && 
-                        item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
-                      )?.price?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                    </option>
-                  }
-                  <option value={CcuSourceType.OFFICIAL_WB}>
-                    {intl.formatMessage({ id: "shipNode.manualOfficialWB", defaultMessage: "Manual: Official WB CCU" })}
-                  </option>
-                  <option value={CcuSourceType.THIRD_PARTY}>
-                    {intl.formatMessage({ id: "shipNode.manualThirdParty", defaultMessage: "Manual: Third Party CCU" })}
-                  </option>
-                </Select>
-              </div>
+                <div className="mb-2">
+                  <Select
+                    className="w-full text-sm z-50"
+                    size="small"
+                    native
+                    value={selectedValue}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onChange={(e) => {
+                      const nextOption = selectableOptions.find(option => option.value === e.target.value);
+                      if (nextOption) {
+                        handleSourceTypeChange(edge.id, nextOption);
+                      }
+                    }}
+                  >
+                    {selectableOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
 
-              {(edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
-                edgeSettings[edge.id]?.sourceType === CcuSourceType.THIRD_PARTY) && (
-                  <div className="mb-2">
-                    <label className="text-sm text-gray-600 dark:text-gray-400 block mb-1 text-left">
-                      {edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ?
-                        intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
-                        edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ?
+                {(selectedSourceType === CcuSourceType.OFFICIAL_WB ||
+                  selectedSourceType === CcuSourceType.THIRD_PARTY) && (
+                    <div className="mb-2">
+                      <label className="text-sm text-gray-600 dark:text-gray-400 block mb-1 text-left">
+                        {selectedSourceType === CcuSourceType.OFFICIAL_WB ?
                           intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
                           intl.formatMessage({ id: "shipNode.priceCNY", defaultMessage: "Price ({currency})" }, { currency })
-                      }:
-                    </label>
-                    <Input
-                      type="number"
-                      className="text-sm w-full"
-                      value={edgeSettings[edge.id]?.customPrice ?? edge.data?.customPrice ?? ''}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
-                      placeholder={edgeSettings[edge.id]?.sourceType === CcuSourceType.OFFICIAL_WB ||
-                        edgeSettings[edge.id]?.sourceType === CcuSourceType.HANGER ? 'USD' : currency}
-                    />
-                  </div>
-                )}
-            </div>
-          ))}
+                        }:
+                      </label>
+                      <Input
+                        type="number"
+                        className="text-sm w-full"
+                        value={edgeSettings[edge.id]?.customPrice ?? edge.data?.customPrice ?? ''}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        onChange={(e) => handleCustomPriceChange(edge.id, e.target.value)}
+                        placeholder={selectedSourceType === CcuSourceType.OFFICIAL_WB ? 'USD' : currency}
+                      />
+                    </div>
+                  )}
+              </div>
+            );
+          })}
         </div>
       )}
 

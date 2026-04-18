@@ -1,5 +1,6 @@
 import { Ccu, CcuEdgeData, CcuSourceType, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { CcuSourceTypeStrategyFactory, HangarItem, ImportItem } from "./CcuSourceTypeFactory";
+import { CcuConcretePricingOption, getPreferredConcretePricingOption } from "./CcuPriceOptions";
 
 export interface CcuEdgeCreationOptions {
   sourceShip: Ship;
@@ -18,6 +19,12 @@ export type CcuEdgePriceContext = Pick<
   currency?: string;
 };
 
+export interface CcuEdgeUpdateOptions {
+  sourceType: CcuSourceType;
+  customPrice?: number;
+  selectedOption?: CcuConcretePricingOption;
+}
+
 /**
  * CCU Edge Service - handles the creation and update of CCU edges
  */
@@ -27,15 +34,63 @@ export class CcuEdgeService {
   constructor() {
     this.factory = CcuSourceTypeStrategyFactory.getInstance();
   }
+
+  private applyConcretePricingOption(
+    edgeData: CcuEdgeData,
+    sourceType: CcuSourceType,
+    selectedOption?: CcuConcretePricingOption
+  ): void {
+    edgeData.sourceType = sourceType;
+
+    if (!selectedOption) {
+      delete edgeData.selectedTargetPriceCents;
+      delete edgeData.selectedSourcePriceCents;
+      delete edgeData.validityWindows;
+      return;
+    }
+
+    edgeData.customPrice = selectedOption.customPrice;
+
+    if (selectedOption.targetPriceCents !== undefined) {
+      edgeData.selectedTargetPriceCents = selectedOption.targetPriceCents;
+    } else {
+      delete edgeData.selectedTargetPriceCents;
+    }
+
+    if (selectedOption.sourcePriceCents !== undefined) {
+      edgeData.selectedSourcePriceCents = selectedOption.sourcePriceCents;
+    } else {
+      delete edgeData.selectedSourcePriceCents;
+    }
+
+    if (selectedOption.validityWindows?.length) {
+      edgeData.validityWindows = selectedOption.validityWindows;
+    } else {
+      delete edgeData.validityWindows;
+    }
+  }
+
+  private getPreferredConcreteOption(
+    sourceType: CcuSourceType,
+    sourceShip: Ship,
+    targetShip: Ship,
+    priceContext: CcuEdgePriceContext
+  ): CcuConcretePricingOption | undefined {
+    return getPreferredConcretePricingOption({
+      sourceType,
+      sourceShip,
+      targetShip,
+      ccus: priceContext.ccus,
+      priceHistoryMap: priceContext.priceHistoryMap
+    });
+  }
   
   /**
    * Create new CCU Edge
    */
   public createEdgeData(options: CcuEdgeCreationOptions): CcuEdgeData {
     const { sourceShip, targetShip, ccus, wbHistory, hangarItems, importItems, priceHistoryMap } = options;
-    
     const priceDifference = targetShip.msrp - sourceShip.msrp;
-    
     const strategy = this.factory.getAutomaticStrategy(
       sourceShip, 
       targetShip, 
@@ -45,28 +100,32 @@ export class CcuEdgeService {
       importItems,
       priceHistoryMap
     );
-    
-    const priceInfo = strategy.calculatePrice(sourceShip, targetShip, { 
-      ccus, 
-      wbHistory, 
-      hangarItems,
-      importItems,
-      priceHistoryMap
-    });
-    
+    const sourceType = strategy.getTypeId();
     const edgeData: CcuEdgeData = {
       price: priceDifference,
       sourceShip,
       targetShip,
-      sourceType: strategy.getTypeId(),
+      sourceType,
       // ccus,
       // wbHistory,
       // hangarItems,
       // importItems,
       // priceHistoryMap
     };
+    const priceContext = {
+      ccus,
+      wbHistory,
+      hangarItems,
+      importItems,
+      priceHistoryMap
+    };
+    const selectedOption = this.getPreferredConcreteOption(sourceType, sourceShip, targetShip, priceContext);
+    this.applyConcretePricingOption(edgeData, sourceType, selectedOption);
 
-    edgeData.customPrice = priceInfo.price;
+    if (!selectedOption) {
+      const priceInfo = strategy.calculatePrice(sourceShip, targetShip, priceContext);
+      edgeData.customPrice = priceInfo.price;
+    }
     
     return edgeData;
   }
@@ -93,10 +152,10 @@ export class CcuEdgeService {
    */
   public updateEdgeData(
     originalData: CcuEdgeData, 
-    sourceType: CcuSourceType, 
-    customPrice?: number,
+    update: CcuEdgeUpdateOptions,
     priceContext?: CcuEdgePriceContext
   ): CcuEdgeData {
+    const { sourceType, customPrice, selectedOption } = update;
     const sourceShip = originalData.sourceShip;
     const targetShip = originalData.targetShip;
     
@@ -109,17 +168,28 @@ export class CcuEdgeService {
     // Get the strategy corresponding to the source type
     const strategy = this.factory.getStrategy(sourceType);
     
-    const updatedData: CcuEdgeData = {
-      ...originalData,
-      sourceType
-    };
+    const updatedData: CcuEdgeData = { ...originalData };
     
     // If a custom price is provided, use it
     if (customPrice !== undefined) {
+      this.applyConcretePricingOption(updatedData, sourceType);
       updatedData.customPrice = customPrice;
     } 
+    else if (selectedOption) {
+      this.applyConcretePricingOption(updatedData, sourceType, selectedOption);
+    }
     // Otherwise, try to use the strategy to calculate the price
     else {
+      this.applyConcretePricingOption(updatedData, sourceType);
+      const preferredOption = priceContext
+        ? this.getPreferredConcreteOption(sourceType, sourceShip, targetShip, priceContext)
+        : undefined;
+
+      if (preferredOption) {
+        this.applyConcretePricingOption(updatedData, sourceType, preferredOption);
+        return updatedData;
+      }
+
       const priceInfo = strategy.calculatePrice(sourceShip, targetShip, {
         ccus: priceContext?.ccus || [],
         wbHistory: priceContext?.wbHistory || [],

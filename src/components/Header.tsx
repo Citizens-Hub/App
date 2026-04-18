@@ -1,4 +1,4 @@
-import { Avatar, Box, Button, Drawer, IconButton, Link, Menu, MenuItem, Tooltip } from "@mui/material";
+import { Avatar, Box, Drawer, IconButton, Link, Menu, MenuItem, Tooltip } from "@mui/material";
 import { FormattedMessage, useIntl } from "react-intl";
 import DiscordIcon from "../icons/DiscordIcon";
 import GithubIcon from "../icons/GithubIcon";
@@ -25,14 +25,14 @@ interface HeaderProps {
   toggleDarkMode: () => void;
 }
 
-enum SCBoxTranslateStatus {
-  Available,
-  Translated,
-  NotAvailable,
-}
+// enum SCBoxTranslateStatus {
+//   Available,
+//   Translated,
+//   NotAvailable,
+// }
 
 export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
-  const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
+  // const [translateApiAvailable, setTranslateApiAvailable] = useState<SCBoxTranslateStatus>(SCBoxTranslateStatus.NotAvailable);
   const [menuOpen, setMenuOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const dispatch = useDispatch();
@@ -108,37 +108,37 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
     );
   }, [appName, currentPageName, intl])
 
-  useEffect(() => {
-    function handleMessage(event: MessageEvent) {
-      if (event.source !== window) return;
-      if (event.data?.type === 'SC-BOX-TRANSLATE-API-AVAILABLE') {
-        setTranslateApiAvailable(SCBoxTranslateStatus.Available);
-      }
-      if (event.data?.type === 'TOGGLED-SC-BOX-TRANSLATE') {
-        switch (event.data.action) {
-          case 'on':
-            setTranslateApiAvailable(SCBoxTranslateStatus.Translated);
-            return;
-          case 'off':
-            setTranslateApiAvailable(SCBoxTranslateStatus.Available);
-            return;
-        }
-      }
-    }
+  // useEffect(() => {
+  //   function handleMessage(event: MessageEvent) {
+  //     if (event.source !== window) return;
+  //     if (event.data?.type === 'SC-BOX-TRANSLATE-API-AVAILABLE') {
+  //       setTranslateApiAvailable(SCBoxTranslateStatus.Available);
+  //     }
+  //     if (event.data?.type === 'TOGGLED-SC-BOX-TRANSLATE') {
+  //       switch (event.data.action) {
+  //         case 'on':
+  //           setTranslateApiAvailable(SCBoxTranslateStatus.Translated);
+  //           return;
+  //         case 'off':
+  //           setTranslateApiAvailable(SCBoxTranslateStatus.Available);
+  //           return;
+  //       }
+  //     }
+  //   }
 
-    window.addEventListener('message', handleMessage);
+  //   window.addEventListener('message', handleMessage);
 
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  //   return () => window.removeEventListener('message', handleMessage);
+  // }, []);
 
-  const toggleTranslate = () => {
-    window.postMessage({
-      type: 'SC_TRANSLATE_REQUEST',
-      action: translateApiAvailable === SCBoxTranslateStatus.Available ? 'translate' : 'undoTranslate',
-      requestId: Math.random().toString(36)
-    }, '*');
-    setTranslateApiAvailable(translateApiAvailable === SCBoxTranslateStatus.Available ? SCBoxTranslateStatus.Translated : SCBoxTranslateStatus.Available);
-  };
+  // const toggleTranslate = () => {
+  //   window.postMessage({
+  //     type: 'SC_TRANSLATE_REQUEST',
+  //     action: translateApiAvailable === SCBoxTranslateStatus.Available ? 'translate' : 'undoTranslate',
+  //     requestId: Math.random().toString(36)
+  //   }, '*');
+  //   setTranslateApiAvailable(translateApiAvailable === SCBoxTranslateStatus.Available ? SCBoxTranslateStatus.Translated : SCBoxTranslateStatus.Available);
+  // };
 
   return (
     <div
@@ -170,7 +170,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
       </div>
       <HeaderAd />
       <div className="flex items-center gap-2 justify-end">
-        {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
+        {/* {translateApiAvailable !== SCBoxTranslateStatus.NotAvailable && (
           <Button
             variant="outlined"
             onClick={toggleTranslate}
@@ -188,7 +188,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               )}
             </span>
           </Button>
-        )}
+        )} */}
         <LanguageSwitcher />
         {showExchangeCalculator && (
           <ExchangeRateCalculator

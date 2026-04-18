@@ -1,29 +1,10 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
-
-function isWarbondEdition(edition?: string): boolean {
-  if (!edition) return false;
-  const lowerEdition = edition.toLowerCase();
-  return lowerEdition.includes('warbond') || lowerEdition.includes('-wb') || lowerEdition.includes(' wb');
-}
-
-function isStandardEdition(edition?: string): boolean {
-  if (!edition) return true;
-  if (isWarbondEdition(edition)) return false;
-  return edition.toLowerCase().includes('standard');
-}
-
-function findLowestHistoricalPrice(
-  history: PriceHistoryEntity['history'] | undefined,
-  matcher: (edition?: string) => boolean
-): number | undefined {
-  if (!history?.length) return undefined;
-  return history
-    .filter(entry => entry.change === '+' && typeof entry.msrp === 'number' && matcher(entry.edition))
-    .map(entry => entry.msrp as number)
-    .sort((a, b) => a - b)[0];
-}
+import {
+  getConcretePricingOptionsForType,
+  getPreferredConcretePricingOption
+} from "./CcuPriceOptions";
 
 /**
  * Strategy calculate price options interface
@@ -134,17 +115,17 @@ export class AvailableWbStrategy implements CcuSourceTypeStrategy {
       };
     }
 
-    const ccus = options?.ccus || [];
-    const targetCcu = ccus.find(c => c.id === targetShip.id);
-    const wbSku = targetCcu?.skus.find(sku => sku.price !== targetShip.msrp && sku.available);
-    
-    if (wbSku) {
-      const wbPriceUSD = wbSku.price / 100;
-      const sourceShipPrice = sourceShip.msrp / 100;
-      const actualPrice = Math.max(0, wbPriceUSD - sourceShipPrice);
-      
+    const pricingOption = getPreferredConcretePricingOption({
+      sourceShip,
+      targetShip,
+      ccus: options?.ccus || [],
+      priceHistoryMap: options?.priceHistoryMap || {},
+      sourceType: CcuSourceType.AVAILABLE_WB
+    });
+
+    if (pricingOption) {
       return {
-        price: actualPrice,
+        price: pricingOption.customPrice,
         currency: 'USD',
         isUsedUp: false
       };
@@ -166,10 +147,13 @@ export class AvailableWbStrategy implements CcuSourceTypeStrategy {
   }
   
   isApplicable(sourceShip: Ship, targetShip: Ship, ccus: Ccu[]): boolean {
-    const targetCcu = ccus.find(c => c.id === targetShip.id);
-    const wbSku = targetCcu?.skus.find(sku => sku.price !== targetShip.msrp && sku.available);
-    
-    return !!wbSku && sourceShip.msrp < wbSku.price;
+    return getConcretePricingOptionsForType({
+      sourceShip,
+      targetShip,
+      ccus,
+      priceHistoryMap: {},
+      sourceType: CcuSourceType.AVAILABLE_WB
+    }).length > 0;
   }
   
   getPriority(): number {
@@ -417,16 +401,17 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
       };
     }
 
-    // const wbHistory = options?.wbHistory || [];
-    const priceHistoryMap = options?.priceHistoryMap || {};
-    const historicalPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isWarbondEdition);
-    
-    if (historicalPrice) {
-      const historicalPriceUsd = Number(historicalPrice) / 100;
-      const sourceShipPrice = sourceShip.msrp / 100;
-      
+    const pricingOption = getPreferredConcretePricingOption({
+      sourceShip,
+      targetShip,
+      ccus: options?.ccus || [],
+      priceHistoryMap: options?.priceHistoryMap || {},
+      sourceType: CcuSourceType.HISTORICAL
+    });
+
+    if (pricingOption) {
       return {
-        price: Math.max(0, historicalPriceUsd - sourceShipPrice),
+        price: pricingOption.customPrice,
         currency: 'USD',
         isUsedUp: false
       };
@@ -447,8 +432,13 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   }
   
   isApplicable(sourceShip: Ship, targetShip: Ship, _ccus: Ccu[], _wbHistory: WbHistoryData[], _hangarItems: HangarItem[], _importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity>): boolean {
-    const historicalPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isWarbondEdition);
-    return !!historicalPrice && Number(historicalPrice) / 100 > sourceShip.msrp / 100;
+    return getConcretePricingOptionsForType({
+      sourceShip,
+      targetShip,
+      ccus: [],
+      priceHistoryMap,
+      sourceType: CcuSourceType.HISTORICAL
+    }).length > 0;
   }
   
   getPriority(): number {
@@ -477,14 +467,17 @@ export class PriceIncreaseStrategy implements CcuSourceTypeStrategy {
       };
     }
 
-    const priceHistoryMap = options?.priceHistoryMap || {};
-    const standardPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isStandardEdition);
+    const pricingOption = getPreferredConcretePricingOption({
+      sourceShip,
+      targetShip,
+      ccus: options?.ccus || [],
+      priceHistoryMap: options?.priceHistoryMap || {},
+      sourceType: CcuSourceType.PRICE_INCREASE
+    });
 
-    if (standardPrice && standardPrice < targetShip.msrp) {
-      const standardPriceUsd = standardPrice / 100;
-      const sourceShipPrice = sourceShip.msrp / 100;
+    if (pricingOption) {
       return {
-        price: Math.max(0, standardPriceUsd - sourceShipPrice),
+        price: pricingOption.customPrice,
         currency: 'USD',
         isUsedUp: false
       };
@@ -513,8 +506,13 @@ export class PriceIncreaseStrategy implements CcuSourceTypeStrategy {
     _importItems: ImportItem[],
     priceHistoryMap: Record<number, PriceHistoryEntity>
   ): boolean {
-    const standardPrice = findLowestHistoricalPrice(priceHistoryMap[targetShip.id]?.history, isStandardEdition);
-    return !!standardPrice && standardPrice < targetShip.msrp && sourceShip.msrp < standardPrice;
+    return getConcretePricingOptionsForType({
+      sourceShip,
+      targetShip,
+      ccus: [],
+      priceHistoryMap,
+      sourceType: CcuSourceType.PRICE_INCREASE
+    }).length > 0;
   }
 
   getPriority(): number {

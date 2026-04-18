@@ -51,7 +51,6 @@ type ShipTranslationForm = Record<ShipTranslationField, string>;
 
 const EMPTY_FORM: ShipTranslationForm = {
   shipName: '',
-  manufacturerName: '',
   title: '',
   excerpt: '',
   body: '',
@@ -60,7 +59,6 @@ const EMPTY_FORM: ShipTranslationForm = {
 function toEditableForm(translation?: ShipTranslation | null): ShipTranslationForm {
   return {
     shipName: translation?.shipName || '',
-    manufacturerName: translation?.manufacturerName || '',
     title: translation?.title || '',
     excerpt: translation?.excerpt || '',
     body: translation?.body || '',
@@ -212,11 +210,6 @@ export default function ShipTranslationsManager() {
         return intl.formatMessage({
           id: 'admin.shipTranslations.targetShipName',
           defaultMessage: 'Translated ship name',
-        });
-      case 'manufacturerName':
-        return intl.formatMessage({
-          id: 'admin.shipTranslations.targetManufacturer',
-          defaultMessage: 'Translated manufacturer',
         });
       case 'title':
         return intl.formatMessage({
@@ -393,7 +386,7 @@ export default function ShipTranslationsManager() {
         <Typography color="text.secondary">
           {intl.formatMessage({
             id: 'admin.shipTranslations.description',
-            defaultMessage: 'Manage ship name, manufacturer, and ship detail translations without touching RSI source data.',
+            defaultMessage: 'Manage ship name and ship detail translations without touching RSI source data.',
           })}
         </Typography>
       </Box>
@@ -651,31 +644,6 @@ export default function ShipTranslationsManager() {
                 })}
                 aiLoading={draftingField === 'shipName'}
                 aiDisabled={!detailData.data.source.shipName || detailLoading || saveState !== 'idle' || draftingField !== null}
-              />
-
-              <TranslationField
-                sourceLabel={intl.formatMessage({
-                  id: 'admin.shipTranslations.sourceManufacturer',
-                  defaultMessage: 'Source manufacturer',
-                })}
-                sourceValue={detailData.data.source.manufacturerName}
-                targetLabel={intl.formatMessage({
-                  id: 'admin.shipTranslations.targetManufacturer',
-                  defaultMessage: 'Translated manufacturer',
-                })}
-                value={form.manufacturerName}
-                onChange={(nextValue) => setForm((current) => ({ ...current, manufacturerName: nextValue }))}
-                onGenerateAiDraft={() => handleGenerateAiDraft('manufacturerName')}
-                aiButtonLabel={intl.formatMessage({
-                  id: 'admin.shipTranslations.generateFieldAi',
-                  defaultMessage: 'AI Translate Field',
-                })}
-                aiLoadingLabel={intl.formatMessage({
-                  id: 'admin.shipTranslations.generating',
-                  defaultMessage: 'Generating...',
-                })}
-                aiLoading={draftingField === 'manufacturerName'}
-                aiDisabled={!detailData.data.source.manufacturerName || detailLoading || saveState !== 'idle' || draftingField !== null}
               />
 
               <TranslationField

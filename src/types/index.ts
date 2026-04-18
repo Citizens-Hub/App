@@ -199,11 +199,10 @@ export interface ShipNameTranslationsResponse {
 }
 
 export type ShipTranslationLocale = 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE' | 'en';
-export type ShipTranslationField = 'shipName' | 'manufacturerName' | 'title' | 'excerpt' | 'body';
+export type ShipTranslationField = 'shipName' | 'title' | 'excerpt' | 'body';
 
 export interface ShipTranslationPayload {
   shipName?: string | null;
-  manufacturerName?: string | null;
   title?: string | null;
   excerpt?: string | null;
   body?: string | null;
@@ -274,6 +273,70 @@ export interface ShipTranslationDraftResponse {
   };
 }
 
+export interface ManufacturerTranslationPayload {
+  manufacturerName?: string | null;
+}
+
+export interface ManufacturerTranslation extends ManufacturerTranslationPayload {
+  manufacturerId: number;
+  locale: ShipTranslationLocale | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ManufacturerTranslationListItem {
+  manufacturerId: number;
+  source: {
+    manufacturerName: string;
+    shipCount: number;
+  };
+  translation: ManufacturerTranslation | null;
+}
+
+export interface ManufacturerTranslationListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  locale: string;
+  list: ManufacturerTranslationListItem[];
+}
+
+export interface ManufacturerTranslationDetailResponse {
+  success: boolean;
+  data: {
+    manufacturerId: number;
+    source: {
+      manufacturerName: string;
+      shipCount: number;
+      ships: Array<{
+        id: number;
+        name: string;
+      }>;
+    };
+    translations: Array<ManufacturerTranslation | null>;
+  };
+}
+
+export interface ManufacturerTranslationUpsertResponse {
+  success: boolean;
+  deleted?: boolean;
+  data: {
+    manufacturerId: number;
+    locale: string;
+    translation: ManufacturerTranslation | null;
+  };
+}
+
+export interface ManufacturerTranslationDraftResponse {
+  success: boolean;
+  data: {
+    locale: string;
+    model: string;
+    value: string | null;
+  };
+}
+
 export interface StoreShipsData {
   id: string;
   title: string;
@@ -321,6 +384,8 @@ export interface CcuEdgeData {
   targetShip?: Ship;
   sourceType?: CcuSourceType;
   customPrice?: number;
+  selectedTargetPriceCents?: number;
+  selectedSourcePriceCents?: number;
   validityWindows?: CcuValidityWindow[];
   // ccus: Ccu[];
   // wbHistory: WbHistoryData[];

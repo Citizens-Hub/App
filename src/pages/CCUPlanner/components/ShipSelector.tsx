@@ -79,8 +79,10 @@ export default function ShipSelector({ ships, ccus, onDragStart, onMobileAdd, on
       });
     }
 
-    setFilteredShips(filtered);
-  }, [searchTerm, ships, ccus, showHistoryWB, onlyShowAvailable, priceHistoryMap]);
+    setFilteredShips(filtered.filter(ship => {
+      return ship.msrp >= 2000 && ship.msrp < 100000 || ship.msrp === 0
+    }));
+  }, [searchTerm, ships, ccus, showHistoryWB, onlyShowAvailable, priceHistoryMap, locale]);
 
   //sets selected ship for mobile, and clears out search as to hide the ship list
   const handleMobileShipSelection = (ship: Ship) => {
