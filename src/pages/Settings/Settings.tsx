@@ -699,7 +699,7 @@ export default function Settings() {
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
                           id="settings.mcpTokensDescription"
-                          defaultMessage="Create dedicated tokens for MCP clients. MCP registration and email/password login are disabled."
+                          defaultMessage="Create dedicated tokens for MCP clients."
                         />
                       </Typography>
                     </div>

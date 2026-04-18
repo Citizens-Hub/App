@@ -87,14 +87,30 @@ h1 {
   line-height: 1.1;
 }
 
-.wmde-markdown > ul > li {
-  &::before {
-    content: "•";
-    color: #9697ac;
-    display: inline-block;
-    width: 1em;
-    margin-left: -1em;
-  }
+.wmde-markdown ul {
+  list-style-type: disc;
+}
+
+.wmde-markdown ol {
+  list-style-type: decimal;
+}
+
+.wmde-markdown li::marker {
+  color: #9697ac;
+}
+
+.ship-info-description-markdown .wmde-markdown ul,
+.ship-info-description-markdown .wmde-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.ship-info-description-markdown .wmde-markdown li > p:first-child {
+  display: inline;
+  margin-top: 0;
+}
+
+.ship-info-description-markdown .wmde-markdown li > p + p {
+  margin-top: 0.75rem;
 }
 
 button {

@@ -533,7 +533,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
                 <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                   <FormattedMessage id="ccuPlanner.shipInfo.description" defaultMessage="Description" />
                 </div>
-                <div className="rounded border border-black/10 bg-black/[0.02] p-4 text-sm leading-7 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200">
+                <div className="ship-info-description-markdown rounded border border-black/10 bg-black/[0.02] p-4 text-sm leading-7 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200">
                   {descriptionMarkdown ? (
                     <MarkdownPreview
                       source={descriptionMarkdown}
