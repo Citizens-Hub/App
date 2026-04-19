@@ -1,6 +1,6 @@
+import { memo, useState } from "react";
 import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip, Link } from "@mui/material";
 import { Ccu, Ship } from "@/types";
-import { useState } from "react";
 import { useSelector } from "react-redux";
 import { selectUsersHangarItems } from "@/store/upgradesStore";
 import { RootState } from "@/store";
@@ -18,7 +18,7 @@ interface ShipSelectorProps {
   onDragStart: (event: React.DragEvent<HTMLDivElement>, ship: Ship) => void;
 }
 
-export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
+function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   const [hangarExpanded, setHangarExpanded] = useState(true);
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -366,3 +366,5 @@ export default function Hangar({ ships, onDragStart }: ShipSelectorProps) {
     </>
   )
 }
+
+export default memo(Hangar);

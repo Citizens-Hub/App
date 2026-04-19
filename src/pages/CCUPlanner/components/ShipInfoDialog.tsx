@@ -15,14 +15,14 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { Close, OpenInNew } from '@mui/icons-material';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Close, OpenInNew } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import RsiIcon from '@/components/RsiIcon';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useApi } from '@/hooks';
-import { MARKET_ITEM_PLACEHOLDER, toLargeRsiImage } from '@/components/marketItemDisplay';
 import {
   ShipComponentSectionKey,
   getRsiIconPath,
@@ -119,13 +119,21 @@ function formatTimestamp(value?: string | null, locale = 'en-US') {
   return date.toLocaleString(locale);
 }
 
-function resolveShipImage(ship?: Ship | null) {
-  const detailImage = ship?.details?.imageComposer?.find((entry) => entry.slot === 'thumbnail')?.url;
+function resolveShipImages(ship?: Ship | null) {
+  const composerImages = [
+    ...(ship?.details?.imageComposer?.filter((entry) => entry.slot === 'thumbnail') || []),
+    ...(ship?.details?.imageComposer?.filter((entry) => entry.slot !== 'thumbnail') || []),
+  ].map((entry) => toAbsoluteRsiUrl(entry.url));
 
-  return toAbsoluteRsiUrl(detailImage)
-    || toLargeRsiImage(ship?.medias?.productThumbMediumAndSmall)
-    || toAbsoluteRsiUrl(ship?.medias?.slideShow)
-    || MARKET_ITEM_PLACEHOLDER;
+  const images = [
+    ...composerImages,
+    // toAbsoluteRsiUrl(toLargeRsiImage(ship?.medias?.productThumbMediumAndSmall)),
+    // toAbsoluteRsiUrl(ship?.medias?.slideShow),
+  ].filter(Boolean) as string[];
+
+  const uniqueImages = Array.from(new Set(images));
+
+  return uniqueImages.length > 0 ? uniqueImages : [];
 }
 
 function DetailField({
@@ -366,6 +374,7 @@ function ShipComponentSection({
 export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogProps) {
   const intl = useIntl();
   const { locale } = useLocale();
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const requestPath = open && ship ? `/api/ship?id=${ship.id}` : null;
   const gameShopRequestPath = open && ship ? `/api/ship/game-shops?id=${ship.id}` : null;
   const { data: shipResponseData, error: shipResponseError } = useApi<ShipResponse>(requestPath, {
@@ -385,7 +394,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const detail = detailedShip?.details;
   const shipGameShops = shipGameShopData?.data || null;
   const descriptionMarkdown = (detail?.body || detail?.excerpt || '').trim();
-  const imageUrl = resolveShipImage(detailedShip);
+  const shipImages = useMemo(() => resolveShipImages(detailedShip), [detailedShip]);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
   const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer);
   const localizedType = localizeShipType(locale, detailedShip?.type);
@@ -398,6 +407,13 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const turretComponents = (detail?.weapons || []).filter((component) => isMannedTurretComponent(component));
   const displayShipName = detailedShip?.name || ship?.name || '-';
   const displayManufacturerName = detailedShip?.manufacturer?.name || '';
+  const currentImageIndex = Math.min(selectedImageIndex, shipImages.length - 1);
+  const imageUrl = shipImages[currentImageIndex];
+  const hasMultipleImages = shipImages.length > 1;
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [open, detailedShip?.id, shipImages.length]);
 
   const metadata = [
     { key: 'type', value: localizedType },
@@ -416,6 +432,16 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
       value: localizedFocus,
     },
   ];
+
+  const showPreviousImage = () => {
+    if (!hasMultipleImages) return;
+    setSelectedImageIndex((current) => (current - 1 + shipImages.length) % shipImages.length);
+  };
+
+  const showNextImage = () => {
+    if (!hasMultipleImages) return;
+    setSelectedImageIndex((current) => (current + 1) % shipImages.length);
+  };
 
   const coreFields: CoreField[] = [
     {
@@ -512,12 +538,112 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
           </div>
         ) : (
           <div className="flex flex-col">
-            <Box
-              component="img"
-              sx={{ width: '100%', height: { xs: 240, md: 360 }, objectFit: 'cover' }}
-              src={imageUrl}
-              alt={detailedShip.name}
-            />
+            <div className="relative overflow-hidden border-b border-black/10 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+              <Box
+                component="img"
+                sx={{ width: '100%', height: { xs: 360, md: 480 }, objectFit: 'cover' }}
+                src={imageUrl}
+                alt={`${detailedShip.name} ${currentImageIndex + 1}`}
+              />
+              {hasMultipleImages && (
+                <>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-end p-3">
+                    <div className="rounded-full border border-white/20 bg-slate-950/45 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
+                      {currentImageIndex + 1} / {shipImages.length}
+                    </div>
+                  </div>
+                  <IconButton
+                    onClick={showPreviousImage}
+                    aria-label={intl.formatMessage({
+                      id: 'ccuPlanner.shipInfo.previousImage',
+                      defaultMessage: 'Previous image',
+                    })}
+                    sx={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: (theme) => theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[800],
+                      border: '1px solid',
+                      borderColor: 'rgba(255, 255, 255, 0.18)',
+                      backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.56)' : 'rgba(255, 255, 255, 0.82)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
+                      '&:hover': {
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.94)',
+                      },
+                    }}
+                  >
+                    <ChevronLeft />
+                  </IconButton>
+                  <IconButton
+                    onClick={showNextImage}
+                    aria-label={intl.formatMessage({
+                      id: 'ccuPlanner.shipInfo.nextImage',
+                      defaultMessage: 'Next image',
+                    })}
+                    sx={{
+                      position: 'absolute',
+                      right: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: (theme) => theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.grey[800],
+                      border: '1px solid',
+                      borderColor: 'rgba(255, 255, 255, 0.18)',
+                      backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.56)' : 'rgba(255, 255, 255, 0.82)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
+                      '&:hover': {
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.94)',
+                      },
+                    }}
+                  >
+                    <ChevronRight />
+                  </IconButton>
+
+                  {/* <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
+                    <div className="rounded-2xl border border-black/10 bg-white/72 p-2 shadow-[0_20px_50px_rgba(15,23,42,0.18)] backdrop-blur-md dark:border-white/10 dark:bg-slate-950/62">
+                      <div
+                        className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        style={{ msOverflowStyle: 'none' }}
+                      >
+                        {shipImages.map((url, index) => {
+                          const isActive = index === currentImageIndex;
+                          return (
+                            <button
+                              key={`${detailedShip.id}-${index}-${url}`}
+                              type="button"
+                              onClick={() => setSelectedImageIndex(index)}
+                              aria-label={intl.formatMessage(
+                                {
+                                  id: 'ccuPlanner.shipInfo.selectImage',
+                                  defaultMessage: 'Show image {index}',
+                                },
+                                { index: index + 1 },
+                              )}
+                              aria-pressed={isActive}
+                              className={`relative h-14 w-24 shrink-0 overflow-hidden rounded-xl border transition ${isActive
+                                ? 'border-slate-900/40 ring-2 ring-white/80 dark:border-white/20 dark:ring-white/60'
+                                : 'border-black/10 opacity-70 hover:-translate-y-0.5 hover:opacity-100 dark:border-white/10'
+                                }`}
+                            >
+                              <img
+                                src={url}
+                                alt=""
+                                aria-hidden
+                                className="h-full w-full object-cover"
+                              />
+                              <div className={`absolute inset-0 transition ${isActive ? 'bg-transparent' : 'bg-slate-950/15 dark:bg-slate-950/25'}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div> */}
+                </>
+              )}
+            </div>
 
             <div className="flex flex-col gap-5 p-6">
               {shipResponseError && (

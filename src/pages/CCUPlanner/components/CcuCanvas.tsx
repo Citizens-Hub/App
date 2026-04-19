@@ -526,6 +526,7 @@ function CcuCanvasContent() {
 
     if (hasDragInProgress && !hasDragEnd) {
       isNodeDragInProgressRef.current = true;
+      clearAutoSaveTimer();
     }
 
     if (hasDragEnd) {
@@ -533,7 +534,7 @@ function CcuCanvasContent() {
     }
 
     applyNodesChange(changes);
-  }, [applyNodesChange]);
+  }, [applyNodesChange, clearAutoSaveTimer]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     applyEdgesChange(changes);
@@ -792,8 +793,11 @@ function CcuCanvasContent() {
       return;
     }
 
+    if (isNodeDragInProgressRef.current) {
+      return;
+    }
+
     const nextSnapshot = cloneFlowData(currentFlowData);
-    const previousSnapshot = historyBaselineByTabRef.current[activeTabId];
 
     if (skipHistoryRecordingRef.current) {
       historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
@@ -801,9 +805,7 @@ function CcuCanvasContent() {
       return;
     }
 
-    if (isNodeDragInProgressRef.current) {
-      return;
-    }
+    const previousSnapshot = historyBaselineByTabRef.current[activeTabId];
 
     if (!previousSnapshot) {
       historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
@@ -1143,6 +1145,10 @@ function CcuCanvasContent() {
       return;
     }
 
+    if (isNodeDragInProgressRef.current) {
+      return;
+    }
+
     setPlannerTabs(prevTabs => {
       let changed = false;
       const nextTabs = prevTabs.map(tab => {
@@ -1307,10 +1313,9 @@ function CcuCanvasContent() {
         return;
       }
 
-      const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
       const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
+        x: event.clientX,
+        y: event.clientY,
       });
 
       const newNode: Node = {
@@ -1333,10 +1338,10 @@ function CcuCanvasContent() {
     }
   }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, handleOpenShipInfoDialog, openShipContextMenu]);
 
-  const onShipDragStart = (event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
+  const onShipDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
     event.dataTransfer.effectAllowed = 'move';
-  };
+  }, []);
 
   const saveFlowData = useCallback((mode: 'manual' | 'auto' = 'manual') => {
     if (!plannerTabs.length || !activeTabId) return;
@@ -1610,6 +1615,11 @@ function CcuCanvasContent() {
   useEffect(() => {
     if (!autoSaveEnabled || !activeTabId || !nodes.length) return;
 
+    if (isNodeDragInProgressRef.current) {
+      clearAutoSaveTimer();
+      return;
+    }
+
     clearAutoSaveTimer();
     setAutoSaveStatus('pending');
     autoSaveTimeoutRef.current = window.setTimeout(() => {
@@ -1652,6 +1662,12 @@ function CcuCanvasContent() {
     setSelectedNode(null);
     setShipContextMenu(null);
   }, []);
+
+  useEffect(() => {
+    if (!selectedNode) {
+      setSelectedPathEdgeIds([]);
+    }
+  }, [selectedNode, setSelectedPathEdgeIds]);
 
   //MS on mobile, creates and adds the node to the canvas 
   const onMobileAdd = useCallback((ship: Ship) => {
@@ -1708,7 +1724,7 @@ function CcuCanvasContent() {
     setNodes,
   ]);
 
-  const proOptions = { hideAttribution: true };
+  const proOptions = useMemo(() => ({ hideAttribution: true }), []);
 
   // Handle path builder
   const handleOpenPathBuilder = useCallback(() => {
@@ -1723,6 +1739,14 @@ function CcuCanvasContent() {
   const handleClosePathBuilder = useCallback(() => {
     setPathBuilderOpen(false);
   }, []);
+
+  const handleOpenGuide = useCallback(() => {
+    reportBi<null>({
+      slot: BiSlots.VIEW_GUIDE,
+      data: null
+    });
+    navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale.startsWith('zh') ? '-zh' : ''));
+  }, [intl.locale, navigate]);
 
   // Add reviewed path from path builder
   const handleCreatePath = useCallback((result: ReviewedPathBuildResult, options?: ReviewedPathCreateOptions) => {
@@ -1870,6 +1894,7 @@ function CcuCanvasContent() {
     edges,
     ensureCompletedPathsStorageInitialized,
     getNextRouteName,
+    handleOpenShipInfoDialog,
     intl,
     loadTabIntoCanvas,
     nodes,
@@ -2360,6 +2385,7 @@ function CcuCanvasContent() {
               onPaneClick={onPaneClick}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
+              onlyRenderVisibleElements
               fitView
             >
               <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex gap-1' />
@@ -2377,21 +2403,14 @@ function CcuCanvasContent() {
               </Panel>
               <div className="bg-white dark:bg-[#121212] absolute left-[50%] translate-x-[-50%] bottom-[15px] z-10000">
                 <Toolbar
-                  nodes={nodes}
+                  hasContent={nodes.length > 0}
                   saveStatus={autoSaveStatus}
                   lastSavedAt={lastAutoSavedAt}
                   onClear={handleClear}
                   onExport={handleExport}
                   onImport={handleImport}
                   onOpenPathBuilder={handleOpenPathBuilder}
-                  onOpenGuide={() => {
-                    // setGuideOpen(true)
-                    reportBi<null>({
-                      slot: BiSlots.VIEW_GUIDE,
-                      data: null
-                    })
-                    navigate('/blog/usage-guide-how-to-use-ccu-planner-to-plan-your-upgrade-path' + (intl.locale.startsWith('zh') ? '-zh' : ''))
-                  }}
+                  onOpenGuide={handleOpenGuide}
                 />
               </div>
               <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
@@ -2399,16 +2418,18 @@ function CcuCanvasContent() {
               </Panel>
             </ReactFlow>
 
-            <RouteInfoPanel
-              selectedNode={selectedNode}
-              edges={edges}
-              nodes={nodes}
-              onClose={closeRouteInfoPanel}
-              startShipPrices={startShipPrices}
-              onStartShipPriceChange={handleStartShipPriceChange}
-              onPathCompletionChange={refreshEdgesOnPathCompletion}
-              onSelectedPathChange={handleSelectedPathChange}
-            />
+            {selectedNode && (
+              <RouteInfoPanel
+                selectedNode={selectedNode}
+                edges={edges}
+                nodes={nodes}
+                onClose={closeRouteInfoPanel}
+                startShipPrices={startShipPrices}
+                onStartShipPriceChange={handleStartShipPriceChange}
+                onPathCompletionChange={refreshEdgesOnPathCompletion}
+                onSelectedPathChange={handleSelectedPathChange}
+              />
+            )}
           </ReactFlowProvider>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBu
 import { useDispatch } from "react-redux";
 // import { Refresh } from "@mui/icons-material";
 import { Button, LinearProgress, Snackbar, Alert } from "@mui/material";
+import { createPortal } from "react-dom";
 import { BiSlots, reportBi, reportError } from "../report";
 import { Ship } from "../types";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -29,8 +30,143 @@ interface RequestItem {
   requestId?: number | string;
 }
 
+interface ExtensionResponseMessage {
+  requestId?: string | number;
+  value?: unknown;
+  error?: unknown;
+}
+
 type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "Hangar pass" | undefined;
 type InsuranceType = "LTI" | "Other"
+type CrawlerShipSummary = {
+  id: number;
+  name: string;
+  skus: {
+    id: number;
+  }[];
+};
+const CRAWLER_SNACKBAR_TOP_OFFSET_PX = 72;
+
+function formatCrawlerErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getResponseData(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return value.data;
+}
+
+function extractAccountFromResponse(value: unknown): UserInfo | null {
+  const responseData = getResponseData(value);
+
+  if (!Array.isArray(responseData)) {
+    return null;
+  }
+
+  const firstResult = responseData[0];
+
+  if (!isRecord(firstResult) || !isRecord(firstResult.data) || !isRecord(firstResult.data.account)) {
+    return null;
+  }
+
+  const account = firstResult.data.account;
+  const { id, username, nickname, avatar, isAnonymous } = account;
+
+  if (
+    typeof id !== "number" ||
+    typeof username !== "string" ||
+    typeof nickname !== "string" ||
+    typeof avatar !== "string" ||
+    typeof isAnonymous !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    username,
+    nickname,
+    avatar,
+    isAnonymous,
+  };
+}
+
+function extractTextResponse(value: unknown): string | null {
+  const responseData = getResponseData(value);
+
+  return typeof responseData === "string" ? responseData : null;
+}
+
+function extractCrawlerShipsFromResponse(value: unknown): CrawlerShipSummary[] | null {
+  const responseData = getResponseData(value);
+
+  if (!Array.isArray(responseData)) {
+    return null;
+  }
+
+  const firstResult = responseData[0];
+
+  if (!isRecord(firstResult) || !isRecord(firstResult.data) || !Array.isArray(firstResult.data.ships)) {
+    return null;
+  }
+
+  const crawlerShips = firstResult.data.ships
+    .map((ship): CrawlerShipSummary | null => {
+      if (!isRecord(ship) || !Array.isArray(ship.skus)) {
+        return null;
+      }
+
+      const { id, name, skus } = ship;
+
+      if (typeof id !== "number" || typeof name !== "string") {
+        return null;
+      }
+
+      const normalizedSkus = skus
+        .map((sku): { id: number } | null => {
+          if (!isRecord(sku) || typeof sku.id !== "number") {
+            return null;
+          }
+
+          return { id: sku.id };
+        })
+        .filter((sku): sku is { id: number } => sku !== null);
+
+      return {
+        id,
+        name,
+        skus: normalizedSkus,
+      };
+    })
+    .filter((ship): ship is CrawlerShipSummary => ship !== null);
+
+  return crawlerShips;
+}
 
 export default function Crawler({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
@@ -54,13 +190,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
   });
   const requestQueueRef = useRef<RequestItem[]>([]);
   const activeRequestsRef = useRef<Set<string | number>>(new Set());
-  const shipsRef = useRef<{
-    id: number;
-    name: string;
-    skus: {
-      id: number;
-    }[]
-  }[]>([])
+  const shipsRef = useRef<CrawlerShipSummary[]>([])
 
   const buybackCCUsProcessedRef = useRef<number>(0);
   const buybackCCUsRef = useRef<{
@@ -392,13 +522,111 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     console.log("added to queue", request.message?.requestId);
   }, [processNextRequests]);
 
+  const resetCrawlerState = useCallback(() => {
+    setProgress(0);
+    totalRequestsRef.current = 0;
+    completedRequestsRef.current = 0;
+    totalBundlesRef.current = 0;
+    totalBuybacksRef.current = 0;
+    totalCCUsRef.current = 0;
+    totalShipsRef.current = 0;
+    requestQueueRef.current = [];
+    activeRequestsRef.current.clear();
+    buybackCCUsRef.current = [];
+    buybackCCUsProcessedRef.current = 0;
+    shipsRef.current = [];
+  }, []);
+
+  const stopCrawlerSync = useCallback(() => {
+    resetCrawlerState();
+    setIsRefreshing(false);
+  }, [resetCrawlerState]);
+
+  const showCrawlerNotification = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
+  }, []);
+
+  const handleCrawlerFailure = useCallback((error: unknown) => {
+    console.error("crawler sync failed", error);
+
+    showCrawlerNotification(
+      formatCrawlerErrorMessage(
+        error,
+        intl.formatMessage({
+          id: 'crawler.requestFailed',
+          defaultMessage: 'Failed to sync hangar data. Please confirm the Citizens Hub browser extension is enabled and try again.'
+        })
+      ),
+      'error'
+    );
+    stopCrawlerSync();
+  }, [intl, showCrawlerNotification, stopCrawlerSync]);
+
+  const finishCrawlerSync = useCallback(() => {
+    reportBi<{
+      requests: number,
+      ccus: number,
+      buybacks: number,
+      bundles: number,
+      ships: number,
+      timeCost: number
+    }>({
+      slot: BiSlots.CRAWLER_USE,
+      data: {
+        requests: totalRequestsRef.current,
+        ccus: totalCCUsRef.current,
+        buybacks: totalBuybacksRef.current,
+        bundles: totalBundlesRef.current,
+        ships: totalShipsRef.current,
+        timeCost: new Date().getTime() - beginTime.current
+      }
+    });
+
+    stopCrawlerSync();
+  }, [stopCrawlerSync]);
+
+  const startCrawlerSync = useCallback(() => {
+    resetCrawlerState();
+    setNotification(current => current.open ? { ...current, open: false } : current);
+    setIsRefreshing(true);
+    beginTime.current = new Date().getTime();
+
+    addToQueue({
+      type: "ccuPlannerAppIntegrationRequest",
+      message: {
+        type: "httpRequest",
+        request: {
+          url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
+          data: null,
+          responseType: "json",
+          method: "post"
+        },
+        requestId: "set-auth-token"
+      }
+    });
+  }, [addToQueue, resetCrawlerState]);
+
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.source !== window) return;
+      if (event.data?.type !== 'ccuPlannerAppIntegrationResponse') return;
 
-      if (event.data?.type === 'ccuPlannerAppIntegrationResponse') {
-        const requestId = event.data.message.requestId;
+      const message = event.data.message as ExtensionResponseMessage | undefined;
+      const requestId = message?.requestId;
 
+      if (!message || requestId == null || !activeRequestsRef.current.has(requestId)) return;
+
+      if (message.error) {
+        activeRequestsRef.current.delete(requestId);
+        handleCrawlerFailure(message.error);
+        return;
+      }
+
+      try {
         if (requestId === "set-auth-token") {
           addToQueue({
             type: "ccuPlannerAppIntegrationRequest",
@@ -438,25 +666,27 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         }
 
         if (requestId === "user-info") {
-          userRef.current = event.data.message.value.data[0].data.account;
+          const account = extractAccountFromResponse(message.value);
+
+          if (!account) {
+            throw new Error("Invalid account response from browser extension");
+          }
+
+          userRef.current = account;
 
           if (userRef.current.isAnonymous) {
-            setNotification({
-              open: true,
-              message: intl.formatMessage({
+            showCrawlerNotification(
+              intl.formatMessage({
                 id: 'crawler.loginRequired',
                 defaultMessage: 'Please log in at https://robertsspaceindustries.com/en/ to sync your hangar data'
               }),
-              severity: 'warning',
-            });
-            setProgress(0);
-            completedRequestsRef.current = 0;
-            totalRequestsRef.current = 0;
-            setIsRefreshing(false);
+              'warning'
+            );
+            stopCrawlerSync();
             return;
           }
 
-          sessionStorage.setItem("currentRSIAccount", event.data.message.value.data[0].data.account.id)
+          sessionStorage.setItem("currentRSIAccount", String(account.id));
 
           dispatch(addUser(userRef.current));
           dispatch(clearUpgrades(userRef.current.id));
@@ -505,13 +735,17 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
               },
               requestId: "init-ship-upgrade"
             }
-          })
+          });
         }
 
         if (typeof requestId === 'string' && requestId.startsWith("ccus-")) {
           const pageId = requestId.split("-")[1];
+          const htmlString = extractTextResponse(message.value);
 
-          const htmlString = event.data.message.value.data;
+          if (!htmlString) {
+            throw new Error(`Invalid hangar response for request ${requestId}`);
+          }
+
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlString, 'text/html');
 
@@ -540,8 +774,12 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
         if (typeof requestId === 'string' && requestId.startsWith("buyback-ccus-")) {
           const pageId = requestId.split("-")[2];
+          const htmlString = extractTextResponse(message.value);
 
-          const htmlString = event.data.message.value.data;
+          if (!htmlString) {
+            throw new Error(`Invalid buyback response for request ${requestId}`);
+          }
+
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlString, 'text/html');
 
@@ -570,58 +808,37 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           parseBuybackCCUs(doc, Number(pageId));
         }
 
-        if (typeof requestId === 'string' && requestId.startsWith("init-ship-upgrade-")) {
-          const ships = event.data.message.value.data[0].data.ships;
+        if (requestId === "init-ship-upgrade") {
+          const crawlerShips = extractCrawlerShipsFromResponse(message.value);
 
-          shipsRef.current = ships;
+          if (crawlerShips) {
+            shipsRef.current = crawlerShips;
+          }
         }
 
-        if (requestId) {
-          activeRequestsRef.current.delete(requestId);
-        }
+        activeRequestsRef.current.delete(requestId);
 
         completedRequestsRef.current++;
         setProgress(completedRequestsRef.current / totalRequestsRef.current * 100);
+
         if (completedRequestsRef.current >= totalRequestsRef.current) {
           setTimeout(() => {
-            reportBi<{
-              requests: number,
-              ccus: number,
-              buybacks: number,
-              bundles: number,
-              ships: number,
-              timeCost: number
-            }>({
-              slot: BiSlots.CRAWLER_USE,
-              data: {
-                requests: totalRequestsRef.current,
-                ccus: totalCCUsRef.current,
-                buybacks: totalBuybacksRef.current,
-                bundles: totalBundlesRef.current,
-                ships: totalShipsRef.current,
-                timeCost: new Date().getTime() - beginTime.current
-              }
-            })
-
-            setProgress(0);
-            completedRequestsRef.current = 0;
-            totalRequestsRef.current = 0;
-            totalBundlesRef.current = 0
-            totalBuybacksRef.current = 0
-            totalCCUsRef.current = 0
-            totalShipsRef.current = 0
-            setIsRefreshing(false);
+            finishCrawlerSync();
           }, 500);
+          return;
         }
 
         processNextRequests();
+      } catch (error) {
+        activeRequestsRef.current.delete(requestId);
+        handleCrawlerFailure(error);
       }
     }
 
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [dispatch, parseHangarItems, processNextRequests, addToQueue, parseBuybackCCUs, totalRequestsRef, tryResolveCCU, intl]);
+  }, [addToQueue, dispatch, finishCrawlerSync, handleCrawlerFailure, intl, parseBuybackCCUs, parseHangarItems, processNextRequests, showCrawlerNotification, stopCrawlerSync]);
 
 
   //@ts-expect-error parse
@@ -630,49 +847,31 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
   window.crawlerdebugtools.parseHangar = (htmlString: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
-  
+
     parseHangarItems(doc, 1);
   }
 
-  return <>
-    <div className="w-full flex flex-col items-center justify-center fixed top-0 left-0 right-0">
-      {progress > 0 && (
+  const progressBar = progress > 0 && typeof document !== "undefined"
+    ? createPortal(
+      <div
+        className="pointer-events-none fixed top-0 left-0 right-0"
+        style={{ zIndex: 9999 }}
+      >
         <LinearProgress
           variant="determinate"
           sx={{ width: '100%' }}
           value={progress}
         />
-      )}
-    </div>
+      </div>,
+      document.body
+    )
+    : null;
+
+  return <>
+    {progressBar}
     <Button
       variant="text"
-      onClick={() => {
-        setIsRefreshing(true);
-        setProgress(0);
-        totalRequestsRef.current = 0;
-        completedRequestsRef.current = 0;
-        beginTime.current = new Date().getTime()
-
-        requestQueueRef.current = [];
-        activeRequestsRef.current.clear();
-        buybackCCUsRef.current = [];
-        buybackCCUsProcessedRef.current = 0;
-        shipsRef.current = [];
-
-        addToQueue({
-          type: "ccuPlannerAppIntegrationRequest",
-          message: {
-            type: "httpRequest",
-            request: {
-              url: "https://robertsspaceindustries.com/api/account/v2/setAuthToken",
-              data: null,
-              responseType: "json",
-              method: "post"
-            },
-            requestId: "set-auth-token"
-          }
-        });
-      }}
+      onClick={startCrawlerSync}
       disabled={ships.length === 0 || isRefreshing}
       aria-label={intl.formatMessage({ id: 'crawler.sync', defaultMessage: 'Sync Hangar' })}
     >
@@ -683,6 +882,9 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       autoHideDuration={6000}
       onClose={() => setNotification({ ...notification, open: false })}
       anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      style={{
+        top: `calc(env(safe-area-inset-top, 0px) + ${CRAWLER_SNACKBAR_TOP_OFFSET_PX}px)`,
+      }}
     >
       <Alert
         onClose={() => setNotification({ ...notification, open: false })}

@@ -1,7 +1,7 @@
+import { memo, useMemo } from 'react';
 import { getBezierPath, EdgeLabelRenderer, EdgeProps, Edge } from 'reactflow';
 import { CcuEdgeData, CcuSourceType } from '@/types';
 import { useIntl } from 'react-intl';
-import { useMemo } from 'react';
 import { CcuSourceTypeStrategyFactory } from '../services/CcuSourceTypeFactory';
 import pathFinderService from '../services/PathFinderService';
 import { BadgeDollarSign, Check, ShoppingCart } from 'lucide-react';
@@ -15,7 +15,7 @@ interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
 }
 
-export default function CcuEdge({
+function CcuEdge({
   id,
   sourceX,
   sourceY,
@@ -246,4 +246,6 @@ export default function CcuEdge({
       </EdgeLabelRenderer>
     </>
   );
-} 
+}
+
+export default memo(CcuEdge);

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
 import { Edge, Node } from 'reactflow';
 import { Button, Input, Switch, Tooltip, IconButton, Divider, Alert } from '@mui/material';
@@ -90,20 +90,50 @@ export default function RouteInfoPanel({
   const { locale } = intl;
   const ccuSourceTypeFactory = useMemo(() => CcuSourceTypeStrategyFactory.getInstance(), []);
   const selectedShipDisplayName = getShipDisplayName(selectedNode?.data.ship);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  const pathGraphNodeSignature = useMemo(
+    () => nodes.map(node => node.id).join('|'),
+    [nodes]
+  );
+
+  const pathGraphEdgeSignature = useMemo(
+    () => edges.map(edge => [
+      edge.id,
+      edge.source,
+      edge.target,
+      edge.data?.sourceType ?? '',
+      edge.data?.customPrice ?? '',
+      edge.data?.selectedTargetPriceCents ?? '',
+      edge.data?.selectedSourcePriceCents ?? '',
+      edge.data?.sourceShip?.id ?? '',
+      edge.data?.targetShip?.id ?? ''
+    ].join(':')).join('|'),
+    [edges]
+  );
 
   useEffect(() => {
     pathFinderService.loadCompletedPathsFromStorage();
   }, [pathFinderService]);
 
   useEffect(() => {
-    const startNodes = pathFinderService.findStartNodes(edges, nodes);
+    const startNodes = pathFinderService.findStartNodes(edgesRef.current, nodesRef.current);
 
     startNodes.forEach(node => {
       if (node.data?.ship?.msrp && startShipPrices[node.id] === undefined) {
         onStartShipPriceChange(node.id, node.data.ship.msrp / 100);
       }
     });
-  }, [nodes, edges, startShipPrices, onStartShipPriceChange, pathFinderService]);
+  }, [pathGraphNodeSignature, pathGraphEdgeSignature, startShipPrices, onStartShipPriceChange, pathFinderService]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -112,20 +142,20 @@ export default function RouteInfoPanel({
         return;
       }
 
-      const validEdges = edges.filter(edge => {
-        const sourceNode = nodes.find(n => n.id === edge.source);
-        const targetNode = nodes.find(n => n.id === edge.target);
+      const validEdges = edgesRef.current.filter(edge => {
+        const sourceNode = nodesRef.current.find(n => n.id === edge.source);
+        const targetNode = nodesRef.current.find(n => n.id === edge.target);
         return sourceNode && targetNode;
       });
 
-      if (validEdges.length !== edges.length) {
+      if (validEdges.length !== edgesRef.current.length) {
         console.warn('Found invalid edges:', {
-          totalEdges: edges.length,
+          totalEdges: edgesRef.current.length,
           validEdges: validEdges.length
         });
       }
     }
-  }, [selectedNode, edges, nodes]);
+  }, [selectedNode, pathGraphNodeSignature, pathGraphEdgeSignature]);
 
   const handleStartShipPriceChange = (nodeId: string, price: string) => {
     onStartShipPriceChange(nodeId, price);
@@ -135,6 +165,10 @@ export default function RouteInfoPanel({
     let cancelled = false;
 
     const preloadWasmBaseGraph = async () => {
+      if (!selectedNode) {
+        return;
+      }
+
       const shouldUseCWasm = useWasmPathFinder || (isDevMode && comparePathFinderPerf);
       if (!shouldUseCWasm) {
         return;
@@ -145,8 +179,8 @@ export default function RouteInfoPanel({
         if (cancelled) return;
 
         await pathFinderCWasmService.preloadBaseGraph({
-          edges,
-          nodes,
+          edges: edgesRef.current,
+          nodes: nodesRef.current,
           data: getServiceData()
         });
       } catch (error) {
@@ -161,7 +195,7 @@ export default function RouteInfoPanel({
     return () => {
       cancelled = true;
     };
-  }, [edges, getServiceData, nodes, useWasmPathFinder, isDevMode, comparePathFinderPerf]);
+  }, [selectedNode, getServiceData, useWasmPathFinder, isDevMode, comparePathFinderPerf, pathGraphNodeSignature, pathGraphEdgeSignature]);
 
   const selectedShipId = selectedNode?.data?.ship?.id;
 
@@ -201,7 +235,9 @@ export default function RouteInfoPanel({
         );
         const completedPaths = relevantCompletedPaths.map(cp => cp.path);
 
-        const startNodes = pathFinderService.findStartNodes(edges, nodes);
+        const currentEdges = edgesRef.current;
+        const currentNodes = nodesRef.current;
+        const startNodes = pathFinderService.findStartNodes(currentEdges, currentNodes);
         const serviceData = getServiceData();
 
         const runJs = !useWasmPathFinder || effectiveCompare;
@@ -225,8 +261,8 @@ export default function RouteInfoPanel({
               const paths = pathFinderService.findAllPaths(
                 startNode,
                 selectedNode.id,
-                edges,
-                nodes,
+                currentEdges,
+                currentNodes,
                 exchangeRate,
                 conciergeValue,
                 pruneOpt,
@@ -253,8 +289,8 @@ export default function RouteInfoPanel({
             const cWasmResult = await pathFinderCWasmService.findAllPaths({
               startNodes,
               endNodeId: selectedNode.id,
-              edges,
-              nodes,
+              edges: currentEdges,
+              nodes: currentNodes,
               exchangeRate,
               conciergeValue,
               pruneOpt,
@@ -273,7 +309,7 @@ export default function RouteInfoPanel({
         }
 
         const selectedPathIds = useWasmPathFinder ? cWasmPathIds : jsPathIds;
-        const generatedPaths = pathFinderService.buildCompletePaths(selectedPathIds, edges, nodes, startShipPrices, serviceData);
+        const generatedPaths = pathFinderService.buildCompletePaths(selectedPathIds, currentEdges, currentNodes, startShipPrices, serviceData);
         const mergedPaths = [...generatedPaths];
 
         completedPaths.forEach(completedPath => {
@@ -370,8 +406,7 @@ export default function RouteInfoPanel({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedShipId, edges, isDevMode, comparePathFinderPerf, selectedNode, useWasmPathFinder, pathFinderService, getServiceData, startShipPrices, exchangeRate, conciergeValue, pruneOpt]);
+  }, [selectedShipId, isDevMode, comparePathFinderPerf, selectedNode, useWasmPathFinder, pathFinderService, getServiceData, startShipPrices, exchangeRate, conciergeValue, pruneOpt, pathGraphNodeSignature, pathGraphEdgeSignature]);
 
   const sortedPathsGroups = useMemo(() => {
     if (!completePaths.length) return { paths: [] };

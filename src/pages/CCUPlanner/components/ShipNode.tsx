@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Handle, Position, Edge, XYPosition } from 'reactflow';
 import { Ship, CcuSourceType, CcuEdgeData } from '@/types';
 import { Button, IconButton, Input, Select, Tooltip } from '@mui/material';
-import { InfoOutlined } from '@mui/icons-material';
-import { Copy, X } from 'lucide-react';
+import { Copy, Info, X } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -44,13 +43,13 @@ interface ShipNodeSourceSelectionOption {
   pricingOption?: CcuConcretePricingOption;
 }
 
-export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
+function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
   const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipInfo, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const { locale } = useLocale();
   const shipDisplayName = getShipDisplayName(ship);
-  
+
   // Get data and services from context
   const { ccus, wbHistory, hangarItems, importItems, edgeService, priceHistoryMap } = useCcuPlanner();
 
@@ -279,7 +278,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
     setEdgeSettings(prevSettings => {
       const currentEdgeSettings = prevSettings[edgeId] || {};
-      
+
       const newEdgeSettings = {
         ...currentEdgeSettings,
         sourceType,
@@ -295,7 +294,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
       if (onUpdateEdge && edgeId && edge) {
         const sourceId = edge.source;
-        
+
         if (edge.data) {
           const updatedData = edgeService.updateEdgeData(edge.data, {
             sourceType,
@@ -309,7 +308,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
             currency
           });
           onUpdateEdge(sourceId, id, updatedData);
-          
+
           newEdgeSettings.customPrice = updatedData.customPrice;
           newEdgeSettings.selectedTargetPriceCents = updatedData.selectedTargetPriceCents;
           newEdgeSettings.selectedSourcePriceCents = updatedData.selectedSourcePriceCents;
@@ -340,7 +339,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
         const edge = incomingEdges.find(e => e.id === edgeId);
         if (edge && edge.data) {
           const sourceId = edge.source;
-          
+
           // Use CcuEdgeService to update edge data
           const updatedData = edgeService.updateEdgeData(
             edge.data,
@@ -349,7 +348,7 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
               customPrice: Number(price)
             }
           );
-          
+
           onUpdateEdge(sourceId, id, updatedData);
         }
       }
@@ -384,13 +383,16 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
 
         <div className="flex flex-row items-center gap-2 mb-1">
           <h3 className="text-xl font-bold">{shipDisplayName}</h3>
+        </div>
+
+        <div>
           <Tooltip title={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}>
             <IconButton
               size="small"
               aria-label={intl.formatMessage({ id: 'ccuPlanner.shipMenu.viewInfo', defaultMessage: 'Ship Information' })}
               onClick={handleOpenShipInfo}
             >
-              <InfoOutlined className="w-4 h-4" />
+              <Info className="w-4 h-4" />
             </IconButton>
           </Tooltip>
           <IconButton size="small" onClick={handleDuplicateNode}>
@@ -525,4 +527,6 @@ export default function ShipNode({ data, id, selected, xPos, yPos }: ShipNodePro
       <Handle type="source" position={Position.Right} style={{ width: 15, height: 15, right: -8 }} />
     </div>
   );
-} 
+}
+
+export default memo(ShipNode);

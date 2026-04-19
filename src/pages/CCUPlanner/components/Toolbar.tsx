@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import { Download, Upload, Route, HelpCircle, Save, SaveOff } from 'lucide-react';
-import { Node } from 'reactflow';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ToolbarProps {
@@ -11,22 +10,21 @@ interface ToolbarProps {
   onOpenPathBuilder?: () => void;
   onOpenPathReview?: () => void;
   onOpenGuide?: () => void;
-  nodes?: Node[];
+  hasContent?: boolean;
   saveStatus?: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   lastSavedAt?: number | null;
 }
 
-export default function Toolbar({
+function Toolbar({
   onClear,
   onExport,
   onImport,
   onOpenPathBuilder,
   onOpenGuide,
-  nodes = [],
+  hasContent = false,
   saveStatus = 'idle',
   lastSavedAt = null
 }: ToolbarProps) {
-  const hasContent = nodes.length > 0;
   const intl = useIntl();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const actionButtonSx = {
@@ -205,4 +203,6 @@ export default function Toolbar({
       </Dialog>
     </>
   );
-} 
+}
+
+export default memo(Toolbar);
