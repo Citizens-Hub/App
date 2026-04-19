@@ -109,7 +109,7 @@ export default function ShipModelPreview({ open, shipId }: ShipModelPreviewProps
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.6;
+    controls.autoRotateSpeed = 0.3;
     controls.enablePan = false;
 
     scene.add(new THREE.HemisphereLight(0xf8fafc, 0x1e293b, 1.8));
@@ -125,12 +125,6 @@ export default function ShipModelPreview({ open, shipId }: ShipModelPreviewProps
     const fillLight = new THREE.DirectionalLight(0xfef3c7, 0.65);
     fillLight.position.set(-2, -1, 5);
     scene.add(fillLight);
-
-    const grid = new THREE.GridHelper(14, 14, 0xcbd5e1, 0xe2e8f0);
-    grid.position.y = -2.5;
-    grid.material.opacity = 0.28;
-    grid.material.transparent = true;
-    scene.add(grid);
 
     const resize = () => {
       const width = Math.max(container.clientWidth, 1);
@@ -202,7 +196,6 @@ export default function ShipModelPreview({ open, shipId }: ShipModelPreviewProps
         disposeObject3D(loadedRoot);
       }
 
-      scene.remove(grid);
       renderer.dispose();
 
       if (renderer.domElement.parentNode === container) {

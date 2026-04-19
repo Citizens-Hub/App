@@ -1055,6 +1055,15 @@ export interface GameShopImportBatchListResponse {
   list: GameShopImportBatchListItem[];
 }
 
+export interface GameShopImportBatchCancelResponse {
+  success: boolean;
+  data: {
+    batchId: string;
+    previousStatus: string;
+    status: string;
+  };
+}
+
 export interface GameShopImportResponse {
   success: boolean;
   mode: GameShopImportMode;

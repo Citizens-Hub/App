@@ -25,6 +25,7 @@ import { useAuthApi } from '@/hooks';
 import type {
   GameShopAdminListResponse,
   GameShopChangeType,
+  GameShopImportBatchCancelResponse,
   GameShopDetailResponse,
   GameShopHistoryResponse,
   GameShopImportBatchListResponse,
@@ -75,6 +76,26 @@ function getChangeColor(changeType: GameShopChangeType | GameShopInventoryChange
   }
 
   return 'default';
+}
+
+function getBatchStatusColor(status: string): 'default' | 'success' | 'warning' | 'error' {
+  if (status === 'applied') {
+    return 'success';
+  }
+
+  if (status === 'failed') {
+    return 'error';
+  }
+
+  if (status === 'cancelled') {
+    return 'default';
+  }
+
+  return 'warning';
+}
+
+function isActiveBatchStatus(status: string): boolean {
+  return status === 'pending' || status === 'applying' || status === 'cancelling';
 }
 
 function SummarySection({ summary }: { summary: GameShopImportSummary }) {
@@ -206,6 +227,7 @@ export default function GameShopsManager() {
   const [singlePreview, setSinglePreview] = useState<GameShopImportResponse | null>(null);
   const [flash, setFlash] = useState<FlashState>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [pendingCancelBatchId, setPendingCancelBatchId] = useState<string | null>(null);
 
   const listPath = `/api/admin/game-shops?page=${page + 1}&limit=${rowsPerPage}${query ? `&query=${encodeURIComponent(query)}` : ''}${systemFilter ? `&system=${encodeURIComponent(systemFilter)}` : ''}${rentalFilter !== 'all' ? `&isRental=${rentalFilter}` : ''}`;
   const {
@@ -255,7 +277,7 @@ export default function GameShopsManager() {
   });
 
   const selectedShop = detailData?.data || null;
-  const hasActiveBatch = (batchData?.list || []).some((batch) => batch.status === 'pending' || batch.status === 'applying');
+  const hasActiveBatch = (batchData?.list || []).some((batch) => isActiveBatchStatus(batch.status));
   const filteredInventory = selectedShop?.inventory.filter((item) => {
     const needle = inventoryQuery.trim().toLowerCase();
     if (!needle) {
@@ -311,6 +333,24 @@ export default function GameShopsManager() {
     }
 
     return json as GameShopShipMatchRematchResponse;
+  };
+
+  const runCancelImportBatchRequest = async (batchId: string, force = false): Promise<GameShopImportBatchCancelResponse> => {
+    const response = await fetch(`${API_BASE_URL}/api/admin/game-shops/import-batches/${encodeURIComponent(batchId)}/cancel${force ? '?force=true' : ''}`, {
+      method: 'POST',
+      headers: {
+        Authorization: user.token ? `Bearer ${user.token}` : '',
+      },
+    });
+
+    const json = await response.json().catch(() => null) as GameShopImportBatchCancelResponse | { success?: boolean; message?: string } | null;
+    if (!response.ok || !json || json.success !== true) {
+      throw new Error((json && 'message' in json && typeof json.message === 'string')
+        ? json.message
+        : 'Request failed.');
+    }
+
+    return json as GameShopImportBatchCancelResponse;
   };
 
   useEffect(() => {
@@ -442,6 +482,32 @@ export default function GameShopsManager() {
       });
     } finally {
       setPendingAction(null);
+    }
+  };
+
+  const handleCancelBatch = async (batchId: string, force = false) => {
+    setFlash(null);
+    setPendingCancelBatchId(batchId);
+
+    try {
+      const response = await runCancelImportBatchRequest(batchId, force);
+      await mutateBatches();
+      if (selectedShopId) {
+        await mutateHistory();
+      }
+      setFlash({
+        severity: 'success',
+        text: response.data.status === 'cancelled'
+          ? `Batch ${response.data.batchId} cancelled${force ? ' by force' : ''}.`
+          : `Batch ${response.data.batchId} is cancelling.`,
+      });
+    } catch (error) {
+      setFlash({
+        severity: 'error',
+        text: error instanceof Error ? error.message : 'Cancel failed.',
+      });
+    } finally {
+      setPendingCancelBatchId(null);
     }
   };
 
@@ -945,7 +1011,7 @@ export default function GameShopsManager() {
                             />
                             <Chip
                               size="small"
-                              color={entry.batch.status === 'failed' ? 'error' : entry.batch.status === 'applied' ? 'success' : 'warning'}
+                              color={getBatchStatusColor(entry.batch.status)}
                               label={entry.batch.status}
                             />
                           </Stack>
@@ -1084,12 +1150,13 @@ export default function GameShopsManager() {
                   <TableCell>Shops</TableCell>
                   <TableCell>Inventory</TableCell>
                   <TableCell>Created</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {batchLoading && !batchData?.list.length ? (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Typography align="center">
                         {intl.formatMessage({ id: 'loading', defaultMessage: 'Loading...' })}
                       </Typography>
@@ -1099,7 +1166,7 @@ export default function GameShopsManager() {
 
                 {!batchLoading && !batchData?.list.length ? (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Typography align="center" color="text.secondary">
                         {intl.formatMessage({
                           id: 'admin.gameShops.batches.empty',
@@ -1124,7 +1191,7 @@ export default function GameShopsManager() {
                     <TableCell>
                       <Chip
                         size="small"
-                        color={batch.status === 'failed' ? 'error' : batch.status === 'applied' ? 'success' : 'warning'}
+                        color={getBatchStatusColor(batch.status)}
                         label={batch.status}
                       />
                     </TableCell>
@@ -1132,6 +1199,39 @@ export default function GameShopsManager() {
                     <TableCell>{batch.batchSummary.shopCount}</TableCell>
                     <TableCell>{batch.batchSummary.inventoryCount}</TableCell>
                     <TableCell>{formatTimestamp(batch.createdAt)}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {batch.status === 'pending' || batch.status === 'applying' ? (
+                          <Button
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            disabled={pendingCancelBatchId === batch.id}
+                            onClick={() => {
+                              void handleCancelBatch(batch.id);
+                            }}
+                          >
+                            {pendingCancelBatchId === batch.id ? 'Cancelling...' : 'Cancel'}
+                          </Button>
+                        ) : null}
+                        {batch.status === 'applying' || batch.status === 'cancelling' ? (
+                          <Button
+                            size="small"
+                            color="error"
+                            variant="text"
+                            disabled={pendingCancelBatchId === batch.id}
+                            onClick={() => {
+                              void handleCancelBatch(batch.id, true);
+                            }}
+                          >
+                            Force Cancel
+                          </Button>
+                        ) : null}
+                        {batch.status === 'cancelling' ? (
+                          <Chip size="small" color="warning" label="Cancelling..." />
+                        ) : null}
+                      </Stack>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
