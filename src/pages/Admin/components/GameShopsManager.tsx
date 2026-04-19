@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import {
@@ -255,6 +255,7 @@ export default function GameShopsManager() {
   });
 
   const selectedShop = detailData?.data || null;
+  const hasActiveBatch = (batchData?.list || []).some((batch) => batch.status === 'pending' || batch.status === 'applying');
   const filteredInventory = selectedShop?.inventory.filter((item) => {
     const needle = inventoryQuery.trim().toLowerCase();
     if (!needle) {
@@ -312,14 +313,25 @@ export default function GameShopsManager() {
     return json as GameShopShipMatchRematchResponse;
   };
 
-  const refreshAfterApply = async () => {
-    await mutateList();
-    await mutateBatches();
-    if (selectedShopId) {
-      await mutateDetail();
-      await mutateHistory();
+  useEffect(() => {
+    if (!hasActiveBatch) {
+      return undefined;
     }
-  };
+
+    const timer = window.setInterval(() => {
+      void mutateBatches();
+      void mutateList();
+
+      if (selectedShopId) {
+        void mutateDetail();
+        void mutateHistory();
+      }
+    }, 5000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [hasActiveBatch, mutateBatches, mutateDetail, mutateHistory, mutateList, selectedShopId]);
 
   const handleSearch = () => {
     setPage(0);
@@ -392,18 +404,16 @@ export default function GameShopsManager() {
         mode === 'full' ? fullImportFileName : singleImportFileName,
       );
 
-      if (mode === 'full') {
-        setFullPreview(response);
-      } else {
-        setSinglePreview(response);
-      }
-
-      await refreshAfterApply();
+      await mutateBatches();
       setFlash({
         severity: 'success',
-        text: mode === 'full'
-          ? `Full import applied. Batch ${response.data?.batchId || '-'}.`
-          : `Single shop import applied. Batch ${response.data?.batchId || '-'}.`,
+        text: response.data?.status === 'applied'
+          ? (mode === 'full'
+            ? `Full import applied. Batch ${response.data?.batchId || '-'}.`
+            : `Single shop import applied. Batch ${response.data?.batchId || '-'}.`)
+          : (mode === 'full'
+            ? `Full import submitted. Batch ${response.data?.batchId || '-'} is processing in background.`
+            : `Single shop import submitted. Batch ${response.data?.batchId || '-'} is processing in background.`),
       });
     } catch (error) {
       setFlash({
