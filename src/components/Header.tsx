@@ -25,6 +25,10 @@ interface HeaderProps {
   toggleDarkMode: () => void;
 }
 
+const GITHUB_REPO_URL = "https://github.com/EduarteXD/citizenshub";
+const DISCORD_INVITE_URL = "https://discord.gg/AEuRtb5Vy8";
+const QQ_GROUP_URL = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475";
+
 // enum SCBoxTranslateStatus {
 //   Available,
 //   Translated,
@@ -49,6 +53,48 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
     || pathname.startsWith('/price-history')
     || pathname.startsWith('/hangar');
   const showExchangeCalculator = currency !== 'USD' && isExchangeCalculatorPage;
+  const openExternalLink = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
+  const communityLinks = isChineseLocale
+    ? [
+      {
+        key: 'qq',
+        href: QQ_GROUP_URL,
+        labelId: 'header.communityQQ',
+        defaultMessage: 'QQ Group',
+        icon: <QQIcon fontSize="small" />,
+      },
+      {
+        key: 'github',
+        href: GITHUB_REPO_URL,
+        labelId: 'header.communityGithub',
+        defaultMessage: 'GitHub Repository',
+        icon: <GithubIcon fontSize="small" />,
+      },
+    ]
+    : [
+      {
+        key: 'discord',
+        href: DISCORD_INVITE_URL,
+        labelId: 'header.communityDiscord',
+        defaultMessage: 'Discord Server',
+        icon: <DiscordIcon fontSize="small" />,
+      },
+      {
+        key: 'github',
+        href: GITHUB_REPO_URL,
+        labelId: 'header.communityGithub',
+        defaultMessage: 'GitHub Repository',
+        icon: <GithubIcon fontSize="small" />,
+      },
+    ];
+  const friendlyLinks = [
+    {
+      key: 'scm',
+      href: 'https://scm.flowcld.com?from=citizenshub.app',
+      labelId: 'header.friendlyLinkScm',
+      defaultMessage: 'SCM',
+    },
+  ];
 
   // const leaveListener = useCallback(() => {
   //   console.log("unload>>>>")
@@ -219,7 +265,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         </IconButton>
         {
           isChineseLocale ? (<IconButton
-            onClick={() => window.open("http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475", "_blank")}
+            onClick={() => openExternalLink(QQ_GROUP_URL)}
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
             className="text-gray-800 dark:text-white"
@@ -228,7 +274,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
             {/* <DiscordIcon /> */}
             <QQIcon />
           </IconButton>) : <IconButton
-            onClick={() => window.open("https://discord.gg/AEuRtb5Vy8", "_blank")}
+            onClick={() => openExternalLink(DISCORD_INVITE_URL)}
             color="inherit"
             sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
             className="text-gray-800 dark:text-white"
@@ -238,7 +284,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           </IconButton>
         }
         <IconButton
-          onClick={() => window.open("https://github.com/EduarteXD/citizenshub", "_blank")}
+          onClick={() => openExternalLink(GITHUB_REPO_URL)}
           color="inherit"
           sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
           className="text-gray-800 dark:text-white"
@@ -346,41 +392,54 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 </Link>
               ))}
             </div>
-            <div className="text-black dark:text-white">
-              <div className="flex justify-center gap-4">
-                <IconButton
-                  size="small"
-                  onClick={() => window.open("https://github.com/EduarteXD/citizenshub", "_blank")}
-                  color="inherit"
-                  sx={{ bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
-                  className="text-gray-800 dark:text-white"
-                  aria-label={intl.formatMessage({ id: "header.openGithub", defaultMessage: "Open GitHub repository" })}
-                >
-                  <GithubIcon />
-                </IconButton>
-                {isChineseLocale ? (
-                  <IconButton
-                    size="small"
-                    onClick={() => window.open("http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8xUvKd0aUkaz9TcvO0_rr01Ww1q-05Rg&authKey=cV5nXYxbni1F8jfOArwuzaRjgzET8SnEESFHAKaqRMDETZmlVqQA1LHGMUhA4nNM&noverify=0&group_code=1045858475", "_blank")}
-                    color="inherit"
-                    sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
-                    className="text-gray-800 dark:text-white"
-                    aria-label={intl.formatMessage({ id: "header.openQQ", defaultMessage: "Open QQ group" })}
+            <div className="rounded-md border border-gray-200 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-white/5">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                <FormattedMessage id="header.communityLinks" defaultMessage="Community Links" />
+              </div>
+              <div className="flex flex-col gap-2">
+                {communityLinks.map((link) => (
+                  <Link
+                    key={link.key}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    underline="none"
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                      }`}
+                    sx={{
+                      color: darkMode ? '#fff' : '#000',
+                    }}
                   >
-                    <QQIcon />
-                  </IconButton>
-                ) : (
-                  <IconButton
-                    size="small"
-                    onClick={() => window.open("https://discord.gg/AEuRtb5Vy8", "_blank")}
-                    color="inherit"
-                    sx={{ ml: 1, bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
-                    className="text-gray-800 dark:text-white"
-                    aria-label={intl.formatMessage({ id: "header.openDiscord", defaultMessage: "Open Discord server" })}
-                  >
-                    <DiscordIcon />
-                  </IconButton>
-                )}
+                    {link.icon}
+                    <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                  <FormattedMessage id="header.friendlyLinks" defaultMessage="Friendly Links" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  {friendlyLinks.map((link) => (
+                    <Link
+                      key={link.key}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      underline="none"
+                      onClick={() => setMenuOpen(false)}
+                      className={`rounded-md px-3 py-2 transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                        }`}
+                      sx={{
+                        color: darkMode ? '#fff' : '#000',
+                        display: 'block',
+                      }}
+                    >
+                      <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
