@@ -166,6 +166,20 @@ const SHIP_COMPONENT_SUFFIX_TRANSLATIONS: Array<[string, ShipComponentTranslatio
   ['shield', t('护盾', '護盾', 'Shield', 'シールド', 'Schild')],
 ];
 
+const SHIP_COMPONENT_DETAIL_TRANSLATIONS: Record<string, ShipComponentTranslations> = {
+  manned: t('载人', '載人', 'Manned', '有人', 'Bemannt'),
+  remote: t('遥控', '遙控', 'Remote', '遠隔', 'Ferngesteuert'),
+  pilot: t('驾驶员', '駕駛員', 'Pilot', 'パイロット', 'Pilot'),
+  copilot: t('副驾驶', '副駕駛', 'Copilot', '副操縦士', 'Copilot'),
+  'co-pilot': t('副驾驶', '副駕駛', 'Co-pilot', '副操縦士', 'Co-Pilot'),
+  driver: t('驾驶员', '駕駛員', 'Driver', 'ドライバー', 'Fahrer'),
+  gunner: t('炮手', '炮手', 'Gunner', 'ガンナー', 'Schütze'),
+  operator: t('操作员', '操作員', 'Operator', 'オペレーター', 'Bediener'),
+  'turret operator': t('炮塔操作员', '炮塔操作員', 'Turret Operator', 'タレットオペレーター', 'Turmbediener'),
+  'pilot controlled': t('驾驶员控制', '駕駛員控制', 'Pilot Controlled', 'パイロット操作', 'Vom Piloten gesteuert'),
+  'copilot controlled': t('副驾驶控制', '副駕駛控制', 'Copilot Controlled', '副操縦士操作', 'Vom Copiloten gesteuert'),
+};
+
 function resolveComponentSuffixTranslation(value: string, locale: ShipMetadataLocale) {
   const normalizedValue = normalizeComponentTerm(value);
 
@@ -222,4 +236,41 @@ export function localizeShipComponentManufacturer(locale: string, value?: string
   }
 
   return rawValue;
+}
+
+function localizeShipComponentDetailToken(locale: ShipMetadataLocale, value: string) {
+  const normalizedKey = normalizeComponentTerm(value);
+  const exactTranslations = SHIP_COMPONENT_DETAIL_TRANSLATIONS[normalizedKey];
+
+  if (exactTranslations) {
+    return exactTranslations[locale] || exactTranslations.en;
+  }
+
+  return localizeShipComponentName(locale, value) || value;
+}
+
+export function localizeShipComponentDetails(locale: string, value?: string | null) {
+  const rawValue = decodeHtmlEntities(value);
+  if (!rawValue) return '';
+
+  const resolvedLocale = normalizeShipMetadataLocale(locale);
+  const normalizedKey = normalizeComponentTerm(rawValue);
+  const exactTranslations = SHIP_COMPONENT_DETAIL_TRANSLATIONS[normalizedKey];
+
+  if (exactTranslations) {
+    return exactTranslations[resolvedLocale] || exactTranslations.en;
+  }
+
+  const slashSeparatedSegments = rawValue.split(/\s*\/\s*/).filter(Boolean);
+  if (slashSeparatedSegments.length > 1) {
+    const localizedSegments = slashSeparatedSegments.map((segment) =>
+      localizeShipComponentDetailToken(resolvedLocale, segment),
+    );
+
+    if (localizedSegments.some((segment, index) => segment !== slashSeparatedSegments[index])) {
+      return localizedSegments.join(' / ');
+    }
+  }
+
+  return localizeShipComponentDetailToken(resolvedLocale, rawValue);
 }

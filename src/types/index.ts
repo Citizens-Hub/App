@@ -187,6 +187,38 @@ export interface ShipResponse {
   };
 }
 
+export interface ShipGameShopPurchaseItem {
+  shopId: number;
+  sourceShopId: string;
+  shopName: string;
+  location: string | null;
+  system: string | null;
+  isRental: boolean;
+  sourceRef: string;
+  localName: string;
+  price: number;
+  available: number | null;
+  unavailable: number | null;
+  shipMatchMethod: string | null;
+  lastSeenAt: string;
+}
+
+export interface ShipGameShopAvailabilityResponse {
+  success: boolean;
+  data: {
+    shipId: number;
+    shipName: string;
+    summary: {
+      shopCount: number;
+      availableShopCount: number;
+      lowestPrice: number | null;
+      highestPrice: number | null;
+      localNames: string[];
+    };
+    list: ShipGameShopPurchaseItem[];
+  };
+}
+
 export interface ShipNameTranslationItem {
   shipId: number;
   shipName: string;
@@ -860,4 +892,190 @@ export interface SessionHistory {
   page: string,
   open: string,
   close: string
+}
+
+export type GameShopImportMode = 'full' | 'single';
+export type GameShopInventoryChangeType = 'added' | 'updated' | 'removed' | 'unchanged';
+export type GameShopChangeType = 'added' | 'updated' | 'unchanged';
+
+export interface GameShopEntityChangeSummary {
+  added: number;
+  updated: number;
+  unchanged: number;
+}
+
+export interface GameShopInventoryChangeSummary {
+  added: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
+}
+
+export interface GameShopImportSummary {
+  shopCount: number;
+  inventoryCount: number;
+  shops: GameShopEntityChangeSummary;
+  products: GameShopEntityChangeSummary;
+  inventory: GameShopInventoryChangeSummary;
+  warnings: string[];
+}
+
+export interface GameShopImportShopPreview {
+  sourceShopId: string;
+  name: string;
+  location: string | null;
+  system: string | null;
+  isRental: boolean;
+  inventoryCount: number;
+  shopChangeType: GameShopChangeType;
+  inventoryChanges: GameShopInventoryChangeSummary;
+}
+
+export interface GameShopAdminListItem {
+  id: number;
+  sourceShopId: string;
+  name: string;
+  location: string | null;
+  system: string | null;
+  isRental: boolean;
+  isActive: boolean;
+  activeInventoryCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+export interface GameShopAdminListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  systems: string[];
+  list: GameShopAdminListItem[];
+}
+
+export interface GameShopInventoryItem {
+  id: number;
+  productId: number;
+  sourceRef: string;
+  localName: string;
+  price: number;
+  available: number | null;
+  unavailable: number | null;
+  isActive: boolean;
+  rawData: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastImportBatchId: string;
+}
+
+export interface GameShopDetailResponse {
+  success: boolean;
+  data: {
+    id: number;
+    sourceShopId: string;
+    name: string;
+    location: string | null;
+    system: string | null;
+    isRental: boolean;
+    isActive: boolean;
+    activeInventoryCount: number;
+    rawData: string | null;
+    firstSeenAt: string;
+    lastSeenAt: string;
+    inventory: GameShopInventoryItem[];
+  };
+}
+
+export interface GameShopHistoryItem {
+  sourceRef: string;
+  localName: string;
+  price: number;
+  available: number | null;
+  unavailable: number | null;
+  changeType: GameShopInventoryChangeType;
+  createdAt: string;
+}
+
+export interface GameShopHistoryEntry {
+  batchId: string;
+  changeType: GameShopChangeType;
+  inventoryChanges: GameShopInventoryChangeSummary;
+  batch: {
+    id: string;
+    scope: GameShopImportMode;
+    sourceType: string;
+    sourceShopId: string | null;
+    fileName: string | null;
+    checksum: string | null;
+    status: string;
+    errorMessage: string | null;
+    createdBy: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+    summary: GameShopImportSummary | null;
+  };
+  items: GameShopHistoryItem[];
+  createdAt: string;
+}
+
+export interface GameShopHistoryResponse {
+  success: boolean;
+  data: {
+    shopId: number;
+    sourceShopId: string;
+    shopName: string;
+    history: GameShopHistoryEntry[];
+  };
+}
+
+export interface GameShopImportBatchListItem {
+  id: string;
+  scope: GameShopImportMode;
+  sourceType: string;
+  sourceShopId: string | null;
+  fileName: string | null;
+  checksum: string | null;
+  status: string;
+  errorMessage: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  summary: GameShopImportSummary | null;
+  batchSummary: {
+    shopCount: number;
+    inventoryCount: number;
+  };
+}
+
+export interface GameShopImportBatchListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  list: GameShopImportBatchListItem[];
+}
+
+export interface GameShopImportResponse {
+  success: boolean;
+  mode: GameShopImportMode;
+  summary: GameShopImportSummary;
+  shops: GameShopImportShopPreview[];
+  data?: {
+    batchId: string;
+    createdAt?: string;
+    status?: string;
+  };
+}
+
+export interface GameShopShipMatchRematchResponse {
+  success: boolean;
+  data: {
+    totalProducts: number;
+    updatedProducts: number;
+    matched: number;
+    unmatched: number;
+    ambiguous: number;
+    ignored: number;
+    matchedAt: string;
+  };
 }

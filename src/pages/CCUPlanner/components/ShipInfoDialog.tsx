@@ -1,4 +1,20 @@
-import { Alert, Box, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, Link } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Link,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from '@mui/material';
 import { Close, OpenInNew } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -16,13 +32,14 @@ import {
 } from '@/data/rsiIcons';
 import {
   localizeShipComponentManufacturer,
+  localizeShipComponentDetails,
   localizeShipComponentName,
   localizeShipComponentSize,
 } from '@/data/shipComponentI18n';
 import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
 import { getShipMetadataEntry, localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
-import { Ship, ShipDetailComponent, ShipResponse } from '@/types';
+import { Ship, ShipDetailComponent, ShipGameShopAvailabilityResponse, ShipResponse } from '@/types';
 import ShipModelPreview from './ShipModelPreview';
 
 interface ShipInfoDialogProps {
@@ -50,24 +67,29 @@ function stripRichText(value?: string | null) {
     .trim();
 }
 
-function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
+function formatCrewRange(minCrew?: number | null, maxCrew?: number | null, locale = 'en-US') {
   if (minCrew == null && maxCrew == null) return '';
+  const numberFormatter = new Intl.NumberFormat(locale);
   if (minCrew != null && maxCrew != null) {
-    return minCrew === maxCrew ? `${minCrew}` : `${minCrew}-${maxCrew}`;
+    return minCrew === maxCrew
+      ? numberFormatter.format(minCrew)
+      : `${numberFormatter.format(minCrew)}-${numberFormatter.format(maxCrew)}`;
   }
 
-  return `${minCrew ?? maxCrew ?? ''}`;
+  return numberFormatter.format(minCrew ?? maxCrew ?? 0);
 }
 
-function formatMetricValue(value?: number | null) {
+function formatMetricValue(value?: number | null, locale = 'en-US') {
   if (value == null || Number.isNaN(value)) return '';
-  return Number.isInteger(value) ? `${value}` : `${value}`;
+  return value.toLocaleString(locale, {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  });
 }
 
-function buildDimensionSummary(ship?: Ship | null) {
-  const length = formatMetricValue(ship?.details?.length);
-  const beam = formatMetricValue(ship?.details?.beam);
-  const height = formatMetricValue(ship?.details?.height);
+function buildDimensionSummary(ship?: Ship | null, locale = 'en-US') {
+  const length = formatMetricValue(ship?.details?.length, locale);
+  const beam = formatMetricValue(ship?.details?.beam, locale);
+  const height = formatMetricValue(ship?.details?.height, locale);
 
   if (!length && !beam && !height) return '';
 
@@ -77,6 +99,24 @@ function buildDimensionSummary(ship?: Ship | null) {
 function formatUsdValue(value?: number | null, locale = 'en-US') {
   if (value == null) return '';
   return (value / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' });
+}
+
+function formatAuecValue(value?: number | null, locale = 'en-US') {
+  if (value == null) return '-';
+  return `${value.toLocaleString(locale)} aUEC`;
+}
+
+function formatTimestamp(value?: string | null, locale = 'en-US') {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(locale);
 }
 
 function resolveShipImage(ship?: Ship | null) {
@@ -105,11 +145,10 @@ function DetailField({
 
   return (
     <div
-      className={`flex items-start gap-3 rounded border p-3 ${
-        isTbd
-          ? 'border-slate-300 bg-slate-100/90 dark:border-slate-700 dark:bg-slate-900/70'
-          : 'border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]'
-      }`}
+      className={`flex items-start gap-3 rounded border p-3 ${isTbd
+        ? 'border-slate-300 bg-slate-100/90 dark:border-slate-700 dark:bg-slate-900/70'
+        : 'border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]'
+        }`}
       style={isTbd ? { backgroundImage: TBD_STRIPED_BACKGROUND_IMAGE } : undefined}
     >
       <RsiIcon src={iconSrc} className="mt-0.5 h-5 w-5" />
@@ -291,7 +330,7 @@ function ShipComponentSection({
             : localizeShipComponentName(locale, component.name) || component.name || '-';
           const detailText = isMannedTurretComponent(component) && sectionKey === 'turrets'
             ? ''
-            : stripRichText(component.details);
+            : localizeShipComponentDetails(locale, stripRichText(component.details));
 
           return (
             <div
@@ -328,15 +367,23 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const intl = useIntl();
   const { locale } = useLocale();
   const requestPath = open && ship ? `/api/ship?id=${ship.id}` : null;
-  const { data, error } = useApi<ShipResponse>(requestPath, {
+  const gameShopRequestPath = open && ship ? `/api/ship/game-shops?id=${ship.id}` : null;
+  const { data: shipResponseData, error: shipResponseError } = useApi<ShipResponse>(requestPath, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    dedupingInterval: 60_000,
+  });
+  const { data: shipGameShopData, error: shipGameShopError } = useApi<ShipGameShopAvailabilityResponse>(gameShopRequestPath, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
     dedupingInterval: 60_000,
   });
 
-  const detailedShip = data?.data.ship || ship;
-  const isLoading = Boolean(requestPath && !data && !error);
+  const detailedShip = shipResponseData?.data.ship || ship;
+  const isLoading = Boolean(requestPath && !shipResponseData && !shipResponseError);
+  const isGameShopLoading = Boolean(gameShopRequestPath && !shipGameShopData && !shipGameShopError);
   const detail = detailedShip?.details;
+  const shipGameShops = shipGameShopData?.data || null;
   const descriptionMarkdown = (detail?.body || detail?.excerpt || '').trim();
   const imageUrl = resolveShipImage(detailedShip);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
@@ -349,6 +396,8 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const isTbdStatus = statusEntry.canonicalKey === 'tbd';
   const weaponComponents = (detail?.weapons || []).filter((component) => !isMannedTurretComponent(component));
   const turretComponents = (detail?.weapons || []).filter((component) => isMannedTurretComponent(component));
+  const displayShipName = detailedShip?.name || ship?.name || '-';
+  const displayManufacturerName = detailedShip?.manufacturer?.name || '';
 
   const metadata = [
     { key: 'type', value: localizedType },
@@ -387,27 +436,27 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
     },
     {
       label: localizeShipDataLabel(locale, 'crew'),
-      value: formatCrewRange(detail?.minCrew, detail?.maxCrew),
+      value: formatCrewRange(detail?.minCrew, detail?.maxCrew, intl.locale),
       iconSrc: getRsiIconPath('shipCrew'),
     },
     {
       label: localizeShipDataLabel(locale, 'cargo'),
-      value: detail?.cargoCapacity != null ? `${formatMetricValue(detail.cargoCapacity)} SCU` : '',
+      value: detail?.cargoCapacity != null ? `${formatMetricValue(detail.cargoCapacity, intl.locale)} SCU` : '',
       iconSrc: getRsiIconPath('shipCapacity'),
     },
     {
       label: localizeShipDataLabel(locale, 'scmSpeed'),
-      value: detail?.maxScmSpeed != null ? `${formatMetricValue(detail.maxScmSpeed)} m/s` : '',
+      value: detail?.maxScmSpeed != null ? `${formatMetricValue(detail.maxScmSpeed, intl.locale)} m/s` : '',
       iconSrc: getRsiIconPath('shipSpeed'),
     },
     {
       label: localizeShipDataLabel(locale, 'afterburner'),
-      value: detail?.afterburnerSpeed != null ? `${formatMetricValue(detail.afterburnerSpeed)} m/s` : '',
+      value: detail?.afterburnerSpeed != null ? `${formatMetricValue(detail.afterburnerSpeed, intl.locale)} m/s` : '',
       iconSrc: getRsiIconPath('shipSpeed'),
     },
     {
       label: localizeShipDataLabel(locale, 'dimensions'),
-      value: buildDimensionSummary(detailedShip),
+      value: buildDimensionSummary(detailedShip, intl.locale),
       iconSrc: getRsiIconPath('shipSize'),
     },
     {
@@ -428,11 +477,11 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
             <RsiIcon src={getRsiIconPath('ship')} className="h-5 w-5" toneClassName="bg-slate-700 dark:bg-slate-100" />
-            <span className="truncate">{detailedShip?.name || ship?.name || '-'}</span>
+            <span className="truncate">{displayShipName}</span>
           </div>
-          {detailedShip?.manufacturer?.name && (
+          {displayManufacturerName && (
             <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {detailedShip.manufacturer.name}
+              {displayManufacturerName}
             </div>
           )}
         </div>
@@ -471,7 +520,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
             />
 
             <div className="flex flex-col gap-5 p-6">
-              {error && (
+              {shipResponseError && (
                 <Alert severity="warning">
                   <FormattedMessage
                     id="ccuPlanner.shipInfo.loadFailed"
@@ -563,6 +612,77 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
                   )}
                 </div>
               </section>
+
+              { !!shipGameShops?.summary.shopCount &&
+                <section className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                      <FormattedMessage id="ccuPlanner.shipInfo.gameShops" defaultMessage="In-Game Shops" />
+                    </div>
+                    {isGameShopLoading && <CircularProgress size={18} />}
+                  </div>
+
+                  {shipGameShopError && (
+                    <Alert severity="warning">
+                      <FormattedMessage
+                        id="ccuPlanner.shipInfo.gameShopsLoadFailed"
+                        defaultMessage="Failed to load the in-game shop purchase data for this ship."
+                      />
+                    </Alert>
+                  )}
+
+                  {!isGameShopLoading && shipGameShops && shipGameShops.summary.shopCount > 0 && (
+                    <>
+                      <TableContainer className="rounded border border-black/10 dark:border-white/10">
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>
+                                <FormattedMessage id="ccuPlanner.shipInfo.gameShops.shop" defaultMessage="Shop" />
+                              </TableCell>
+                              <TableCell>
+                                <FormattedMessage id="ccuPlanner.shipInfo.gameShops.price" defaultMessage="Price" />
+                              </TableCell>
+                                <TableCell align='right'>
+                                  <FormattedMessage id="ccuPlanner.shipInfo.gameShops.updated" defaultMessage="Updated" />
+                                </TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {shipGameShops.list.map((entry) => (
+                              <TableRow key={`${entry.shopId}-${entry.sourceRef}`}>
+                                <TableCell>
+                                  <div className="flex min-w-0 flex-col gap-1">
+                                    <div className="font-medium text-slate-900 dark:text-slate-100">
+                                      {entry.shopName}
+                                    </div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                                      {[entry.system, entry.location].filter(Boolean).join(' / ') || '-'}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{
+                                  entry.isRental ? (
+                                    <div>
+                                      <Chip
+                                        size="small"
+                                        label={intl.formatMessage({
+                                          id: 'ccuPlanner.shipInfo.gameShops.rental',
+                                          defaultMessage: 'Rental',
+                                        })}
+                                      />
+                                    </div>
+                                  ) : formatAuecValue(entry.price, intl.locale)}</TableCell>
+                                <TableCell align='right'>{formatTimestamp(entry.lastSeenAt, intl.locale)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
+                  )}
+                </section>
+              }
 
               <ShipComponentSection
                 sectionKey="turrets"
