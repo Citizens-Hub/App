@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { Ccu, Ship } from '@/types';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link } from 'react-router';
+// import { Link } from 'react-router';
 import { Button, IconButton, InputAdornment, Switch, TextField, Tooltip, useMediaQuery } from '@mui/material';
 import { InfoOutlined, Search } from '@mui/icons-material';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -203,17 +203,17 @@ function ShipSelector({
         <div className="flex items-center gap-2 px-2 pb-2 justify-between">
           <label className="flex items-center gap-2" htmlFor="showHistoryWB">
             <FormattedMessage id="ccuPlanner.showHistoryWB" defaultMessage="Show History WB" />
-            <Tooltip title={
+            {/* <Tooltip title={
               <span style={{ fontSize: '14px' }}>
                 <FormattedMessage id="ccuPlanner.showHistoryWBTooltip" defaultMessage="This is a test function, the data may not be accurate" />
               </span>
             }>
               <InfoOutlined sx={{ fontSize: 16 }} />
-            </Tooltip>
+            </Tooltip> */}
           </label>
           <Switch checked={showHistoryWB} onChange={(event) => setShowHistoryWB(event.target.checked)} id="showHistoryWB" />
         </div>
-        <div className="px-2 pb-2">
+        {/* <div className="px-2 pb-2">
           <p className="text-xs text-gray-500 dark:text-gray-400">
             <FormattedMessage
               id="ccuPlanner.historyWBHint"
@@ -227,7 +227,7 @@ function ShipSelector({
               }}
             />
           </p>
-        </div>
+        </div> */}
 
         <div className="flex items-center gap-2 px-2 pb-2 justify-between">
           <label className="flex items-center gap-2" htmlFor="onlyShowAvailable">
@@ -238,7 +238,7 @@ function ShipSelector({
       </div>
 
       {(!isMobile || searchTerm !== '') && (
-        <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px-24px)] sm:max-h-full max-h-[calc(100vh-425px)]">
+        <div className="flex flex-col items-start border-b md:border-b-0 border-gray-200 dark:border-gray-800 overflow-auto absolute w-full z-10 bg-white dark:bg-[#121212] h-[calc(100vh-258px)] sm:max-h-full max-h-[calc(100vh-425px)]">
           {filteredShips.map((ship) => {
             const availableWbPriceCents = availableWbPriceByShipId.get(ship.id);
             const historicalWbPriceCents = historicalWbPriceByShipId.get(ship.id);
