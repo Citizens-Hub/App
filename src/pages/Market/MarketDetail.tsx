@@ -863,27 +863,6 @@ export default function MarketDetail() {
                 <FormattedMessage id="market.detail.productInfo" defaultMessage="Product Details" />
               </Typography>
 
-              {/* <div className='flex flex-wrap gap-2'>
-                <Chip label={item.itemType} size="small" />
-                {item.packageKind && <Chip label={item.packageKind} size="small" variant="outlined" />}
-                {item.canGift && (
-                  <Chip
-                    size="small"
-                    color="success"
-                    label={intl.formatMessage({ id: 'market.canGift', defaultMessage: 'Giftable' })}
-                  />
-                )}
-                {item.isBuyBack && (
-                  <Chip
-                    size="small"
-                    color="warning"
-                    label={intl.formatMessage({ id: 'market.filter.buyback', defaultMessage: 'Buyback' })}
-                  />
-                )}
-              </div>
-
-              <Divider sx={{ my: 3 }} /> */}
-
               {item.itemType === 'ccu' && (
                 <div className='flex flex-col gap-6'>
                   <div className='flex flex-col gap-3'>

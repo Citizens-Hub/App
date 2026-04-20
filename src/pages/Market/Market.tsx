@@ -466,13 +466,6 @@ const Market: React.FC = () => {
                           <div className='flex flex-wrap gap-2'>
                             {getItemTypeLabel(item) !== "Package" && <Chip size="small" label={getItemTypeLabel(item)} />}
                             {item.packageKind && <Chip size="small" variant="outlined" label={getPackageKindLabel(item)} />}
-                            {item.isBuyBack && (
-                              <Chip
-                                size="small"
-                                color="warning"
-                                label={intl.formatMessage({ id: 'market.filter.buyback', defaultMessage: 'Buyback' })}
-                              />
-                            )}
                           </div>
 
                           <div className='flex flex-1 flex-col gap-2'>

@@ -496,8 +496,6 @@ export interface ListingItem {
   imageUrl?: string;
   fromImageUrl?: string;
   toImageUrl?: string;
-  canGift?: boolean;
-  isBuyBack?: boolean;
   sourceKind?: string | null;
   description?: string;
   externalRef?: string;

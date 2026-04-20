@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage, IntlShape, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { selectUsersHangarItems } from "@/store/upgradesStore";
@@ -29,20 +29,80 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Search, ChevronsRight, PlusCircle, List } from "lucide-react";
+import { ChevronsRight, PlusCircle, Search } from "lucide-react";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
-import { ListingItem, MarketItemType, Ship } from "@/types";
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from "@/components/marketItemDisplay";
 import {
+  ListingItem,
+  MarketItemType,
+  MarketPackageKind,
+  Ship,
+} from "@/types";
+import {
   buildInventoryItems,
-  buildListingPayload,
-  findMatchingListing,
   getInventorySearchText,
+  getListingDisplayType,
+  getListingSearchText,
   StoreInventoryItem,
+  StoreListingDisplayType,
 } from "./storeListingUtils";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
+const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
+
+function normalizeShipName(name?: string) {
+  return (name || "").trim().toUpperCase();
+}
+
+function getDisplayTypeLabel(type: StoreListingDisplayType, intl: IntlShape) {
+  if (type === "ccu") {
+    return "CCU";
+  }
+
+  if (type === "standalone_ship") {
+    return intl.formatMessage({ id: "market.filter.standaloneShip", defaultMessage: "Standalone Ship" });
+  }
+
+  if (type === "bundle") {
+    return intl.formatMessage({ id: "market.filter.bundle", defaultMessage: "Bundle" });
+  }
+
+  if (type === "credit") {
+    return intl.formatMessage({ id: "market.filter.credit", defaultMessage: "Credit" });
+  }
+
+  return intl.formatMessage({ id: "market.filter.misc", defaultMessage: "Misc" });
+}
+
+function getSourceKindLabel(sourceKind: string | null | undefined, intl: IntlShape) {
+  if (sourceKind === "hangar") {
+    return intl.formatMessage({ id: "hangar.prefilledFromHangar", defaultMessage: "Prefilled from hangar" });
+  }
+
+  if (sourceKind === "manual") {
+    return intl.formatMessage({ id: "market.sourceKind.manual", defaultMessage: "Manual" });
+  }
+
+  return sourceKind || "";
+}
+
+function getInventoryOptionLabel(item: StoreInventoryItem) {
+  if (item.itemType === "ccu") {
+    return `${item.name} | ${item.fromShipName || "-"} -> ${item.toShipName || "-"}`;
+  }
+
+  const subtitle = item.packageKind === "bundle"
+    ? `${item.packageShips?.length || 0} ships`
+    : (item.shipName || item.packageShips?.[0]?.shipName || "");
+
+  return subtitle ? `${item.name} | ${subtitle}` : item.name;
+}
+
+function getInventoryOptionMeta(item: StoreInventoryItem) {
+  const ownerText = item.ownerLabels.join(", ");
+  return `x${item.stock}${ownerText ? ` | ${ownerText}` : ""}`;
+}
 
 export default function StoreTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
@@ -53,22 +113,19 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
   const [listingItems, setListingItems] = useState<ListingItem[]>([]);
   const [listingFetchError, setListingFetchError] = useState<string | null>(null);
+  const [isListingLoading, setIsListingLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [showBuybacks, setShowBuybacks] = useState(true);
   const [showCcus, setShowCcus] = useState(true);
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
   const [showBundles, setShowBundles] = useState(true);
+  const [showMisc, setShowMisc] = useState(true);
 
-  const [isListingDialogOpen, setIsListingDialogOpen] = useState(false);
-  const [currentItem, setCurrentItem] = useState<StoreInventoryItem | null>(null);
-  const [listingPrice, setListingPrice] = useState(0);
-  const [listingQuantity, setListingQuantity] = useState(1);
-
-  const [isManageListingDialogOpen, setIsManageListingDialogOpen] = useState(false);
+  const [isCreateListingDialogOpen, setIsCreateListingDialogOpen] = useState(false);
+  const [selectedSourceItem, setSelectedSourceItem] = useState<StoreInventoryItem | null>(null);
   const [manualItemType, setManualItemType] = useState<MarketItemType>(DEFAULT_MANUAL_ITEM_TYPE);
-  const [manualPackageKind, setManualPackageKind] = useState<"standalone_ship" | "bundle">("standalone_ship");
+  const [manualPackageKind, setManualPackageKind] = useState<MarketPackageKind>(DEFAULT_PACKAGE_KIND);
   const [selectedFromShip, setSelectedFromShip] = useState<Ship | null>(null);
   const [selectedToShip, setSelectedToShip] = useState<Ship | null>(null);
   const [selectedPrimaryShip, setSelectedPrimaryShip] = useState<Ship | null>(null);
@@ -81,8 +138,6 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualDescription, setManualDescription] = useState("");
   const [manualImageUrl, setManualImageUrl] = useState("");
   const [manualExternalRef, setManualExternalRef] = useState("");
-  const [manualCanGift, setManualCanGift] = useState(false);
-  const [manualIsBuyBack, setManualIsBuyBack] = useState(false);
 
   const inventoryItems = useMemo(() => buildInventoryItems({
     ccus: items.ccus,
@@ -93,103 +148,58 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     allItemPrices,
   }), [allItemPrices, items.bundles, items.ccus, items.ships, ships, users]);
 
-  const fetchListingItems = useCallback(() => {
-    if (!id) return;
+  const fetchListingItems = useCallback(async () => {
+    if (!id) {
+      setListingItems([]);
+      setListingFetchError(null);
+      return;
+    }
 
-    fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/list`)
-      .then((res) => res.json())
-      .then((data) => {
-        setListingItems(data.filter((item: ListingItem) => item.belongsTo === id));
-        setListingFetchError(null);
-      })
-      .catch((error) => {
-        console.error("Failed to fetch listings:", error);
-        setListingFetchError(intl.formatMessage({
-          id: "hangar.fetchListingsFailed",
-          defaultMessage: "Failed to fetch current listings",
-        }));
-      });
+    setIsListingLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/list`);
+      if (!response.ok) {
+        throw new Error(`Unexpected response: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setListingItems(data.filter((item: ListingItem) => item.belongsTo === id));
+      setListingFetchError(null);
+    } catch (error) {
+      console.error("Failed to fetch listings:", error);
+      setListingFetchError(intl.formatMessage({
+        id: "hangar.fetchListingsFailed",
+        defaultMessage: "Failed to fetch current listings",
+      }));
+    } finally {
+      setIsListingLoading(false);
+    }
   }, [id, intl]);
 
   useEffect(() => {
-    fetchListingItems();
+    void fetchListingItems();
   }, [fetchListingItems]);
 
-  const filteredInventory = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-
-    return inventoryItems.filter((item) => {
-      if (!showBuybacks && item.isBuyBack) return false;
-      if (!showCcus && item.displayType === "ccu") return false;
-      if (!showStandaloneShips && item.displayType === "standalone_ship") return false;
-      if (!showBundles && item.displayType === "bundle") return false;
-      if (!search) return true;
-      return getInventorySearchText(item).includes(search);
-    });
-  }, [inventoryItems, searchTerm, showBundles, showBuybacks, showCcus, showStandaloneShips]);
-
-  const paginatedInventory = filteredInventory.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  const handleOpenListingDialog = (item: StoreInventoryItem) => {
-    setCurrentItem(item);
-    setListingPrice(item.price);
-    setListingQuantity(Math.min(item.stock, 1));
-    setIsListingDialogOpen(true);
-  };
-
-  const handleCloseListingDialog = () => {
-    setIsListingDialogOpen(false);
-    setCurrentItem(null);
-  };
-
-  const handleListItem = async (item: StoreInventoryItem, price: number, stock: number) => {
-    await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-      method: "POST",
-      body: JSON.stringify(buildListingPayload(item, price, stock)),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+  const resolveShip = useCallback((shipId?: number, shipName?: string) => {
+    if (typeof shipId === "number") {
+      const matchedById = ships.find((ship) => ship.id === shipId);
+      if (matchedById) {
+        return matchedById;
       }
-    });
+    }
 
-    fetchListingItems();
-    handleCloseListingDialog();
-  };
+    if (!shipName) {
+      return null;
+    }
 
-  const handleConfirmListing = () => {
-    if (!currentItem || listingPrice <= 0 || listingQuantity <= 0) return;
-    handleListItem(currentItem, listingPrice, listingQuantity);
-  };
+    return ships.find((ship) => normalizeShipName(ship.name) === normalizeShipName(shipName)) || null;
+  }, [ships]);
 
-  const handleRemoveItem = async (skuId?: string) => {
-    if (!skuId) return;
-
-    await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-      method: "DELETE",
-      body: JSON.stringify({ skuId }),
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    fetchListingItems();
-  };
-
-  const handleOpenManageListingDialog = () => {
-    setIsManageListingDialogOpen(true);
-  };
-
-  const handleCloseManageListingDialog = () => {
-    setIsManageListingDialogOpen(false);
-    resetManualFormFields();
-  };
-
-  const resetManualFormFields = () => {
+  const resetManualFormFields = useCallback(() => {
+    setSelectedSourceItem(null);
     setManualItemType(DEFAULT_MANUAL_ITEM_TYPE);
-    setManualPackageKind("standalone_ship");
+    setManualPackageKind(DEFAULT_PACKAGE_KIND);
     setSelectedFromShip(null);
     setSelectedToShip(null);
     setSelectedPrimaryShip(null);
@@ -202,11 +212,63 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualDescription("");
     setManualImageUrl("");
     setManualExternalRef("");
-    setManualCanGift(false);
-    setManualIsBuyBack(false);
-  };
+  }, []);
 
-  const parseManualPackageItems = () => {
+  const applyInventoryItemToForm = useCallback((item: StoreInventoryItem) => {
+    const resolvedPackageShips = (item.packageShips || [])
+      .map((ship) => resolveShip(ship.shipId, ship.shipName))
+      .filter((ship): ship is Ship => ship !== null);
+    const resolvedPrimaryShip = resolveShip(item.shipId, item.shipName) || resolvedPackageShips[0] || null;
+
+    setManualItemType(item.itemType === "ccu" ? "ccu" : "package");
+    setManualPackageKind(item.itemType === "package" ? (item.packageKind || DEFAULT_PACKAGE_KIND) : DEFAULT_PACKAGE_KIND);
+    setSelectedFromShip(resolveShip(item.fromShipId, item.fromShipName));
+    setSelectedToShip(resolveShip(item.toShipId, item.toShipName));
+    setSelectedPrimaryShip(resolvedPrimaryShip);
+    setSelectedPackageShips(
+      item.packageKind === "bundle"
+        ? resolvedPackageShips
+        : (resolvedPrimaryShip ? [resolvedPrimaryShip] : resolvedPackageShips)
+    );
+    setManualItemName(item.name);
+    setManualItemPrice(item.price);
+    setManualItemQuantity(Math.max(item.stock, 1));
+    setManualInsuranceType(item.insuranceType || "");
+    setManualPackageItemsText((item.packageItems || []).map((entry) => entry.itemName).join("\n"));
+    setManualDescription(item.description || "");
+    setManualImageUrl(item.imageUrl || "");
+    setManualExternalRef("");
+  }, [resolveShip]);
+
+  const filteredListings = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    return listingItems.filter((item) => {
+      const displayType = getListingDisplayType(item);
+
+      if (!showCcus && displayType === "ccu") return false;
+      if (!showStandaloneShips && displayType === "standalone_ship") return false;
+      if (!showBundles && displayType === "bundle") return false;
+      if (!showMisc && (displayType === "misc" || displayType === "credit")) return false;
+      if (!search) return true;
+
+      return getListingSearchText(item).includes(search);
+    });
+  }, [listingItems, searchTerm, showBundles, showCcus, showMisc, showStandaloneShips]);
+
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(filteredListings.length / rowsPerPage) - 1, 0);
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filteredListings.length, page, rowsPerPage]);
+
+  const paginatedListings = filteredListings.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  const parseManualPackageItems = useCallback(() => {
     return manualPackageItemsText
       .split("\n")
       .map((entry) => entry.trim())
@@ -216,99 +278,51 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         withImage: false,
         sortOrder: index + 1,
       }));
+  }, [manualPackageItemsText]);
+
+  const handleOpenCreateListingDialog = () => {
+    resetManualFormFields();
+    setIsCreateListingDialogOpen(true);
   };
 
-  const handleManualAdd = async () => {
-    const basePayload = {
-      name: manualItemName.trim(),
-      price: manualItemPrice,
-      stock: manualItemQuantity,
-      canGift: manualCanGift,
-      isBuyBack: manualIsBuyBack,
-      sourceKind: "manual",
-    };
-
-    if (!basePayload.name || basePayload.price <= 0 || basePayload.stock <= 0) {
-      return;
-    }
-
-    if (manualItemType === "ccu") {
-      if (!selectedFromShip || !selectedToShip) return;
-
-      await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...basePayload,
-          itemType: "ccu",
-          fromShipId: selectedFromShip.id,
-          toShipId: selectedToShip.id,
-          fromShipName: selectedFromShip.name,
-          toShipName: selectedToShip.name,
-          rsiName: basePayload.name,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-    } else if (manualItemType === "package") {
-      const packageShips = manualPackageKind === "standalone_ship"
-        ? (selectedPrimaryShip ? [{
-            shipId: selectedPrimaryShip.id,
-            shipName: selectedPrimaryShip.name,
-            sortOrder: 1,
-          }] : [])
-        : selectedPackageShips.map((ship, index) => ({
-            shipId: ship.id,
-            shipName: ship.name,
-            sortOrder: index + 1,
-          }));
-
-      const primaryShip = manualPackageKind === "standalone_ship"
-        ? selectedPrimaryShip
-        : (selectedPrimaryShip || selectedPackageShips[0] || null);
-
-      if (!packageShips.length || !primaryShip) return;
-
-      await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...basePayload,
-          itemType: "package",
-          shipId: primaryShip.id,
-          primaryShipId: primaryShip.id,
-          primaryShipName: primaryShip.name,
-          packageKind: manualPackageKind,
-          insuranceType: manualInsuranceType || undefined,
-          packageShips,
-          packageItems: manualPackageKind === "bundle" ? parseManualPackageItems() : [],
-          imageUrl: manualImageUrl || undefined,
-          description: manualDescription || undefined,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-    } else {
-      await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...basePayload,
-          itemType: "misc",
-          imageUrl: manualImageUrl || undefined,
-          description: manualDescription || undefined,
-          externalRef: manualExternalRef || undefined,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-    }
-
-    fetchListingItems();
+  const handleCloseCreateListingDialog = () => {
+    setIsCreateListingDialogOpen(false);
     resetManualFormFields();
+  };
+
+  const handleSourceItemChange = (_event: unknown, newValue: StoreInventoryItem | null) => {
+    setSelectedSourceItem(newValue);
+
+    if (newValue) {
+      applyInventoryItemToForm(newValue);
+    }
+  };
+
+  const handleRemoveItem = async (skuId?: string) => {
+    if (!skuId || !token) return;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+        method: "DELETE",
+        body: JSON.stringify({ skuId }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Unexpected response: ${response.status}`);
+      }
+
+      setListingFetchError(null);
+      await fetchListingItems();
+    } catch (error) {
+      console.error("Failed to remove listing:", error);
+      setListingFetchError(intl.formatMessage({
+        id: "hangar.removeListingFailed",
+        defaultMessage: "Failed to remove listing",
+      }));
+    }
   };
 
   const canSubmitManualItem = useMemo(() => {
@@ -339,20 +353,136 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     selectedToShip,
   ]);
 
+  const handleCreateListing = async () => {
+    if (!token || !canSubmitManualItem) {
+      return;
+    }
+
+    const basePayload = {
+      name: manualItemName.trim(),
+      price: manualItemPrice,
+      stock: manualItemQuantity,
+      sourceKind: selectedSourceItem ? "hangar" : "manual",
+    };
+
+    try {
+      if (manualItemType === "ccu") {
+        if (!selectedFromShip || !selectedToShip || selectedFromShip.id === selectedToShip.id) {
+          return;
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...basePayload,
+            itemType: "ccu",
+            fromShipId: selectedFromShip.id,
+            toShipId: selectedToShip.id,
+            fromShipName: selectedFromShip.name,
+            toShipName: selectedToShip.name,
+            rsiName: basePayload.name,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unexpected response: ${response.status}`);
+        }
+      } else if (manualItemType === "package") {
+        const packageShips = manualPackageKind === "standalone_ship"
+          ? (selectedPrimaryShip ? [{
+              shipId: selectedPrimaryShip.id,
+              shipName: selectedPrimaryShip.name,
+              sortOrder: 1,
+            }] : [])
+          : selectedPackageShips.map((ship, index) => ({
+              shipId: ship.id,
+              shipName: ship.name,
+              sortOrder: index + 1,
+            }));
+
+        const primaryShip = manualPackageKind === "standalone_ship"
+          ? selectedPrimaryShip
+          : (selectedPrimaryShip || selectedPackageShips[0] || null);
+
+        if (!packageShips.length || !primaryShip) {
+          return;
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...basePayload,
+            itemType: "package",
+            shipId: primaryShip.id,
+            primaryShipId: primaryShip.id,
+            primaryShipName: primaryShip.name,
+            packageKind: manualPackageKind,
+            insuranceType: manualInsuranceType || undefined,
+            packageShips,
+            packageItems: manualPackageKind === "bundle" ? parseManualPackageItems() : [],
+            imageUrl: manualImageUrl || undefined,
+            description: manualDescription || undefined,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unexpected response: ${response.status}`);
+        }
+      } else {
+        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...basePayload,
+            itemType: "misc",
+            imageUrl: manualImageUrl || undefined,
+            description: manualDescription || undefined,
+            externalRef: manualExternalRef || undefined,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unexpected response: ${response.status}`);
+        }
+      }
+
+      setListingFetchError(null);
+      await fetchListingItems();
+      handleCloseCreateListingDialog();
+    } catch (error) {
+      console.error("Failed to create listing:", error);
+      setListingFetchError(intl.formatMessage({
+        id: "hangar.createListingFailed",
+        defaultMessage: "Failed to create listing",
+      }));
+    }
+  };
+
   return (
     <>
-      <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
-        <div className='flex flex-col gap-2 items-center justify-center'>
+      <div className="absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex">
+        <div className="flex flex-col gap-2 items-center justify-center">
           <Crawler ships={ships} />
         </div>
         <UserSelector />
       </div>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2, flexWrap: "wrap" }}>
         <TextField
           sx={{ flexGrow: 1, minWidth: 320 }}
           variant="outlined"
-          placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search equipment...' })}
+          placeholder={intl.formatMessage({ id: "market.searchListings", defaultMessage: "Search current listings..." })}
           value={searchTerm}
           onChange={(event) => {
             setSearchTerm(event.target.value);
@@ -364,37 +494,37 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 <InputAdornment position="start">
                   <Search />
                 </InputAdornment>
-              )
-            }
+              ),
+            },
           }}
           size="small"
         />
         <Button
           variant="contained"
-          startIcon={<List />}
-          onClick={handleOpenManageListingDialog}
+          startIcon={<PlusCircle />}
+          onClick={handleOpenCreateListingDialog}
         >
-          <FormattedMessage id="hangar.manageListings" defaultMessage="Manage Listings" />
+          <FormattedMessage id="hangar.addListing" defaultMessage="Add Listing" />
         </Button>
       </Box>
 
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1, mb: 2 }}>
+      <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, px: 2, py: 1, mb: 2 }}>
         <FormGroup row sx={{ gap: 2 }}>
           <FormControlLabel
             control={<Checkbox checked={showCcus} onChange={(event) => setShowCcus(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })}
+            label={intl.formatMessage({ id: "market.filter.ccu", defaultMessage: "CCU" })}
           />
           <FormControlLabel
             control={<Checkbox checked={showStandaloneShips} onChange={(event) => setShowStandaloneShips(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
+            label={intl.formatMessage({ id: "market.filter.standaloneShip", defaultMessage: "Standalone Ship" })}
           />
           <FormControlLabel
             control={<Checkbox checked={showBundles} onChange={(event) => setShowBundles(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: 'market.filter.bundle', defaultMessage: 'Bundle' })}
+            label={intl.formatMessage({ id: "market.filter.bundle", defaultMessage: "Bundle" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showBuybacks} onChange={(event) => setShowBuybacks(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: 'market.filter.buyback', defaultMessage: 'Include buyback' })}
+            control={<Checkbox checked={showMisc} onChange={(event) => setShowMisc(event.target.checked)} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.misc", defaultMessage: "Misc" })}
           />
         </FormGroup>
       </Box>
@@ -405,16 +535,22 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         </Alert>
       )}
 
-      {filteredInventory.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
+      {isListingLoading && listingItems.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography variant="h6">
-            <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
+            <FormattedMessage id="loading" defaultMessage="Loading..." />
+          </Typography>
+        </Box>
+      ) : filteredListings.length === 0 ? (
+        <Box sx={{ textAlign: "center", py: 4 }}>
+          <Typography variant="h6">
+            <FormattedMessage id="hangar.noListings" defaultMessage="No items currently listed" />
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ width: '100%', overflow: 'auto' }}>
+        <Box sx={{ width: "100%", overflow: "auto" }}>
           <TableContainer sx={{ mb: 2 }}>
-            <Table aria-label="store inventory table">
+            <Table aria-label="store listings table">
               <TableHead>
                 <TableRow>
                   <TableCell width="360px">
@@ -423,39 +559,40 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   <TableCell>
                     <FormattedMessage id="hangar.details" defaultMessage="Details" />
                   </TableCell>
-                  <TableCell width="160px">
+                  <TableCell width="180px">
                     <FormattedMessage id="hangar.type" defaultMessage="Type" />
                   </TableCell>
+                  <TableCell width="160px">
+                    <FormattedMessage id="hangar.price" defaultMessage="Price" />
+                  </TableCell>
                   <TableCell width="180px">
-                    <FormattedMessage id="hangar.operation" defaultMessage="Operation" />
+                    <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />
+                  </TableCell>
+                  <TableCell width="140px">
+                    <FormattedMessage id="hangar.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedInventory.map((item) => {
+                {paginatedListings.map((item) => {
                   const visual = getMarketItemVisual(item, ships);
-                  const listing = findMatchingListing(item, listingItems);
-                  const msrpDelta = item.itemType === "ccu" && item.fromMsrp !== undefined && item.toMsrp !== undefined
-                    ? (item.toMsrp - item.fromMsrp) / 100
-                    : null;
-                  const discount = msrpDelta && msrpDelta > 0
-                    ? ((msrpDelta - item.price) / msrpDelta * 100).toFixed(2)
-                    : null;
+                  const displayType = getListingDisplayType(item);
+                  const availableStock = Math.max(item.stock - item.lockedStock, 0);
 
                   return (
-                    <TableRow key={item.sourceKey} hover>
+                    <TableRow key={item.skuId} hover>
                       <TableCell>
                         {item.itemType === "ccu" ? (
-                          <Box sx={{ position: 'relative', width: 320, height: 180, overflow: 'hidden' }}>
+                          <Box sx={{ position: "relative", width: 320, height: 180, overflow: "hidden" }}>
                             <Box
                               component="img"
                               sx={{
-                                position: 'absolute',
+                                position: "absolute",
                                 left: 0,
                                 top: 0,
-                                width: '35%',
-                                height: '100%',
-                                objectFit: 'cover',
+                                width: "35%",
+                                height: "100%",
+                                objectFit: "cover",
                               }}
                               src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
                               alt={visual.fromShipName || item.name}
@@ -463,132 +600,117 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             <Box
                               component="img"
                               sx={{
-                                position: 'absolute',
+                                position: "absolute",
                                 right: 0,
                                 top: 0,
-                                width: '65%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
+                                width: "65%",
+                                height: "100%",
+                                objectFit: "cover",
+                                boxShadow: "0 0 20px 0 rgba(0, 0, 0, 0.2)",
                               }}
                               src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
                               alt={visual.toShipName || item.name}
                             />
-                            <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
-                              <span className='text-white text-sm'>{item.name}</span>
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center">
+                              <span className="text-white text-sm">{item.name}</span>
                             </div>
-                            <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
-                              <ChevronsRight className='w-8 h-8' />
+                            <div className="absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold">
+                              <ChevronsRight className="w-8 h-8" />
                             </div>
                           </Box>
                         ) : (
                           <Box
                             component="img"
-                            sx={{ width: 280, height: 160, objectFit: 'cover' }}
+                            sx={{ width: 280, height: 160, objectFit: "cover" }}
                             src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
                             alt={item.name}
                           />
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className='flex flex-col gap-2'>
+                        <div className="flex flex-col gap-2">
                           <Typography variant="h6">{item.name}</Typography>
 
                           {item.itemType === "ccu" && (
-                            <>
-                              <Typography variant="body2" color="text.secondary">
-                                {item.fromShipName} → {item.toShipName}
-                              </Typography>
-                              {msrpDelta !== null && (
-                                <Typography variant="body2" color="text.secondary">
-                                  <span>
-                                    <span><FormattedMessage id="hangar.msrp" defaultMessage="MSRP" /></span>
-                                    <span>:</span>
-                                  </span>
-                                  <span className='text-blue-500 ml-1'>
-                                    US${((item.fromMsrp || 0) / 100).toFixed(2)} - US${((item.toMsrp || 0) / 100).toFixed(2)}
-                                  </span>
-                                </Typography>
-                              )}
-                            </>
+                            <Typography variant="body2" color="text.secondary">
+                              {item.fromShipName || visual.fromShipName || "-"} {"->"} {item.toShipName || visual.toShipName || "-"}
+                            </Typography>
                           )}
 
                           {item.itemType === "package" && (
                             <>
-                              {item.shipName && (
+                              {(item.shipName || item.packageShips?.length) && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {item.shipName}
+                                  {item.packageKind === "bundle"
+                                    ? `${item.packageShips?.length || 0} ships`
+                                    : (item.shipName || item.packageShips?.[0]?.shipName || "-")}
                                 </Typography>
                               )}
                               {(item.packageKind || item.insuranceType) && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {[item.packageKind, item.insuranceType].filter(Boolean).join(' · ')}
+                                  {[item.packageKind, item.insuranceType].filter(Boolean).join(" · ")}
                                 </Typography>
                               )}
                               {item.packageKind === "bundle" && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {(item.packageShips?.length || 0)} ships / {(item.packageItems?.length || 0)} extras
+                                  {(item.packageItems?.length || 0)} extras
                                 </Typography>
                               )}
                             </>
                           )}
 
-                          <Typography variant="body2" color="text.secondary">
-                            <span>
-                              <span><FormattedMessage id="hangar.quantity" defaultMessage="Quantity" /></span>
-                              <span>:</span>
-                            </span>
-                            <span> {item.stock}</span>
-                          </Typography>
+                          {item.description && (
+                            <Typography variant="body2" color="text.secondary">
+                              {item.description}
+                            </Typography>
+                          )}
 
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {item.ownerLabels.map((owner) => (
-                              <Chip key={`${item.sourceKey}-${owner}`} label={owner} size="small" variant="outlined" color="primary" />
-                            ))}
-                            {item.canGift && (
-                              <Chip size="small" color="success" label={intl.formatMessage({ id: 'hangar.giftable', defaultMessage: 'Giftable' })} />
-                            )}
-                            {item.isBuyBack && (
-                              <Chip size="small" color="warning" label={intl.formatMessage({ id: 'hangar.buyBack', defaultMessage: 'Buy Back' })} />
+                          {item.externalRef && (
+                            <Typography variant="body2" color="text.secondary">
+                              {item.externalRef}
+                            </Typography>
+                          )}
+
+                          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                            {item.sourceKind && (
+                              <Chip size="small" variant="outlined" label={getSourceKindLabel(item.sourceKind, intl)} />
                             )}
                           </Box>
                         </div>
                       </TableCell>
-                      <TableCell sx={{ textWrap: 'nowrap' }}>
-                        <div className='flex flex-col gap-2'>
-                          <Chip
-                            size="small"
-                            label={item.displayType === "ccu"
-                              ? "CCU"
-                              : item.displayType === "standalone_ship"
-                                ? intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })
-                                : intl.formatMessage({ id: 'market.filter.bundle', defaultMessage: 'Bundle' })}
-                          />
-                          <Typography variant="body2" color="primary" fontWeight={700}>
-                            US${item.price.toFixed(2)}
+                      <TableCell sx={{ textWrap: "nowrap" }}>
+                        <Chip
+                          size="small"
+                          label={getDisplayTypeLabel(displayType, intl)}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ textWrap: "nowrap" }}>
+                        <Typography variant="body2" color="primary" fontWeight={700}>
+                          {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ textWrap: "nowrap" }}>
+                        <div className="flex flex-col gap-1">
+                          <Typography variant="body2" fontWeight={700}>
+                            {availableStock}
                           </Typography>
-                          {discount && Number(discount) > 0 && (
-                            <Typography variant="body2" color="text.secondary">
-                              {discount}% off
-                            </Typography>
-                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            <FormattedMessage
+                              id="market.listingStockBreakdown"
+                              defaultMessage="Total {stock} / Locked {lockedStock}"
+                              values={{ stock: item.stock, lockedStock: item.lockedStock }}
+                            />
+                          </Typography>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {listing ? (
-                          <div className='flex flex-col gap-2'>
-                            <Button variant="outlined" color="error" onClick={() => handleRemoveItem(listing.skuId)}>
-                              <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
-                            </Button>
-                            <Typography variant="caption" color="text.secondary">
-                              {listing.stock} in listing
-                            </Typography>
-                          </div>
-                        ) : (
-                          <Button variant="outlined" onClick={() => handleOpenListingDialog(item)}>
-                            <FormattedMessage id="hangar.edit" defaultMessage="List Item" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleRemoveItem(item.skuId)}
+                        >
+                          <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -600,7 +722,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={filteredInventory.length}
+            count={filteredListings.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={(_, newPage) => setPage(newPage)}
@@ -608,338 +730,263 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               setRowsPerPage(parseInt(event.target.value, 10));
               setPage(0);
             }}
-            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
+            labelRowsPerPage={intl.formatMessage({ id: "pagination.rowsPerPage", defaultMessage: "Rows per page:" })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: "pagination.total", defaultMessage: "Total" })} ${count}`}
           />
         </Box>
       )}
 
-      <Dialog open={isListingDialogOpen} onClose={handleCloseListingDialog}>
-        <DialogTitle>
-          <FormattedMessage id="hangar.listItem" defaultMessage="List Item" />
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            <FormattedMessage
-              id="hangar.listItemConfirm"
-              defaultMessage="Please confirm the price and quantity for {itemName}"
-              values={{ itemName: currentItem?.name || "" }}
-            />
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label={intl.formatMessage({ id: 'hangar.price', defaultMessage: 'Price' })}
-            type="number"
-            fullWidth
-            variant="standard"
-            value={listingPrice}
-            onChange={(event) => setListingPrice(Number(event.target.value))}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">$</InputAdornment>,
-            }}
-          />
-          <TextField
-            margin="dense"
-            label={intl.formatMessage({ id: 'hangar.quantity', defaultMessage: 'Quantity' })}
-            type="number"
-            fullWidth
-            variant="standard"
-            value={listingQuantity}
-            onChange={(event) => setListingQuantity(Number(event.target.value))}
-            InputProps={{
-              inputProps: {
-                min: 1,
-                max: currentItem?.stock || 1
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseListingDialog}>
-            <FormattedMessage id="cancel" defaultMessage="Cancel" />
-          </Button>
-          <Button onClick={handleConfirmListing} disabled={!currentItem || listingPrice <= 0 || listingQuantity <= 0}>
-            <FormattedMessage id="confirm" defaultMessage="Confirm" />
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <Dialog
-        open={isManageListingDialogOpen}
-        onClose={handleCloseManageListingDialog}
+        open={isCreateListingDialogOpen}
+        onClose={handleCloseCreateListingDialog}
         fullWidth
         maxWidth="md"
       >
         <DialogTitle>
-          <FormattedMessage id="hangar.manageListings" defaultMessage="Manage Listings" />
+          <FormattedMessage id="hangar.addListing" defaultMessage="Add Listing" />
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <FormattedMessage id="hangar.currentListings" defaultMessage="Current Listings" />
-            </Typography>
-            {listingItems.length === 0 ? (
-              <Typography>
-                <FormattedMessage id="hangar.noListings" defaultMessage="No items currently listed" />
-              </Typography>
-            ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><FormattedMessage id="hangar.name" defaultMessage="Name" /></TableCell>
-                      <TableCell><FormattedMessage id="hangar.type" defaultMessage="Type" /></TableCell>
-                      <TableCell><FormattedMessage id="hangar.price" defaultMessage="Price" /></TableCell>
-                      <TableCell><FormattedMessage id="hangar.quantity" defaultMessage="Quantity" /></TableCell>
-                      <TableCell><FormattedMessage id="hangar.action" defaultMessage="Action" /></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {listingItems.map((item) => (
-                      <TableRow key={item.skuId}>
-                        <TableCell>
-                          <div className='flex flex-col'>
-                            <span>{item.name}</span>
-                            {(item.itemType === "ccu" && item.fromShipName && item.toShipName) && (
-                              <Typography variant="caption" color="text.secondary">
-                                {item.fromShipName} → {item.toShipName}
-                              </Typography>
-                            )}
-                            {(item.itemType === "package" && (item.shipName || item.packageKind || item.insuranceType)) && (
-                              <Typography variant="caption" color="text.secondary">
-                                {[item.shipName, item.packageKind, item.insuranceType].filter(Boolean).join(" · ")}
-                              </Typography>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Chip size="small" label={item.itemType} />
-                        </TableCell>
-                        <TableCell>{item.price.toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}</TableCell>
-                        <TableCell>{item.stock}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            onClick={() => handleRemoveItem(item.skuId)}
-                          >
-                            <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
+          <DialogContentText sx={{ mb: 3 }}>
+            <FormattedMessage
+              id="market.prefillFromHangarDescription"
+              defaultMessage="Choose a giftable hangar item to prefill the form, or leave it empty and fill the listing manually."
+            />
+          </DialogContentText>
 
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              <FormattedMessage id="hangar.addListing" defaultMessage="Add New Listing" />
-            </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+            <Autocomplete
+              options={inventoryItems}
+              value={selectedSourceItem}
+              isOptionEqualToValue={(option, value) => option.sourceKey === value.sourceKey}
+              getOptionLabel={getInventoryOptionLabel}
+              noOptionsText={intl.formatMessage({ id: "hangar.noEquipment", defaultMessage: "No sharable content in your hangar" })}
+              onChange={handleSourceItemChange}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  <div className="flex flex-col py-1">
+                    <span className="font-medium">{getInventoryOptionLabel(option)}</span>
+                    <span className="text-sm text-gray-500">
+                      {getInventoryOptionMeta(option)}
+                      {option.isBuyBack ? ` | ${intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}` : ""}
+                    </span>
+                  </div>
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={intl.formatMessage({ id: "market.prefillFromHangar", defaultMessage: "Prefill from Hangar" })}
+                  placeholder={intl.formatMessage({ id: "market.prefillFromHangarPlaceholder", defaultMessage: "Search giftable hangar items" })}
+                />
+              )}
+              filterOptions={(options, state) => {
+                const search = state.inputValue.trim().toLowerCase();
+                if (!search) {
+                  return options;
+                }
+
+                return options.filter((option) => getInventorySearchText(option).includes(search));
+              }}
+              sx={{ gridColumn: { md: "1 / span 2" } }}
+            />
+
+            {selectedSourceItem && (
+              <Alert severity={selectedSourceItem.isBuyBack ? "warning" : "info"} sx={{ gridColumn: { md: "1 / span 2" } }}>
+                <FormattedMessage
+                  id="market.prefillDetachedHint"
+                  defaultMessage="{buybackNotice} The selected hangar item only fills the form. After you create the listing, it will remain independent from that hangar entry."
+                  values={{
+                    buybackNotice: selectedSourceItem.isBuyBack
+                      ? intl.formatMessage({ id: "market.prefillBuybackNotice", defaultMessage: "This selected hangar item is a buyback item." })
+                      : intl.formatMessage({ id: "market.prefillNonBuybackNotice", defaultMessage: "This selected hangar item is not a buyback item." }),
+                  }}
+                />
+              </Alert>
+            )}
+
+            <TextField
+              select
+              label={intl.formatMessage({ id: "market.filter.type", defaultMessage: "Item Type" })}
+              value={manualItemType}
+              onChange={(event) => setManualItemType(event.target.value as MarketItemType)}
+            >
+              <MenuItem value="ccu">CCU</MenuItem>
+              <MenuItem value="package">Package</MenuItem>
+              <MenuItem value="misc">Misc</MenuItem>
+            </TextField>
+
+            {manualItemType === "package" ? (
               <TextField
                 select
-                label={intl.formatMessage({ id: 'market.filter.type', defaultMessage: 'Item Type' })}
-                value={manualItemType}
-                onChange={(event) => setManualItemType(event.target.value as MarketItemType)}
+                label={intl.formatMessage({ id: "market.packageKind", defaultMessage: "Package Kind" })}
+                value={manualPackageKind}
+                onChange={(event) => setManualPackageKind(event.target.value as MarketPackageKind)}
               >
-                <MenuItem value="ccu">CCU</MenuItem>
-                <MenuItem value="package">Package</MenuItem>
-                <MenuItem value="misc">Misc</MenuItem>
+                <MenuItem value="standalone_ship">
+                  {intl.formatMessage({ id: "market.filter.standaloneShip", defaultMessage: "Standalone Ship" })}
+                </MenuItem>
+                <MenuItem value="bundle">
+                  {intl.formatMessage({ id: "market.filter.bundle", defaultMessage: "Bundle" })}
+                </MenuItem>
               </TextField>
+            ) : (
+              <Box />
+            )}
 
-              {manualItemType === "package" && (
-                <TextField
-                  select
-                  label={intl.formatMessage({ id: 'market.packageKind', defaultMessage: 'Package Kind' })}
-                  value={manualPackageKind}
-                  onChange={(event) => setManualPackageKind(event.target.value as "standalone_ship" | "bundle")}
-                >
-                  <MenuItem value="standalone_ship">
-                    {intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
-                  </MenuItem>
-                  <MenuItem value="bundle">
-                    {intl.formatMessage({ id: 'market.filter.bundle', defaultMessage: 'Bundle' })}
-                  </MenuItem>
-                </TextField>
-              )}
-
-              {manualItemType === "ccu" && (
-                <>
-                  <Autocomplete
-                    options={ships}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedFromShip}
-                    onChange={(_, newValue) => setSelectedFromShip(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={intl.formatMessage({ id: 'hangar.fromShip', defaultMessage: 'From Ship' })}
-                      />
-                    )}
-                  />
-                  <Autocomplete
-                    options={ships}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedToShip}
-                    onChange={(_, newValue) => setSelectedToShip(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={intl.formatMessage({ id: 'hangar.toShip', defaultMessage: 'To Ship' })}
-                      />
-                    )}
-                  />
-                </>
-              )}
-
-              {manualItemType === "package" && manualPackageKind === "standalone_ship" && (
+            {manualItemType === "ccu" && (
+              <>
                 <Autocomplete
                   options={ships}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedFromShip}
+                  onChange={(_, newValue) => setSelectedFromShip(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={intl.formatMessage({ id: "hangar.fromShip", defaultMessage: "From Ship" })}
+                    />
+                  )}
+                />
+                <Autocomplete
+                  options={ships}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedToShip}
+                  onChange={(_, newValue) => setSelectedToShip(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={intl.formatMessage({ id: "hangar.toShip", defaultMessage: "To Ship" })}
+                    />
+                  )}
+                />
+              </>
+            )}
+
+            {manualItemType === "package" && manualPackageKind === "standalone_ship" && (
+              <Autocomplete
+                options={ships}
+                getOptionLabel={(option) => option.name}
+                value={selectedPrimaryShip}
+                onChange={(_, newValue) => setSelectedPrimaryShip(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={intl.formatMessage({ id: "market.primaryShip", defaultMessage: "Primary Ship" })}
+                  />
+                )}
+              />
+            )}
+
+            {manualItemType === "package" && manualPackageKind === "bundle" && (
+              <>
+                <Autocomplete
+                  multiple
+                  options={ships}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedPackageShips}
+                  onChange={(_, newValue) => setSelectedPackageShips(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={intl.formatMessage({ id: "market.packageShips", defaultMessage: "Bundle Ships" })}
+                    />
+                  )}
+                />
+                <Autocomplete
+                  options={selectedPackageShips}
                   getOptionLabel={(option) => option.name}
                   value={selectedPrimaryShip}
                   onChange={(_, newValue) => setSelectedPrimaryShip(newValue)}
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label={intl.formatMessage({ id: 'market.primaryShip', defaultMessage: 'Primary Ship' })}
+                      label={intl.formatMessage({ id: "market.primaryShip", defaultMessage: "Primary Ship" })}
                     />
                   )}
                 />
-              )}
+              </>
+            )}
 
-              {manualItemType === "package" && manualPackageKind === "bundle" && (
-                <>
-                  <Autocomplete
-                    multiple
-                    options={ships}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedPackageShips}
-                    onChange={(_, newValue) => setSelectedPackageShips(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={intl.formatMessage({ id: 'market.packageShips', defaultMessage: 'Bundle Ships' })}
-                      />
-                    )}
-                  />
-                  <Autocomplete
-                    options={selectedPackageShips}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedPrimaryShip}
-                    onChange={(_, newValue) => setSelectedPrimaryShip(newValue)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={intl.formatMessage({ id: 'market.primaryShip', defaultMessage: 'Primary Ship' })}
-                      />
-                    )}
-                  />
-                </>
-              )}
+            <TextField
+              label={intl.formatMessage({ id: "hangar.itemName", defaultMessage: "Item Name" })}
+              value={manualItemName}
+              onChange={(event) => setManualItemName(event.target.value)}
+            />
 
+            <TextField
+              label={intl.formatMessage({ id: "hangar.price", defaultMessage: "Price" })}
+              type="number"
+              value={manualItemPrice}
+              onChange={(event) => setManualItemPrice(Number(event.target.value))}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              }}
+            />
+
+            <TextField
+              label={intl.formatMessage({ id: "hangar.quantity", defaultMessage: "Quantity" })}
+              type="number"
+              value={manualItemQuantity}
+              onChange={(event) => setManualItemQuantity(Number(event.target.value))}
+              InputProps={{
+                inputProps: { min: 1 },
+              }}
+            />
+
+            {manualItemType === "package" && (
               <TextField
-                label={intl.formatMessage({ id: 'hangar.itemName', defaultMessage: 'Item Name' })}
-                value={manualItemName}
-                onChange={(event) => setManualItemName(event.target.value)}
+                label={intl.formatMessage({ id: "market.insurance", defaultMessage: "Insurance" })}
+                value={manualInsuranceType}
+                onChange={(event) => setManualInsuranceType(event.target.value)}
               />
+            )}
 
+            {(manualItemType === "package" || manualItemType === "misc") && (
               <TextField
-                label={intl.formatMessage({ id: 'hangar.price', defaultMessage: 'Price' })}
-                type="number"
-                value={manualItemPrice}
-                onChange={(event) => setManualItemPrice(Number(event.target.value))}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
+                label={intl.formatMessage({ id: "market.imageUrl", defaultMessage: "Image URL" })}
+                value={manualImageUrl}
+                onChange={(event) => setManualImageUrl(event.target.value)}
               />
+            )}
 
+            {manualItemType === "package" && manualPackageKind === "bundle" && (
               <TextField
-                label={intl.formatMessage({ id: 'hangar.quantity', defaultMessage: 'Quantity' })}
-                type="number"
-                value={manualItemQuantity}
-                onChange={(event) => setManualItemQuantity(Number(event.target.value))}
-                InputProps={{
-                  inputProps: { min: 1 }
-                }}
+                multiline
+                minRows={4}
+                label={intl.formatMessage({ id: "market.packageItems", defaultMessage: "Bundle Extra Items (one per line)" })}
+                value={manualPackageItemsText}
+                onChange={(event) => setManualPackageItemsText(event.target.value)}
+                sx={{ gridColumn: { md: "1 / span 2" } }}
               />
+            )}
 
-              {manualItemType === "package" && (
-                <TextField
-                  label={intl.formatMessage({ id: 'market.insurance', defaultMessage: 'Insurance' })}
-                  value={manualInsuranceType}
-                  onChange={(event) => setManualInsuranceType(event.target.value)}
-                />
-              )}
+            {(manualItemType === "package" || manualItemType === "misc") && (
+              <TextField
+                multiline
+                minRows={3}
+                label={intl.formatMessage({ id: "market.description", defaultMessage: "Description" })}
+                value={manualDescription}
+                onChange={(event) => setManualDescription(event.target.value)}
+                sx={{ gridColumn: { md: "1 / span 2" } }}
+              />
+            )}
 
-              {(manualItemType === "package" || manualItemType === "misc") && (
-                <TextField
-                  label={intl.formatMessage({ id: 'market.imageUrl', defaultMessage: 'Image URL' })}
-                  value={manualImageUrl}
-                  onChange={(event) => setManualImageUrl(event.target.value)}
-                />
-              )}
+            {manualItemType === "misc" && (
+              <TextField
+                label={intl.formatMessage({ id: "market.externalRef", defaultMessage: "External Ref" })}
+                value={manualExternalRef}
+                onChange={(event) => setManualExternalRef(event.target.value)}
+              />
+            )}
 
-              {(manualItemType === "package" && manualPackageKind === "bundle") && (
-                <TextField
-                  multiline
-                  minRows={4}
-                  label={intl.formatMessage({ id: 'market.packageItems', defaultMessage: 'Bundle Extra Items (one per line)' })}
-                  value={manualPackageItemsText}
-                  onChange={(event) => setManualPackageItemsText(event.target.value)}
-                  sx={{ gridColumn: { md: '1 / span 2' } }}
-                />
-              )}
-
-              {(manualItemType === "package" || manualItemType === "misc") && (
-                <TextField
-                  multiline
-                  minRows={3}
-                  label={intl.formatMessage({ id: 'market.description', defaultMessage: 'Description' })}
-                  value={manualDescription}
-                  onChange={(event) => setManualDescription(event.target.value)}
-                  sx={{ gridColumn: { md: '1 / span 2' } }}
-                />
-              )}
-
-              {manualItemType === "misc" && (
-                <TextField
-                  label={intl.formatMessage({ id: 'market.externalRef', defaultMessage: 'External Ref' })}
-                  value={manualExternalRef}
-                  onChange={(event) => setManualExternalRef(event.target.value)}
-                />
-              )}
-
-              <FormGroup row sx={{ gridColumn: { md: '1 / span 2' }, gap: 2 }}>
-                <FormControlLabel
-                  control={<Checkbox checked={manualCanGift} onChange={(event) => setManualCanGift(event.target.checked)} />}
-                  label={intl.formatMessage({ id: 'market.canGift', defaultMessage: 'Giftable' })}
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={manualIsBuyBack} onChange={(event) => setManualIsBuyBack(event.target.checked)} />}
-                  label={intl.formatMessage({ id: 'market.filter.buyback', defaultMessage: 'Buyback' })}
-                />
-              </FormGroup>
-            </Box>
-
-            <Button
-              variant="contained"
-              startIcon={<PlusCircle />}
-              onClick={handleManualAdd}
-              disabled={!canSubmitManualItem}
-              sx={{ mt: 2 }}
-            >
-              <FormattedMessage id="hangar.addItem" defaultMessage="Add Item" />
-            </Button>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseManageListingDialog}>
-            <FormattedMessage id="close" defaultMessage="Close" />
+          <Button onClick={handleCloseCreateListingDialog}>
+            <FormattedMessage id="cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={handleCreateListing} disabled={!canSubmitManualItem} variant="contained">
+            <FormattedMessage id="hangar.addItem" defaultMessage="Add Item" />
           </Button>
         </DialogActions>
       </Dialog>

@@ -2,6 +2,7 @@ import { ListingItem, MarketPackageItem, MarketPackageShip, Ship } from '@/types
 import { BundleItem, CCUItem, ShipItem, UserInfo } from '@/store/upgradesStore';
 
 export type StoreInventoryType = 'ccu' | 'standalone_ship' | 'bundle';
+export type StoreListingDisplayType = StoreInventoryType | 'misc' | 'credit';
 
 export interface StoreInventoryItem {
   sourceKey: string;
@@ -205,63 +206,6 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
   });
 }
 
-export function buildListingPayload(item: StoreInventoryItem, price: number, stock: number) {
-  if (item.itemType === 'ccu') {
-    return {
-      name: item.name,
-      price,
-      stock,
-      itemType: 'ccu' as const,
-      canGift: item.canGift,
-      isBuyBack: item.isBuyBack,
-      sourceKind: 'hangar',
-      fromShipId: item.fromShipId,
-      toShipId: item.toShipId,
-      fromShipName: item.fromShipName,
-      toShipName: item.toShipName,
-      rsiName: item.name,
-    };
-  }
-
-  return {
-    name: item.name,
-    price,
-    stock,
-    itemType: 'package' as const,
-    canGift: item.canGift,
-    isBuyBack: item.isBuyBack,
-    sourceKind: 'hangar',
-    shipId: item.shipId,
-    primaryShipId: item.shipId,
-    primaryShipName: item.shipName,
-    packageKind: item.packageKind,
-    insuranceType: item.insuranceType,
-    packageShips: item.packageShips,
-    packageItems: item.packageItems,
-    imageUrl: item.imageUrl,
-    description: item.description,
-  };
-}
-
-export function findMatchingListing(item: StoreInventoryItem, listings: ListingItem[]) {
-  return listings.find((listing) => {
-    if (item.itemType === 'ccu') {
-      return listing.itemType === 'ccu'
-        && listing.name === item.name
-        && listing.fromShipId === item.fromShipId
-        && listing.toShipId === item.toShipId
-        && Boolean(listing.isBuyBack) === item.isBuyBack;
-    }
-
-    return listing.itemType === 'package'
-      && listing.name === item.name
-      && listing.packageKind === item.packageKind
-      && listing.shipId === item.shipId
-      && (listing.insuranceType || '') === (item.insuranceType || '')
-      && Boolean(listing.isBuyBack) === item.isBuyBack;
-  });
-}
-
 export function getInventorySearchText(item: StoreInventoryItem) {
   return [
     item.name,
@@ -274,6 +218,34 @@ export function getInventorySearchText(item: StoreInventoryItem) {
     ...(item.packageShips || []).map((ship) => ship.shipName),
     ...(item.packageItems || []).map((entry) => entry.itemName),
     item.description,
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+export function getListingDisplayType(item: ListingItem): StoreListingDisplayType {
+  if (item.itemType === 'ccu') {
+    return 'ccu';
+  }
+
+  if (item.itemType === 'package') {
+    return item.packageKind === 'bundle' ? 'bundle' : 'standalone_ship';
+  }
+
+  return item.itemType;
+}
+
+export function getListingSearchText(item: ListingItem) {
+  return [
+    item.name,
+    item.fromShipName,
+    item.toShipName,
+    item.shipName,
+    item.insuranceType,
+    item.packageKind,
+    item.description,
+    item.externalRef,
+    item.sourceKind,
+    ...(item.packageShips || []).map((ship) => ship.shipName),
+    ...(item.packageItems || []).map((entry) => entry.itemName),
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
