@@ -519,7 +519,7 @@ export default function Settings() {
                       </Typography>
                     </div>
                     <Input
-                      value={profileData?.name}
+                      value={profileData?.name || ""}
                       onChange={(e) => {
                         setProfileData(prev => ({
                           ...prev,

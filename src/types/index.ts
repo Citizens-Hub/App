@@ -477,10 +477,40 @@ export enum ListingType {
   WTB = 'WTB'
 }
 
+export interface MarketSellerSummary {
+  id: string;
+  email: string;
+}
+
+export interface MarketItemVariant {
+  skuId: string;
+  name: string;
+  price: number;
+  cost?: number;
+  itemType: 'ccu';
+  stock: number;
+  lockedStock: number;
+  sourceKind?: string | null;
+  belongsTo: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  fromShipId?: number;
+  toShipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  toSkuId?: number;
+  imageUrl?: string;
+  fromImageUrl?: string;
+  toImageUrl?: string;
+  seller?: MarketSellerSummary | null;
+}
+
 export interface ListingItem {
   skuId: string;
   name: string;
   price: number;
+  cost?: number;
   itemType: MarketItemType;
   fromShipId?: number;
   toShipId?: number;
@@ -508,6 +538,9 @@ export interface ListingItem {
     discountRateBps: number;
     sellerCount: number;
   }>;
+  variantCount?: number;
+  variants?: MarketItemVariant[];
+  seller?: MarketSellerSummary | null;
   stock: number;
   lockedStock: number;
   belongsTo: string;

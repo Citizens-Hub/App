@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Avatar,
+  // Avatar,
   Badge,
   Box,
   Button,
@@ -15,6 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
@@ -24,6 +25,8 @@ import { useLocale } from '@/contexts/LocaleContext';
 import { useApi, useMarketItemData } from '@/hooks';
 import {
   CartItem as CartItemType,
+  ListingItem,
+  MarketItemVariant,
   MarketPackageShip,
   ProfileData,
   Resource,
@@ -47,6 +50,17 @@ import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
 import { findShip, getAvailableStock, getListingBasePrice, getListingDiscountPercent } from './marketUtils';
+import {
+  formatCreditAmountSummary,
+  formatCreditFaceValueSummary,
+  formatCreditOptionLabel,
+  formatCreditPriceFormula,
+  formatMarketCreditResourceName,
+  formatMarketDiscount,
+  formatUsdPrice,
+  getMarketItemTypeLabel,
+  getMarketPackageKindLabel,
+} from './marketI18n';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -73,16 +87,6 @@ function DetailField({ label, value }: { label: string; value?: string | null; }
 function toAbsoluteRsiUrl(url?: string | null) {
   if (!url) return '';
   return url.startsWith('http') ? url : `https://robertsspaceindustries.com${url}`;
-}
-
-function stripRichText(value?: string | null) {
-  if (!value) return '';
-
-  return value
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/^\s*[*-]\s+/gm, '')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
@@ -117,6 +121,10 @@ function formatUsdValue(value?: number | null, locale = 'en-US') {
 function normalizeComparisonValue(value?: string | null) {
   const normalized = value?.trim();
   return normalized || '-';
+}
+
+function getAvailableUnits(stock: number, lockedStock: number) {
+  return Math.max(stock - lockedStock, 0);
 }
 
 function resolveShipImage(ship?: Ship | null, fallbackImage?: string) {
@@ -261,7 +269,7 @@ function ShipIntroductionCard({
   const { locale } = useLocale();
   const title = ship?.name || fallbackName || '-';
   const imageUrl = resolveShipImage(ship, fallbackImage);
-  const description = stripRichText(ship?.details?.body || ship?.details?.excerpt) || fallbackDescription || '';
+  const descriptionMarkdown = (ship?.details?.body || ship?.details?.excerpt || fallbackDescription || '').trim();
   const localizedType = localizeShipType(locale, ship?.type);
   const localizedSize = localizeShipSize(locale, ship?.details?.size);
   const localizedStatus = localizeShipStatus(locale, ship);
@@ -357,9 +365,21 @@ function ShipIntroductionCard({
             )}
           </div>
 
-          {description && (
-            <div className='text-sm leading-7 text-slate-700 dark:text-slate-200'>
-              {description}
+          {descriptionMarkdown && (
+            <div className='ship-info-description-markdown text-sm leading-7 text-slate-700 dark:text-slate-200'>
+              <MarkdownPreview
+                source={descriptionMarkdown}
+                skipHtml={false}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: 'inherit',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.75',
+                }}
+                wrapperElement={{
+                  'data-color-mode': document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                }}
+              />
             </div>
           )}
 
@@ -503,6 +523,171 @@ export default function MarketDetail() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [selectedCcuCost, setSelectedCcuCost] = useState<number | ''>('');
+  const [selectedCcuSellerId, setSelectedCcuSellerId] = useState('');
+  const ccuVariants = useMemo<MarketItemVariant[]>(() => {
+    if (!item || item.itemType !== 'ccu') {
+      return [];
+    }
+
+    if (item.variants?.length) {
+      return item.variants;
+    }
+
+    return [{
+      skuId: item.skuId,
+      name: item.name,
+      price: item.price,
+      cost: item.cost,
+      itemType: 'ccu',
+      stock: item.stock,
+      lockedStock: item.lockedStock,
+      sourceKind: item.sourceKind,
+      belongsTo: item.belongsTo,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      deletedAt: null,
+      fromShipId: item.fromShipId,
+      toShipId: item.toShipId,
+      fromShipName: item.fromShipName,
+      toShipName: item.toShipName,
+      toSkuId: item.toSkuId,
+      imageUrl: item.imageUrl,
+      fromImageUrl: item.fromImageUrl,
+      toImageUrl: item.toImageUrl,
+      seller: item.seller || null,
+    }];
+  }, [item]);
+  const ccuSellerIds = useMemo(
+    () => Array.from(new Set(ccuVariants.map((variant) => variant.belongsTo).filter(Boolean))).sort(),
+    [ccuVariants],
+  );
+  const { data: ccuSellerProfiles = {} } = useSWR<Record<string, ProfileData>>(
+    ccuSellerIds.length ? ['market-ccu-seller-profiles', ccuSellerIds.join(',')] : null,
+    async () => {
+      const results = await Promise.allSettled(
+        ccuSellerIds.map(async (sellerId) => {
+          const response = await fetch(`${API_BASE_URL}/api/user/profile/${sellerId}`);
+
+          if (!response.ok) {
+            throw new Error(`Failed to load seller profile ${sellerId}`);
+          }
+
+          const payload = await response.json() as UserProfileResponse;
+          return [sellerId, payload.user] as const;
+        }),
+      );
+
+      return results.reduce<Record<string, ProfileData>>((acc, result) => {
+        if (result.status === 'fulfilled') {
+          const [sellerId, profile] = result.value;
+          acc[sellerId] = profile;
+        }
+
+        return acc;
+      }, {});
+    },
+  );
+  const variantsMatchingSelectedSeller = useMemo(
+    () => (selectedCcuSellerId
+      ? ccuVariants.filter((variant) => variant.belongsTo === selectedCcuSellerId)
+      : ccuVariants),
+    [ccuVariants, selectedCcuSellerId],
+  );
+  const ccuCostOptions = useMemo(
+    () => Array.from(new Set(
+      variantsMatchingSelectedSeller
+        .map((variant) => variant.cost)
+        .filter((cost): cost is number => typeof cost === 'number' && Number.isFinite(cost)),
+    )).sort((left, right) => left - right),
+    [variantsMatchingSelectedSeller],
+  );
+  const variantsMatchingSelectedCost = useMemo(
+    () => (typeof selectedCcuCost === 'number'
+      ? ccuVariants.filter((variant) => variant.cost === selectedCcuCost)
+      : ccuVariants),
+    [ccuVariants, selectedCcuCost],
+  );
+  const ccuSellerOptions = useMemo(() => {
+    const sellers = Array.from(new Set(variantsMatchingSelectedCost.map((variant) => variant.belongsTo).filter(Boolean)));
+
+    return sellers
+      .map((sellerId) => {
+        const profile = ccuSellerProfiles[sellerId];
+        const fallbackEmail = ccuVariants.find((variant) => variant.belongsTo === sellerId)?.seller?.email || '';
+        const label = profile?.name?.trim()
+          || profile?.email?.trim()
+          || fallbackEmail
+          || intl.formatMessage({ id: 'market.sellerUnknown', defaultMessage: 'Seller' });
+
+        return { sellerId, label };
+      })
+      .sort((left, right) => left.label.localeCompare(right.label, intl.locale));
+  }, [ccuSellerProfiles, ccuVariants, intl, variantsMatchingSelectedCost]);
+  const matchingCcuVariants = useMemo(
+    () => ccuVariants.filter((variant) => (
+      (typeof selectedCcuCost !== 'number' || variant.cost === selectedCcuCost)
+      && (!selectedCcuSellerId || variant.belongsTo === selectedCcuSellerId)
+    )),
+    [ccuVariants, selectedCcuCost, selectedCcuSellerId],
+  );
+  const selectedCcuVariant = useMemo(() => {
+    if (!matchingCcuVariants.length) {
+      return null;
+    }
+
+    const inStockVariants = matchingCcuVariants.filter((variant) => getAvailableUnits(variant.stock, variant.lockedStock) > 0);
+    const candidateVariants = inStockVariants.length ? inStockVariants : matchingCcuVariants;
+
+    return [...candidateVariants].sort((left, right) => {
+      if (left.price !== right.price) {
+        return left.price - right.price;
+      }
+
+      const leftCost = typeof left.cost === 'number' ? left.cost : Number.POSITIVE_INFINITY;
+      const rightCost = typeof right.cost === 'number' ? right.cost : Number.POSITIVE_INFINITY;
+      if (leftCost !== rightCost) {
+        return leftCost - rightCost;
+      }
+
+      const stockDiff = getAvailableUnits(right.stock, right.lockedStock) - getAvailableUnits(left.stock, left.lockedStock);
+      if (stockDiff !== 0) {
+        return stockDiff;
+      }
+
+      return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+    })[0] || null;
+  }, [matchingCcuVariants]);
+  const activeItem = useMemo<ListingItem | null>(() => {
+    if (!item) {
+      return null;
+    }
+
+    if (item.itemType !== 'ccu' || !selectedCcuVariant) {
+      return item;
+    }
+
+    return {
+      ...item,
+      ...selectedCcuVariant,
+      name: item.name,
+      variantCount: item.variantCount,
+      variants: item.variants,
+    };
+  }, [item, selectedCcuVariant]);
+
+  useEffect(() => {
+    if (typeof selectedCcuCost === 'number' && !ccuCostOptions.includes(selectedCcuCost)) {
+      setSelectedCcuCost('');
+    }
+  }, [ccuCostOptions, selectedCcuCost]);
+
+  useEffect(() => {
+    if (selectedCcuSellerId && !ccuSellerOptions.some((option) => option.sellerId === selectedCcuSellerId)) {
+      setSelectedCcuSellerId('');
+    }
+  }, [ccuSellerOptions, selectedCcuSellerId]);
+
   const normalizedPackageShips = useMemo<MarketPackageShip[]>(() => {
     if (!item || item.itemType !== 'package') return [];
 
@@ -530,17 +715,34 @@ export default function MarketDetail() {
   );
   const { shipDetailsById: packageShipDetailsById, isLoading: packageShipDetailsLoading } = usePackageShipDetails(packageShipDetailIds, locale);
 
-  const { data: sellerProfileResponse } = useApi<UserProfileResponse>(
-    item && item.itemType !== 'credit' ? `/api/user/profile/${item.belongsTo}` : null,
-  );
+  // const { data: sellerProfileResponse } = useApi<UserProfileResponse>(
+  //   activeItem && activeItem.itemType !== 'credit' ? `/api/user/profile/${activeItem.belongsTo}` : null,
+  // );
   const { data: fromShipResponse } = useApi<ShipResponse>(
-    item?.itemType === 'ccu' && item.fromShipId ? `/api/ship?id=${item.fromShipId}` : null,
+    activeItem?.itemType === 'ccu' && activeItem.fromShipId ? `/api/ship?id=${activeItem.fromShipId}` : null,
   );
   const { data: toShipResponse } = useApi<ShipResponse>(
-    item?.itemType === 'ccu' && item.toShipId ? `/api/ship?id=${item.toShipId}` : null,
+    activeItem?.itemType === 'ccu' && activeItem.toShipId ? `/api/ship?id=${activeItem.toShipId}` : null,
   );
 
-  const seller = sellerProfileResponse?.user;
+  // const seller = sellerProfileResponse?.user;
+  // const activeSellerProfile = item?.itemType === 'ccu'
+  //   ? (activeItem ? ccuSellerProfiles[activeItem.belongsTo] || seller || null : null)
+  //   : seller || null;
+  // const activeSellerName = useMemo(() => {
+  //   if (item?.itemType === 'credit') {
+  //     return intl.formatMessage({ id: 'market.credit.poolTitle', defaultMessage: 'Assigned after payment' });
+  //   }
+
+  //   const fallbackEmail = item?.itemType === 'ccu'
+  //     ? ccuVariants.find((variant) => variant.belongsTo === activeItem?.belongsTo)?.seller?.email
+  //     : undefined;
+
+  //   return activeSellerProfile?.name?.trim()
+  //     || activeSellerProfile?.email?.trim()
+  //     || fallbackEmail
+  //     || intl.formatMessage({ id: 'market.sellerUnknown', defaultMessage: 'Seller' });
+  // }, [activeItem?.belongsTo, activeSellerProfile, ccuVariants, intl, item?.itemType]);
   const [selectedCreditAmount, setSelectedCreditAmount] = useState<number | ''>('');
   const resolvedCreditOptions = useMemo(() => {
     if (item?.itemType !== 'credit') {
@@ -601,7 +803,7 @@ export default function MarketDetail() {
       const cartItem: Resource = buildMarketResource({
         ...item,
         skuId: `credit-pool:${selectedCreditOption.amount}`,
-        name: `Store Credit $${selectedCreditOption.amount}`,
+        name: formatMarketCreditResourceName(intl, selectedCreditOption.amount),
         price: selectedCreditOption.price,
         creditAmount: selectedCreditOption.amount,
         discountRateBps: selectedCreditOption.discountRateBps,
@@ -616,13 +818,17 @@ export default function MarketDetail() {
       return;
     }
 
-    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
-    const availableStock = getAvailableStock(item);
+    if (!activeItem) {
+      return;
+    }
+
+    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === activeItem.skuId);
+    const availableStock = getAvailableStock(activeItem);
 
     if (existingCartItem) {
       const currentQuantity = existingCartItem.quantity || 1;
       if (currentQuantity < availableStock) {
-        updateItemQuantity(item.skuId, currentQuantity + 1);
+        updateItemQuantity(activeItem.skuId, currentQuantity + 1);
         setSnackbarMessage(intl.formatMessage({ id: 'market.quantityUpdated', defaultMessage: 'Quantity updated' }));
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
@@ -630,7 +836,7 @@ export default function MarketDetail() {
       return;
     }
 
-    const cartItem: Resource = buildMarketResource(item, ships);
+    const cartItem: Resource = buildMarketResource(activeItem, ships);
     addToCart(cartItem);
     setSnackbarMessage(intl.formatMessage({ id: 'market.addedToCart', defaultMessage: 'Added to cart' }));
     setSnackbarSeverity('success');
@@ -640,6 +846,17 @@ export default function MarketDetail() {
   const getAvailableStockByResourceId = (resourceId: string) => {
     if (item?.itemType === 'credit' && resourceId.startsWith('credit-pool:')) {
       return Number.MAX_SAFE_INTEGER;
+    }
+
+    if (item?.itemType === 'ccu') {
+      const matchedVariant = ccuVariants.find((variant) => variant.skuId === resourceId);
+      if (matchedVariant) {
+        return getAvailableUnits(matchedVariant.stock, matchedVariant.lockedStock);
+      }
+    }
+
+    if (activeItem?.skuId === resourceId) {
+      return getAvailableStock(activeItem);
     }
 
     if (item?.skuId === resourceId) {
@@ -680,28 +897,30 @@ export default function MarketDetail() {
     );
   }
 
-  const visual = getMarketItemVisual(item, ships);
-  const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(item);
+  const displayItem = activeItem || item;
+  const visual = getMarketItemVisual(displayItem, ships);
+  const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(displayItem);
   const displayPrice = item.itemType === 'credit'
     ? (selectedCreditOption?.price || item.price)
-    : item.price;
+    : displayItem.price;
   const basePrice = item.itemType === 'credit'
     ? (selectedCreditOption?.amount || getListingBasePrice(item, ships))
-    : getListingBasePrice(item, ships);
+    : getListingBasePrice(displayItem, ships);
   const discount = item.itemType === 'credit'
     ? (selectedCreditOption && selectedCreditOption.amount > displayPrice
         ? (((selectedCreditOption.amount - displayPrice) / selectedCreditOption.amount) * 100).toFixed(2)
         : null)
-    : getListingDiscountPercent(item, ships);
+    : getListingDiscountPercent(displayItem, ships);
   const selectedCreditSkuId = selectedCreditOption ? `credit-pool:${selectedCreditOption.amount}` : item.skuId;
+  const selectedMarketSkuId = item.itemType === 'credit' ? selectedCreditSkuId : displayItem.skuId;
   const inCartItem = cart.find((cartItem: CartItemType) =>
-    cartItem.resource.id === (item.itemType === 'credit' ? selectedCreditSkuId : item.skuId),
+    cartItem.resource.id === selectedMarketSkuId,
   );
   const inCartQuantity = inCartItem?.quantity || 0;
   const fromShipInfo = fromShipResponse?.data.ship || visual.fromShip;
   const toShipInfo = toShipResponse?.data.ship || visual.toShip;
-  const currentShipName = fromShipInfo?.name || visual.fromShipName || item.fromShipName || '-';
-  const upgradedShipName = toShipInfo?.name || visual.toShipName || item.toShipName || '-';
+  const currentShipName = fromShipInfo?.name || visual.fromShipName || displayItem.fromShipName || '-';
+  const upgradedShipName = toShipInfo?.name || visual.toShipName || displayItem.toShipName || '-';
   const fromShipType = localizeShipType(locale, fromShipInfo?.type);
   const toShipType = localizeShipType(locale, toShipInfo?.type);
   const fromShipSize = localizeShipSize(locale, fromShipInfo?.details?.size);
@@ -807,13 +1026,27 @@ export default function MarketDetail() {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {item.itemType === 'ccu'
-                ? `${visual.fromShipName || item.fromShipName || '-'} → ${visual.toShipName || item.toShipName || '-'}`
+                ? [
+                    `${visual.fromShipName || displayItem.fromShipName || '-'} → ${visual.toShipName || displayItem.toShipName || '-'}`,
+                    item.variantCount && item.variantCount > 1
+                      ? intl.formatMessage(
+                          { id: 'market.ccu.variantCount', defaultMessage: '{count, plural, one {# variant} other {# variants}}' },
+                          { count: item.variantCount },
+                        )
+                      : null,
+                  ].filter(Boolean).join(' · ')
                 : item.itemType === 'credit'
                   ? [
-                      selectedCreditOption?.amount ? `Selected face value US$${selectedCreditOption.amount}` : null,
-                      resolvedCreditOptions.length ? `${resolvedCreditOptions.length} amount${resolvedCreditOptions.length === 1 ? '' : 's'}` : null,
+                      selectedCreditOption?.amount
+                        ? formatCreditFaceValueSummary(intl, selectedCreditOption.amount, selectedCreditOption.amount)
+                        : null,
+                      resolvedCreditOptions.length ? formatCreditAmountSummary(intl, resolvedCreditOptions.length) : null,
                     ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
-                : [visual.shipName || item.shipName, item.packageKind, item.insuranceType].filter(Boolean).join(' · ') || item.description || item.externalRef || ''}
+                : [
+                    visual.shipName || item.shipName,
+                    getMarketPackageKindLabel(intl, item.packageKind),
+                    item.insuranceType,
+                  ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''}
             </Typography>
           </div>
 
@@ -836,25 +1069,33 @@ export default function MarketDetail() {
           <div className='flex flex-col gap-6'>
             <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
               <MarketItemMedia
-                item={item}
+                item={displayItem}
                 ships={ships}
                 height={460}
-                badgeText={item.itemType === 'credit' ? null : (discount ? `${discount}% off` : null)}
+                badgeText={item.itemType === 'credit' ? null : (discount ? formatMarketDiscount(intl, discount) : null)}
               />
             </div>
 
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
               <DetailField
                 label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
-                value={item.itemType}
+                value={getMarketItemTypeLabel(intl, item.itemType)}
+              />
+              <DetailField
+                label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
+                value={typeof displayItem.cost === 'number' ? formatUsdPrice(intl.locale, displayItem.cost) : undefined}
               />
               <DetailField
                 label={item.itemType === 'credit'
                   ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
-                  : intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}
+                  : item.itemType === 'package'
+                    ? intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })
+                    : ''}
                 value={item.itemType === 'credit'
-                  ? (selectedCreditOption?.amount ? `US$${selectedCreditOption.amount}` : '-')
-                  : (item.insuranceType || '-')}
+                  ? (selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-')
+                  : item.itemType === 'package'
+                    ? (item.insuranceType || '-')
+                    : undefined}
               />
             </div>
 
@@ -896,7 +1137,7 @@ export default function MarketDetail() {
                       ship={toShipInfo}
                       fallbackName={upgradedShipName}
                       fallbackImage={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                      fallbackDescription={item.description}
+                      fallbackDescription={displayItem.description}
                     />
                   </div>
                 </div>
@@ -909,7 +1150,7 @@ export default function MarketDetail() {
                       <div className='flex flex-wrap items-center gap-2'>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                           <FormattedMessage
-                            id="market.detail.bundleContents"
+                            id={item.packageKind === 'bundle' ? 'market.detail.bundleContents' : 'market.detail.packageContents'}
                             defaultMessage={item.packageKind === 'bundle' ? 'Bundle Contents' : 'Package Contents'}
                           />
                         </Typography>
@@ -937,7 +1178,7 @@ export default function MarketDetail() {
                           const shipInfo = findShip(ships, ship.shipId, ship.shipName);
                           const shipImage = toLargeRsiImage(shipInfo?.medias?.productThumbMediumAndSmall) || MARKET_ITEM_PLACEHOLDER;
                           const msrpText = shipInfo?.msrp
-                            ? (shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })
+                            ? formatUsdPrice(intl.locale, shipInfo.msrp / 100)
                             : null;
 
                           return (
@@ -1049,7 +1290,7 @@ export default function MarketDetail() {
                   <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                     <DetailField
                       label={intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })}
-                      value={selectedCreditOption?.amount ? `US$${selectedCreditOption.amount}` : '-'}
+                      value={selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-'}
                     />
                     <DetailField
                       label={intl.formatMessage({ id: 'market.credit.eligibleSellers', defaultMessage: 'Eligible Sellers' })}
@@ -1058,15 +1299,15 @@ export default function MarketDetail() {
                   </div>
                   <Typography variant="body2" color="text.secondary">
                     {selectedCreditOption
-                      ? `US$20 + ${(selectedCreditOption.discountRateBps / 10000).toFixed(2)} x (US$${selectedCreditOption.amount} - US$20)`
-                      : (item.externalRef || item.description)}
+                      ? formatCreditPriceFormula(intl, selectedCreditOption.amount, selectedCreditOption.discountRateBps)
+                      : (displayItem.externalRef || displayItem.description)}
                   </Typography>
                 </div>
               )}
 
-              {item.description && (
+              {displayItem.description && (
                 <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
-                  {item.description}
+                  {displayItem.description}
                 </div>
               )}
             </div>
@@ -1076,11 +1317,11 @@ export default function MarketDetail() {
             <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <div className='flex flex-col gap-3'>
                 <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
-                  {item.itemType === 'credit' ? `US$${displayPrice.toFixed(2)}` : `US$${item.price.toFixed(2)}`}
+                  {formatUsdPrice(intl.locale, displayPrice)}
                 </div>
                 {discount && Number(discount) > 0 && (
                   <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                    US${basePrice.toFixed(2)}
+                    {formatUsdPrice(intl.locale, basePrice)}
                   </div>
                 )}
                 <div className='text-sm text-slate-500 dark:text-slate-400'>
@@ -1094,9 +1335,83 @@ export default function MarketDetail() {
                   </span>
                   <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock}</span>
                 </div>
+                {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && (
+                  <div className='text-sm text-slate-500 dark:text-slate-400'>
+                    <FormattedMessage
+                      id="market.detail.meltValueSummary"
+                      defaultMessage="Exchange value: {value}"
+                      values={{ value: formatUsdPrice(intl.locale, displayItem.cost) }}
+                    />
+                  </div>
+                )}
               </div>
 
               <Divider sx={{ my: 3 }} />
+
+              {item.itemType === 'ccu' && ccuVariants.length > 0 && (
+                <div className='mb-3 flex flex-col gap-3'>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
+                    value={selectedCcuCost}
+                    InputLabelProps={{ shrink: true }}
+                    SelectProps={{
+                      displayEmpty: true,
+                      renderValue: (value) => value === ''
+                        ? intl.formatMessage({ id: 'market.autoMatch', defaultMessage: 'Auto match' })
+                        : formatUsdPrice(intl.locale, Number(value)),
+                    }}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setSelectedCcuCost(value === '' ? '' : Number(value));
+                    }}
+                  >
+                    <MenuItem value="">
+                      <FormattedMessage id="market.autoMatch" defaultMessage="Auto match" />
+                    </MenuItem>
+                    {ccuCostOptions.map((cost) => (
+                      <MenuItem key={cost} value={cost}>
+                        {formatUsdPrice(intl.locale, cost)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  {/* <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label={intl.formatMessage({ id: 'market.sellerInfo', defaultMessage: 'Seller' })}
+                    value={selectedCcuSellerId}
+                    onChange={(event) => setSelectedCcuSellerId(event.target.value)}
+                  >
+                    <MenuItem value="">
+                      <FormattedMessage id="market.autoMatch" defaultMessage="Auto match" />
+                    </MenuItem>
+                    {ccuSellerOptions.map((option) => (
+                      <MenuItem key={option.sellerId} value={option.sellerId}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField> */}
+
+                  {/* {selectedCcuVariant && (
+                    <div className='rounded border border-black/10 bg-black/[0.02] p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300'>
+                      <FormattedMessage
+                        id="market.ccu.selectionSummary"
+                        defaultMessage="Current match: {price} · Exchange value {cost}"
+                        values={{
+                          price: formatUsdPrice(intl.locale, selectedCcuVariant.price),
+                          cost: typeof selectedCcuVariant.cost === 'number'
+                            ? formatUsdPrice(intl.locale, selectedCcuVariant.cost)
+                            : intl.formatMessage({ id: 'market.notAvailable', defaultMessage: 'N/A' }),
+                        }}
+                      />
+                    </div>
+                  )} */}
+                </div>
+              )}
 
               {item.itemType === 'credit' && (
                 <TextField
@@ -1110,7 +1425,7 @@ export default function MarketDetail() {
                 >
                   {resolvedCreditOptions.map((option) => (
                     <MenuItem key={option.amount} value={option.amount}>
-                      {`US$${option.amount} -> US$${option.price.toFixed(2)}`}
+                      {formatCreditOptionLabel(intl, option.amount, option.price)}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -1131,14 +1446,17 @@ export default function MarketDetail() {
                 </div>
               ) : inCartItem ? (
                 <div className='flex flex-col gap-3'>
-                  <ButtonGroup size="small" aria-label="quantity">
+                  <ButtonGroup
+                    size="small"
+                    aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+                  >
                     <IconButton
                       size="small"
                       onClick={() => {
                         if (inCartQuantity > 1) {
-                          updateItemQuantity(item.skuId, inCartQuantity - 1);
+                          updateItemQuantity(selectedMarketSkuId, inCartQuantity - 1);
                         } else {
-                          removeFromCart(item.skuId);
+                          removeFromCart(selectedMarketSkuId);
                         }
                       }}
                     >
@@ -1152,7 +1470,7 @@ export default function MarketDetail() {
                       disabled={inCartQuantity >= availableStock}
                       onClick={() => {
                         if (inCartQuantity < availableStock) {
-                          updateItemQuantity(item.skuId, inCartQuantity + 1);
+                          updateItemQuantity(selectedMarketSkuId, inCartQuantity + 1);
                         }
                       }}
                     >
@@ -1180,7 +1498,7 @@ export default function MarketDetail() {
               )}
             </div>
 
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+            {/* <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
                 <FormattedMessage
                   id={item.itemType === 'credit' ? 'market.credit.poolInfo' : 'market.sellerInfo'}
@@ -1189,21 +1507,17 @@ export default function MarketDetail() {
               </Typography>
 
               <div className='flex items-center gap-3'>
-                <Avatar src={item.itemType === 'credit' ? '' : (seller?.avatar || '')} alt={seller?.name || item.belongsTo} sx={{ width: 56, height: 56 }} />
+                <Avatar
+                  src={item.itemType === 'credit' ? '' : (activeSellerProfile?.avatar || '')}
+                  alt={activeSellerName}
+                  sx={{ width: 56, height: 56 }}
+                />
                 <div className='flex flex-col'>
                   <div className='text-base font-semibold text-slate-900 dark:text-slate-100'>
-                    {item.itemType === 'credit'
-                      ? intl.formatMessage({ id: 'market.credit.poolTitle', defaultMessage: 'Assigned after payment' })
-                      : (seller?.name || `Seller ${item.belongsTo}`)}
+                    {activeSellerName}
                   </div>
                 </div>
               </div>
-
-              {/* {seller?.description && (
-                <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
-                  {seller.description}
-                </div>
-              )} */}
 
               <div className='mt-4 flex flex-col gap-2'>
                 {item.itemType === 'credit' ? (
@@ -1215,13 +1529,13 @@ export default function MarketDetail() {
                   </Typography>
                 ) : (
                   <>
-                    {seller?.sharedHangar && (
-                      <Button variant="outlined" onClick={() => navigate(`/share/hangar/${item.belongsTo}`)}>
+                    {activeSellerProfile?.sharedHangar && (
+                      <Button variant="outlined" onClick={() => navigate(`/share/hangar/${displayItem.belongsTo}`)}>
                         <FormattedMessage id="market.viewSellerHangar" defaultMessage="View seller hangar" />
                       </Button>
                     )}
-                    {seller?.homepage && (
-                      <Button variant="text" component="a" href={seller.homepage} target="_blank" rel="noreferrer">
+                    {activeSellerProfile?.homepage && (
+                      <Button variant="text" component="a" href={activeSellerProfile.homepage} target="_blank" rel="noreferrer">
                         <FormattedMessage id="market.visitHomepage" defaultMessage="Visit homepage" />
                       </Button>
                     )}
@@ -1229,12 +1543,12 @@ export default function MarketDetail() {
                 )}
               </div>
 
-              {item.itemType !== 'credit' && seller?.contacts && (
+              {item.itemType !== 'credit' && activeSellerProfile?.contacts && (
                 <div className='mt-4 rounded border border-dashed border-black/10 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200'>
-                  {seller.contacts}
+                  {activeSellerProfile.contacts}
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

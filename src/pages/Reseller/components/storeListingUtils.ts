@@ -10,6 +10,7 @@ export interface StoreInventoryItem {
   displayType: StoreInventoryType;
   name: string;
   price: number;
+  cost?: number;
   stock: number;
   canGift: boolean;
   isBuyBack: boolean;
@@ -77,6 +78,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         displayType: 'ccu',
         name: item.name,
         price: resolvedPrice,
+        cost: item.value,
         stock: quantity,
         canGift: item.canGift,
         isBuyBack: item.isBuyBack,
@@ -107,6 +109,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         displayType: 'standalone_ship',
         name: item.name,
         price: item.value,
+        cost: item.value,
         stock: quantity,
         canGift: item.canGift,
         isBuyBack: item.isBuyBack,
@@ -165,6 +168,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         displayType: 'bundle',
         name: item.name,
         price: item.value,
+        cost: item.value,
         stock: quantity,
         canGift: item.canGift,
         isBuyBack: item.isBuyBack,

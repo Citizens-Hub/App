@@ -132,6 +132,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [selectedPackageShips, setSelectedPackageShips] = useState<Ship[]>([]);
   const [manualItemName, setManualItemName] = useState("");
   const [manualItemPrice, setManualItemPrice] = useState(0);
+  const [manualItemCost, setManualItemCost] = useState(0);
+  const [manualItemCostTouched, setManualItemCostTouched] = useState(false);
   const [manualItemQuantity, setManualItemQuantity] = useState(1);
   const [manualInsuranceType, setManualInsuranceType] = useState("");
   const [manualPackageItemsText, setManualPackageItemsText] = useState("");
@@ -206,6 +208,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setSelectedPackageShips([]);
     setManualItemName("");
     setManualItemPrice(0);
+    setManualItemCost(0);
+    setManualItemCostTouched(false);
     setManualItemQuantity(1);
     setManualInsuranceType("");
     setManualPackageItemsText("");
@@ -232,6 +236,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     );
     setManualItemName(item.name);
     setManualItemPrice(item.price);
+    setManualItemCost(item.cost ?? item.price);
+    setManualItemCostTouched(false);
     setManualItemQuantity(Math.max(item.stock, 1));
     setManualInsuranceType(item.insuranceType || "");
     setManualPackageItemsText((item.packageItems || []).map((entry) => entry.itemName).join("\n"));
@@ -361,6 +367,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     const basePayload = {
       name: manualItemName.trim(),
       price: manualItemPrice,
+      cost: manualItemCostTouched || selectedSourceItem ? manualItemCost : manualItemPrice,
       stock: manualItemQuantity,
       sourceKind: selectedSourceItem ? "hangar" : "manual",
     };
@@ -565,6 +572,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   <TableCell width="160px">
                     <FormattedMessage id="hangar.price" defaultMessage="Price" />
                   </TableCell>
+                  <TableCell width="160px">
+                    <FormattedMessage id="market.cost" defaultMessage="Cost" />
+                  </TableCell>
                   <TableCell width="180px">
                     <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />
                   </TableCell>
@@ -687,6 +697,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                       <TableCell sx={{ textWrap: "nowrap" }}>
                         <Typography variant="body2" color="primary" fontWeight={700}>
                           {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ textWrap: "nowrap" }}>
+                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                          {typeof item.cost === "number"
+                            ? item.cost.toLocaleString(intl.locale, { style: "currency", currency: "USD" })
+                            : "-"}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ textWrap: "nowrap" }}>
@@ -917,7 +934,26 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               label={intl.formatMessage({ id: "hangar.price", defaultMessage: "Price" })}
               type="number"
               value={manualItemPrice}
-              onChange={(event) => setManualItemPrice(Number(event.target.value))}
+              onChange={(event) => {
+                const nextPrice = Number(event.target.value);
+                setManualItemPrice(nextPrice);
+                if (!selectedSourceItem && !manualItemCostTouched) {
+                  setManualItemCost(nextPrice);
+                }
+              }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              }}
+            />
+
+            <TextField
+              label={intl.formatMessage({ id: "market.cost", defaultMessage: "Cost" })}
+              type="number"
+              value={manualItemCost}
+              onChange={(event) => {
+                setManualItemCost(Number(event.target.value));
+                setManualItemCostTouched(true);
+              }}
               InputProps={{
                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
               }}

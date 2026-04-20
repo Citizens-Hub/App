@@ -20,6 +20,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
 import { X, Plus, Minus } from 'lucide-react';
 
+import { formatUsdPrice } from '../marketI18n';
+
 interface CartDrawerProps {
   open: boolean;
   cart: CartItem[];
@@ -126,11 +128,15 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       secondary={
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
                           <div className='text-gray-500'>
-                            US${(item.resource.nativePrice.amount / 100).toFixed(2)}
+                            {formatUsdPrice(intl.locale, item.resource.nativePrice.amount / 100)}
                           </div>
 
                           {onUpdateQuantity && (
-                            <ButtonGroup size="small" aria-label="quantity" sx={{ mt: 1 }}>
+                            <ButtonGroup
+                              size="small"
+                              aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+                              sx={{ mt: 1 }}
+                            >
                               <IconButton 
                                 size="small"
                                 onClick={() => handleQuantityChange(item.resource.id, (item.quantity || 1) - 1)}
@@ -166,7 +172,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   <FormattedMessage id="cart.total" defaultMessage="Total" />
                 </div>
                 <div className='text-blue-500'>
-                  US${total.toFixed(2)}
+                  {formatUsdPrice(intl.locale, total)}
                 </div>
               </Box>
               <Button 
