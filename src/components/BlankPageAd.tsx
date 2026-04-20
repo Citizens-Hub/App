@@ -2,6 +2,8 @@ import { Adsense } from '@ctrl/react-adsense';
 
 export default function BlankPageAd() {
 
+  return <></>
+
   return (
     <div className="w-full max-h-[400px]">
       <Adsense

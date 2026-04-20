@@ -1,6 +1,7 @@
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   Dialog,
@@ -14,9 +15,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useMediaQuery,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Close, OpenInNew } from '@mui/icons-material';
+import { SyntheticEvent, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Close, OpenInNew, ViewInAr } from '@mui/icons-material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -119,21 +121,31 @@ function formatTimestamp(value?: string | null, locale = 'en-US') {
   return date.toLocaleString(locale);
 }
 
-function resolveShipImages(ship?: Ship | null) {
-  const composerImages = [
-    ...(ship?.details?.imageComposer?.filter((entry) => entry.slot === 'thumbnail') || []),
-    ...(ship?.details?.imageComposer?.filter((entry) => entry.slot !== 'thumbnail') || []),
-  ].map((entry) => toAbsoluteRsiUrl(entry.url));
+interface ResolvedShipImages {
+  images: string[];
+  previewImageUrl: string;
+  blurredImageUrls: string[];
+}
 
-  const images = [
-    ...composerImages,
-    // toAbsoluteRsiUrl(toLargeRsiImage(ship?.medias?.productThumbMediumAndSmall)),
-    // toAbsoluteRsiUrl(ship?.medias?.slideShow),
+function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): ResolvedShipImages {
+  const previewImages = [
+    toAbsoluteRsiUrl(listShip?.medias?.productThumbMediumAndSmall),
+    toAbsoluteRsiUrl(detailedShip?.medias?.productThumbMediumAndSmall),
   ].filter(Boolean) as string[];
 
-  const uniqueImages = Array.from(new Set(images));
+  const composerImages = [
+    ...(detailedShip?.details?.imageComposer?.filter((entry) => entry.slot === 'thumbnail') || []),
+    ...(detailedShip?.details?.imageComposer?.filter((entry) => entry.slot !== 'thumbnail') || []),
+  ].map((entry) => toAbsoluteRsiUrl(entry.url));
 
-  return uniqueImages.length > 0 ? uniqueImages : [];
+  const uniquePreviewImages = Array.from(new Set(previewImages));
+  const uniqueComposerImages = Array.from(new Set(composerImages));
+
+  return {
+    images: uniqueComposerImages.length > 0 ? uniqueComposerImages : uniquePreviewImages,
+    previewImageUrl: uniqueComposerImages.length > 0 ? (uniquePreviewImages[0] || '') : '',
+    blurredImageUrls: uniquePreviewImages,
+  };
 }
 
 function DetailField({
@@ -374,7 +386,10 @@ function ShipComponentSection({
 export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogProps) {
   const intl = useIntl();
   const { locale } = useLocale();
+  const isMobile = useMediaQuery('(max-width: 644px)');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isMobileModelViewerOpen, setIsMobileModelViewerOpen] = useState(false);
+  const [loadedImageUrls, setLoadedImageUrls] = useState<Record<string, true>>({});
   const requestPath = open && ship ? `/api/ship?id=${ship.id}` : null;
   const gameShopRequestPath = open && ship ? `/api/ship/game-shops?id=${ship.id}` : null;
   const { data: shipResponseData, error: shipResponseError } = useApi<ShipResponse>(requestPath, {
@@ -394,7 +409,7 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const detail = detailedShip?.details;
   const shipGameShops = shipGameShopData?.data || null;
   const descriptionMarkdown = (detail?.body || detail?.excerpt || '').trim();
-  const shipImages = useMemo(() => resolveShipImages(detailedShip), [detailedShip]);
+  const shipImageSet = useMemo(() => resolveShipImages(detailedShip, ship), [detailedShip, ship]);
   const externalShipUrl = toAbsoluteRsiUrl(detail?.url || detailedShip?.link);
   const manufacturerLogoSrc = getManufacturerLogoPath(detailedShip?.manufacturer);
   const localizedType = localizeShipType(locale, detailedShip?.type);
@@ -407,13 +422,35 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const turretComponents = (detail?.weapons || []).filter((component) => isMannedTurretComponent(component));
   const displayShipName = detailedShip?.name || ship?.name || '-';
   const displayManufacturerName = detailedShip?.manufacturer?.name || '';
-  const currentImageIndex = Math.min(selectedImageIndex, shipImages.length - 1);
-  const imageUrl = shipImages[currentImageIndex];
+  const shipImages = shipImageSet.images;
+  const previewImageUrl = shipImageSet.previewImageUrl;
+  const blurredImageUrls = shipImageSet.blurredImageUrls;
+  const currentImageIndex = Math.max(0, Math.min(selectedImageIndex, shipImages.length - 1));
+  const imageUrl = shipImages[currentImageIndex] || previewImageUrl || null;
+  const shouldBlurCurrentImage = imageUrl ? blurredImageUrls.includes(imageUrl) : false;
   const hasMultipleImages = shipImages.length > 1;
+  const isCurrentImageLoaded = imageUrl ? Boolean(loadedImageUrls[imageUrl]) : false;
+  const shouldShowSlideshowPreview = Boolean(
+    previewImageUrl && imageUrl && previewImageUrl !== imageUrl && !shouldBlurCurrentImage && !isCurrentImageLoaded,
+  );
+  const hasModelPreview = Boolean(detail?.ctm && detailedShip?.id);
 
   useEffect(() => {
     setSelectedImageIndex(0);
   }, [open, detailedShip?.id, shipImages.length]);
+
+  useEffect(() => {
+    setLoadedImageUrls({});
+  }, [detailedShip?.id]);
+
+  useEffect(() => {
+    if (!open) {
+      setIsMobileModelViewerOpen(false);
+      return;
+    }
+
+    setIsMobileModelViewerOpen(false);
+  }, [open, detailedShip?.id]);
 
   const metadata = [
     { key: 'type', value: localizedType },
@@ -441,6 +478,24 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   const showNextImage = () => {
     if (!hasMultipleImages) return;
     setSelectedImageIndex((current) => (current + 1) % shipImages.length);
+  };
+
+  const handleImageLoad = (event: SyntheticEvent<HTMLImageElement>) => {
+    const loadedUrl = event.currentTarget.currentSrc || event.currentTarget.src;
+    if (!loadedUrl) {
+      return;
+    }
+
+    setLoadedImageUrls((current) => {
+      if (current[loadedUrl]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [loadedUrl]: true,
+      };
+    });
   };
 
   const coreFields: CoreField[] = [
@@ -493,43 +548,45 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   ];
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-    >
-      <DialogTitle className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
-            <RsiIcon src={getRsiIconPath('ship')} className="h-5 w-5" toneClassName="bg-slate-700 dark:bg-slate-100" />
-            <span className="truncate">{displayShipName}</span>
-          </div>
-          {displayManufacturerName && (
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {displayManufacturerName}
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <RsiIcon src={getRsiIconPath('ship')} className="h-5 w-5" toneClassName="bg-slate-700 dark:bg-slate-100" />
+              <span className="truncate">{displayShipName}</span>
             </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {isLoading && <CircularProgress size={18} />}
-          {externalShipUrl && (
-            <Link
-              href={externalShipUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              underline="hover"
-              className="inline-flex items-center gap-1 text-sm"
-            >
-              <FormattedMessage id="ccuPlanner.shipInfo.openOnRsi" defaultMessage="Open on RSI" />
-              <OpenInNew fontSize="inherit" />
-            </Link>
-          )}
-          <IconButton onClick={onClose} size="small" aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
-            <Close />
-          </IconButton>
-        </div>
-      </DialogTitle>
+            {displayManufacturerName && (
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {displayManufacturerName}
+              </div>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {isLoading && <CircularProgress size={18} />}
+            {externalShipUrl && (
+              <Link
+                href={externalShipUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                className="inline-flex items-center gap-1 text-sm"
+              >
+                <FormattedMessage id="ccuPlanner.shipInfo.openOnRsi" defaultMessage="Open on RSI" />
+                <OpenInNew fontSize="inherit" />
+              </Link>
+            )}
+            <IconButton onClick={onClose} size="small" aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+              <Close />
+            </IconButton>
+          </div>
+        </DialogTitle>
 
       <DialogContent className="!p-0">
         {!detailedShip ? (
@@ -539,11 +596,42 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
         ) : (
           <div className="flex flex-col">
             <div className="relative overflow-hidden border-b border-black/10 bg-slate-100 dark:border-white/10 dark:bg-slate-950">
+              {shouldShowSlideshowPreview && (
+                <Box
+                  component="img"
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: { xs: 360, md: 480 },
+                    objectFit: 'cover',
+                    filter: 'blur(20px) saturate(0.9)',
+                    transform: 'scale(1.08)',
+                    opacity: 0.92,
+                  }}
+                  src={previewImageUrl}
+                  alt=""
+                  aria-hidden
+                />
+              )}
+              {shouldShowSlideshowPreview && (
+                <div className="pointer-events-none absolute inset-0 bg-slate-950/18 backdrop-brightness-90" />
+              )}
               <Box
                 component="img"
-                sx={{ width: '100%', height: { xs: 360, md: 480 }, objectFit: 'cover' }}
-                src={imageUrl}
+                sx={{
+                  position: 'relative',
+                  width: '100%',
+                  height: { xs: 360, md: 480 },
+                  objectFit: 'cover',
+                  filter: shouldBlurCurrentImage ? 'blur(20px) saturate(0.9)' : 'none',
+                  transform: shouldBlurCurrentImage ? 'scale(1.08)' : 'none',
+                  opacity: shouldShowSlideshowPreview ? 0 : 1,
+                  transition: 'opacity 240ms ease, filter 240ms ease, transform 240ms ease',
+                }}
+                src={imageUrl || undefined}
                 alt={`${detailedShip.name} ${currentImageIndex + 1}`}
+                onLoad={handleImageLoad}
               />
               {hasMultipleImages && (
                 <>
@@ -693,11 +781,41 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
                 ))}
               </div>
 
-              {detail?.ctm && (
+              {hasModelPreview && !isMobile && (
                 <ShipModelPreview
                   open={open}
                   shipId={detailedShip?.id}
                 />
+              )}
+
+              {hasModelPreview && isMobile && (
+                <section className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                      <FormattedMessage id="ccuPlanner.shipInfo.modelPreview" defaultMessage="3D Preview" />
+                    </div>
+                  </div>
+                  <div className="rounded border border-black/10 bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    {/* <div className="mb-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      <FormattedMessage
+                        id="ccuPlanner.shipInfo.modelPreviewMobileDescription"
+                        defaultMessage="3D models are hidden by default on mobile. Open the dedicated viewer to inspect the ship in full screen."
+                      />
+                    </div> */}
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="large"
+                      startIcon={<ViewInAr />}
+                      onClick={() => setIsMobileModelViewerOpen(true)}
+                    >
+                      <FormattedMessage
+                        id="ccuPlanner.shipInfo.openModelViewer"
+                        defaultMessage="Open 3D Viewer"
+                      />
+                    </Button>
+                  </div>
+                </section>
               )}
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -850,6 +968,43 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
           </div>
         )}
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      {hasModelPreview && isMobile && (
+        <Dialog
+          open={open && isMobileModelViewerOpen}
+          onClose={() => setIsMobileModelViewerOpen(false)}
+          fullScreen
+        >
+          <DialogTitle className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <ViewInAr fontSize="small" />
+                <span className="truncate">{displayShipName}</span>
+              </div>
+            </div>
+            <IconButton
+              onClick={() => setIsMobileModelViewerOpen(false)}
+              size="small"
+              aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+            >
+              <Close />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent
+            className="!flex !min-h-0 !flex-col !p-0"
+            sx={{ p: 0, overflow: 'hidden', flex: 1, minHeight: 0 }}
+          >
+            <ShipModelPreview
+              open={open && isMobileModelViewerOpen}
+              shipId={detailedShip?.id}
+              showHeader={false}
+              variant="fullscreen"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }

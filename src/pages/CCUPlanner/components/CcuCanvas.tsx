@@ -40,7 +40,7 @@ import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
 import { BiSlots, reportBi } from '@/report';
 import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
-import { Plus, X } from 'lucide-react';
+import { MousePointer2, Plus, Route, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
 import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
 import ShipInfoDialog from './ShipInfoDialog';
@@ -87,6 +87,7 @@ interface CcuCanvasProps {
     [currency: string]: number;
   };
   priceHistoryMap: Record<number, PriceHistoryEntity>;
+  blockIntroJoyride?: boolean;
 }
 
 const createEmptyFlowData = (): FlowData => ({
@@ -269,7 +270,14 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
   return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
 };
 
-export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, priceHistoryMap }: CcuCanvasProps) {
+export default function CcuCanvas({
+  ships,
+  ccus,
+  wbHistory,
+  exchangeRates,
+  priceHistoryMap,
+  blockIntroJoyride = false
+}: CcuCanvasProps) {
   const [alert, setAlert] = useState<{
     open: boolean,
     message: string,
@@ -290,7 +298,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, price
       priceHistoryMap={priceHistoryMap}
       setAlert={setAlert}
     >
-      <CcuCanvasContent />
+      <CcuCanvasContent blockIntroJoyride={blockIntroJoyride} />
       <Snackbar
         anchorOrigin={{
           vertical: 'top',
@@ -314,7 +322,7 @@ export default function CcuCanvas({ ships, ccus, wbHistory, exchangeRates, price
 }
 
 // Move main functionality to this child component
-function CcuCanvasContent() {
+function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: boolean }) {
   const AUTO_SAVE_IDLE_MS = 500;
   const AUTO_SAVE_BOOTSTRAP_DELAY_MS = 500;
   const navigate = useNavigate();
@@ -2027,6 +2035,10 @@ function CcuCanvasContent() {
   }, [finishExplorePathJoyride, pathBuilderOpen, scheduleExplorePathJoyrideStepRetry]);
 
   useEffect(() => {
+    if (blockIntroJoyride) {
+      return;
+    }
+
     const hasSeenExplorePathJoyride = localStorage.getItem(EXPLORE_PATH_JOYRIDE_STORAGE_KEY) === 'true';
     if (hasSeenExplorePathJoyride) {
       return;
@@ -2040,7 +2052,7 @@ function CcuCanvasContent() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [blockIntroJoyride]);
 
   useEffect(() => {
     return () => {
@@ -2064,6 +2076,7 @@ function CcuCanvasContent() {
   const canCloseOthers = tabContextMenuIndex >= 0 && plannerTabs.length > 1;
   const canCloseCurrent = tabContextMenuIndex >= 0;
   const canCloseAll = plannerTabs.length > 0;
+  const showEmptyCanvasHint = plannerTabs.length > 0 && Boolean(activeTabId) && nodes.length === 0;
   const tabContextMenuItemSx = {
     minHeight: 34,
     borderRadius: '6px',
@@ -2391,6 +2404,55 @@ function CcuCanvasContent() {
               <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex gap-1' />
               <MiniMap className='dark:invert-90 xl:block hidden' />
               <Background color="#333" gap={32} />
+              {showEmptyCanvasHint && (
+                <div className="pointer-events-none absolute inset-0 z-[4] flex items-center justify-center px-4 py-6">
+                  <div className="pointer-events-auto w-full max-w-[560px] border border-gray-200 bg-white shadow-md dark:border-gray-800 dark:bg-[#121212]">
+                    <div className="p-4 sm:p-5">
+                      <div className="grid gap-2.5">
+                        <div className="flex items-start gap-3 border border-gray-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 dark:border-gray-800 dark:bg-[#181818] dark:text-slate-200">
+                          <MousePointer2 size={16} className="mt-0.5 shrink-0 text-sky-600 dark:text-sky-300" />
+                          <span>
+                            <FormattedMessage
+                              id="ccuPlanner.emptyCanvas.dragHint"
+                              defaultMessage="Drag ship nodes in from the left sidebar."
+                            />
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-3 border border-gray-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 dark:border-gray-800 dark:bg-[#181818] dark:text-slate-200">
+                          <Route size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300" />
+                          <span>
+                            <FormattedMessage
+                              id="ccuPlanner.emptyCanvas.exploreHint"
+                              defaultMessage="Or open Explore to auto-generate an upgrade route."
+                            />
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-start">
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleOpenPathBuilder}
+                          startIcon={<Route size={16} />}
+                          sx={{
+                            borderRadius: 0,
+                            px: 2,
+                            py: 0.875,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            boxShadow: 'none'
+                          }}
+                        >
+                          <FormattedMessage
+                            id="ccuPlanner.emptyCanvas.openExplore"
+                            defaultMessage="Open Explore"
+                          />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <Panel position="top-right">
                 <div className='gap-2 hidden sm:flex'>
                   {/* <div className='flex flex-col gap-2 items-center justify-center'>

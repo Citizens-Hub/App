@@ -35,6 +35,10 @@
   }
 }
 
+.wmde-markdown {
+  background-color: transparent !important;
+}
+
 .card {
   padding: 2em;
 }

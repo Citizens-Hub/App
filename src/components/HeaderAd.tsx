@@ -3,6 +3,8 @@ import { useLocation } from 'react-router';
 import { useEffect, useState } from 'react';
 
 export default function HeaderAd() {
+  return <></>
+  
   const { pathname } = useLocation();
   const [key, setKey] = useState(0);
   
