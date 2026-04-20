@@ -1,6 +1,7 @@
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { Alert, Button, CircularProgress, Paper, Typography } from '@mui/material';
 import { useState } from 'react';
+import { type IntlShape, useIntl } from 'react-intl';
 
 const RSI_GRAPHQL_URL = 'https://robertsspaceindustries.com/graphql';
 const RESPONSE_TIMEOUT_MS = 20000;
@@ -11,7 +12,9 @@ type ExtensionResponseMessage = {
   error?: unknown;
 };
 
-function formatError(error: unknown): string {
+type ExportStatus = 'idle' | 'requesting' | 'success' | 'failure';
+
+function formatError(intl: IntlShape, error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
@@ -20,10 +23,13 @@ function formatError(error: unknown): string {
     return error;
   }
 
-  return '浏览器扩展请求失败';
+  return intl.formatMessage({
+    id: 'reseller.graphqlExport.error.generic',
+    defaultMessage: 'Browser extension request failed',
+  });
 }
 
-function requestGraphqlViaExtension(): Promise<unknown> {
+function requestGraphqlViaExtension(timeoutMessage: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const requestId = `reseller-graphql-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -42,7 +48,13 @@ function requestGraphqlViaExtension(): Promise<unknown> {
       cleanup(timeoutId, listener);
 
       if (message.error) {
-        reject(new Error(formatError(message.error)));
+        reject(new Error(
+          message.error instanceof Error
+            ? message.error.message
+            : typeof message.error === 'string'
+              ? message.error
+              : String(message.error),
+        ));
         return;
       }
 
@@ -51,7 +63,7 @@ function requestGraphqlViaExtension(): Promise<unknown> {
 
     const timeoutId = window.setTimeout(() => {
       cleanup(timeoutId, listener);
-      reject(new Error('扩展请求超时，请确认已安装并启用 Citizens Hub 浏览器扩展'));
+      reject(new Error(timeoutMessage));
     }, RESPONSE_TIMEOUT_MS);
 
     window.addEventListener('message', listener);
@@ -113,24 +125,58 @@ function downloadJson(data: unknown) {
 }
 
 export default function ResellerGraphqlExport() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const [statusText, setStatusText] = useState('点击按钮后将通过浏览器扩展请求 RSI GraphQL 并下载 JSON。');
+  const [status, setStatus] = useState<ExportStatus>('idle');
   const [errorText, setErrorText] = useState('');
+
+  const statusText = (() => {
+    switch (status) {
+      case 'requesting':
+        return intl.formatMessage(
+          {
+            id: 'reseller.graphqlExport.status.requesting',
+            defaultMessage: 'Requesting {url} ...',
+          },
+          { url: RSI_GRAPHQL_URL },
+        );
+      case 'success':
+        return intl.formatMessage({
+          id: 'reseller.graphqlExport.status.success',
+          defaultMessage: 'Request succeeded and the JSON file has been downloaded.',
+        });
+      case 'failure':
+        return intl.formatMessage({
+          id: 'reseller.graphqlExport.status.failure',
+          defaultMessage: 'Request failed.',
+        });
+      default:
+        return intl.formatMessage({
+          id: 'reseller.graphqlExport.status.idle',
+          defaultMessage: 'Click the button to request RSI GraphQL through the browser extension and download the JSON payload.',
+        });
+    }
+  })();
 
   const handleExport = async () => {
     if (loading) return;
 
     setLoading(true);
     setErrorText('');
-    setStatusText('正在请求 https://robertsspaceindustries.com/graphql ...');
+    setStatus('requesting');
 
     try {
-      const response = await requestGraphqlViaExtension();
+      const response = await requestGraphqlViaExtension(
+        intl.formatMessage({
+          id: 'reseller.graphqlExport.error.timeout',
+          defaultMessage: 'The extension request timed out. Make sure the Citizens Hub browser extension is installed and enabled.',
+        }),
+      );
       downloadJson(response);
-      setStatusText('请求成功，JSON 已下载。');
+      setStatus('success');
     } catch (error) {
-      setStatusText('请求失败。');
-      setErrorText(formatError(error));
+      setStatus('failure');
+      setErrorText(formatError(intl, error));
     } finally {
       setLoading(false);
     }
@@ -140,10 +186,16 @@ export default function ResellerGraphqlExport() {
     <div className="absolute left-[50%] top-[50%] -translate-x-[50%] -translate-y-[50%] overflow-y-auto p-4 sm:p-8">
       <Paper className="max-w-3xl p-4 sm:p-6">
         <Typography variant="h5" gutterBottom>
-          GraphQL 导出
+          {intl.formatMessage({
+            id: 'reseller.graphqlExport.title',
+            defaultMessage: 'GraphQL Export',
+          })}
         </Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          该页面会调用浏览器扩展发起跨域请求，抓取 RSI GraphQL 响应并下载为 JSON 文件。
+          {intl.formatMessage({
+            id: 'reseller.graphqlExport.pageDescription',
+            defaultMessage: 'This page uses the browser extension to issue the cross-origin request, capture the RSI GraphQL response, and download it as a JSON file.',
+          })}
         </Typography>
 
         <Button
@@ -153,7 +205,17 @@ export default function ResellerGraphqlExport() {
           disabled={loading}
           sx={{ mt: 2 }}
         >
-          <span>{loading ? '请求中...' : '请求并下载 JSON'}</span>
+          <span>
+            {loading
+              ? intl.formatMessage({
+                id: 'reseller.graphqlExport.action.loading',
+                defaultMessage: 'Requesting...',
+              })
+              : intl.formatMessage({
+                id: 'reseller.graphqlExport.action.default',
+                defaultMessage: 'Request and Download JSON',
+              })}
+          </span>
         </Button>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

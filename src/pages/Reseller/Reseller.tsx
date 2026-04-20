@@ -33,9 +33,12 @@ export default function Reseller() {
           </Typography>
         </div>
         <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/graphql-export')}>
-          <span>GraphQL 导出</span>
+          <FormattedMessage id="reseller.graphqlExport.title" defaultMessage="GraphQL Export" />
           <Typography variant='body2' color='text.secondary'>
-            通过浏览器扩展请求 RSI GraphQL 并下载 JSON
+            <FormattedMessage
+              id="reseller.graphqlExport.description"
+              defaultMessage="Request RSI GraphQL through the browser extension and download the JSON payload."
+            />
           </Typography>
         </div>
       </div>

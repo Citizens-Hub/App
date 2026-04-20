@@ -87,13 +87,16 @@ function getSourceKindLabel(sourceKind: string | null | undefined, intl: IntlSha
   return sourceKind || "";
 }
 
-function getInventoryOptionLabel(item: StoreInventoryItem) {
+function getInventoryOptionLabel(item: StoreInventoryItem, intl: IntlShape) {
   if (item.itemType === "ccu") {
     return `${item.name} | ${item.fromShipName || "-"} -> ${item.toShipName || "-"}`;
   }
 
   const subtitle = item.packageKind === "bundle"
-    ? `${item.packageShips?.length || 0} ships`
+    ? intl.formatMessage(
+        { id: "market.detail.shipCount", defaultMessage: "{count, plural, one {# ship} other {# ships}}" },
+        { count: item.packageShips?.length || 0 },
+      )
     : (item.shipName || item.packageShips?.[0]?.shipName || "");
 
   return subtitle ? `${item.name} | ${subtitle}` : item.name;
@@ -652,7 +655,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                               {(item.shipName || item.packageShips?.length) && (
                                 <Typography variant="body2" color="text.secondary">
                                   {item.packageKind === "bundle"
-                                    ? `${item.packageShips?.length || 0} ships`
+                                    ? intl.formatMessage(
+                                      { id: "market.detail.shipCount", defaultMessage: "{count, plural, one {# ship} other {# ships}}" },
+                                      { count: item.packageShips?.length || 0 },
+                                    )
                                     : (item.shipName || item.packageShips?.[0]?.shipName || "-")}
                                 </Typography>
                               )}
@@ -663,7 +669,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                               )}
                               {item.packageKind === "bundle" && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {(item.packageItems?.length || 0)} extras
+                                  {intl.formatMessage(
+                                    { id: "market.detail.extraCount", defaultMessage: "{count, plural, one {# extra} other {# extras}}" },
+                                    { count: item.packageItems?.length || 0 },
+                                  )}
                                 </Typography>
                               )}
                             </>
@@ -775,13 +784,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               options={inventoryItems}
               value={selectedSourceItem}
               isOptionEqualToValue={(option, value) => option.sourceKey === value.sourceKey}
-              getOptionLabel={getInventoryOptionLabel}
+              getOptionLabel={(option) => getInventoryOptionLabel(option, intl)}
               noOptionsText={intl.formatMessage({ id: "hangar.noEquipment", defaultMessage: "No sharable content in your hangar" })}
               onChange={handleSourceItemChange}
               renderOption={(props, option) => (
                 <li {...props}>
                   <div className="flex flex-col py-1">
-                    <span className="font-medium">{getInventoryOptionLabel(option)}</span>
+                    <span className="font-medium">{getInventoryOptionLabel(option, intl)}</span>
                     <span className="text-sm text-gray-500">
                       {getInventoryOptionMeta(option)}
                       {option.isBuyBack ? ` | ${intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}` : ""}
@@ -828,8 +837,12 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               onChange={(event) => setManualItemType(event.target.value as MarketItemType)}
             >
               <MenuItem value="ccu">CCU</MenuItem>
-              <MenuItem value="package">Package</MenuItem>
-              <MenuItem value="misc">Misc</MenuItem>
+              <MenuItem value="package">
+                {intl.formatMessage({ id: "market.filter.package", defaultMessage: "Package" })}
+              </MenuItem>
+              <MenuItem value="misc">
+                {intl.formatMessage({ id: "market.filter.misc", defaultMessage: "Misc" })}
+              </MenuItem>
             </TextField>
 
             {manualItemType === "package" ? (

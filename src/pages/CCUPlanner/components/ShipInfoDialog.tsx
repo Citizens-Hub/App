@@ -334,7 +334,7 @@ function ShipComponentSection({
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
         <RsiIcon src={sectionIconSrc} />
-        {title}
+        <span>{title}</span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {mergedComponents.slice(0, 12).map((component, index) => {

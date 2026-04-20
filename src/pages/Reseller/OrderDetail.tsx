@@ -314,7 +314,7 @@ const OrderDetail = () => {
               <FormattedMessage id="orders.createTime" defaultMessage="创建时间" />
             </Typography>
             <Typography variant="body1">
-              {new Date(order.createdAt).toLocaleString()}
+              {new Date(order.createdAt).toLocaleString(intl.locale)}
             </Typography>
           </div>
 
@@ -333,7 +333,7 @@ const OrderDetail = () => {
               <FormattedMessage id="orders.updateTime" defaultMessage="更新时间" />
             </Typography>
             <Typography variant="body1">
-              {new Date(order.updatedAt).toLocaleString()}
+              {new Date(order.updatedAt).toLocaleString(intl.locale)}
             </Typography>
           </div>
 

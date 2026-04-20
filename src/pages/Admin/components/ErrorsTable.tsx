@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage, IntlShape, useIntl } from "react-intl";
 import { Typography, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Button, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import { useCatchedErrors } from "@/hooks/swr/admin/useCatchedErrors";
 import { ErrorTypes } from "@/types";
@@ -75,6 +75,56 @@ const ColoredStack = ({ stack }: { stack: string }) => {
   );
 }
 
+function formatErrorDate(value: string, locale: string) {
+  return new Date(value).toLocaleString(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getErrorTypeMeta(errorType: string, intl: IntlShape) {
+  switch (errorType) {
+    case ErrorTypes.BUYBACK_CCU_PARSING_ERROR:
+      return {
+        icon: <Bug className="w-4 h-4 text-yellow-400" />,
+        label: intl.formatMessage({
+          id: 'admin.errors.buybackParsing',
+          defaultMessage: 'Buyback Parsing Error',
+        }),
+      };
+    case ErrorTypes.RENDER_ERROR:
+      return {
+        icon: <Bug className="w-4 h-4 text-red-400" />,
+        label: intl.formatMessage({
+          id: 'admin.errors.renderError',
+          defaultMessage: 'Render Error',
+        }),
+      };
+    case ErrorTypes.CCU_PARSING_ERROR:
+      return {
+        icon: <Bug className="w-4 h-4 text-yellow-400" />,
+        label: intl.formatMessage({
+          id: 'admin.errors.ccuParsing',
+          defaultMessage: 'CCU Parsing Error',
+        }),
+      };
+    default:
+      return {
+        icon: <ShieldQuestion className="w-4 h-4 text-red-400" />,
+        label: intl.formatMessage(
+          {
+            id: 'admin.errors.unknown',
+            defaultMessage: 'Unknown Error: {errorType}',
+          },
+          { errorType },
+        ),
+      };
+  }
+}
+
 export default function ErrorsTable() {
   const intl = useIntl();
   const [page, setPage] = useState(0);
@@ -114,16 +164,16 @@ export default function ErrorsTable() {
           <TableHead>
             <TableRow>
               <TableCell>
-                日期
+                {intl.formatMessage({ id: 'admin.errors.date', defaultMessage: 'Date' })}
               </TableCell>
               <TableCell>
-                错误类型
+                {intl.formatMessage({ id: 'admin.errors.type', defaultMessage: 'Error Type' })}
               </TableCell>
               <TableCell>
-                错误信息
+                {intl.formatMessage({ id: 'admin.errors.message', defaultMessage: 'Error Message' })}
               </TableCell>
               <TableCell align="center">
-                堆栈
+                {intl.formatMessage({ id: 'admin.errors.stack', defaultMessage: 'Stack' })}
               </TableCell>
             </TableRow>
           </TableHead>
@@ -131,27 +181,18 @@ export default function ErrorsTable() {
             {list.map(item => (
               <TableRow key={item.id} hover>
                 <TableCell className="text-nowrap">
-                  {new Date(item.createdAt).toLocaleDateString(intl.locale, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatErrorDate(item.createdAt, intl.locale)}
                 </TableCell>
                 <TableCell className="text-nowrap">
                   <div className="flex items-center gap-2">
                     {(() => {
-                      switch (item.errorType) {
-                        case ErrorTypes.BUYBACK_CCU_PARSING_ERROR:
-                          return <><Bug className="w-4 h-4 text-yellow-400" /> 回购解析错误</>
-                        case ErrorTypes.RENDER_ERROR:
-                          return <><Bug className="w-4 h-4 text-red-400" /> 渲染错误</>
-                        case ErrorTypes.CCU_PARSING_ERROR:
-                          return <><Bug className="w-4 h-4 text-yellow-400" /> CCU解析错误</>
-                        default:
-                          return <><ShieldQuestion className="w-4 h-4 text-red-400" /> 未知错误：{item.errorType}</>
-                      }
+                      const meta = getErrorTypeMeta(item.errorType, intl);
+                      return (
+                        <>
+                          {meta.icon}
+                          {meta.label}
+                        </>
+                      );
                     })()}
                   </div>
                 </TableCell>
@@ -166,7 +207,7 @@ export default function ErrorsTable() {
                     onClick={() => {
                       setShowCallStack(item.callStack || "")
                     }}>
-                    View
+                    {intl.formatMessage({ id: 'common.view', defaultMessage: 'View' })}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -188,13 +229,15 @@ export default function ErrorsTable() {
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
-        labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-        labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
+        labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+        labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: ' items' })}`}
       />
     </Box>
 
     <Dialog open={!!showCallStack} onClose={() => setShowCallStack("")} maxWidth="xl" fullWidth>
-      <DialogTitle>错误堆栈</DialogTitle>
+      <DialogTitle>
+        {intl.formatMessage({ id: 'admin.errors.stackTitle', defaultMessage: 'Error Stack' })}
+      </DialogTitle>
       <DialogContent>
         <ColoredStack stack={showCallStack ?? ""} />
       </DialogContent>

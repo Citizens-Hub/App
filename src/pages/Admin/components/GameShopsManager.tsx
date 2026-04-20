@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import {
   Alert,
@@ -45,7 +45,7 @@ type FlashState = {
 
 type PendingAction = 'fullPreview' | 'fullApply' | 'singlePreview' | 'singleApply' | 'rematchShipMatches' | null;
 
-function formatTimestamp(value?: string | null): string {
+function formatTimestamp(value: string | null | undefined, locale: string): string {
   if (!value) {
     return '-';
   }
@@ -55,7 +55,7 @@ function formatTimestamp(value?: string | null): string {
     return value;
   }
 
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 function formatNullableNumber(value: number | null): string {
@@ -94,32 +94,165 @@ function getBatchStatusColor(status: string): 'default' | 'success' | 'warning' 
   return 'warning';
 }
 
+function getChangeLabel(changeType: GameShopChangeType | GameShopInventoryChangeType, intl: IntlShape) {
+  switch (changeType) {
+    case 'added':
+      return intl.formatMessage({ id: 'admin.gameShops.change.added', defaultMessage: 'Added' });
+    case 'updated':
+      return intl.formatMessage({ id: 'admin.gameShops.change.updated', defaultMessage: 'Updated' });
+    case 'removed':
+      return intl.formatMessage({ id: 'admin.gameShops.change.removed', defaultMessage: 'Removed' });
+    default:
+      return intl.formatMessage({ id: 'admin.gameShops.change.unchanged', defaultMessage: 'Unchanged' });
+  }
+}
+
+function getBatchStatusLabel(status: string, intl: IntlShape) {
+  switch (status) {
+    case 'pending':
+      return intl.formatMessage({ id: 'admin.gameShops.status.pending', defaultMessage: 'Pending' });
+    case 'applying':
+      return intl.formatMessage({ id: 'admin.gameShops.status.applying', defaultMessage: 'Applying' });
+    case 'applied':
+      return intl.formatMessage({ id: 'admin.gameShops.status.applied', defaultMessage: 'Applied' });
+    case 'failed':
+      return intl.formatMessage({ id: 'admin.gameShops.status.failed', defaultMessage: 'Failed' });
+    case 'cancelling':
+      return intl.formatMessage({ id: 'admin.gameShops.status.cancelling', defaultMessage: 'Cancelling' });
+    case 'cancelled':
+      return intl.formatMessage({ id: 'admin.gameShops.status.cancelled', defaultMessage: 'Cancelled' });
+    default:
+      return status;
+  }
+}
+
+function getBatchScopeLabel(scope: string, intl: IntlShape) {
+  switch (scope) {
+    case 'full':
+      return intl.formatMessage({ id: 'admin.gameShops.scope.full', defaultMessage: 'Full' });
+    case 'single':
+      return intl.formatMessage({ id: 'admin.gameShops.scope.single', defaultMessage: 'Single' });
+    default:
+      return scope;
+  }
+}
+
+function getBatchSourceTypeLabel(sourceType: string, intl: IntlShape) {
+  switch (sourceType) {
+    case 'file':
+      return intl.formatMessage({ id: 'admin.gameShops.sourceType.file', defaultMessage: 'File' });
+    case 'manual':
+      return intl.formatMessage({ id: 'admin.gameShops.sourceType.manual', defaultMessage: 'Manual' });
+    default:
+      return sourceType;
+  }
+}
+
 function isActiveBatchStatus(status: string): boolean {
   return status === 'pending' || status === 'applying' || status === 'cancelling';
 }
 
-function SummarySection({ summary }: { summary: GameShopImportSummary }) {
+function SummarySection({ summary, intl }: { summary: GameShopImportSummary; intl: IntlShape }) {
   return (
     <Stack spacing={1.5}>
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip label={`Shops ${summary.shopCount}`} size="small" />
-        <Chip label={`Inventory ${summary.inventoryCount}`} size="small" />
-        <Chip label={`Shop +${summary.shops.added}`} size="small" color="success" />
-        <Chip label={`Shop ~${summary.shops.updated}`} size="small" color="warning" />
-        <Chip label={`Shop =${summary.shops.unchanged}`} size="small" />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.shopCount', defaultMessage: 'Shops {count}' },
+            { count: summary.shopCount },
+          )}
+          size="small"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.inventoryCount', defaultMessage: 'Inventory {count}' },
+            { count: summary.inventoryCount },
+          )}
+          size="small"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.shopAdded', defaultMessage: 'Shop +{count}' },
+            { count: summary.shops.added },
+          )}
+          size="small"
+          color="success"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.shopUpdated', defaultMessage: 'Shop ~{count}' },
+            { count: summary.shops.updated },
+          )}
+          size="small"
+          color="warning"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.shopUnchanged', defaultMessage: 'Shop ={count}' },
+            { count: summary.shops.unchanged },
+          )}
+          size="small"
+        />
       </Stack>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip label={`Product +${summary.products.added}`} size="small" color="success" />
-        <Chip label={`Product ~${summary.products.updated}`} size="small" color="warning" />
-        <Chip label={`Product =${summary.products.unchanged}`} size="small" />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.productAdded', defaultMessage: 'Product +{count}' },
+            { count: summary.products.added },
+          )}
+          size="small"
+          color="success"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.productUpdated', defaultMessage: 'Product ~{count}' },
+            { count: summary.products.updated },
+          )}
+          size="small"
+          color="warning"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.productUnchanged', defaultMessage: 'Product ={count}' },
+            { count: summary.products.unchanged },
+          )}
+          size="small"
+        />
       </Stack>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip label={`Inv +${summary.inventory.added}`} size="small" color="success" />
-        <Chip label={`Inv ~${summary.inventory.updated}`} size="small" color="warning" />
-        <Chip label={`Inv -${summary.inventory.removed}`} size="small" color="error" />
-        <Chip label={`Inv =${summary.inventory.unchanged}`} size="small" />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.inventoryAdded', defaultMessage: 'Inventory +{count}' },
+            { count: summary.inventory.added },
+          )}
+          size="small"
+          color="success"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.inventoryUpdated', defaultMessage: 'Inventory ~{count}' },
+            { count: summary.inventory.updated },
+          )}
+          size="small"
+          color="warning"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.inventoryRemoved', defaultMessage: 'Inventory -{count}' },
+            { count: summary.inventory.removed },
+          )}
+          size="small"
+          color="error"
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.gameShops.summary.inventoryUnchanged', defaultMessage: 'Inventory ={count}' },
+            { count: summary.inventory.unchanged },
+          )}
+          size="small"
+        />
       </Stack>
     </Stack>
   );
@@ -128,9 +261,11 @@ function SummarySection({ summary }: { summary: GameShopImportSummary }) {
 function PreviewSection({
   title,
   response,
+  intl,
 }: {
   title: string;
   response: GameShopImportResponse | null;
+  intl: IntlShape;
 }) {
   if (!response) {
     return null;
@@ -142,7 +277,7 @@ function PreviewSection({
         {title}
       </Typography>
 
-      <SummarySection summary={response.summary} />
+      <SummarySection summary={response.summary} intl={intl} />
 
       {response.summary.warnings.length > 0 ? (
         <Alert severity="warning">
@@ -154,9 +289,9 @@ function PreviewSection({
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Shop</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Inventory</TableCell>
+              <TableCell>{intl.formatMessage({ id: 'admin.gameShops.preview.column.shop', defaultMessage: 'Shop' })}</TableCell>
+              <TableCell>{intl.formatMessage({ id: 'admin.gameShops.preview.column.status', defaultMessage: 'Status' })}</TableCell>
+              <TableCell>{intl.formatMessage({ id: 'admin.gameShops.preview.column.inventory', defaultMessage: 'Inventory' })}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -176,7 +311,7 @@ function PreviewSection({
                   <Chip
                     size="small"
                     color={getChangeColor(shop.shopChangeType)}
-                    label={shop.shopChangeType}
+                    label={getChangeLabel(shop.shopChangeType, intl)}
                   />
                 </TableCell>
                 <TableCell>
@@ -193,22 +328,29 @@ function PreviewSection({
   );
 }
 
-async function parseImportText(text: string): Promise<unknown> {
+async function parseImportText(text: string, intl: IntlShape): Promise<unknown> {
   const trimmed = text.trim();
   if (!trimmed) {
-    throw new Error('JSON payload is required.');
+    throw new Error(intl.formatMessage({
+      id: 'admin.gameShops.import.error.requiredPayload',
+      defaultMessage: 'JSON payload is required.',
+    }));
   }
 
   try {
     return JSON.parse(trimmed) as unknown;
   } catch {
-    throw new Error('Invalid JSON payload.');
+    throw new Error(intl.formatMessage({
+      id: 'admin.gameShops.import.error.invalidPayload',
+      defaultMessage: 'Invalid JSON payload.',
+    }));
   }
 }
 
 export default function GameShopsManager() {
   const intl = useIntl();
   const { user } = useSelector((state: RootState) => state.user);
+  const formatDateTime = (value?: string | null) => formatTimestamp(value, intl.locale);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -293,7 +435,7 @@ export default function GameShopsManager() {
     payloadText: string,
     fileName: string | null,
   ): Promise<GameShopImportResponse> => {
-    const payload = await parseImportText(payloadText);
+    const payload = await parseImportText(payloadText, intl);
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -311,7 +453,10 @@ export default function GameShopsManager() {
     if (!response.ok || !json || json.success !== true) {
       throw new Error((json && 'message' in json && typeof json.message === 'string')
         ? json.message
-        : 'Request failed.');
+        : intl.formatMessage({
+          id: 'admin.gameShops.requestFailed',
+          defaultMessage: 'Request failed.',
+        }));
     }
 
     return json as GameShopImportResponse;
@@ -329,7 +474,10 @@ export default function GameShopsManager() {
     if (!response.ok || !json || json.success !== true) {
       throw new Error((json && 'message' in json && typeof json.message === 'string')
         ? json.message
-        : 'Request failed.');
+        : intl.formatMessage({
+          id: 'admin.gameShops.requestFailed',
+          defaultMessage: 'Request failed.',
+        }));
     }
 
     return json as GameShopShipMatchRematchResponse;
@@ -347,7 +495,10 @@ export default function GameShopsManager() {
     if (!response.ok || !json || json.success !== true) {
       throw new Error((json && 'message' in json && typeof json.message === 'string')
         ? json.message
-        : 'Request failed.');
+        : intl.formatMessage({
+          id: 'admin.gameShops.requestFailed',
+          defaultMessage: 'Request failed.',
+        }));
     }
 
     return json as GameShopImportBatchCancelResponse;
@@ -426,7 +577,10 @@ export default function GameShopsManager() {
     } catch (error) {
       setFlash({
         severity: 'error',
-        text: error instanceof Error ? error.message : 'Preview failed.',
+        text: error instanceof Error ? error.message : intl.formatMessage({
+          id: 'admin.gameShops.import.previewFailed',
+          defaultMessage: 'Preview failed.',
+        }),
       });
     } finally {
       setPendingAction(null);
@@ -448,17 +602,30 @@ export default function GameShopsManager() {
       setFlash({
         severity: 'success',
         text: response.data?.status === 'applied'
-          ? (mode === 'full'
-            ? `Full import applied. Batch ${response.data?.batchId || '-'}.`
-            : `Single shop import applied. Batch ${response.data?.batchId || '-'}.`)
-          : (mode === 'full'
-            ? `Full import submitted. Batch ${response.data?.batchId || '-'} is processing in background.`
-            : `Single shop import submitted. Batch ${response.data?.batchId || '-'} is processing in background.`),
+          ? intl.formatMessage({
+            id: mode === 'full'
+              ? 'admin.gameShops.flash.fullApplied'
+              : 'admin.gameShops.flash.singleApplied',
+            defaultMessage: mode === 'full'
+              ? 'Full import applied. Batch {batchId}.'
+              : 'Single shop import applied. Batch {batchId}.',
+          }, { batchId: response.data?.batchId || '-' })
+          : intl.formatMessage({
+            id: mode === 'full'
+              ? 'admin.gameShops.flash.fullSubmitted'
+              : 'admin.gameShops.flash.singleSubmitted',
+            defaultMessage: mode === 'full'
+              ? 'Full import submitted. Batch {batchId} is processing in background.'
+              : 'Single shop import submitted. Batch {batchId} is processing in background.',
+          }, { batchId: response.data?.batchId || '-' }),
       });
     } catch (error) {
       setFlash({
         severity: 'error',
-        text: error instanceof Error ? error.message : 'Apply failed.',
+        text: error instanceof Error ? error.message : intl.formatMessage({
+          id: 'admin.gameShops.import.applyFailed',
+          defaultMessage: 'Apply failed.',
+        }),
       });
     } finally {
       setPendingAction(null);
@@ -473,12 +640,24 @@ export default function GameShopsManager() {
       const response = await runRematchShipMatchesRequest();
       setFlash({
         severity: 'success',
-        text: `Ship matches rebuilt. Updated ${response.data.updatedProducts}/${response.data.totalProducts}, matched ${response.data.matched}, ambiguous ${response.data.ambiguous}, unmatched ${response.data.unmatched}.`,
+        text: intl.formatMessage({
+          id: 'admin.gameShops.flash.rematchSuccess',
+          defaultMessage: 'Ship matches rebuilt. Updated {updatedProducts}/{totalProducts}, matched {matched}, ambiguous {ambiguous}, unmatched {unmatched}.',
+        }, {
+          updatedProducts: response.data.updatedProducts,
+          totalProducts: response.data.totalProducts,
+          matched: response.data.matched,
+          ambiguous: response.data.ambiguous,
+          unmatched: response.data.unmatched,
+        }),
       });
     } catch (error) {
       setFlash({
         severity: 'error',
-        text: error instanceof Error ? error.message : 'Rematch failed.',
+        text: error instanceof Error ? error.message : intl.formatMessage({
+          id: 'admin.gameShops.rematchFailed',
+          defaultMessage: 'Rematch failed.',
+        }),
       });
     } finally {
       setPendingAction(null);
@@ -498,13 +677,26 @@ export default function GameShopsManager() {
       setFlash({
         severity: 'success',
         text: response.data.status === 'cancelled'
-          ? `Batch ${response.data.batchId} cancelled${force ? ' by force' : ''}.`
-          : `Batch ${response.data.batchId} is cancelling.`,
+          ? intl.formatMessage({
+            id: force
+              ? 'admin.gameShops.flash.cancelledForce'
+              : 'admin.gameShops.flash.cancelled',
+            defaultMessage: force
+              ? 'Batch {batchId} cancelled by force.'
+              : 'Batch {batchId} cancelled.',
+          }, { batchId: response.data.batchId })
+          : intl.formatMessage({
+            id: 'admin.gameShops.flash.cancelling',
+            defaultMessage: 'Batch {batchId} is cancelling.',
+          }, { batchId: response.data.batchId }),
       });
     } catch (error) {
       setFlash({
         severity: 'error',
-        text: error instanceof Error ? error.message : 'Cancel failed.',
+        text: error instanceof Error ? error.message : intl.formatMessage({
+          id: 'admin.gameShops.cancelFailed',
+          defaultMessage: 'Cancel failed.',
+        }),
       });
     } finally {
       setPendingCancelBatchId(null);
@@ -529,10 +721,12 @@ export default function GameShopsManager() {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
           <Button variant="outlined" component="label">
-            {intl.formatMessage({
-              id: 'admin.gameShops.import.uploadJson',
-              defaultMessage: 'Load JSON file',
-            })}
+            <span>
+              {intl.formatMessage({
+                id: 'admin.gameShops.import.uploadJson',
+                defaultMessage: 'Load JSON file',
+              })}
+            </span>
             <input
               hidden
               type="file"
@@ -594,6 +788,7 @@ export default function GameShopsManager() {
             defaultMessage: 'Preview Result',
           })}
           response={previewResponse}
+          intl={intl}
         />
       </Stack>
     </Paper>
@@ -813,14 +1008,31 @@ export default function GameShopsManager() {
                             {[shop.location, shop.sourceShopId].filter(Boolean).join(' / ') || '-'}
                           </Typography>
                           <Stack direction="row" spacing={1}>
-                            {shop.isRental ? <Chip size="small" label="Rental" /> : null}
-                            {!shop.isActive ? <Chip size="small" color="warning" label="Inactive" /> : null}
+                            {shop.isRental ? (
+                              <Chip
+                                size="small"
+                                label={intl.formatMessage({
+                                  id: 'admin.gameShops.rentalChip',
+                                  defaultMessage: 'Rental',
+                                })}
+                              />
+                            ) : null}
+                            {!shop.isActive ? (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                label={intl.formatMessage({
+                                  id: 'admin.gameShops.inactiveChip',
+                                  defaultMessage: 'Inactive',
+                                })}
+                              />
+                            ) : null}
                           </Stack>
                         </Stack>
                       </TableCell>
                       <TableCell>{shop.system || '-'}</TableCell>
                       <TableCell>{shop.activeInventoryCount}</TableCell>
-                      <TableCell>{formatTimestamp(shop.lastSeenAt)}</TableCell>
+                      <TableCell>{formatDateTime(shop.lastSeenAt)}</TableCell>
                       <TableCell align="right">
                         <Button
                           variant="outlined"
@@ -849,6 +1061,8 @@ export default function GameShopsManager() {
                 setPage(0);
               }}
               rowsPerPageOptions={[10, 20, 50]}
+              labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
             />
           </Stack>
         </Paper>
@@ -896,12 +1110,38 @@ export default function GameShopsManager() {
                     {[selectedShop.system, selectedShop.location].filter(Boolean).join(' / ') || '-'}
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip size="small" label={`Source ${selectedShop.sourceShopId}`} />
-                    <Chip size="small" label={`Inventory ${selectedShop.activeInventoryCount}`} />
-                    {selectedShop.isRental ? <Chip size="small" label="Rental" /> : null}
+                    <Chip
+                      size="small"
+                      label={intl.formatMessage(
+                        { id: 'admin.gameShops.detail.sourceRef', defaultMessage: 'Source {sourceShopId}' },
+                        { sourceShopId: selectedShop.sourceShopId },
+                      )}
+                    />
+                    <Chip
+                      size="small"
+                      label={intl.formatMessage(
+                        { id: 'admin.gameShops.detail.inventoryChip', defaultMessage: 'Inventory {count}' },
+                        { count: selectedShop.activeInventoryCount },
+                      )}
+                    />
+                    {selectedShop.isRental ? (
+                      <Chip
+                        size="small"
+                        label={intl.formatMessage({
+                          id: 'admin.gameShops.rentalChip',
+                          defaultMessage: 'Rental',
+                        })}
+                      />
+                    ) : null}
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    First seen: {formatTimestamp(selectedShop.firstSeenAt)} | Last seen: {formatTimestamp(selectedShop.lastSeenAt)}
+                    {intl.formatMessage({
+                      id: 'admin.gameShops.detail.seenRange',
+                      defaultMessage: 'First seen: {firstSeen} | Last seen: {lastSeen}',
+                    }, {
+                      firstSeen: formatDateTime(selectedShop.firstSeenAt),
+                      lastSeen: formatDateTime(selectedShop.lastSeenAt),
+                    })}
                   </Typography>
                 </Stack>
 
@@ -921,12 +1161,12 @@ export default function GameShopsManager() {
                   <Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
-                        <TableCell>localName</TableCell>
-                        <TableCell>ref</TableCell>
-                        <TableCell>price</TableCell>
-                        <TableCell>available</TableCell>
-                        <TableCell>unavailable</TableCell>
-                        <TableCell>updated</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.localName', defaultMessage: 'localName' })}</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.ref', defaultMessage: 'ref' })}</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.price', defaultMessage: 'price' })}</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.available', defaultMessage: 'available' })}</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.unavailable', defaultMessage: 'unavailable' })}</TableCell>
+                        <TableCell>{intl.formatMessage({ id: 'admin.gameShops.detail.column.updated', defaultMessage: 'updated' })}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -947,10 +1187,10 @@ export default function GameShopsManager() {
                         <TableRow key={`${inventoryItem.id}-${inventoryItem.sourceRef}`}>
                           <TableCell>{inventoryItem.localName}</TableCell>
                           <TableCell>{inventoryItem.sourceRef}</TableCell>
-                          <TableCell>{inventoryItem.price.toLocaleString()}</TableCell>
+                          <TableCell>{inventoryItem.price.toLocaleString(intl.locale)}</TableCell>
                           <TableCell>{formatNullableNumber(inventoryItem.available)}</TableCell>
                           <TableCell>{formatNullableNumber(inventoryItem.unavailable)}</TableCell>
-                          <TableCell>{formatTimestamp(inventoryItem.lastSeenAt)}</TableCell>
+                          <TableCell>{formatDateTime(inventoryItem.lastSeenAt)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -997,22 +1237,25 @@ export default function GameShopsManager() {
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
                           <Stack spacing={0.5}>
                             <Typography fontWeight={600}>
-                              Batch {entry.batchId}
+                              {intl.formatMessage(
+                                { id: 'admin.gameShops.history.batch', defaultMessage: 'Batch {batchId}' },
+                                { batchId: entry.batchId },
+                              )}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {entry.batch.scope} / {entry.batch.sourceType} / {formatTimestamp(entry.batch.createdAt)}
+                              {getBatchScopeLabel(entry.batch.scope, intl)} / {getBatchSourceTypeLabel(entry.batch.sourceType, intl)} / {formatDateTime(entry.batch.createdAt)}
                             </Typography>
                           </Stack>
                           <Stack direction="row" spacing={1}>
                             <Chip
                               size="small"
                               color={getChangeColor(entry.changeType)}
-                              label={entry.changeType}
+                              label={getChangeLabel(entry.changeType, intl)}
                             />
                             <Chip
                               size="small"
                               color={getBatchStatusColor(entry.batch.status)}
-                              label={entry.batch.status}
+                              label={getBatchStatusLabel(entry.batch.status, intl)}
                             />
                           </Stack>
                         </Stack>
@@ -1030,10 +1273,10 @@ export default function GameShopsManager() {
                             <Table size="small">
                               <TableHead>
                                 <TableRow>
-                                  <TableCell>localName</TableCell>
-                                  <TableCell>ref</TableCell>
-                                  <TableCell>change</TableCell>
-                                  <TableCell>price</TableCell>
+                                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.history.column.localName', defaultMessage: 'localName' })}</TableCell>
+                                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.history.column.ref', defaultMessage: 'ref' })}</TableCell>
+                                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.history.column.change', defaultMessage: 'change' })}</TableCell>
+                                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.history.column.price', defaultMessage: 'price' })}</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
@@ -1045,10 +1288,10 @@ export default function GameShopsManager() {
                                       <Chip
                                         size="small"
                                         color={getChangeColor(item.changeType)}
-                                        label={item.changeType}
+                                        label={getChangeLabel(item.changeType, intl)}
                                       />
                                     </TableCell>
-                                    <TableCell>{item.price.toLocaleString()}</TableCell>
+                                    <TableCell>{item.price.toLocaleString(intl.locale)}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -1099,7 +1342,10 @@ export default function GameShopsManager() {
           selectedShop
             ? intl.formatMessage({
               id: 'admin.gameShops.import.singleDescriptionSelected',
-              defaultMessage: `Preview or apply a one-shop payload. Current selection: ${selectedShop.name} (${selectedShop.sourceShopId}).`,
+              defaultMessage: 'Preview or apply a one-shop payload. Current selection: {shopName} ({sourceShopId}).',
+            }, {
+              shopName: selectedShop.name,
+              sourceShopId: selectedShop.sourceShopId,
             })
             : intl.formatMessage({
               id: 'admin.gameShops.import.singleDescription',
@@ -1143,14 +1389,14 @@ export default function GameShopsManager() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Batch</TableCell>
-                  <TableCell>Scope</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Shops</TableCell>
-                  <TableCell>Inventory</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.batch', defaultMessage: 'Batch' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.scope', defaultMessage: 'Scope' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.status', defaultMessage: 'Status' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.source', defaultMessage: 'Source' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.shops', defaultMessage: 'Shops' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.inventory', defaultMessage: 'Inventory' })}</TableCell>
+                  <TableCell>{intl.formatMessage({ id: 'admin.gameShops.batches.column.created', defaultMessage: 'Created' })}</TableCell>
+                  <TableCell align="right">{intl.formatMessage({ id: 'admin.gameShops.batches.column.actions', defaultMessage: 'Actions' })}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1187,18 +1433,18 @@ export default function GameShopsManager() {
                         </Typography>
                       </Stack>
                     </TableCell>
-                    <TableCell>{batch.scope}</TableCell>
+                    <TableCell>{getBatchScopeLabel(batch.scope, intl)}</TableCell>
                     <TableCell>
                       <Chip
                         size="small"
                         color={getBatchStatusColor(batch.status)}
-                        label={batch.status}
+                        label={getBatchStatusLabel(batch.status, intl)}
                       />
                     </TableCell>
-                    <TableCell>{batch.sourceType}</TableCell>
+                    <TableCell>{getBatchSourceTypeLabel(batch.sourceType, intl)}</TableCell>
                     <TableCell>{batch.batchSummary.shopCount}</TableCell>
                     <TableCell>{batch.batchSummary.inventoryCount}</TableCell>
-                    <TableCell>{formatTimestamp(batch.createdAt)}</TableCell>
+                    <TableCell>{formatDateTime(batch.createdAt)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         {batch.status === 'pending' || batch.status === 'applying' ? (
@@ -1211,7 +1457,9 @@ export default function GameShopsManager() {
                               void handleCancelBatch(batch.id);
                             }}
                           >
-                            {pendingCancelBatchId === batch.id ? 'Cancelling...' : 'Cancel'}
+                            {pendingCancelBatchId === batch.id
+                              ? intl.formatMessage({ id: 'admin.gameShops.status.cancelling', defaultMessage: 'Cancelling' })
+                              : intl.formatMessage({ id: 'admin.gameShops.batches.cancel', defaultMessage: 'Cancel' })}
                           </Button>
                         ) : null}
                         {batch.status === 'applying' || batch.status === 'cancelling' ? (
@@ -1224,11 +1472,15 @@ export default function GameShopsManager() {
                               void handleCancelBatch(batch.id, true);
                             }}
                           >
-                            Force Cancel
+                            {intl.formatMessage({ id: 'admin.gameShops.batches.forceCancel', defaultMessage: 'Force Cancel' })}
                           </Button>
                         ) : null}
                         {batch.status === 'cancelling' ? (
-                          <Chip size="small" color="warning" label="Cancelling..." />
+                          <Chip
+                            size="small"
+                            color="warning"
+                            label={intl.formatMessage({ id: 'admin.gameShops.status.cancelling', defaultMessage: 'Cancelling' })}
+                          />
                         ) : null}
                       </Stack>
                     </TableCell>

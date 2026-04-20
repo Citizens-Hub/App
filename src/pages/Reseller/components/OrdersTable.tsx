@@ -55,6 +55,11 @@ const OrdersTable: React.FC = () => {
     }, 0);
   };
 
+  const formatUsd = (value: number) => value.toLocaleString(intl.locale, {
+    style: 'currency',
+    currency: 'USD',
+  });
+
   // Filter orders data
   const filteredOrders = orders.filter(order =>
     order.id.toString().includes(searchTerm) ||
@@ -132,7 +137,7 @@ const OrdersTable: React.FC = () => {
                     #{order.id}
                   </TableCell>
                   <TableCell>
-                    {new Date(order.createdAt).toLocaleString()}
+                    {new Date(order.createdAt).toLocaleString(intl.locale)}
                   </TableCell>
                   {/* <TableCell>
                     <Chip
@@ -151,8 +156,11 @@ const OrdersTable: React.FC = () => {
                             <Box>
                               <Typography variant="body2">{item.marketItem.name}</Typography>
                               <Typography variant="caption">
-                                {item.quantity}x @ ${item.price}
-                                {item.cancelledQuantity ? ` (${item.cancelledQuantity} cancelled)` : ''}
+                                {item.quantity}x @ {formatUsd(item.price)}
+                                {item.cancelledQuantity ? ` (${intl.formatMessage(
+                                  { id: 'orders.cancelledQuantity', defaultMessage: '{count} cancelled' },
+                                  { count: item.cancelledQuantity },
+                                )})` : ''}
                               </Typography>
                             </Box>
                           }
@@ -173,7 +181,7 @@ const OrdersTable: React.FC = () => {
                     </Box>
                   </TableCell>
                   <TableCell align="right">
-                    ${calculateTotal(order.items).toFixed(2)}
+                    {formatUsd(calculateTotal(order.items))}
                   </TableCell>
                   {/* <TableCell align="right">
                     <Button
