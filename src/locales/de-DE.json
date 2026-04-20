@@ -832,6 +832,7 @@
   "market.quantityControls": "Mengensteuerung",
   "market.autoMatch": "Automatisch zuordnen",
   "market.price.from": "Ab {price}",
+  "market.ccu.resourceName": "Upgrade - {fromShipName} zu {toShipName}",
   "market.discountOff": "{discount}% Rabatt",
   "market.sellerFallbackName": "Verkäufer {sellerId}",
   "market.detail.meltValue": "Exchange value",

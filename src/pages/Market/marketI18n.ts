@@ -116,6 +116,13 @@ export function formatMarketPriceFrom(intl: IntlShape, price: number) {
   );
 }
 
+export function formatMarketCcuResourceName(intl: IntlShape, fromShipName: string, toShipName: string) {
+  return intl.formatMessage(
+    { id: 'market.ccu.resourceName', defaultMessage: 'Upgrade - {fromShipName} to {toShipName}' },
+    { fromShipName, toShipName },
+  );
+}
+
 export function formatMarketDiscount(intl: IntlShape, discount: number | string) {
   return intl.formatMessage(
     { id: 'market.discountOff', defaultMessage: '{discount}% off' },

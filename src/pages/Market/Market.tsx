@@ -36,12 +36,15 @@ import { useMarketData } from '@/hooks';
 import { Link } from 'react-router';
 import { useCartStore } from '@/hooks/useCartStore';
 import { buildMarketResource, getMarketItemVisual } from '@/components/marketItemDisplay';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 import {
   getAvailableStock,
   getListingBasePrice,
   getListingDiscountPercent,
+  isStandaloneShipPackage,
 } from './marketUtils';
 import {
+  formatMarketCcuResourceName,
   formatCreditAmountSummary,
   formatCreditFaceValueSummary,
   formatMarketDiscount,
@@ -61,13 +64,12 @@ const Market: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
-  const [showInStock, setShowInStock] = useState(true);
-  const [showCcus, setShowCcus] = useState(true);
-  const [showPackages, setShowPackages] = useState(true);
-  const [showMisc, setShowMisc] = useState(true);
-  const [showCredit, setShowCredit] = useState(true);
-  const [showStandaloneShips, setShowStandaloneShips] = useState(true);
-  const [showBundles, setShowBundles] = useState(true);
+  const [showCcus, setShowCcus] = useState(false);
+  const [showPackages, setShowPackages] = useState(false);
+  const [showMisc, setShowMisc] = useState(false);
+  const [showCredit, setShowCredit] = useState(false);
+  const [showStandaloneShips, setShowStandaloneShips] = useState(false);
+  const [showBundles, setShowBundles] = useState(false);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
@@ -75,9 +77,10 @@ const Market: React.FC = () => {
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
     const packageKinds: MarketPackageKind[] = [];
+    const hasSelectedPackageKind = showStandaloneShips || showBundles;
 
     if (showCcus) itemTypes.push('ccu');
-    if (showPackages && (showStandaloneShips || showBundles)) itemTypes.push('package');
+    if (showPackages || hasSelectedPackageKind) itemTypes.push('package');
     if (showMisc) itemTypes.push('misc');
     if (showCredit) itemTypes.push('credit');
     if (showStandaloneShips) packageKinds.push('standalone_ship');
@@ -85,7 +88,6 @@ const Market: React.FC = () => {
 
     return {
       search: deferredSearchTerm,
-      inStockOnly: showInStock,
       itemTypes,
       packageKinds,
       sortBy,
@@ -99,7 +101,6 @@ const Market: React.FC = () => {
     showBundles,
     showCcus,
     showCredit,
-    showInStock,
     showMisc,
     showPackages,
     showStandaloneShips,
@@ -145,18 +146,42 @@ const Market: React.FC = () => {
     return cart.find((cartItem) => cartItem.resource.id === resourceId)?.resource.marketAvailableStock ?? 0;
   };
 
-  const getItemSummary = (item: ListingItem) => {
+  const getLocalizedItemShipNames = (item: ListingItem) => {
     const visual = getMarketItemVisual(item, ships);
+
+    return {
+      fromShipName: getShipDisplayName(visual.fromShip) || visual.fromShipName || item.fromShipName || '',
+      toShipName: getShipDisplayName(visual.toShip) || visual.toShipName || item.toShipName || '',
+      shipName: getShipDisplayName(visual.ship) || visual.shipName || item.shipName || '',
+    };
+  };
+
+  const getItemDisplayName = (item: ListingItem) => {
+    const { fromShipName, toShipName, shipName } = getLocalizedItemShipNames(item);
+
+    if (item.itemType === 'ccu') {
+      return formatMarketCcuResourceName(intl, fromShipName || '-', toShipName || '-');
+    }
+
+    if ((isStandaloneShipPackage(item) || item.itemType === 'misc') && shipName) {
+      return shipName;
+    }
+
+    return item.name;
+  };
+
+  const getItemSummary = (item: ListingItem) => {
+    const { fromShipName, toShipName, shipName } = getLocalizedItemShipNames(item);
 
     if (item.itemType === 'ccu') {
       const parts = [
-        `${visual.fromShipName || item.fromShipName || '-'} → ${visual.toShipName || item.toShipName || '-'}`,
-        item.variantCount && item.variantCount > 1
-          ? intl.formatMessage(
-              { id: 'market.ccu.variantCount', defaultMessage: '{count, plural, one {# variant} other {# variants}}' },
-              { count: item.variantCount },
-            )
-          : null,
+        `${fromShipName || '-'} → ${toShipName || '-'}`,
+        // item.variantCount && item.variantCount > 1
+        //   ? intl.formatMessage(
+        //       { id: 'market.ccu.variantCount', defaultMessage: '{count, plural, one {# variant} other {# variants}}' },
+        //       { count: item.variantCount },
+        //     )
+        //   : null,
       ].filter(Boolean);
 
       return parts.join(' · ');
@@ -164,7 +189,7 @@ const Market: React.FC = () => {
 
     if (item.itemType === 'package') {
       const parts = [
-        visual.shipName || item.shipName,
+        shipName || item.shipName,
         getMarketPackageKindLabel(intl, item.packageKind),
         item.insuranceType,
       ].filter(Boolean);
@@ -253,27 +278,6 @@ const Market: React.FC = () => {
         <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
           <div className='lg:sticky lg:top-4 lg:self-start'>
             <Box sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                <FormattedMessage id="market.filter.availability" defaultMessage="Availability" />
-              </Typography>
-              <FormGroup>
-                <FormControlLabel
-                  control={(
-                    <Checkbox
-                      checked={showInStock}
-                      onChange={(event) => {
-                        setShowInStock(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
-                  )}
-                  label={intl.formatMessage({ id: 'market.filter.showInStock', defaultMessage: 'In stock only' })}
-                />
-              </FormGroup>
-
-              <Divider sx={{ my: 2 }} />
-
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                 <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
               </Typography>
@@ -446,8 +450,10 @@ const Market: React.FC = () => {
                     const discount = getListingDiscountPercent(item, ships);
                     const isCredit = item.itemType === 'credit';
                     const isCcu = item.itemType === 'ccu';
+                    const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
                     const packageShips = item.packageShips || [];
                     const packageItems = item.packageItems || [];
+                    const displayName = getItemDisplayName(item);
 
                     return (
                       <div
@@ -472,7 +478,7 @@ const Market: React.FC = () => {
                           <div className='flex flex-1 flex-col gap-2'>
                             <Link to={`/market/${encodeURIComponent(item.skuId)}`} className='text-inherit no-underline'>
                               <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                                {item.name}
+                                {displayName}
                               </Typography>
                             </Link>
                             <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
@@ -498,7 +504,9 @@ const Market: React.FC = () => {
                             <div className='flex items-end justify-between gap-3'>
                               <div className='flex flex-col gap-1'>
                                 <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                                  {isCredit ? formatMarketPriceFrom(intl, item.price) : formatUsdPrice(intl.locale, item.price)}
+                                  {isCredit || isVariantPriceRange
+                                    ? formatMarketPriceFrom(intl, item.price)
+                                    : formatUsdPrice(intl.locale, item.price)}
                                 </div>
                                 {discount && Number(discount) > 0 && (
                                   <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
@@ -529,19 +537,19 @@ const Market: React.FC = () => {
                             <Divider />
 
                             <div className='flex items-center justify-between gap-3'>
-                              <Link
+                              {/* <Link
                                 to={`/market/${encodeURIComponent(item.skuId)}`}
                                 className='text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
                               >
                                 {isCcu ? (
                                   <FormattedMessage
-                                    id={item.variantCount && item.variantCount > 1 ? 'market.chooseVariant' : 'market.viewDetails'}
-                                    defaultMessage={item.variantCount && item.variantCount > 1 ? 'Choose variant' : 'View details'}
+                                    id="market.viewDetails"
+                                    defaultMessage="View details"
                                   />
                                 ) : (
                                   <FormattedMessage id="market.viewDetails" defaultMessage="View details" />
                                 )}
-                              </Link>
+                              </Link> */}
 
                               {isCredit ? (
                                 <Button
@@ -560,8 +568,8 @@ const Market: React.FC = () => {
                                   size="small"
                                 >
                                   <FormattedMessage
-                                    id={item.variantCount && item.variantCount > 1 ? 'market.chooseVariant' : 'market.viewDetails'}
-                                    defaultMessage={item.variantCount && item.variantCount > 1 ? 'Choose variant' : 'View details'}
+                                    id="market.viewDetails"
+                                    defaultMessage="View details"
                                   />
                                 </Button>
                               ) : inCartItem ? (

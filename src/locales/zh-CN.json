@@ -866,6 +866,7 @@
   "market.quantityControls": "数量控制",
   "market.autoMatch": "自动匹配",
   "market.price.from": "{price} 起",
+  "market.ccu.resourceName": "升级 - {fromShipName} 到 {toShipName}",
   "market.discountOff": "{discount}% 折扣",
   "market.sellerFallbackName": "卖家 {sellerId}",
   "market.detail.meltValue": "置换价值",

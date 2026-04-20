@@ -866,6 +866,7 @@
   "market.quantityControls": "Quantity controls",
   "market.autoMatch": "Auto match",
   "market.price.from": "From {price}",
+  "market.ccu.resourceName": "Upgrade - {fromShipName} to {toShipName}",
   "market.discountOff": "{discount}% off",
   "market.sellerFallbackName": "Seller {sellerId}",
   "market.detail.meltValue": "Exchange value",

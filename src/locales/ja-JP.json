@@ -832,6 +832,7 @@
   "market.quantityControls": "数量操作",
   "market.autoMatch": "自動選択",
   "market.price.from": "{price}から",
+  "market.ccu.resourceName": "アップグレード - {fromShipName} から {toShipName}",
   "market.discountOff": "{discount}%オフ",
   "market.sellerFallbackName": "出品者 {sellerId}",
   "market.detail.meltValue": "Exchange value",

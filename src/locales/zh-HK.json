@@ -832,6 +832,7 @@
   "market.quantityControls": "數量控制",
   "market.autoMatch": "自動匹配",
   "market.price.from": "{price} 起",
+  "market.ccu.resourceName": "升級 - {fromShipName} 到 {toShipName}",
   "market.discountOff": "{discount}% 折扣",
   "market.sellerFallbackName": "賣家 {sellerId}",
   "market.detail.meltValue": "置換價值",
