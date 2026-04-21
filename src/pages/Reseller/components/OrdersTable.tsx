@@ -18,6 +18,7 @@ import { useRelatedOrdersData } from '@/hooks/swr/orders';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
 import { OrderItem as MarketOrderItem } from '@/types';
+import { formatOrderPublicId } from '@/utils/orderId';
 
 // Order delivery status
 const deliveryStatus: Record<string, string> = {
@@ -43,7 +44,7 @@ const OrdersTable: React.FC = () => {
   };
 
   // Navigate to order detail page
-  const handleOrderClick = (orderId: number) => {
+  const handleOrderClick = (orderId: string) => {
     navigate(`/reseller/orders/${orderId}`);
   };
 
@@ -61,10 +62,12 @@ const OrdersTable: React.FC = () => {
   });
 
   // Filter orders data
+  const normalizedSearchTerm = searchTerm.toLowerCase();
+
   const filteredOrders = orders.filter(order =>
-    order.id.toString().includes(searchTerm) ||
-    order.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.items.some(item => item.marketItem.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    order.id.toLowerCase().includes(normalizedSearchTerm) ||
+    order.status.toLowerCase().includes(normalizedSearchTerm) ||
+    order.items.some(item => item.marketItem.name.toLowerCase().includes(normalizedSearchTerm))
   );
 
   if (loading) {
@@ -134,7 +137,11 @@ const OrdersTable: React.FC = () => {
                   onClick={() => handleOrderClick(order.id)}
                 >
                   <TableCell component="th" scope="row">
-                    #{order.id}
+                    <Tooltip title={order.id} placement="top-start">
+                      <span style={{ fontFamily: 'monospace' }}>
+                        {formatOrderPublicId(order.id)}
+                      </span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     {new Date(order.createdAt).toLocaleString(intl.locale)}

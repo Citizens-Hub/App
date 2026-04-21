@@ -8,9 +8,10 @@ import {
   TextField,
   InputAdornment,
   TablePagination,
+  Tooltip,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Order, OrderStatus } from '@/types';
+import { OrderStatus } from '@/types';
 import { useNavigate } from 'react-router';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -21,6 +22,15 @@ import { ChevronsRight } from 'lucide-react';
 import { useOrdersData } from '@/hooks';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
+import { formatOrderPublicId } from '@/utils/orderId';
+import {
+  formatOrderChargedLabel,
+  formatOrderItemQuantitySummary,
+  formatOrderLeadSummary,
+  formatOrderMoreItemsLabel,
+  formatOrderUsdPrice,
+  getOrderItemDisplayName,
+} from './orderI18n';
 
 export default function Orders() {
   const { ships, orders, loading, error, mutate } = useOrdersData();
@@ -30,44 +40,6 @@ export default function Orders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const getOrderItemName = (marketItem?: { name?: string; skuId?: string } | null) => (
-    marketItem?.name
-    || marketItem?.skuId
-    || intl.formatMessage({
-      id: 'orders.unavailableItem',
-      defaultMessage: 'Unavailable or delisted item',
-    })
-  );
-
-  const formatUsd = (value: number) => value.toLocaleString(intl.locale, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-  const getChargedAmount = (order: Order) => (
-    order.price - order.items.reduce((acc, item) => acc + item.price * (item.cancelledQuantity || 0), 0)
-  );
-
-  const getChargedLabel = (order: Order) => {
-    if ([OrderStatus.Paid, OrderStatus.Finished].includes(order.status)) {
-      return formatUsd(getChargedAmount(order));
-    }
-
-    if (order.status === OrderStatus.Canceled) {
-      return intl.formatMessage({
-        id: 'orders.notCharged',
-        defaultMessage: 'Not charged',
-      });
-    }
-
-    return intl.formatMessage({
-      id: 'orders.awaitingPayment',
-      defaultMessage: 'Awaiting payment',
-    });
-  };
 
   // const renderItemState = (order: Order, item: OrderItem, index: number) => {
   //   if (item.quantity === item.cancelledQuantity || order.status === OrderStatus.Canceled) {
@@ -92,7 +64,7 @@ export default function Orders() {
       .filter((order) => {
         if (searchTerm === '') return true;
 
-        if (order.id.toString().includes(searchTerm)) return true;
+        if (order.id.toLowerCase().includes(normalizedSearch)) return true;
 
         return order.items?.some((item) => {
           const marketItem = item.marketItem;
@@ -141,7 +113,7 @@ export default function Orders() {
     page * rowsPerPage + rowsPerPage,
   );
 
-  const handleRestartPayment = (orderId: number) => {
+  const handleRestartPayment = (orderId: string) => {
     const order = orders.find((currentOrder) => currentOrder.id === orderId);
     if (!order) return;
 
@@ -153,7 +125,7 @@ export default function Orders() {
     });
   };
 
-  const handleViewReceipt = (orderId: number) => {
+  const handleViewReceipt = (orderId: string) => {
     const order = orders.find((currentOrder) => currentOrder.id === orderId);
     if (!order) return;
 
@@ -204,7 +176,7 @@ export default function Orders() {
     return (
       <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] w-full overflow-auto">
         <div className="mx-auto w-full max-w-[1280px] px-8 py-4">
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', md: { mt: 0 } }} className="app-header">
+          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }} className="app-header">
             <div className="flex flex-row items-center gap-4">
               <Typography variant={isMobile ? 'h6' : 'h5'}>
                 <FormattedMessage id="orders.title" defaultMessage="My Orders" />
@@ -251,7 +223,7 @@ export default function Orders() {
   return (
     <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] w-full overflow-auto">
       <div className="mx-auto w-full max-w-[1280px] px-8 py-4">
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', md: { mt: 0 } }} className="app-header">
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }} className="app-header">
           <div className="flex flex-row items-center gap-4">
             <Typography variant={isMobile ? 'h6' : 'h5'}>
               <FormattedMessage id="orders.title" defaultMessage="My Orders" />
@@ -315,7 +287,7 @@ export default function Orders() {
 
               const firstItem = orderItems.length > 0 ? orderItems[0] : null;
               const marketItem = firstItem?.marketItem;
-              const firstItemName = getOrderItemName(marketItem);
+              const firstItemName = getOrderItemDisplayName(intl, marketItem, ships);
               const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
               const isCCU = marketItem?.itemType === 'ccu';
               const totalItemsCount = orderItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -354,7 +326,7 @@ export default function Orders() {
                         <FormattedMessage id="orders.orderTotal" defaultMessage="Order total" />
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>
-                        {formatUsd(order.price)}
+                        {formatOrderUsdPrice(intl.locale, order.price)}
                       </Typography>
                     </Box>
 
@@ -363,7 +335,7 @@ export default function Orders() {
                         <FormattedMessage id="orders.charged" defaultMessage="Charged" />
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>
-                        {getChargedLabel(order)}
+                        {formatOrderChargedLabel(intl, order)}
                       </Typography>
                     </Box>
 
@@ -371,9 +343,14 @@ export default function Orders() {
                       <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
                         <FormattedMessage id="orders.orderNumber" defaultMessage="Order Id" />
                       </Typography>
-                      <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 700 }}>
-                        # {order.id}
-                      </Typography>
+                      <Tooltip title={order.id} placement="top-start">
+                        <Typography
+                          variant="body1"
+                          sx={{ mt: 0.5, fontWeight: 700, fontFamily: 'monospace' }}
+                        >
+                          {formatOrderPublicId(order.id)}
+                        </Typography>
+                      </Tooltip>
                       {/* <Button
                       variant="text"
                       size="small"
@@ -498,17 +475,13 @@ export default function Orders() {
                           {firstItemName}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          <FormattedMessage
-                            id="orders.orderLeadSummary"
-                            defaultMessage="{count} item(s) in this order"
-                            values={{ count: totalItemsCount }}
-                          />
+                          {formatOrderLeadSummary(intl, totalItemsCount)}
                         </Typography>
                       </Box>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {visibleItems.map((item, index) => {
-                          const itemName = getOrderItemName(item.marketItem);
+                          const itemName = getOrderItemDisplayName(intl, item.marketItem, ships);
                           const cancelledQuantity = item.cancelledQuantity || 0;
                           const activeQuantity = item.quantity - cancelledQuantity;
 
@@ -533,15 +506,7 @@ export default function Orders() {
                                   {itemName}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  <FormattedMessage
-                                    id="orders.itemQuantitySummary"
-                                    defaultMessage="{active} / {total} • {price} each"
-                                    values={{
-                                      active: activeQuantity,
-                                      total: item.quantity,
-                                      price: formatUsd(item.price),
-                                    }}
-                                  />
+                                  {formatOrderItemQuantitySummary(intl, activeQuantity, item.quantity, item.price)}
                                 </Typography>
                               </Box>
                             </Box>
@@ -550,11 +515,7 @@ export default function Orders() {
 
                         {hiddenItemsCount > 0 && (
                           <Typography variant="body2" color="text.secondary" sx={{ pl: 0.5 }}>
-                            <FormattedMessage
-                              id="orders.moreItems"
-                              defaultMessage="+ {count} more item(s)"
-                              values={{ count: hiddenItemsCount }}
-                            />
+                            {formatOrderMoreItemsLabel(intl, hiddenItemsCount)}
                           </Typography>
                         )}
                       </Box>

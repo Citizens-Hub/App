@@ -35,18 +35,13 @@ import { Plus, ShoppingCart, Minus } from 'lucide-react';
 import { useMarketData } from '@/hooks';
 import { Link } from 'react-router';
 import { useCartStore } from '@/hooks/useCartStore';
-import { buildMarketResource, getMarketItemVisual } from '@/components/marketItemDisplay';
-import { getShipDisplayName } from '@/utils/shipDisplay';
+import { buildMarketResource } from '@/components/marketItemDisplay';
 import {
   getAvailableStock,
   getListingBasePrice,
   getListingDiscountPercent,
-  isStandaloneShipPackage,
 } from './marketUtils';
 import {
-  formatMarketCcuResourceName,
-  formatCreditAmountSummary,
-  formatCreditFaceValueSummary,
   formatMarketDiscount,
   formatMarketPriceFrom,
   formatPackageContentsSummary,
@@ -54,6 +49,7 @@ import {
   getMarketItemTypeLabel,
   getMarketPackageKindLabel,
 } from './marketI18n';
+import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 
 const Market: React.FC = () => {
   const intl = useIntl();
@@ -144,83 +140,6 @@ const Market: React.FC = () => {
     if (item) return getAvailableStock(item);
 
     return cart.find((cartItem) => cartItem.resource.id === resourceId)?.resource.marketAvailableStock ?? 0;
-  };
-
-  const getLocalizedItemShipNames = (item: ListingItem) => {
-    const visual = getMarketItemVisual(item, ships);
-
-    return {
-      fromShipName: getShipDisplayName(visual.fromShip) || visual.fromShipName || item.fromShipName || '',
-      toShipName: getShipDisplayName(visual.toShip) || visual.toShipName || item.toShipName || '',
-      shipName: getShipDisplayName(visual.ship) || visual.shipName || item.shipName || '',
-    };
-  };
-
-  const getItemDisplayName = (item: ListingItem) => {
-    const { fromShipName, toShipName, shipName } = getLocalizedItemShipNames(item);
-
-    if (item.itemType === 'ccu') {
-      return formatMarketCcuResourceName(intl, fromShipName || '-', toShipName || '-');
-    }
-
-    if ((isStandaloneShipPackage(item) || item.itemType === 'misc') && shipName) {
-      return shipName;
-    }
-
-    return item.name;
-  };
-
-  const getItemSummary = (item: ListingItem) => {
-    const { fromShipName, toShipName, shipName } = getLocalizedItemShipNames(item);
-
-    if (item.itemType === 'ccu') {
-      const parts = [
-        `${fromShipName || '-'} → ${toShipName || '-'}`,
-        // item.variantCount && item.variantCount > 1
-        //   ? intl.formatMessage(
-        //       { id: 'market.ccu.variantCount', defaultMessage: '{count, plural, one {# variant} other {# variants}}' },
-        //       { count: item.variantCount },
-        //     )
-        //   : null,
-      ].filter(Boolean);
-
-      return parts.join(' · ');
-    }
-
-    if (item.itemType === 'package') {
-      const parts = [
-        shipName || item.shipName,
-        getMarketPackageKindLabel(intl, item.packageKind),
-        item.insuranceType,
-      ].filter(Boolean);
-
-      if (parts.length > 0) {
-        return parts.join(' · ');
-      }
-
-      const shipCount = item.packageShips?.length || 0;
-      const extraCount = item.packageItems?.length || 0;
-      if (shipCount || extraCount) {
-        return formatPackageContentsSummary(intl, shipCount, extraCount);
-      }
-    }
-
-    if (item.itemType === 'credit') {
-      const minAmount = item.creditOptions?.[0]?.amount;
-      const maxAmount = item.creditOptions?.[item.creditOptions.length - 1]?.amount;
-      const parts = [
-        typeof minAmount === 'number' && typeof maxAmount === 'number'
-          ? formatCreditFaceValueSummary(intl, minAmount, maxAmount)
-          : null,
-        item.creditOptions?.length ? formatCreditAmountSummary(intl, item.creditOptions.length) : null,
-      ].filter(Boolean);
-
-      if (parts.length > 0) {
-        return parts.join(' · ');
-      }
-    }
-
-    return item.description || item.externalRef || item.sourceKind || '';
   };
 
   if (loading && listingItems.length === 0 && pagination.total === 0) {
@@ -453,7 +372,7 @@ const Market: React.FC = () => {
                     const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
                     const packageShips = item.packageShips || [];
                     const packageItems = item.packageItems || [];
-                    const displayName = getItemDisplayName(item);
+                    const displayName = getMarketItemDisplayName(intl, item, ships);
 
                     return (
                       <div
@@ -482,7 +401,7 @@ const Market: React.FC = () => {
                               </Typography>
                             </Link>
                             <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
-                              {getItemSummary(item)}
+                              {getMarketItemSummary(intl, item, ships)}
                             </Typography>
                             {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
                               <Typography

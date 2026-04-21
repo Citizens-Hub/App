@@ -47,6 +47,7 @@ import { localizeShipDataLabel } from '@/data/shipDetailLabelI18n';
 import { localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCartStore } from '@/hooks/useCartStore';
 import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
 import { findShip, getAvailableStock, getListingBasePrice, getListingDiscountPercent } from './marketUtils';
@@ -59,8 +60,12 @@ import {
   formatMarketDiscount,
   formatUsdPrice,
   getMarketItemTypeLabel,
-  getMarketPackageKindLabel,
 } from './marketI18n';
+import {
+  getLocalizedMarketItemShipNames,
+  getMarketItemDisplayName,
+  getMarketItemSummary,
+} from './marketDisplayI18n';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -919,8 +924,20 @@ export default function MarketDetail() {
   const inCartQuantity = inCartItem?.quantity || 0;
   const fromShipInfo = fromShipResponse?.data.ship || visual.fromShip;
   const toShipInfo = toShipResponse?.data.ship || visual.toShip;
-  const currentShipName = fromShipInfo?.name || visual.fromShipName || displayItem.fromShipName || '-';
-  const upgradedShipName = toShipInfo?.name || visual.toShipName || displayItem.toShipName || '-';
+  const { fromShipName: localizedFromShipName, toShipName: localizedToShipName } = getLocalizedMarketItemShipNames(displayItem, ships);
+  const currentShipName = getShipDisplayName(fromShipInfo) || localizedFromShipName || '-';
+  const upgradedShipName = getShipDisplayName(toShipInfo) || localizedToShipName || '-';
+  const displayTitle = item.itemType === 'credit' && selectedCreditOption?.amount
+    ? formatMarketCreditResourceName(intl, selectedCreditOption.amount)
+    : getMarketItemDisplayName(intl, displayItem, ships);
+  const displaySummary = item.itemType === 'credit'
+    ? [
+        selectedCreditOption?.amount
+          ? formatCreditFaceValueSummary(intl, selectedCreditOption.amount, selectedCreditOption.amount)
+          : null,
+        resolvedCreditOptions.length ? formatCreditAmountSummary(intl, resolvedCreditOptions.length) : null,
+      ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
+    : getMarketItemSummary(intl, displayItem, ships);
   const fromShipType = localizeShipType(locale, fromShipInfo?.type);
   const toShipType = localizeShipType(locale, toShipInfo?.type);
   const fromShipSize = localizeShipSize(locale, fromShipInfo?.details?.size);
@@ -1022,31 +1039,10 @@ export default function MarketDetail() {
               <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
             </Button>
             <Typography variant="h5">
-              {item.name}
+              {displayTitle}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {item.itemType === 'ccu'
-                ? [
-                    `${visual.fromShipName || displayItem.fromShipName || '-'} → ${visual.toShipName || displayItem.toShipName || '-'}`,
-                    item.variantCount && item.variantCount > 1
-                      ? intl.formatMessage(
-                          { id: 'market.ccu.variantCount', defaultMessage: '{count, plural, one {# variant} other {# variants}}' },
-                          { count: item.variantCount },
-                        )
-                      : null,
-                  ].filter(Boolean).join(' · ')
-                : item.itemType === 'credit'
-                  ? [
-                      selectedCreditOption?.amount
-                        ? formatCreditFaceValueSummary(intl, selectedCreditOption.amount, selectedCreditOption.amount)
-                        : null,
-                      resolvedCreditOptions.length ? formatCreditAmountSummary(intl, resolvedCreditOptions.length) : null,
-                    ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
-                : [
-                    visual.shipName || item.shipName,
-                    getMarketPackageKindLabel(intl, item.packageKind),
-                    item.insuranceType,
-                  ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''}
+              {displaySummary}
             </Typography>
           </div>
 

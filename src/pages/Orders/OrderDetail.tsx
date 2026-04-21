@@ -15,7 +15,7 @@ import {
   StepLabel,
   Stepper,
 } from '@mui/material';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { DetailedOrderItem, OrderStatus } from "@/types";
 import { useNavigate, useParams } from "react-router";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -26,18 +26,24 @@ import { RootState } from '@/store';
 import { useOrderData } from '@/hooks';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
+import {
+  formatOrderActiveItemsSummary,
+  formatOrderCcuRoute,
+  formatOrderItemCountLabel,
+  formatOrderPackageSummary,
+  formatOrderUsdPrice,
+  getLocalizedOrderItemShipNames,
+  getOrderChargedAmount,
+  getOrderItemDisplayName,
+} from './orderI18n';
 
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const { ships, order, loading, error } = useOrderData(orderId || '');
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.user);
+  const intl = useIntl();
   const isMobile = window.innerWidth < 768;
-  const getOrderItemName = (marketItem?: { name?: string; skuId?: string } | null) => (
-    marketItem?.name
-    || marketItem?.skuId
-    || 'Unavailable or delisted item'
-  );
 
   // Handle view receipt
   const handleViewReceipt = () => {
@@ -179,8 +185,8 @@ export default function OrderDetail() {
   }
 
   const orderItems = order.items;
-  const createdDate = new Date(order.createdAt).toLocaleString();
-  const updatedDate = new Date(order.updatedAt).toLocaleString();
+  const createdDate = new Date(order.createdAt).toLocaleString(intl.locale);
+  const updatedDate = new Date(order.updatedAt).toLocaleString(intl.locale);
   const totalItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + item.quantity, 0);
   const cancelledItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + (item?.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
@@ -256,7 +262,7 @@ export default function OrderDetail() {
                     pl: 1
                   }}
                 >
-                  #{order.id}
+                  {order.id}
                 </Typography>
                 {getStatusChip(order.status)}
               </div>
@@ -276,7 +282,7 @@ export default function OrderDetail() {
                   <div className='text-sm text-left'>{updatedDate}</div>
                 </div>
 
-                <div className="w-full">
+                <div className="w-full text-left">
                   <OrderPaymentDeadline
                     status={order.status}
                     expiresAt={order.expiresAt}
@@ -301,15 +307,14 @@ export default function OrderDetail() {
                 <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
               </Typography>
               <div className='text-[16px] text-blue-500 font-bold'>
-                ${order.price - order.items.reduce((acc, item) => acc + item.price * (item.cancelledQuantity || 0), 0)}
+                {formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order))}
               </div>
               
               <Typography variant="caption" color="text.secondary" display="block" mt={1}>
                 <FormattedMessage id="orderDetail.itemsCount" defaultMessage="Items Count" />
               </Typography>
               <Typography variant="body2">
-                <span>{activeItemsCount} / {totalItemsCount} </span>
-                <span><FormattedMessage id="orderDetail.active" defaultMessage="active" /></span>
+                {formatOrderActiveItemsSummary(intl, activeItemsCount, totalItemsCount)}
               </Typography>
             </div>
           </div>
@@ -322,7 +327,7 @@ export default function OrderDetail() {
               <FormattedMessage id="orderDetail.items" defaultMessage="Order Items" />
             </Typography>
             <Chip 
-              label={`${activeItemsCount} ${activeItemsCount === 1 ? 'item' : 'items'}`} 
+              label={formatOrderItemCountLabel(intl, activeItemsCount)}
               size="small" 
               variant="outlined"
             />
@@ -356,13 +361,16 @@ export default function OrderDetail() {
                 <TableBody>
                   {orderItems.map((item: DetailedOrderItem, index: number) => {
                     const marketItem = item.marketItem;
-                    const itemName = getOrderItemName(marketItem);
+                    const itemName = getOrderItemDisplayName(intl, marketItem, ships);
                     const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+                    const { shipName } = getLocalizedOrderItemShipNames(marketItem, ships);
                     const isCCU = marketItem?.itemType === 'ccu';
                     const isPackage = marketItem?.itemType === 'package';
                     const isCredit = marketItem?.itemType === 'credit';
                     const itemCancelledQty = item?.cancelledQuantity || 0;
                     const activeQty = item.quantity - itemCancelledQty;
+                    const ccuRoute = formatOrderCcuRoute(intl, marketItem, ships);
+                    const packageSummary = formatOrderPackageSummary(intl, marketItem);
 
                     return (
                       <TableRow 
@@ -417,21 +425,21 @@ export default function OrderDetail() {
                         </TableCell>
                         <TableCell>
                           <Typography fontWeight="medium">{itemName}</Typography>
-                          {isCCU && visual?.fromShipName && visual?.toShipName && (
+                          {isCCU && ccuRoute && (
                             <Typography variant="body2" color="text.secondary">
-                              {visual.fromShipName} → {visual.toShipName}
+                              {ccuRoute}
                             </Typography>
                           )}
                           {isPackage && (
                             <>
-                              {visual?.shipName && (
+                              {shipName && shipName !== itemName && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {visual.shipName}
+                                  {shipName}
                                 </Typography>
                               )}
-                              {(marketItem?.packageKind || marketItem?.insuranceType) && (
+                              {packageSummary && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {[marketItem?.packageKind, marketItem?.insuranceType].filter(Boolean).join(' · ')}
+                                  {packageSummary}
                                 </Typography>
                               )}
                             </>
@@ -484,12 +492,12 @@ export default function OrderDetail() {
                         </TableCell>
                         <TableCell align="right">
                           <div className='text-[16px] text-blue-500 font-bold'>
-                            ${item.price}
+                            {formatOrderUsdPrice(intl.locale, item.price)}
                           </div>
                         </TableCell>
                         <TableCell align="right">
                           <div className='text-[16px] text-blue-500 font-bold'>
-                            ${item.price * activeQty}
+                            {formatOrderUsdPrice(intl.locale, item.price * activeQty)}
                           </div>
                         </TableCell>
                         <TableCell align="center">
@@ -498,19 +506,19 @@ export default function OrderDetail() {
                               <Chip
                                 size="small"
                                 color="error"
-                                label={<FormattedMessage id="orderDetail.canceled" defaultMessage="Canceled" />}
+                                label={<FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />}
                               />
                             ) : item.shipped ? (
                               <Chip
                                 size="small"
                                 color="success"
-                                label={<FormattedMessage id="orderDetail.completed" defaultMessage="Delivered" />}
+                                label={<FormattedMessage id="orderDetail.delivered" defaultMessage="Delivered" />}
                               />
                             ) : (
                               <Chip
                                 size="small"
                                 color="warning"
-                                label={<FormattedMessage id="orderDetail.sipping" defaultMessage="Delivering" />}
+                                label={<FormattedMessage id="orderDetail.delivering" defaultMessage="Delivering" />}
                               />
                             )
                           }

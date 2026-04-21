@@ -293,7 +293,7 @@ const OrderDetail = () => {
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center">
             <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-              #{order.id}
+              {order.id}
             </Typography>
             <Chip
               label={<FormattedMessage id={`orders.status.${order.status}`} defaultMessage={order.status} />}

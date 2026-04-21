@@ -665,7 +665,7 @@ export interface OrderItem {
 }
 
 export interface Order {
-  id: number;
+  id: string;
   items: OrderItem[];
   price: number;
   status: OrderStatus;

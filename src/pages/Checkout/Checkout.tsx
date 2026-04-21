@@ -38,7 +38,14 @@ import {
 } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
-const CHECKOUT_IDEMPOTENCY_STORAGE_PREFIX = 'checkout:idempotency';
+const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
+const CHECKOUT_PENDING_REQUEST_TTL_MS = 5 * 60 * 1000;
+
+type PendingCheckoutRequestCache = {
+  createdAt: number;
+  fingerprint: string;
+  key: string;
+};
 
 function buildCheckoutFingerprint(
   items: MarketCartItem[],
@@ -66,36 +73,71 @@ function buildCheckoutFingerprint(
   });
 }
 
-function getCheckoutIdempotencyStorageKey(userId?: string) {
-  return `${CHECKOUT_IDEMPOTENCY_STORAGE_PREFIX}:${userId || 'anonymous'}`;
+function getCheckoutPendingRequestStorageKey(userId?: string) {
+  return `${CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX}:${userId || 'anonymous'}`;
 }
 
-function getOrCreateCheckoutIdempotencyKey(userId: string | undefined, fingerprint: string) {
-  const storageKey = getCheckoutIdempotencyStorageKey(userId);
+function clearPendingCheckoutRequest(userId?: string) {
+  window.sessionStorage.removeItem(getCheckoutPendingRequestStorageKey(userId));
+}
+
+function readPendingCheckoutRequest(userId?: string): PendingCheckoutRequestCache | null {
+  const storageKey = getCheckoutPendingRequestStorageKey(userId);
   const storedValue = window.sessionStorage.getItem(storageKey);
 
-  if (storedValue) {
-    try {
-      const parsed = JSON.parse(storedValue) as { fingerprint?: string; key?: string };
-      if (parsed.fingerprint === fingerprint && typeof parsed.key === 'string' && parsed.key.length > 0) {
-        return parsed.key;
-      }
-    } catch (error) {
-      console.warn('Failed to parse checkout idempotency cache:', error);
-    }
+  if (!storedValue) {
+    return null;
   }
 
-  const nextKey = crypto.randomUUID();
-  window.sessionStorage.setItem(storageKey, JSON.stringify({
-    fingerprint,
-    key: nextKey,
-  }));
+  try {
+    const parsed = JSON.parse(storedValue) as Partial<PendingCheckoutRequestCache>;
+    if (
+      typeof parsed.key !== 'string'
+      || parsed.key.length === 0
+      || typeof parsed.fingerprint !== 'string'
+      || parsed.fingerprint.length === 0
+      || typeof parsed.createdAt !== 'number'
+      || !Number.isFinite(parsed.createdAt)
+    ) {
+      clearPendingCheckoutRequest(userId);
+      return null;
+    }
 
-  return nextKey;
+    if ((Date.now() - parsed.createdAt) > CHECKOUT_PENDING_REQUEST_TTL_MS) {
+      clearPendingCheckoutRequest(userId);
+      return null;
+    }
+
+    return {
+      createdAt: parsed.createdAt,
+      fingerprint: parsed.fingerprint,
+      key: parsed.key,
+    };
+  } catch (error) {
+    console.warn('Failed to parse checkout pending request cache:', error);
+    clearPendingCheckoutRequest(userId);
+    return null;
+  }
 }
 
-function clearCheckoutIdempotencyKey(userId?: string) {
-  window.sessionStorage.removeItem(getCheckoutIdempotencyStorageKey(userId));
+function getOrCreateCheckoutPendingRequestKey(userId: string | undefined, fingerprint: string) {
+  const existingRequest = readPendingCheckoutRequest(userId);
+  if (existingRequest && existingRequest.fingerprint === fingerprint) {
+    return existingRequest.key;
+  }
+
+  const nextRequest: PendingCheckoutRequestCache = {
+    createdAt: Date.now(),
+    fingerprint,
+    key: crypto.randomUUID(),
+  };
+
+  window.sessionStorage.setItem(
+    getCheckoutPendingRequestStorageKey(userId),
+    JSON.stringify(nextRequest),
+  );
+
+  return nextRequest.key;
 }
 
 export default function Checkout() {
@@ -125,7 +167,7 @@ export default function Checkout() {
 
   useEffect(() => {
     if (pendingOrder?.items?.length) {
-      clearCheckoutIdempotencyKey(user?.id);
+      clearPendingCheckoutRequest(user?.id);
       setCart(
         pendingOrder.items.map((item) =>
           buildMarketCartItem(
@@ -274,7 +316,7 @@ export default function Checkout() {
       return;
     }
 
-    const idempotencyKey = getOrCreateCheckoutIdempotencyKey(
+    const idempotencyKey = getOrCreateCheckoutPendingRequestKey(
       user?.id,
       buildCheckoutFingerprint(cart, options),
     );
@@ -299,13 +341,13 @@ export default function Checkout() {
       })
       .then(async (response) => {
         const json = await response.json().catch(() => null);
+        clearPendingCheckoutRequest(user?.id);
         if (!response.ok) {
           throw new Error(json?.error || `HTTP error! Status: ${response.status}`);
         }
         return json;
       })
       .then((json) => {
-        clearCheckoutIdempotencyKey(user?.id);
         window.location.href = json.url;
       })
       .catch((err) => {
