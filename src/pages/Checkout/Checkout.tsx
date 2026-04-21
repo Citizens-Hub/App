@@ -22,13 +22,11 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
-  FormControlLabel,
-  Switch,
-  Collapse
+  FormControlLabel
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ChevronsRight, ChevronDown, AlertTriangle, LogIn, Mail } from 'lucide-react';
-import { useUserSession } from "@/hooks";
+import { ChevronsRight, LogIn, Mail } from 'lucide-react';
+import { useShipsData, useUserSession } from "@/hooks";
 import { useCartStore } from "@/hooks/useCartStore";
 import {
   buildMarketCartItem,
@@ -36,6 +34,13 @@ import {
   getMarketItemVisual,
   MARKET_ITEM_PLACEHOLDER,
 } from '@/components/marketItemDisplay';
+import {
+  formatMarketCcuResourceName,
+  formatMarketCreditResourceName,
+  formatUsdPrice,
+  getMarketPackageKindLabel,
+} from '@/pages/Market/marketI18n';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
@@ -47,11 +52,27 @@ type PendingCheckoutRequestCache = {
   key: string;
 };
 
-function buildCheckoutFingerprint(
+function buildCheckoutFingerprint(items: MarketCartItem[]) {
+  return JSON.stringify({
+    items: items
+      .map((item) => ({
+        skuId: item.skuId,
+        quantity: item.quantity,
+      }))
+      .sort((left, right) => {
+        const skuComparison = left.skuId.localeCompare(right.skuId);
+        if (skuComparison !== 0) {
+          return skuComparison;
+        }
+
+        return left.quantity - right.quantity;
+      }),
+  });
+}
+
+function buildLegacyCheckoutFingerprint(
   items: MarketCartItem[],
-  options: {
-    proceedWhenOutOfStock: boolean;
-  },
+  proceedWhenOutOfStock: boolean,
 ) {
   return JSON.stringify({
     items: items
@@ -68,9 +89,17 @@ function buildCheckoutFingerprint(
         return left.quantity - right.quantity;
       }),
     options: {
-      proceedWhenOutOfStock: Boolean(options.proceedWhenOutOfStock),
+      proceedWhenOutOfStock,
     },
   });
+}
+
+function isMatchingCheckoutFingerprint(existingFingerprint: string, items: MarketCartItem[]) {
+  return [
+    buildCheckoutFingerprint(items),
+    buildLegacyCheckoutFingerprint(items, false),
+    buildLegacyCheckoutFingerprint(items, true),
+  ].includes(existingFingerprint);
 }
 
 function getCheckoutPendingRequestStorageKey(userId?: string) {
@@ -120,11 +149,13 @@ function readPendingCheckoutRequest(userId?: string): PendingCheckoutRequestCach
   }
 }
 
-function getOrCreateCheckoutPendingRequestKey(userId: string | undefined, fingerprint: string) {
+function getOrCreateCheckoutPendingRequestKey(userId: string | undefined, items: MarketCartItem[]) {
   const existingRequest = readPendingCheckoutRequest(userId);
-  if (existingRequest && existingRequest.fingerprint === fingerprint) {
+  if (existingRequest && isMatchingCheckoutFingerprint(existingRequest.fingerprint, items)) {
     return existingRequest.key;
   }
+
+  const fingerprint = buildCheckoutFingerprint(items);
 
   const nextRequest: PendingCheckoutRequestCache = {
     createdAt: Date.now(),
@@ -149,7 +180,7 @@ export default function Checkout() {
   // 2. 商城使用的商城购物车，使用Redux，但也是CartItem类型
   // 结账页面需要将CartItem转换为MarketCartItem
   const { cart: cartFromState } = useCartStore();
-  const { pendingOrder, ships } = locationState || {};
+  const { pendingOrder, ships: stateShips } = locationState || {};
   // 使用MarketCartItem类型来管理结账页面的购物车数据
   const [cart, setCart] = useState<MarketCartItem[]>([]);
   const { user } = useSelector((state: RootState) => state.user);
@@ -160,6 +191,8 @@ export default function Checkout() {
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
   const { data: userSession } = useUserSession();
+  const { ships: localizedShips } = useShipsData();
+  const effectiveShips = stateShips?.length ? stateShips : localizedShips;
   
   // 登录和邮箱验证对话框状态
   const [openLoginDialog, setOpenLoginDialog] = useState(false);
@@ -176,7 +209,7 @@ export default function Checkout() {
               price: item.price,
             },
             item.quantity,
-            ships,
+            effectiveShips,
           )
         )
       );
@@ -189,32 +222,13 @@ export default function Checkout() {
     }
 
     setCart([]);
-  }, [cartFromState, pendingOrder, ships, user?.id]);
-
-  const [options, setOptions] = useState<{
-    proceedWhenOutOfStock: boolean;
-  }>({
-    proceedWhenOutOfStock: false
-  });
-  
-  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
-
-  // 处理选项更改
-  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setOptions({
-      ...options,
-      [event.target.name]: event.target.checked
-    });
-  };
-
-  // 切换高级设置显示状态
-  const toggleAdvancedSettings = () => {
-    setAdvancedSettingsOpen(!advancedSettingsOpen);
-  };
+  }, [cartFromState, pendingOrder, effectiveShips, user?.id]);
 
   const getItemPrice = (item: MarketCartItem) => {
     return item.price || 0;
   };
+
+  const formatCheckoutPrice = (value: number) => formatUsdPrice(intl.locale, value) || '';
 
   // 计算总价 - 更新为使用MarketCartItem，考虑数量
   const subtotal = cart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0;
@@ -318,7 +332,7 @@ export default function Checkout() {
 
     const idempotencyKey = getOrCreateCheckoutPendingRequestKey(
       user?.id,
-      buildCheckoutFingerprint(cart, options),
+      cart,
     );
 
     // 创建新订单
@@ -331,7 +345,6 @@ export default function Checkout() {
             skuId: item.skuId,
             quantity: item.quantity
           })),
-          options,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -399,7 +412,7 @@ export default function Checkout() {
       imageUrl: item.imageUrl,
       fromImageUrl: item.fromImageUrl,
       toImageUrl: item.toImageUrl,
-    }, ships);
+    }, effectiveShips);
 
     return {
       thumbnail: item.media?.thumbnail?.storeSmall || visual.thumbnail || MARKET_ITEM_PLACEHOLDER,
@@ -411,7 +424,52 @@ export default function Checkout() {
     };
   };
 
-  const getItemName = (item: MarketCartItem) => {
+  const getLocalizedItemShipNames = (item: MarketCartItem) => {
+    const visual = getMarketItemVisual({
+      skuId: item.skuId,
+      name: item.name || item.skuId,
+      itemType: item.itemType,
+      fromShipId: item.fromShipId,
+      toShipId: item.toShipId,
+      shipId: item.shipId,
+      fromShipName: item.fromShipName,
+      toShipName: item.toShipName,
+      shipName: item.shipName,
+      packageKind: item.packageKind,
+      insuranceType: item.insuranceType,
+      imageUrl: item.imageUrl,
+      fromImageUrl: item.fromImageUrl,
+      toImageUrl: item.toImageUrl,
+    }, effectiveShips);
+
+    return {
+      fromShipName: getShipDisplayName(visual.fromShip) || visual.fromShipName || item.fromShipName || '',
+      toShipName: getShipDisplayName(visual.toShip) || visual.toShipName || item.toShipName || '',
+      shipName: getShipDisplayName(visual.ship) || visual.shipName || item.shipName || '',
+    };
+  };
+
+  const getItemName = (
+    item: MarketCartItem,
+    localizedShipNames = getLocalizedItemShipNames(item),
+  ) => {
+    const { fromShipName, toShipName, shipName } = localizedShipNames;
+
+    if (item.itemType === 'ccu') {
+      return formatMarketCcuResourceName(intl, fromShipName || '-', toShipName || '-');
+    }
+
+    if (item.itemType === 'credit') {
+      const creditAmount = item.creditAmount ?? item.creditOptions?.[0]?.amount;
+      if (typeof creditAmount === 'number') {
+        return formatMarketCreditResourceName(intl, creditAmount);
+      }
+    }
+
+    if (((item.itemType === 'package' && item.packageKind === 'standalone_ship') || item.itemType === 'misc') && shipName) {
+      return shipName;
+    }
+
     return item.name || item.skuId;
   };
 
@@ -422,7 +480,7 @@ export default function Checkout() {
         component="h1"
         align="left"
         gutterBottom
-        sx={{ mb: 4, fontWeight: 500 }}
+        sx={{ mb: 4, fontWeight: 500, mt: 2 }}
       >
         {pendingOrder ? (
           <FormattedMessage id="checkout.resumePayment" defaultMessage="Resume Payment" />
@@ -438,7 +496,7 @@ export default function Checkout() {
       )}
 
       {pendingOrder && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
           <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
             <FormattedMessage
               id="checkout.pendingOrderNotice"
@@ -455,7 +513,7 @@ export default function Checkout() {
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
         {/* 左侧 - 商品列表 */}
         <Box sx={{ flex: '1 1 65%' }}>
-          <Paper variant="outlined" sx={{ mb: 4, overflow: 'hidden' }}>
+          <Paper variant="outlined" sx={{ mb: 4, overflow: 'hidden', borderRadius: 0 }}>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -476,11 +534,12 @@ export default function Checkout() {
                     const isCCU = item.itemType === 'ccu';
                     const isPackage = item.itemType === 'package';
                     const media = getItemMedia(item);
-                    const name = getItemName(item);
+                    const localizedShipNames = getLocalizedItemShipNames(item);
+                    const name = getItemName(item, localizedShipNames);
                     const price = getItemPrice(item);
-                    const fromShipName = media.fromShipName || item.fromShipName || '';
-                    const toShipName = media.toShipName || item.toShipName || '';
-                    const shipName = media.shipName || item.shipName || '';
+                    const fromShipName = localizedShipNames.fromShipName || media.fromShipName || item.fromShipName || '';
+                    const toShipName = localizedShipNames.toShipName || media.toShipName || item.toShipName || '';
+                    const shipName = localizedShipNames.shipName || media.shipName || item.shipName || '';
                     
                     return (
                       <TableRow key={item.skuId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -498,7 +557,10 @@ export default function Checkout() {
                                   objectFit: 'cover',
                                 }}
                                 src={media.fromImage || MARKET_ITEM_PLACEHOLDER}
-                                alt={`From: ${fromShipName || name}`}
+                                alt={intl.formatMessage(
+                                  { id: 'checkout.imageFrom', defaultMessage: 'From: {name}' },
+                                  { name: fromShipName || name },
+                                )}
                               />
                               <Box
                                 component="img"
@@ -512,7 +574,10 @@ export default function Checkout() {
                                   boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.2)'
                                 }}
                                 src={media.toImage || MARKET_ITEM_PLACEHOLDER}
-                                alt={`To: ${toShipName || name}`}
+                                alt={intl.formatMessage(
+                                  { id: 'checkout.imageTo', defaultMessage: 'To: {name}' },
+                                  { name: toShipName || name },
+                                )}
                               />
                               <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white'>
                                 <ChevronsRight className='w-6 h-6' />
@@ -546,7 +611,10 @@ export default function Checkout() {
                               )}
                               {(item.packageKind || item.insuranceType) && (
                                 <Typography variant="body2" color="text.secondary">
-                                  {[item.packageKind, item.insuranceType].filter(Boolean).join(' · ')}
+                                  {[
+                                    getMarketPackageKindLabel(intl, item.packageKind),
+                                    item.insuranceType,
+                                  ].filter(Boolean).join(' · ')}
                                 </Typography>
                               )}
                             </>
@@ -575,11 +643,11 @@ export default function Checkout() {
                         </TableCell>
                         <TableCell align="right">
                           <div className="flex flex-col gap-2">
-                            US${price.toFixed(2)}
+                            {formatCheckoutPrice(price)}
                             {/* 使用更安全的方式检查折扣价格 */}
                             {(item.discounted !== undefined && item.discounted > 0) && (
                               <span className="text-gray-500 line-through">
-                                US${(item.discounted + price).toFixed(2)}
+                                {formatCheckoutPrice(item.discounted + price)}
                               </span>
                             )}
                           </div>
@@ -600,7 +668,7 @@ export default function Checkout() {
             <br />
             <FormattedMessage id="checkout.feeWaivedMessage" defaultMessage="Waive software service fee for orders over $20" />
           </Alert>
-          <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+          <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 0 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
             </Typography>
@@ -610,7 +678,7 @@ export default function Checkout() {
                 <FormattedMessage id="checkout.subtotal" defaultMessage="Subtotal" />
               </Typography>
               <Typography variant="body1" fontWeight="500">
-                US${subtotal.toFixed(2)}
+                {formatCheckoutPrice(subtotal)}
               </Typography>
             </Box>
 
@@ -619,11 +687,17 @@ export default function Checkout() {
                 <FormattedMessage id="checkout.serviceFee" defaultMessage="Software Service Fee" />
               </Typography>
               <Typography variant="body2" fontWeight="500">
-                {isServiceFeeFree && <span className="text-green-600">(waived)</span>}
+                {isServiceFeeFree && (
+                  <span className="text-green-600">
+                    {intl.formatMessage({ id: 'checkout.waived', defaultMessage: '(waived)' })}
+                  </span>
+                )}
                 {isServiceFeeFree ? (
-                  <span style={{ textDecoration: 'line-through', marginLeft: '8px' }}>US$0.99</span>
+                  <span style={{ textDecoration: 'line-through', marginLeft: '8px' }}>
+                    {formatCheckoutPrice(0.99)}
+                  </span>
                 ) : (
-                  <span>US$0.99</span>
+                  <span>{formatCheckoutPrice(0.99)}</span>
                 )}
               </Typography>
             </Box>
@@ -634,7 +708,7 @@ export default function Checkout() {
                   <FormattedMessage id="checkout.total" defaultMessage="Total" />
                 </Typography>
                 <Typography variant="body1" fontWeight="700" color="primary">
-                  US${totalPrice.toFixed(2)}
+                  {formatCheckoutPrice(totalPrice)}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -645,60 +719,6 @@ export default function Checkout() {
               </Box>
             </Box>
             
-            {/* 高级设置区域 */}
-            <Box sx={{ mt: 2, mb: 2 }}>
-              <Button 
-                fullWidth
-                variant="outlined" 
-                onClick={toggleAdvancedSettings}
-                endIcon={<ChevronDown size={16} style={{ transform: advancedSettingsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />}
-                sx={{ 
-                  justifyContent: 'space-between', 
-                  color: 'primary.main', 
-                  borderColor: '#e0e0e0',
-                  textTransform: 'none',
-                  py: 1.5
-                }}
-              >
-                <Typography variant="body2" color="primary">
-                  <FormattedMessage id="checkout.advancedSettings" defaultMessage="Advanced Settings" />
-                </Typography>
-              </Button>
-              
-              <Collapse in={advancedSettingsOpen}>
-                <Box sx={{ pt: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Switch
-                      checked={options.proceedWhenOutOfStock}
-                      onChange={handleOptionChange}
-                      name="proceedWhenOutOfStock"
-                      color="primary"
-                      size="small"
-                    />
-                    <Typography variant="body2" sx={{ flex: 1, textAlign: 'left' }}>
-                      <FormattedMessage 
-                        id="checkout.proceedWhenOutOfStock" 
-                        defaultMessage="Continue with available items if some are out of stock" 
-                      />
-                    </Typography>
-                  </Box>
-                  
-                  {options.proceedWhenOutOfStock && (
-                    <Alert 
-                      severity="warning" 
-                      sx={{ mt: 2, mb: 2, textAlign: 'left' }}
-                      icon={<AlertTriangle size={18} />}
-                    >
-                      <FormattedMessage 
-                        id="checkout.serviceFeeWarning" 
-                        defaultMessage="Note: If your final payment is less than $20, a software service fee will still be applied." 
-                      />
-                    </Alert>
-                  )}
-                </Box>
-              </Collapse>
-            </Box>
-
             <Button
               variant="contained"
               color="primary"
@@ -744,7 +764,7 @@ export default function Checkout() {
           <FormattedMessage id="checkout.agreementTitle" defaultMessage="Terms and Conditions" />
         </DialogTitle>
         <DialogContent>
-          <div className="flex flex-col gap-2 text-[#555]">
+          <div className="flex flex-col gap-2 text-[#555] dark:text-white">
             {
               intl.formatMessage({ id: 'checkout.agreementText', defaultMessage: 'By proceeding with this purchase, you agree to our Terms of Service and Privacy Policy. All sales are final and non-refundable unless otherwise stated in our Refund Policy;In case of special reasons such as insufficient stock, we may contact you and you can choose to partially or fully refund the order;The gift will be sent to the account email you reserved' }).split(';').map((line, index) => (<div key={index}>{line}.</div>))
             }

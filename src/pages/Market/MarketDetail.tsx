@@ -1047,7 +1047,7 @@ export default function MarketDetail() {
           </div>
 
           <div className='flex items-center gap-3'>
-            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-neutral-50 dark:border-white/10 dark:bg-neutral-900 dark:text-slate-200 dark:hover:bg-neutral-800'>
+            <Link to="/orders" className='rounded '>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
             </Link>
             <IconButton

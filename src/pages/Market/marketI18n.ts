@@ -130,6 +130,12 @@ export function formatMarketDiscount(intl: IntlShape, discount: number | string)
   );
 }
 
+export function formatMarketCreditName(intl: IntlShape) {
+  return intl.formatMessage(
+    { id: 'market.credit.name', defaultMessage: 'Store Credit' },
+  );
+}
+
 export function formatMarketCreditResourceName(intl: IntlShape, amount: number) {
   return intl.formatMessage(
     { id: 'market.credit.resourceName', defaultMessage: 'Store Credit {amount}' },

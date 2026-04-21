@@ -1,4 +1,4 @@
-import { Avatar, Box, Drawer, IconButton, Link, Menu, MenuItem, Tooltip } from "@mui/material";
+import { Avatar, Box, Drawer, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
 import { FormattedMessage, useIntl } from "react-intl";
 import DiscordIcon from "../icons/DiscordIcon";
 import GithubIcon from "../icons/GithubIcon";
@@ -10,7 +10,7 @@ import Brightness7Icon from '@mui/icons-material/Brightness7'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { MenuIcon } from "lucide-react";
 import { navigation } from "../const/navigation";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/";
 import { logout } from "../store/userStore";
@@ -197,11 +197,12 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         {
           pathname !== "/" && <span className="hidden md:block">
             <Link
-              href="/"
-              sx={{
-                textDecoration: 'none',
-                color: 'inherit',
-              }}
+              to="/"
+              // sx={{
+              //   textDecoration: 'none',
+              //   color: 'inherit',
+              // }}
+              className="text-black! dark:text-white! font-normal!"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("/");
@@ -373,20 +374,20 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               }).map((item) => (
                 <Link
                   key={item.name}
-                  href={item.path}
-                  underline="none"
+                  to={item.path}
+                  // underline="none"
                   onClick={(e) => {
                     e.preventDefault();
                     setMenuOpen(false);
                     navigate(item.path);
                   }}
-                  className={`py-2 px-3 rounded-md transition-colors hover:bg-opacity-10 ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/10'
+                  className={`py-2 px-3 rounded-md font-normal! transition-colors hover:bg-opacity-10 text-black! dark:text-white! ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/10'
                     }`}
-                  sx={{
-                    color: darkMode ? '#fff' : '#000',
-                    display: 'block',
-                    fontSize: '1rem',
-                  }}
+                  // sx={{
+                  //   color: darkMode ? '#fff' : '#000',
+                  //   display: 'block',
+                  //   fontSize: '1rem',
+                  // }}
                 >
                   {intl.formatMessage({ id: item.name, defaultMessage: item.name })}
                 </Link>
@@ -400,16 +401,16 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 {communityLinks.map((link) => (
                   <Link
                     key={link.key}
-                    href={link.href}
+                    to={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    underline="none"
+                    // underline="none"
                     onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                    className={`flex items-center font-normal! gap-2 rounded-md px-3 py-2 text-black! dark:text-white! transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
                       }`}
-                    sx={{
-                      color: darkMode ? '#fff' : '#000',
-                    }}
+                    // sx={{
+                    //   color: darkMode ? '#fff' : '#000',
+                    // }}
                   >
                     {link.icon}
                     <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
@@ -424,17 +425,17 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                   {friendlyLinks.map((link) => (
                     <Link
                       key={link.key}
-                      href={link.href}
+                      to={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      underline="none"
+                      // underline="none"
                       onClick={() => setMenuOpen(false)}
-                      className={`rounded-md px-3 py-2 transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                      className={`rounded-md px-3 py-2 font-normal! transition-colors text-black! dark:text-white! ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
                         }`}
-                      sx={{
-                        color: darkMode ? '#fff' : '#000',
-                        display: 'block',
-                      }}
+                      // sx={{
+                      //   color: darkMode ? '#fff' : '#000',
+                      //   display: 'block',
+                      // }}
                     >
                       <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
                     </Link>
@@ -445,7 +446,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
           </div>
           <div className="text-center text-sm text-gray-500 dark:text-gray-300">
             <div className="text-md mb-2">
-              <Link className="text-blue-500 block" href="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" >
+              <Link className="text-blue-500 block" to="https://www.robertsspaceindustries.com/enlist?referral=STAR-47BR-3ZWH" target="_blank" >
                 STAR-47BR-3ZWH
               </Link>
               <span>
@@ -456,7 +457,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               </span>
             </div>
             <span>This is an unofficial </span>
-            <Link href="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link>
+            <Link to="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link>
             <span> application, not affiliated with the Cloud Imperium group of companies.</span>
             <span className="dark:hidden">
               <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />

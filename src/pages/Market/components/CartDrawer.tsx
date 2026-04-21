@@ -14,13 +14,20 @@ import {
   ButtonGroup
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
-import { CartItem } from '@/types';
+import { CartItem, MarketItemType } from '@/types';
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
 import { X, Plus, Minus } from 'lucide-react';
+import { useShipsData } from '@/hooks';
+import { getMarketItemVisual } from '@/components/marketItemDisplay';
+import { getShipDisplayName } from '@/utils/shipDisplay';
 
-import { formatUsdPrice } from '../marketI18n';
+import {
+  formatMarketCcuResourceName,
+  formatMarketCreditResourceName,
+  formatUsdPrice,
+} from '../marketI18n';
 
 interface CartDrawerProps {
   open: boolean;
@@ -43,6 +50,58 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const navigate = useNavigate();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const { ships } = useShipsData();
+
+  const getResourceItemType = (item: CartItem['resource']): MarketItemType => {
+    const rawItemType = item.itemType || item.subtitle || item.type;
+
+    if (rawItemType === 'ccu' || rawItemType === 'package' || rawItemType === 'misc' || rawItemType === 'credit') {
+      return rawItemType;
+    }
+
+    return rawItemType === 'ship' ? 'package' : 'misc';
+  };
+
+  const getCartItemName = (item: CartItem) => {
+    const itemType = getResourceItemType(item.resource);
+    const visual = getMarketItemVisual({
+      skuId: item.resource.id,
+      name: item.resource.name || item.resource.id,
+      itemType,
+      fromShipId: item.resource.fromShipId,
+      toShipId: item.resource.toShipId,
+      shipId: item.resource.shipId,
+      fromShipName: item.resource.fromShipName,
+      toShipName: item.resource.toShipName,
+      shipName: item.resource.shipName,
+      packageKind: item.resource.packageKind,
+      insuranceType: item.resource.insuranceType,
+      imageUrl: item.resource.imageUrl,
+      fromImageUrl: item.resource.fromImageUrl,
+      toImageUrl: item.resource.toImageUrl,
+    }, ships);
+
+    const fromShipName = getShipDisplayName(visual.fromShip) || visual.fromShipName || item.resource.fromShipName || '';
+    const toShipName = getShipDisplayName(visual.toShip) || visual.toShipName || item.resource.toShipName || '';
+    const shipName = getShipDisplayName(visual.ship) || visual.shipName || item.resource.shipName || '';
+
+    if (itemType === 'ccu') {
+      return formatMarketCcuResourceName(intl, fromShipName || '-', toShipName || '-');
+    }
+
+    if (itemType === 'credit') {
+      const creditAmount = item.resource.creditAmount ?? item.resource.creditOptions?.[0]?.amount;
+      if (typeof creditAmount === 'number') {
+        return formatMarketCreditResourceName(intl, creditAmount);
+      }
+    }
+
+    if (((itemType === 'package' && item.resource.packageKind === 'standalone_ship') || itemType === 'misc') && shipName) {
+      return shipName;
+    }
+
+    return item.resource.name || item.resource.id;
+  };
 
   // 计算总价，考虑数量
   const total = cart.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100) * (item.quantity || 1), 0);
@@ -107,7 +166,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         ) : (
           <>
             <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-              {cart.map((item) => (
+              {cart.map((item) => {
+                const displayName = getCartItemName(item);
+
+                return (
                 <Box key={item.resource.id}>
                   <ListItem
                     sx={{ py: 2 }}
@@ -120,14 +182,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <Avatar
                       variant="square"
                       src={item.resource.media.thumbnail.storeSmall}
-                      alt={item.resource.name}
+                      alt={displayName}
                       sx={{ mr: 2, width: 60, height: 60 }}
                     />
                     <ListItemText
-                      primary={item.resource.name}
+                      primary={displayName}
                       secondary={
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                          <div className='text-gray-500'>
+                          <div className='text-gray-500 dark:text-gray-200'>
                             {formatUsdPrice(intl.locale, item.resource.nativePrice.amount / 100)}
                           </div>
 
@@ -163,12 +225,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   </ListItem>
                   <Divider />
                 </Box>
-              ))}
+                );
+              })}
             </List>
 
             <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <div className='text-gray-500'>
+                <div className='text-gray-500 dark:text-gray-200'>
                   <FormattedMessage id="cart.total" defaultMessage="Total" />
                 </div>
                 <div className='text-blue-500'>

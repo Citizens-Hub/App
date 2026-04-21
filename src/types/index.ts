@@ -721,8 +721,125 @@ export interface DetailedOrder extends Order {
   items: DetailedOrderItem[];
 }
 
+export interface OrderPaymentInfo {
+  provider: 'stripe';
+  checkoutSessionId: string | null;
+  paymentIntentId: string | null;
+  invoiceId: string | null;
+  checkoutStatus: string | null;
+  paymentStatus: string | null;
+  paymentIntentStatus: string | null;
+  currency: string | null;
+  amountSubtotal: number | null;
+  amountTax: number | null;
+  amountShipping: number | null;
+  amountTotal: number | null;
+  amountCaptured: number | null;
+  paidAt: string | null;
+  receiptUrl: string | null;
+  hostedInvoiceUrl: string | null;
+  customerEmail: string | null;
+  customerName: string | null;
+  billingCountry: string | null;
+  paymentMethodType: string | null;
+  paymentMethodBrand: string | null;
+  paymentMethodLast4: string | null;
+  riskLevel: string | null;
+  riskScore: number | null;
+  cvcCheck: string | null;
+  postalCodeCheck: string | null;
+}
+
 export interface DetailedRelatedOrder extends DetailedOrder {
-  customerEmail: string;
+  customerEmail: string | null;
+}
+
+export interface ResellerBalanceSummary {
+  currency: string;
+  availableBalance: number;
+  pendingBalance: number;
+  totalRevenue: number;
+  orderCount: number;
+  transactionCount: number;
+  availableCount: number;
+  pendingCount: number;
+  pendingWithdrawalAmount: number;
+  paidWithdrawalAmount: number;
+  withdrawableBalance: number;
+  lastSaleAt: string | null;
+}
+
+export interface ResellerBalanceTransaction {
+  id: string;
+  orderId: string;
+  source: 'listing' | 'credit';
+  itemType: MarketItemType;
+  itemName: string;
+  itemSubtitle?: string | null;
+  quantity: number;
+  creditAmount?: number | null;
+  grossAmount: number;
+  settlementStatus: 'available' | 'pending';
+  shipped: boolean;
+  shippedAt: string | null;
+  settlementAvailableAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  orderStatus: OrderStatus;
+}
+
+export interface ResellerBalancePagination {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface ResellerBalanceResponse {
+  summary: ResellerBalanceSummary;
+  transactions: ResellerBalanceTransaction[];
+  pagination: ResellerBalancePagination;
+}
+
+export type WithdrawalRequestStatus = 'pending' | 'paid' | 'rejected';
+
+export interface WithdrawalRequestUser {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+export interface WithdrawalRequestItem {
+  id: number;
+  amount: number;
+  currency: string;
+  accountInfo: string;
+  note?: string | null;
+  status: WithdrawalRequestStatus;
+  balanceSnapshot: number;
+  adminNote?: string | null;
+  processedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requester?: WithdrawalRequestUser | null;
+  processedBy?: WithdrawalRequestUser | null;
+}
+
+export interface MyWithdrawalRequestsResponse {
+  requests: WithdrawalRequestItem[];
+}
+
+export interface AdminWithdrawalRequestsResponse {
+  summary: {
+    totalCount: number;
+    pendingCount: number;
+    paidCount: number;
+    rejectedCount: number;
+    totalAmount: number;
+    pendingAmount: number;
+    paidAmount: number;
+  };
+  requests: WithdrawalRequestItem[];
 }
 
 // export interface OrderItem {

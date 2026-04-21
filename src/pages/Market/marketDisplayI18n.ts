@@ -10,8 +10,8 @@ import {
   formatCreditFaceValueSummary,
   formatMarketCcuResourceName,
   formatPackageContentsSummary,
-  formatMarketCreditResourceName,
   getMarketPackageKindLabel,
+  formatMarketCreditName,
 } from './marketI18n';
 
 export function getLocalizedMarketItemShipNames(item: ListingItem, ships?: Ship[]) {
@@ -34,7 +34,7 @@ export function getMarketItemDisplayName(intl: IntlShape, item: ListingItem, shi
   if (item.itemType === 'credit') {
     const creditAmount = item.creditAmount ?? item.creditOptions?.[0]?.amount;
     if (typeof creditAmount === 'number') {
-      return formatMarketCreditResourceName(intl, creditAmount);
+      return formatMarketCreditName(intl);
     }
   }
 

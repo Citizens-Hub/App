@@ -299,7 +299,7 @@ export default function Orders() {
               return (
                 <Box
                   key={order.id}
-                  className="bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden"
+                  className="bg-white dark:bg-neutral-900 shadow-sm border border-gray-100 dark:border-neutral-700 overflow-hidden"
                 >
                   <Box
                     sx={{
@@ -310,7 +310,7 @@ export default function Orders() {
                       gridTemplateColumns: { xs: '1fr', lg: 'repeat(4, minmax(0, 1fr)) 240px' },
                       textAlign: 'left',
                     }}
-                    className="border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40"
+                    className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900/40"
                   >
                     <Box>
                       <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>

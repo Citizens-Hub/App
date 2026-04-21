@@ -6,6 +6,7 @@ import BiTable from './components/BiTable';
 import ManufacturerTranslationsManager from './components/ManufacturerTranslationsManager';
 import ShipTranslationsManager from './components/ShipTranslationsManager';
 import GameShopsManager from './components/GameShopsManager';
+import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 
 enum Page {
   Errors = 'errors',
@@ -13,6 +14,7 @@ enum Page {
   ShipTranslations = 'shipTranslations',
   ManufacturerTranslations = 'manufacturerTranslations',
   GameShops = 'gameShops',
+  Withdrawals = 'withdrawals',
 }
 
 export default function Admin() {
@@ -51,6 +53,12 @@ export default function Admin() {
             <FormattedMessage id="admin.gameShops.description" defaultMessage="Manage imported in-game shop data independently from RSI ship and CCU data." />
           </Typography>
         </div>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Withdrawals ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Withdrawals)}>
+          <FormattedMessage id="admin.withdrawals.title" defaultMessage="Withdrawal Requests" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="admin.withdrawals.description" defaultMessage="Review reseller withdrawal requests, confirm payouts, or reject invalid requests." />
+          </Typography>
+        </div>
       </div>
 
       <div className='p-4 w-full h-[calc(100vh-65px)] overflow-y-auto'>
@@ -59,6 +67,7 @@ export default function Admin() {
         {currentPage === Page.ShipTranslations && <ShipTranslationsManager />}
         {currentPage === Page.ManufacturerTranslations && <ManufacturerTranslationsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
+        {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
       </div>
     </div>
   );

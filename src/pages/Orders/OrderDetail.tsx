@@ -221,7 +221,7 @@ export default function OrderDetail() {
         </Box>
 
         {/* Order Progress Indicator */}
-        <div className="bg-white dark:bg-slate-800 rounded-md p-6 shadow-sm mb-4 border border-gray-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-neutral-900 py-6 shadow-sm mb-4 border border-gray-100 dark:border-neutral-700">
           <Stepper activeStep={getActiveStep(order.status)} alternativeLabel>
             <Step completed={order.status !== OrderStatus.Pending}>
               <StepLabel>
@@ -247,7 +247,7 @@ export default function OrderDetail() {
         </div>
 
         {/* Order Header Information */}
-        <div className="bg-white dark:bg-slate-800 rounded-md p-6 shadow-sm mb-6 border border-gray-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-neutral-900 p-6 shadow-sm mb-6 border border-gray-100 dark:border-neutral-700">
           <div className="flex flex-wrap gap-6 justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">

@@ -6,7 +6,7 @@ export default function Navigate() {
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto'>
       <BackgroundVideo />
-      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 gap-4 flex flex-col select-none drop-shadow-lg bg-gray-500/30 rounded-sm p-16 backdrop-blur-md'>
+      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 gap-4 flex flex-col select-none drop-shadow-lg bg-gray-500/30 rounded-sm p-16 backdrop-blur-md md:px-48'>
         {/* <div className='md:text-[72px] text-3xl font-bold text-white mix-blend-difference'>
           <FormattedMessage id="navigate.welcome" defaultMessage="Welcome Aboard" />
         </div>

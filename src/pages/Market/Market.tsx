@@ -180,12 +180,12 @@ const Market: React.FC = () => {
       <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
         <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
           <div className='flex items-center gap-3'>
-            <Link to="/orders" className='rounded border border-black/10 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-neutral-50 dark:border-white/10 dark:bg-neutral-900 dark:text-slate-200 dark:hover:bg-neutral-800'>
+            <Link to="/orders" className='text-slate-700 transition dark:text-slate-200'>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
             </Link>
             <IconButton
               onClick={openCart}
-              sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
+              sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 0 }}
             >
               <Badge badgeContent={cart.length} color="secondary" overlap="circular">
                 <ShoppingCart className='h-6 w-6' />
@@ -196,7 +196,7 @@ const Market: React.FC = () => {
 
         <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
           <div className='lg:sticky lg:top-4 lg:self-start'>
-            <Box sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
+            <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                 <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
               </Typography>
@@ -298,7 +298,7 @@ const Market: React.FC = () => {
                 display: 'grid',
                 gridTemplateColumns: { xs: '1fr', lg: 'minmax(0,1fr) 220px' },
                 gap: 2,
-                borderRadius: 1,
+                borderRadius: 0,
                 border: '1px solid',
                 borderColor: 'divider',
                 backgroundColor: 'background.paper',
@@ -313,6 +313,9 @@ const Market: React.FC = () => {
                 onChange={(event) => {
                   setSearchTerm(event.target.value);
                   setPage(0);
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
                 }}
                 slotProps={{
                   input: {
@@ -332,6 +335,9 @@ const Market: React.FC = () => {
                 size="small"
                 label={intl.formatMessage({ id: 'market.sort', defaultMessage: 'Sort' })}
                 value={sortBy}
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                }}
                 onChange={(event) => {
                   setSortBy(event.target.value as MarketSortMode);
                   setPage(0);
@@ -353,7 +359,7 @@ const Market: React.FC = () => {
             </Box>
 
             {listingItems.length === 0 ? (
-              <Box sx={{ borderRadius: 1, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
+              <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
                 <Typography variant="h6">
                   <FormattedMessage id="market.noResults" defaultMessage="No products found" />
                 </Typography>
@@ -377,7 +383,7 @@ const Market: React.FC = () => {
                     return (
                       <div
                         key={`${item.skuId}-${item.belongsTo}`}
-                        className='flex h-full flex-col overflow-hidden rounded border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
+                        className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                       >
                         <Link to={`/market/${encodeURIComponent(item.skuId)}`} className='block'>
                           <MarketItemMedia
@@ -414,7 +420,7 @@ const Market: React.FC = () => {
                                   overflow: 'hidden',
                                 }}
                               >
-                                {formatPackageContentsSummary(intl, packageShips.length, packageItems.length)}
+                                {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
                               </Typography>
                             )}
                           </div>
@@ -541,7 +547,7 @@ const Market: React.FC = () => {
                   })}
                 </div>
 
-                <Box sx={{ mt: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
+                <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
                   <TablePagination
                     rowsPerPageOptions={[12, 24, 36]}
                     component="div"

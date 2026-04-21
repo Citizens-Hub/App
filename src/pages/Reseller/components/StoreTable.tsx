@@ -480,7 +480,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   };
 
   return (
-    <>
+    <div className="relative sm:pt-24">
       <div className="absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex">
         <div className="flex flex-col gap-2 items-center justify-center">
           <Crawler ships={ships} />
@@ -1039,6 +1039,6 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </div>
   );
 }

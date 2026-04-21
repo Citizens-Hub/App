@@ -7,6 +7,10 @@
   text-align: center;
 }
 
+.MuiOutlinedInput-root { 
+  border-radius: 0 !important;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;

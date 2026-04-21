@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
+  Collapse,
   CircularProgress,
   Paper,
   TextField,
@@ -24,9 +26,14 @@ interface CreditInventoryResponse {
   } | null;
 }
 
-export default function CreditInventoryCard() {
+interface CreditInventoryCardProps {
+  defaultExpanded?: boolean;
+}
+
+export default function CreditInventoryCard({ defaultExpanded = false }: CreditInventoryCardProps) {
   const intl = useIntl();
   const token = useSelector((state: RootState) => state.user.user.token);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,75 +160,89 @@ export default function CreditInventoryCard() {
             />
           </Typography>
         </div>
+        <Button
+          variant="text"
+          onClick={() => setExpanded((current) => !current)}
+          endIcon={expanded ? <ExpandLess /> : <ExpandMore />}
+          aria-expanded={expanded}
+        >
+          {intl.formatMessage(
+            expanded
+              ? { id: 'common.collapse', defaultMessage: 'Collapse' }
+              : { id: 'common.expand', defaultMessage: 'Expand' },
+          )}
+        </Button>
       </Box>
 
-      {loading ? (
-        <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
-          <CircularProgress size={24} />
-        </Box>
-      ) : (
-        <>
-          <Box sx={{ mt: 3, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' } }}>
-            <TextField
-              label={intl.formatMessage({ id: 'reseller.creditInventory.balance', defaultMessage: 'Balance' })}
-              type="number"
-              value={balance}
-              onChange={(event) => setBalance(event.target.value)}
-              inputProps={{ min: 0, step: 1 }}
-              helperText={intl.formatMessage({
-                id: 'reseller.creditInventory.balanceHelp',
-                defaultMessage: 'Supports credit amounts up to your balance plus US$20.',
-              })}
-            />
-            <TextField
-              label={intl.formatMessage({ id: 'reseller.creditInventory.discountRate', defaultMessage: 'Discount Multiplier' })}
-              type="number"
-              value={discountRate}
-              onChange={(event) => setDiscountRate(event.target.value)}
-              inputProps={{ min: 0.01, max: 1, step: 0.01 }}
-              helperText={intl.formatMessage({
-                id: 'reseller.creditInventory.discountRateHelp',
-                defaultMessage: 'Example: 0.85 means US$20 + 0.85 x (amount - US$20).',
-              })}
-            />
+      <Collapse in={expanded} timeout="auto">
+        {loading ? (
+          <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+            <CircularProgress size={24} />
           </Box>
-
-          <Box sx={{ mt: 3, display: 'grid', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              <FormattedMessage
-                id="reseller.creditInventory.maxOrder"
-                defaultMessage="Maximum supported face value: US${amount}"
-                values={{ amount: parsedBalance + 20 }}
+        ) : (
+          <>
+            <Box sx={{ mt: 3, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' } }}>
+              <TextField
+                label={intl.formatMessage({ id: 'reseller.creditInventory.balance', defaultMessage: 'Balance' })}
+                type="number"
+                value={balance}
+                onChange={(event) => setBalance(event.target.value)}
+                inputProps={{ min: 0, step: 1 }}
+                helperText={intl.formatMessage({
+                  id: 'reseller.creditInventory.balanceHelp',
+                  defaultMessage: 'Supports credit amounts up to your balance plus US$20.',
+                })}
               />
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <FormattedMessage
-                id="reseller.creditInventory.quotePreview"
-                defaultMessage="Quote preview: {quote}"
-                values={{ quote: quotePreview }}
+              <TextField
+                label={intl.formatMessage({ id: 'reseller.creditInventory.discountRate', defaultMessage: 'Discount Multiplier' })}
+                type="number"
+                value={discountRate}
+                onChange={(event) => setDiscountRate(event.target.value)}
+                inputProps={{ min: 0.01, max: 1, step: 0.01 }}
+                helperText={intl.formatMessage({
+                  id: 'reseller.creditInventory.discountRateHelp',
+                  defaultMessage: 'Example: 0.85 means US$20 + 0.85 x (amount - US$20).',
+                })}
               />
-            </Typography>
-          </Box>
+            </Box>
 
-          {error && (
-            <Alert severity="error" sx={{ mt: 3 }}>
-              {error}
-            </Alert>
-          )}
+            <Box sx={{ mt: 3, display: 'grid', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                <FormattedMessage
+                  id="reseller.creditInventory.maxOrder"
+                  defaultMessage="Maximum supported face value: US${amount}"
+                  values={{ amount: parsedBalance + 20 }}
+                />
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <FormattedMessage
+                  id="reseller.creditInventory.quotePreview"
+                  defaultMessage="Quote preview: {quote}"
+                  values={{ quote: quotePreview }}
+                />
+              </Typography>
+            </Box>
 
-          {success && (
-            <Alert severity="success" sx={{ mt: 3 }}>
-              {success}
-            </Alert>
-          )}
+            {error && (
+              <Alert severity="error" sx={{ mt: 3 }}>
+                {error}
+              </Alert>
+            )}
 
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
-              <FormattedMessage id="common.save" defaultMessage="Save" />
-            </Button>
-          </Box>
-        </>
-      )}
+            {success && (
+              <Alert severity="success" sx={{ mt: 3 }}>
+                {success}
+              </Alert>
+            )}
+
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="contained" onClick={handleSave} disabled={saving}>
+                <FormattedMessage id="common.save" defaultMessage="Save" />
+              </Button>
+            </Box>
+          </>
+        )}
+      </Collapse>
     </Paper>
   );
 }
