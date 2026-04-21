@@ -820,7 +820,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               <Alert severity={selectedSourceItem.isBuyBack ? "warning" : "info"} sx={{ gridColumn: { md: "1 / span 2" } }}>
                 <FormattedMessage
                   id="market.prefillDetachedHint"
-                  defaultMessage="{buybackNotice} The selected hangar item only fills the form. After you create the listing, it will remain independent from that hangar entry."
+                  defaultMessage="{buybackNotice}"
                   values={{
                     buybackNotice: selectedSourceItem.isBuyBack
                       ? intl.formatMessage({ id: "market.prefillBuybackNotice", defaultMessage: "This selected hangar item is a buyback item." })
