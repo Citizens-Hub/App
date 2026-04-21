@@ -25,6 +25,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { useOrderData } from '@/hooks';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
+import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -273,6 +274,13 @@ export default function OrderDetail() {
                     <FormattedMessage id="orderDetail.updated" defaultMessage="Updated At" />
                   </div>
                   <div className='text-sm text-left'>{updatedDate}</div>
+                </div>
+
+                <div className="w-full">
+                  <OrderPaymentDeadline
+                    status={order.status}
+                    expiresAt={order.expiresAt}
+                  />
                 </div>
                 
                 {order.invoiceId && (

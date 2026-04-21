@@ -16,15 +16,15 @@ export default function Navigate() {
         <div className="text-center text-gray-100 text-sm sm:text-lg">
           <FormattedMessage id="navigate.welcome" defaultMessage="Welcome Aboard" />
         </div>
-        <div className='text-center text-gray-100 text-lg sm:text-xl'>
+        <div className='text-center text-gray-100 text-2xl lg:text-[48px]'>
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
         
         {/* 添加应用描述部分 */}
-        <div className='text-center text-gray-100 text-sm sm:text-base max-w-2xl mx-auto mt-4'>
+        <div className='text-center text-gray-100 text-lg max-w-2xl mx-auto mt-4'>
           <FormattedMessage 
             id="navigate.description" 
-            defaultMessage="Your comprehensive Star Citizen companion app. Plan your CCU upgrades, preview store items, and manage your fleet with ease. Built by citizens, for citizens." 
+            defaultMessage="Plan your CCU upgrades, preview store items, and manage your fleet with ease." 
           />
         </div>
 

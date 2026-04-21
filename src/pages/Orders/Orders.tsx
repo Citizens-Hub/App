@@ -4,32 +4,26 @@ import {
   Alert,
   Button,
   Chip,
-  Table,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
   CircularProgress,
   TextField,
   InputAdornment,
   TablePagination,
 } from '@mui/material';
-
 import { FormattedMessage, useIntl } from 'react-intl';
-import { OrderStatus } from "@/types";
-import { useNavigate } from "react-router";
+import { Order, OrderStatus } from '@/types';
+import { useNavigate } from 'react-router';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import SearchIcon from '@mui/icons-material/Search';
 import { useState, useEffect, useMemo } from 'react';
-import { Check, ChevronsRight, Info, Loader2, X } from "lucide-react";
+import { ChevronsRight } from 'lucide-react';
 import { useOrdersData } from '@/hooks';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
+import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
 export default function Orders() {
-  const { ships, orders, loading, error } = useOrdersData();
+  const { ships, orders, loading, error, mutate } = useOrdersData();
   const navigate = useNavigate();
   const intl = useIntl();
   const isMobile = window.innerWidth < 768;
@@ -42,55 +36,97 @@ export default function Orders() {
     || marketItem?.skuId
     || intl.formatMessage({
       id: 'orders.unavailableItem',
-      defaultMessage: 'Unavailable or delisted item'
+      defaultMessage: 'Unavailable or delisted item',
     })
   );
 
-  // 使用useMemo过滤订单
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (searchTerm === '') return true;
+  const formatUsd = (value: number) => value.toLocaleString(intl.locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-      // 匹配订单ID
-      if (order.id.toString().includes(searchTerm)) return true;
+  const getChargedAmount = (order: Order) => (
+    order.price - order.items.reduce((acc, item) => acc + item.price * (item.cancelledQuantity || 0), 0)
+  );
 
-      // 匹配订单中的商品名称
-      const orderItems = order.items;
-      if (orderItems?.some((item) => {
-        const marketItem = item.marketItem;
-        return [
-          marketItem?.name,
-          marketItem?.skuId,
-          marketItem?.fromShipName,
-          marketItem?.toShipName,
-          marketItem?.shipName,
-          marketItem?.packageKind,
-          marketItem?.insuranceType,
-        ].filter(Boolean).some((value) => value!.toLowerCase().includes(searchTerm.toLowerCase()));
-      })) {
-        return true;
-      }
+  const getChargedLabel = (order: Order) => {
+    if ([OrderStatus.Paid, OrderStatus.Finished].includes(order.status)) {
+      return formatUsd(getChargedAmount(order));
+    }
 
-      return false;
+    if (order.status === OrderStatus.Canceled) {
+      return intl.formatMessage({
+        id: 'orders.notCharged',
+        defaultMessage: 'Not charged',
+      });
+    }
+
+    return intl.formatMessage({
+      id: 'orders.awaitingPayment',
+      defaultMessage: 'Awaiting payment',
     });
+  };
+
+  // const renderItemState = (order: Order, item: OrderItem, index: number) => {
+  //   if (item.quantity === item.cancelledQuantity || order.status === OrderStatus.Canceled) {
+  //     return <X className="h-4 w-4 text-red-500" />;
+  //   }
+
+  //   if (order.status === OrderStatus.Pending) {
+  //     return <Loader2 className={`h-4 w-4 text-orange-500 ${index === 0 ? 'animate-spin' : ''}`} />;
+  //   }
+
+  //   if (item.cancelledQuantity) {
+  //     return <Info className="h-4 w-4 text-orange-500" />;
+  //   }
+
+  //   return <Check className="h-4 w-4 text-green-500" />;
+  // };
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = searchTerm.toLowerCase();
+
+    return [...orders]
+      .filter((order) => {
+        if (searchTerm === '') return true;
+
+        if (order.id.toString().includes(searchTerm)) return true;
+
+        return order.items?.some((item) => {
+          const marketItem = item.marketItem;
+          return [
+            marketItem?.name,
+            marketItem?.skuId,
+            marketItem?.fromShipName,
+            marketItem?.toShipName,
+            marketItem?.shipName,
+            marketItem?.packageKind,
+            marketItem?.insuranceType,
+          ].filter(Boolean).some((value) => value!.toLowerCase().includes(normalizedSearch));
+        });
+      })
+      .sort((left, right) => {
+        const leftTs = new Date(left.updatedAt || left.createdAt).getTime();
+        const rightTs = new Date(right.updatedAt || right.createdAt).getTime();
+        return rightTs - leftTs;
+      });
   }, [orders, searchTerm]);
-  
+
   useEffect(() => {
     setPage(0);
   }, [searchTerm]);
 
   useEffect(() => {
     const maxPage = Math.max(0, Math.ceil(filteredOrders.length / rowsPerPage) - 1);
-
-    setPage((currentPage) => currentPage > maxPage ? maxPage : currentPage);
+    setPage((currentPage) => (currentPage > maxPage ? maxPage : currentPage));
   }, [filteredOrders.length, rowsPerPage]);
 
-  // 处理搜索
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
   };
 
-  // 处理分页
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -100,390 +136,507 @@ export default function Orders() {
     setPage(0);
   };
 
-  // 分页处理
   const paginatedOrders = filteredOrders.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    page * rowsPerPage + rowsPerPage,
   );
 
-  // 重新发起支付
   const handleRestartPayment = (orderId: number) => {
-    const order = orders.find(order => order.id === orderId);
+    const order = orders.find((currentOrder) => currentOrder.id === orderId);
     if (!order) return;
 
-    // 导航到结账页面并传递订单信息
     navigate('/checkout', {
       state: {
         pendingOrder: order,
-        ships
-      }
+        ships,
+      },
     });
   };
 
   const handleViewReceipt = (orderId: number) => {
-    const order = orders.find(order => order.id === orderId);
+    const order = orders.find((currentOrder) => currentOrder.id === orderId);
     if (!order) return;
 
-    // Navigate to the order details page
     navigate(`/orders/${orderId}`, {
       state: {
         order,
-        ships
-      }
+        ships,
+      },
     });
   };
 
-  // 获取订单状态显示样式
   const getStatusChip = (status: OrderStatus) => {
-    let color: "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" = "default";
+    let color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
 
     switch (status) {
       case OrderStatus.Pending:
-        color = "warning";
+        color = 'warning';
         break;
       case OrderStatus.Paid:
-        color = "success";
+        color = 'success';
         break;
       case OrderStatus.Canceled:
-        color = "error";
+        color = 'error';
         break;
       case OrderStatus.Finished:
-        color = "secondary";
+        color = 'secondary';
         break;
       default:
-        color = "default";
+        color = 'default';
     }
 
     return (
       <Chip
         color={color}
-        label={
+        label={(
           <FormattedMessage
             id={`orders.status.${status.toLowerCase()}`}
             defaultMessage={status}
           />
-        }
+        )}
         size="small"
         sx={{ fontWeight: 500 }}
       />
     );
   };
 
-  // 显示加载状态
   if (loading) {
     return (
-      <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
-          <div className='flex flex-row items-center gap-4'>
-            <Typography variant={isMobile ? "h6" : "h5"}>
-              <FormattedMessage id="orders.title" defaultMessage="My Orders" />
-            </Typography>
-          </div>
-        </Box>
+      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] w-full overflow-auto">
+        <div className="mx-auto w-full max-w-[1280px] px-8 py-4">
+          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', md: { mt: 0 } }} className="app-header">
+            <div className="flex flex-row items-center gap-4">
+              <Typography variant={isMobile ? 'h6' : 'h5'}>
+                <FormattedMessage id="orders.title" defaultMessage="My Orders" />
+              </Typography>
+            </div>
+          </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <CircularProgress />
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <CircularProgress />
+          </Box>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] w-full overflow-auto">
+        <Box className="mx-auto w-full max-w-[1280px] px-8 py-4" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+          <Alert
+            severity="error"
+            sx={{
+              maxWidth: 500,
+              width: '100%',
+              mb: 2,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              borderRadius: 2,
+            }}
+          >
+            {error}
+          </Alert>
+          <Button
+            variant="outlined"
+            onClick={() => window.location.reload()}
+            startIcon={<ReceiptLongIcon />}
+          >
+            <FormattedMessage id="orders.retry" defaultMessage="Retry" />
+          </Button>
         </Box>
       </div>
     );
   }
 
-  // 显示错误信息
-  if (error) {
-    return (
-      <Box className="w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-        <Alert
-          severity="error"
-          sx={{
-            maxWidth: 500,
-            width: '100%',
-            mb: 2,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            borderRadius: 2
-          }}
-        >
-          {error}
-        </Alert>
-        <Button
-          variant="outlined"
-          onClick={() => window.location.reload()}
-          startIcon={<ReceiptLongIcon />}
-        >
-          <FormattedMessage id="orders.retry" defaultMessage="Retry" />
-        </Button>
-      </Box>
-    );
-  }
-
   return (
-    <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
-        <div className='flex flex-row items-center gap-4'>
-          <Typography variant={isMobile ? "h6" : "h5"}>
-            <FormattedMessage id="orders.title" defaultMessage="My Orders" />
-          </Typography>
-        </div>
-      </Box>
-
-      {/* 搜索框 */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '100%' } }} className="search-box">
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder={intl.formatMessage({ id: 'orders.searchPlaceholder', defaultMessage: 'Search orders...' })}
-            value={searchTerm}
-            onChange={handleSearchChange}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                )
-              }
-            }}
-            size="small"
-          />
+    <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] w-full overflow-auto">
+      <div className="mx-auto w-full max-w-[1280px] px-8 py-4">
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', md: { mt: 0 } }} className="app-header">
+          <div className="flex flex-row items-center gap-4">
+            <Typography variant={isMobile ? 'h6' : 'h5'}>
+              <FormattedMessage id="orders.title" defaultMessage="My Orders" />
+            </Typography>
+          </div>
         </Box>
-      </Box>
 
-      {filteredOrders.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Box display="flex" justifyContent="center" alignItems="center" py={10} flexDirection="column">
-            <ShoppingBagIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              <FormattedMessage id="orders.noOrders" defaultMessage="No orders found" />
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
-              <FormattedMessage id="orders.noOrdersDescription" defaultMessage="When you make purchases, your orders will appear here" />
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => navigate('/')}
-            >
-              <FormattedMessage id="orders.startShopping" defaultMessage="Start Shopping" />
-            </Button>
+        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '100%' } }} className="search-box">
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder={intl.formatMessage({ id: 'orders.searchPlaceholder', defaultMessage: 'Search orders...' })}
+              value={searchTerm}
+              onChange={handleSearchChange}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              size="small"
+            />
           </Box>
         </Box>
-      ) : (
-        <Box sx={{ width: '100%', height: 'calc(100vh - 240px)', overflow: 'auto' }} className="resource-card">
-          <TableContainer sx={{ mb: 2, maxHeight: 'calc(100% - 68px)' }}>
-            <Table stickyHeader aria-label="orders list table">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.id" defaultMessage="ID" />
-                  </TableCell>
-                  <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.image" defaultMessage="Image" />
-                  </TableCell>
-                  <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.items" defaultMessage="Items" />
-                  </TableCell>
-                  <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.price" defaultMessage="Price" />
-                  </TableCell>
-                  <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.charge" defaultMessage="Charged" />
-                  </TableCell>
-                  <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.status" defaultMessage="Status" />
-                  </TableCell>
-                  <TableCell width="120px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.date" defaultMessage="Date" />
-                  </TableCell>
-                  <TableCell width="170px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
-                    <FormattedMessage id="orders.actions" defaultMessage="Actions" />
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedOrders.map((order) => {
-                  const orderItems = order.items;
-                  const date = new Date(order.createdAt).toLocaleDateString();
 
-                  // 获取第一个商品的详情用于显示图片
-                  const firstItem = orderItems?.length > 0 ? orderItems[0] : null;
-                  const marketItem = firstItem?.marketItem;
-                  const firstItemName = getOrderItemName(marketItem);
-                  const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
-                  const isCCU = marketItem?.itemType === 'ccu';
+        {filteredOrders.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Box display="flex" justifyContent="center" alignItems="center" py={10} flexDirection="column">
+              <ShoppingBagIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                <FormattedMessage id="orders.noOrders" defaultMessage="No orders found" />
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
+                <FormattedMessage id="orders.noOrdersDescription" defaultMessage="When you make purchases, your orders will appear here" />
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate('/')}
+              >
+                <FormattedMessage id="orders.startShopping" defaultMessage="Start Shopping" />
+              </Button>
+            </Box>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {paginatedOrders.map((order) => {
+              const orderItems = order.items;
+              const createdDate = new Date(order.createdAt).toLocaleDateString(intl.locale, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              });
+              const updatedDate = order.updatedAt
+                ? new Date(order.updatedAt).toLocaleString(intl.locale)
+                : null;
 
-                  return (
-                    <TableRow
-                      key={order.id}
-                      hover
-                      sx={{
-                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
-                        transition: 'background-color 0.2s'
-                      }}
+              const firstItem = orderItems.length > 0 ? orderItems[0] : null;
+              const marketItem = firstItem?.marketItem;
+              const firstItemName = getOrderItemName(marketItem);
+              const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+              const isCCU = marketItem?.itemType === 'ccu';
+              const totalItemsCount = orderItems.reduce((acc, item) => acc + item.quantity, 0);
+              // const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);
+              // const activeItemsCount = totalItemsCount - cancelledItemsCount;
+              const visibleItems = orderItems.slice(0, 3);
+              const hiddenItemsCount = Math.max(orderItems.length - visibleItems.length, 0);
+
+              return (
+                <Box
+                  key={order.id}
+                  className="bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden"
+                >
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 2,
+                      px: { xs: 2, md: 3 },
+                      py: 2,
+                      gridTemplateColumns: { xs: '1fr', lg: 'repeat(4, minmax(0, 1fr)) 240px' },
+                      textAlign: 'left',
+                    }}
+                    className="border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40"
+                  >
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                        <FormattedMessage id="orders.orderPlaced" defaultMessage="Order placed" />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                        {createdDate}
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                        <FormattedMessage id="orders.orderTotal" defaultMessage="Order total" />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>
+                        {formatUsd(order.price)}
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                        <FormattedMessage id="orders.charged" defaultMessage="Charged" />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>
+                        {getChargedLabel(order)}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ textAlign: 'left' }}>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                        <FormattedMessage id="orders.orderNumber" defaultMessage="Order Id" />
+                      </Typography>
+                      <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 700 }}>
+                        # {order.id}
+                      </Typography>
+                      {/* <Button
+                      variant="text"
+                      size="small"
+                      sx={{ mt: 0.75, px: 0, minWidth: 0 }}
+                      onClick={() => handleViewReceipt(order.id)}
                     >
-                      <TableCell sx={{
-                        fontWeight: 500,
-                        borderLeft: '4px solid',
-                        borderLeftColor: order.status === OrderStatus.Paid ? 'success.main' :
-                          order.status === OrderStatus.Pending ? 'warning.main' :
-                            order.status === OrderStatus.Canceled ? 'error.main' :
-                              order.status === OrderStatus.Finished ? 'secondary.main' :
-                                'divider'
-                      }}>
-                        #{order.id}
-                      </TableCell>
-                      <TableCell>
-                        {isCCU && visual ? (
-                          <Box sx={{ position: 'relative', width: 280, height: 160, overflow: 'hidden' }}>
-                            <Box
-                              component="img"
-                              sx={{
-                                position: 'absolute',
-                                left: 0,
-                                top: 0,
-                                width: '35%',
-                                height: '100%',
-                                objectFit: 'cover',
-                              }}
-                              src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.fromShipName || firstItemName}
-                            />
-                            <Box
-                              component="img"
-                              sx={{
-                                position: 'absolute',
-                                right: 0,
-                                top: 0,
-                                width: '65%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
-                              }}
-                              src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.toShipName || firstItemName}
-                            />
-                            <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
-                              <ChevronsRight className='w-8 h-8' />
-                            </div>
-                          </Box>
-                        ) : (
+                      <FormattedMessage id="orders.viewReceipt" defaultMessage="Details" />
+                    </Button> */}
+                    </Box>
+
+                    <Box>
+                      {order.status === OrderStatus.Pending ? (
+                        <>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                            <FormattedMessage id="orders.lastUpdated" defaultMessage="Last updated" />
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                            {updatedDate || createdDate}
+                          </Typography>
+
+                          <OrderPaymentDeadline
+                            status={order.status}
+                            expiresAt={order.expiresAt}
+                            compact
+                            onExpired={() => {
+                              void mutate();
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                            <FormattedMessage id="orders.lastUpdated" defaultMessage="Last updated" />
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                            {updatedDate || createdDate}
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 3,
+                      px: { xs: 2, md: 3 },
+                      py: { xs: 2, md: 2.5 },
+                      alignItems: 'stretch',
+                      gridTemplateColumns: { xs: '1fr', md: '280px minmax(0, 1fr) 220px' },
+                      textAlign: 'left',
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      {isCCU && visual ? (
+                        <Box sx={{ position: 'relative', width: '100%', maxWidth: 280, height: { xs: 180, md: 160 }, overflow: 'hidden', borderRadius: 2 }}>
                           <Box
                             component="img"
-                            sx={{ width: 280, height: 160, objectFit: 'cover' }}
-                            src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
-                            alt={firstItemName}
+                            sx={{
+                              position: 'absolute',
+                              left: 0,
+                              top: 0,
+                              width: '35%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                            src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
+                            alt={visual.fromShipName || firstItemName}
                           />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className='flex flex-col gap-2'>
-                          {orderItems?.slice(0, 4).map((item, index: number) => {
-                            const marketItem = item.marketItem;
-                            const itemName = getOrderItemName(marketItem);
+                          <Box
+                            component="img"
+                            sx={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 0,
+                              width: '65%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)',
+                            }}
+                            src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
+                            alt={visual.toShipName || firstItemName}
+                          />
+                          <div className="absolute left-[35%] top-[50%] -translate-x-[50%] -translate-y-[50%] text-2xl font-bold text-white">
+                            <ChevronsRight className="h-8 w-8" />
+                          </div>
+                        </Box>
+                      ) : (
+                        <Box
+                          component="img"
+                          sx={{
+                            width: '100%',
+                            maxWidth: 280,
+                            height: { xs: 180, md: 160 },
+                            objectFit: 'cover',
+                            borderRadius: 2,
+                          }}
+                          src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
+                          alt={firstItemName}
+                        />
+                      )}
+                    </Box>
 
-                            return (
-                              <div className="flex items-center" key={index}>
-                                <div className='text-[14px] flex items-center gap-1 max-w-[200px]'>
-                                  <div className='flex items-center gap-1'>
-                                    {(item.quantity === item?.cancelledQuantity ||
-                                      order.status === OrderStatus.Canceled) ? (
-                                      <X className='w-4 h-4 text-red-500' />
-                                    ) : order.status === OrderStatus.Pending ? <Loader2 className={`w-4 h-4 text-orange-500 animate-spin ${index !== 0 && 'animate-none opacity-0'}`} /> :
-                                      item?.cancelledQuantity ? (<>
-                                        <Info className='w-4 h-4 text-orange-500' />
-                                        <div className='text-[12px] text-orange-500 text-nowrap'>
-                                          {item.quantity - item?.cancelledQuantity} / {item.quantity}
-                                        </div>
-                                      </>) : (<>
-                                        <Check className='w-4 h-4 text-green-500' />
-                                        <div className='text-[12px] text-green-500 text-nowrap'>
-                                          {item.quantity} / {item.quantity}
-                                        </div>
-                                      </>)}
-                                  </div>
-                                  <div className='truncate'>{itemName}</div>
-                                </div>
-                                {/* {item.quantity > 1 && (
-                                  <Chip
-                                    size="small"
-                                    label={`x${item.quantity}`}
-                                    sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                                  />
-                                )} */}
-                              </div>
-                            );
-                          })}
-                          {orderItems?.length > 4 && (
-                            <div className='text-[14px]'>
-                              + {orderItems.length - 4} more
-                            </div>
+                    <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'left' }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                        {getStatusChip(order.status)}
+                        {/* <Chip
+                          size="small"
+                          variant="outlined"
+                          label={intl.formatMessage(
+                            {
+                              id: 'orders.itemsCountSummary',
+                              defaultMessage: '{active} active / {total} items',
+                            },
+                            { active: activeItemsCount, total: totalItemsCount },
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className='text-[16px] text-blue-500 font-bold'>
-                          ${order.price}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className='text-[16px] text-blue-500 font-bold'>
-                          {
-                            order.status === OrderStatus.Paid && <>${order.price - order.items.reduce((acc, item) => acc + item.price * (item?.cancelledQuantity || 0), 0)}</>
-                          }
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusChip(order.status)}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {date}
+                        /> */}
+                      </Box>
+
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+                          {firstItemName}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          <FormattedMessage
+                            id="orders.orderLeadSummary"
+                            defaultMessage="{count} item(s) in this order"
+                            values={{ count: totalItemsCount }}
+                          />
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {visibleItems.map((item, index) => {
+                          const itemName = getOrderItemName(item.marketItem);
+                          const cancelledQuantity = item.cancelledQuantity || 0;
+                          const activeQuantity = item.quantity - cancelledQuantity;
+
+                          return (
+                            <Box
+                              key={`${order.id}-${item.skuId || itemName}-${index}`}
+                              sx={{
+                                display: 'flex',
+                                gap: 1.25,
+                                alignItems: 'flex-start',
+                                borderRadius: 2,
+                                px: 3,
+                                py: 1.25,
+                                bgcolor: 'rgba(15, 23, 42, 0.03)',
+                              }}
+                            >
+                              {/* <Box sx={{ mt: '2px', flexShrink: 0 }}>
+                              {renderItemState(order, item, index)}
+                            </Box> */}
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                                  {itemName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  <FormattedMessage
+                                    id="orders.itemQuantitySummary"
+                                    defaultMessage="{active} / {total} • {price} each"
+                                    values={{
+                                      active: activeQuantity,
+                                      total: item.quantity,
+                                      price: formatUsd(item.price),
+                                    }}
+                                  />
+                                </Typography>
+                              </Box>
+                            </Box>
+                          );
+                        })}
+
+                        {hiddenItemsCount > 0 && (
+                          <Typography variant="body2" color="text.secondary" sx={{ pl: 0.5 }}>
+                            <FormattedMessage
+                              id="orders.moreItems"
+                              defaultMessage="+ {count} more item(s)"
+                              values={{ count: hiddenItemsCount }}
+                            />
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        // justifyContent: 'space-between',
+                        gap: 2,
+                        px: 2,
+                        py: 2,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                          <FormattedMessage id="orders.actionPanel" defaultMessage="Actions" />
+                        </Typography>
+                        {/* <Typography variant="body2" sx={{ mt: 0.75, color: 'text.secondary' }}>
+                          {order.status === OrderStatus.Pending
+                            ? intl.formatMessage({
+                              id: 'orders.pendingHelpText',
+                              defaultMessage: 'Complete payment before the deadline to keep your reserved inventory.',
+                            })
+                            : intl.formatMessage({
+                              id: 'orders.detailsHelpText',
+                              defaultMessage: 'Review line items, invoice, and fulfillment details.',
+                            })}
+                        </Typography> */}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
                         {order.status === OrderStatus.Pending && (
                           <Button
                             fullWidth
-                            variant="contained"
+                            variant="outlined"
                             color="primary"
-                            size="small"
+                            size="medium"
                             startIcon={<PaymentIcon />}
                             onClick={() => handleRestartPayment(order.id)}
                           >
                             <FormattedMessage id="orders.restartPayment" defaultMessage="Pay" />
                           </Button>
                         )}
-                        {(order.status === OrderStatus.Paid || order.status === OrderStatus.Finished) && (
-                          <Button
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            startIcon={<ReceiptLongIcon />}
-                            onClick={() => handleViewReceipt(order.id)}
-                          >
-                            <FormattedMessage id="orders.viewReceipt" defaultMessage="Details" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
 
-          {!isMobile && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredOrders.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
-            />
-          )}
-        </Box>
-      )}
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          color="primary"
+                          size="medium"
+                          startIcon={<ReceiptLongIcon />}
+                          onClick={() => handleViewReceipt(order.id)}
+                        >
+                          <FormattedMessage id="orders.viewReceipt" defaultMessage="Details" />
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+
+            {!isMobile && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25]}
+                  component="div"
+                  count={filteredOrders.length}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+                  labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
+                />
+              </Box>
+            )}
+          </Box>
+        )}
+      </div>
     </div>
   );
 }

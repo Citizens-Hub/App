@@ -36,6 +36,67 @@ import {
   getMarketItemVisual,
   MARKET_ITEM_PLACEHOLDER,
 } from '@/components/marketItemDisplay';
+import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
+
+const CHECKOUT_IDEMPOTENCY_STORAGE_PREFIX = 'checkout:idempotency';
+
+function buildCheckoutFingerprint(
+  items: MarketCartItem[],
+  options: {
+    proceedWhenOutOfStock: boolean;
+  },
+) {
+  return JSON.stringify({
+    items: items
+      .map((item) => ({
+        skuId: item.skuId,
+        quantity: item.quantity,
+      }))
+      .sort((left, right) => {
+        const skuComparison = left.skuId.localeCompare(right.skuId);
+        if (skuComparison !== 0) {
+          return skuComparison;
+        }
+
+        return left.quantity - right.quantity;
+      }),
+    options: {
+      proceedWhenOutOfStock: Boolean(options.proceedWhenOutOfStock),
+    },
+  });
+}
+
+function getCheckoutIdempotencyStorageKey(userId?: string) {
+  return `${CHECKOUT_IDEMPOTENCY_STORAGE_PREFIX}:${userId || 'anonymous'}`;
+}
+
+function getOrCreateCheckoutIdempotencyKey(userId: string | undefined, fingerprint: string) {
+  const storageKey = getCheckoutIdempotencyStorageKey(userId);
+  const storedValue = window.sessionStorage.getItem(storageKey);
+
+  if (storedValue) {
+    try {
+      const parsed = JSON.parse(storedValue) as { fingerprint?: string; key?: string };
+      if (parsed.fingerprint === fingerprint && typeof parsed.key === 'string' && parsed.key.length > 0) {
+        return parsed.key;
+      }
+    } catch (error) {
+      console.warn('Failed to parse checkout idempotency cache:', error);
+    }
+  }
+
+  const nextKey = crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, JSON.stringify({
+    fingerprint,
+    key: nextKey,
+  }));
+
+  return nextKey;
+}
+
+function clearCheckoutIdempotencyKey(userId?: string) {
+  window.sessionStorage.removeItem(getCheckoutIdempotencyStorageKey(userId));
+}
 
 export default function Checkout() {
   const location = useLocation();
@@ -64,6 +125,7 @@ export default function Checkout() {
 
   useEffect(() => {
     if (pendingOrder?.items?.length) {
+      clearCheckoutIdempotencyKey(user?.id);
       setCart(
         pendingOrder.items.map((item) =>
           buildMarketCartItem(
@@ -85,7 +147,7 @@ export default function Checkout() {
     }
 
     setCart([]);
-  }, [cartFromState, pendingOrder, ships]);
+  }, [cartFromState, pendingOrder, ships, user?.id]);
 
   const [options, setOptions] = useState<{
     proceedWhenOutOfStock: boolean;
@@ -193,16 +255,17 @@ export default function Checkout() {
             sessionId: pendingOrder.sessionId
           })
         })
-        .then((response) => {
+        .then(async (response) => {
+          const json = await response.json().catch(() => null);
           if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            throw new Error(json?.error || `HTTP error! Status: ${response.status}`);
           }
-          return response.json();
+          return json;
         })
         .then((json) => window.location.href = json.url)
         .catch((err) => {
           console.error("订单处理错误:", err);
-          setError(intl.formatMessage({
+          setError(err instanceof Error ? err.message : intl.formatMessage({
             id: 'checkout.error',
             defaultMessage: 'An error occurred while processing your order. Please try again.'
           }));
@@ -210,6 +273,11 @@ export default function Checkout() {
         });
       return;
     }
+
+    const idempotencyKey = getOrCreateCheckoutIdempotencyKey(
+      user?.id,
+      buildCheckoutFingerprint(cart, options),
+    );
 
     // 创建新订单
     fetch(
@@ -222,23 +290,27 @@ export default function Checkout() {
             quantity: item.quantity
           })),
           options,
-          userId: user?.id
         }),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
+          'Authorization': `Bearer ${user?.token}`,
+          'Idempotency-Key': idempotencyKey,
         }
       })
-      .then((response) => {
+      .then(async (response) => {
+        const json = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          throw new Error(json?.error || `HTTP error! Status: ${response.status}`);
         }
-        return response.json();
+        return json;
       })
-      .then((json) => window.location.href = json.url)
+      .then((json) => {
+        clearCheckoutIdempotencyKey(user?.id);
+        window.location.href = json.url;
+      })
       .catch((err) => {
         console.error("订单处理错误:", err);
-        setError(intl.formatMessage({
+        setError(err instanceof Error ? err.message : intl.formatMessage({
           id: 'checkout.error',
           defaultMessage: 'An error occurred while processing your order. Please try again.'
         }));
@@ -320,6 +392,21 @@ export default function Checkout() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {pendingOrder && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
+            <FormattedMessage
+              id="checkout.pendingOrderNotice"
+              defaultMessage="This order is awaiting payment and will be canceled automatically after the payment window closes."
+            />
+          </Typography>
+          <OrderPaymentDeadline
+            status={pendingOrder.status}
+            expiresAt={pendingOrder.expiresAt}
+          />
         </Alert>
       )}
 

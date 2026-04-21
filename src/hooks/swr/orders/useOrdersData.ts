@@ -27,7 +27,8 @@ export default function useOrdersData() {
   const { 
     data: ordersData,
     error: ordersError,
-    isLoading: ordersLoading 
+    isLoading: ordersLoading,
+    mutate
   } = useAuthApi<Order[]>('/api/orders');
 
   // 使用SWR获取用户信息（需要认证）
@@ -53,6 +54,7 @@ export default function useOrdersData() {
     orders: ordersData ?? EMPTY_ORDERS,
     userInfo: userInfoData || null,
     loading, 
-    error 
+    error,
+    mutate
   };
 } 

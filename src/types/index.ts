@@ -669,6 +669,7 @@ export interface Order {
   price: number;
   status: OrderStatus;
   createdAt: string;
+  expiresAt?: string | null;
   updatedAt?: string;
   sessionId?: string | null;
 }
