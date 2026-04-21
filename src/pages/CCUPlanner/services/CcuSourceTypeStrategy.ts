@@ -3,6 +3,7 @@ import { IntlShape } from "react-intl";
 import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
 import {
   getConcretePricingOptionsForType,
+  getExpectedWbPricingOptions,
   getPreferredConcretePricingOption
 } from "./CcuPriceOptions";
 
@@ -443,6 +444,79 @@ export class HistoricalStrategy implements CcuSourceTypeStrategy {
   
   getPriority(): number {
     return 40; // Higher priority
+  }
+}
+
+/**
+ * Expected WB strategy
+ */
+export class ExpectedWbStrategy implements CcuSourceTypeStrategy {
+  getTypeId(): CcuSourceType {
+    return CcuSourceType.EXPECTED_WB;
+  }
+
+  getDisplayName(intl: IntlShape): string {
+    return intl.formatMessage({ id: "shipNode.expectedWB", defaultMessage: "Expected WB" });
+  }
+
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
+    if (options?.customPrice !== undefined) {
+      return {
+        price: options.customPrice,
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
+    const pricingOption = getPreferredConcretePricingOption({
+      sourceShip,
+      targetShip,
+      ccus: options?.ccus || [],
+      priceHistoryMap: options?.priceHistoryMap || {},
+      sourceType: CcuSourceType.EXPECTED_WB
+    });
+
+    if (pricingOption) {
+      return {
+        price: pricingOption.customPrice,
+        currency: 'USD',
+        isUsedUp: false
+      };
+    }
+
+    return {
+      price: (targetShip.msrp - sourceShip.msrp) / 100,
+      currency: 'USD',
+      isUsedUp: false
+    };
+  }
+
+  getEdgeStyle(): { edgeColor: string; bgColor: string; } {
+    return {
+      edgeColor: 'stroke-indigo-500',
+      bgColor: 'bg-indigo-600'
+    };
+  }
+
+  isApplicable(
+    sourceShip: Ship,
+    targetShip: Ship,
+    _ccus: Ccu[],
+    _wbHistory: WbHistoryData[],
+    _hangarItems: HangarItem[],
+    _importItems: ImportItem[],
+    priceHistoryMap: Record<number, PriceHistoryEntity>
+  ): boolean {
+    return getExpectedWbPricingOptions({
+      sourceShip,
+      targetShip,
+      ccus: [],
+      priceHistoryMap
+    }).length > 0;
+  }
+
+  getPriority(): number {
+    return -1; // Manual-only option; keep it behind configured automatic priorities.
   }
 }
 

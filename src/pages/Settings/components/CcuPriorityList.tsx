@@ -45,6 +45,9 @@ const ccuTypeStyles = {
   [CcuSourceType.HISTORICAL]: {
     bgColor: 'bg-gray-500'
   },
+  [CcuSourceType.EXPECTED_WB]: {
+    bgColor: 'bg-indigo-600'
+  },
   [CcuSourceType.PRICE_INCREASE]: {
     bgColor: 'bg-fuchsia-600'
   },

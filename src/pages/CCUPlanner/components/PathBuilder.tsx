@@ -273,6 +273,8 @@ function getCcuTypeStyle(sourceType: CcuSourceType): string {
       return 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700/70';
     case CcuSourceType.HISTORICAL:
       return 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700/70';
+    case CcuSourceType.EXPECTED_WB:
+      return 'bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-200 dark:border-violet-700/70';
     case CcuSourceType.PRICE_INCREASE:
       return 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-900/30 dark:text-sky-200 dark:border-sky-700/70';
     case CcuSourceType.AVAILABLE_WB:
@@ -1812,6 +1814,8 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
         return intl.formatMessage({ id: 'routeInfoPanel.hangar', defaultMessage: 'Hangar' });
       case CcuSourceType.HISTORICAL:
         return intl.formatMessage({ id: 'routeInfoPanel.historical', defaultMessage: 'Historical WB' });
+      case CcuSourceType.EXPECTED_WB:
+        return intl.formatMessage({ id: 'routeInfoPanel.expectedWB', defaultMessage: 'Expected WB' });
       case CcuSourceType.PRICE_INCREASE:
         return intl.formatMessage({ id: 'routeInfoPanel.priceIncrease', defaultMessage: 'Price Increase' });
       case CcuSourceType.AVAILABLE_WB:

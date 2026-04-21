@@ -7,6 +7,7 @@ import {
   ThirdPartyStrategy,
   HangarStrategy,
   HistoricalStrategy,
+  ExpectedWbStrategy,
   PriceIncreaseStrategy,
   SubscriptionStrategy
 } from "./CcuSourceTypeStrategy";
@@ -46,6 +47,7 @@ export class CcuSourceTypeStrategyFactory {
     this.registerStrategy(new ThirdPartyStrategy());
     this.registerStrategy(new HangarStrategy());
     this.registerStrategy(new HistoricalStrategy());
+    this.registerStrategy(new ExpectedWbStrategy());
     this.registerStrategy(new PriceIncreaseStrategy());
     this.registerStrategy(new SubscriptionStrategy());
   }

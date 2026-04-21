@@ -34,6 +34,10 @@ interface ConcretePricingParams {
   priceHistoryMap: Record<number, PriceHistoryEntity>;
 }
 
+function buildPricingPairKey(targetPriceCents: number, sourcePriceCents: number): string {
+  return `${targetPriceCents}:${sourcePriceCents}`;
+}
+
 function buildConcretePricingOptionKey(option: {
   sourceType: CcuSourceType;
   targetPriceCents?: number;
@@ -423,6 +427,53 @@ export function getHistoricalPricingOptions(params: ConcretePricingParams): CcuC
   return getHistoricalLikePricingOptions(params, CcuSourceType.HISTORICAL);
 }
 
+export function getExpectedWbPricingOptions(params: ConcretePricingParams): CcuConcretePricingOption[] {
+  const { sourceShip, targetShip, priceHistoryMap } = params;
+  const currentSourcePriceCents = sourceShip.msrp;
+  if (currentSourcePriceCents <= 0) {
+    return [];
+  }
+
+  const targetHistory = priceHistoryMap[targetShip.id]?.history || [];
+  if (!targetHistory.length) {
+    return [];
+  }
+
+  const existingPairKeys = new Set(
+    [
+      ...getAvailableWbPricingOptions(params),
+      ...getHistoricalPricingOptions(params)
+    ]
+      .filter(option =>
+        typeof option.targetPriceCents === 'number' &&
+        typeof option.sourcePriceCents === 'number'
+      )
+      .map(option => buildPricingPairKey(option.targetPriceCents as number, option.sourcePriceCents as number))
+  );
+
+  // Expected WB uses historical target WB prices against the current source ship value,
+  // but only when the exact pair has not existed in current or historical pricing data.
+  return findAllHistoryPriceOptions(targetHistory, isDiscountPriceEntry)
+    .filter(targetPriceCents => targetPriceCents > currentSourcePriceCents)
+    .filter(targetPriceCents => !existingPairKeys.has(buildPricingPairKey(targetPriceCents, currentSourcePriceCents)))
+    .map(targetPriceCents => {
+      const customPrice = (targetPriceCents - currentSourcePriceCents) / 100;
+      return {
+        key: buildConcretePricingOptionKey({
+          sourceType: CcuSourceType.EXPECTED_WB,
+          targetPriceCents,
+          sourcePriceCents: currentSourcePriceCents,
+          customPrice
+        }),
+        sourceType: CcuSourceType.EXPECTED_WB,
+        customPrice,
+        targetPriceCents,
+        sourcePriceCents: currentSourcePriceCents
+      };
+    })
+    .sort(sortConcretePricingOptions);
+}
+
 export function getPriceIncreasePricingOptions(params: ConcretePricingParams): CcuConcretePricingOption[] {
   return getHistoricalLikePricingOptions(params, CcuSourceType.PRICE_INCREASE);
 }
@@ -435,6 +486,8 @@ export function getConcretePricingOptionsForType(
       return getAvailableWbPricingOptions(params);
     case CcuSourceType.HISTORICAL:
       return getHistoricalPricingOptions(params);
+    case CcuSourceType.EXPECTED_WB:
+      return getExpectedWbPricingOptions(params);
     case CcuSourceType.PRICE_INCREASE:
       return getPriceIncreasePricingOptions(params);
     default:

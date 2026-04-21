@@ -14,6 +14,7 @@ import {
   CcuConcretePricingOption,
   findMatchingConcretePricingOption,
   getAvailableWbPricingOptions,
+  getExpectedWbPricingOptions,
   getHistoricalPricingOptions,
   getPriceIncreasePricingOptions
 } from '../services/CcuPriceOptions';
@@ -135,6 +136,15 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
       });
     });
 
+    getExpectedWbPricingOptions(pricingContext).forEach(option => {
+      options.push({
+        value: option.key,
+        sourceType: option.sourceType,
+        pricingOption: option,
+        label: `${intl.formatMessage({ id: "shipNode.expectedWB", defaultMessage: "Expected WB" })}: ${formatUsd((option.targetPriceCents || 0) / 100)} / ${formatUsd((option.sourcePriceCents || 0) / 100)} (+${formatUsd(option.customPrice)})`
+      });
+    });
+
     getPriceIncreasePricingOptions(pricingContext).forEach(option => {
       options.push({
         value: option.key,
@@ -177,6 +187,7 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
     if (
       sourceType === CcuSourceType.AVAILABLE_WB ||
       sourceType === CcuSourceType.HISTORICAL ||
+      sourceType === CcuSourceType.EXPECTED_WB ||
       sourceType === CcuSourceType.PRICE_INCREASE
     ) {
       const sourceShip = edge.data?.sourceShip;

@@ -79,13 +79,14 @@ const getDefaultCurrency = () => {
 
 const defaultCcuSourceTypePriority: CcuSourceType[] = [
   CcuSourceType.HANGER,
+  CcuSourceType.AVAILABLE_WB,
+  CcuSourceType.EXPECTED_WB,
   CcuSourceType.HISTORICAL,
   CcuSourceType.PRICE_INCREASE,
   CcuSourceType.SUBSCRIPTION,
-  CcuSourceType.AVAILABLE_WB,
+  CcuSourceType.OFFICIAL,
   CcuSourceType.THIRD_PARTY,
   CcuSourceType.OFFICIAL_WB,
-  CcuSourceType.OFFICIAL,
 ];
 
 const normalizeCcuSourceTypePriority = (priority: CcuSourceType[] | undefined): CcuSourceType[] => {

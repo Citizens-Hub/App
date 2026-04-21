@@ -390,7 +390,7 @@ export default function Checkout() {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
           {error}
         </Alert>
       )}
