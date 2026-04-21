@@ -406,7 +406,7 @@ export default function Orders() {
                   >
                     <Box sx={{ minWidth: 0 }}>
                       {isCCU && visual ? (
-                        <Box sx={{ position: 'relative', width: '100%', maxWidth: 280, height: { xs: 180, md: 160 }, overflow: 'hidden', borderRadius: 2 }}>
+                        <Box sx={{ position: 'relative', width: '100%', maxWidth: 280, height: { xs: 180, md: 160 }, overflow: 'hidden', borderRadius: 0 }}>
                           <Box
                             component="img"
                             sx={{
@@ -446,7 +446,7 @@ export default function Orders() {
                             maxWidth: 280,
                             height: { xs: 180, md: 160 },
                             objectFit: 'cover',
-                            borderRadius: 2,
+                            borderRadius: 0,
                           }}
                           src={visual?.thumbnail || MARKET_ITEM_PLACEHOLDER}
                           alt={firstItemName}

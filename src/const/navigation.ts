@@ -36,6 +36,11 @@ export const navigation = [
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
+    name: "navigation.orders",
+    path: "/orders/:orderId",
+    hidden: true,
+  },
+  {
     name: "navigation.storePreview",
     path: "/store-preview",
   },
@@ -84,17 +89,6 @@ export const navigation = [
     hidden: true,
   },
   {
-    name: "navigation.reseller",
-    path: "/reseller",
-    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
-    requireReseller: true
-  },
-  {
-    name: "navigation.graphql",
-    path: "/graphql-export",
-    hidden: true,
-  },
-  {
     name: "navigation.blog",
     path: "/blog",
   },
@@ -111,6 +105,22 @@ export const navigation = [
   {
     name: "navigation.blog",
     path: "/blog/create",
+    hidden: true,
+  },
+  {
+    name: "navigation.reseller",
+    path: "/reseller",
+    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    requireReseller: true
+  },
+  {
+    name: "navigation.reseller",
+    path: "/reseller/orders/:orderId",
+    hidden: true,
+  },
+  {
+    name: "navigation.graphql",
+    path: "/graphql-export",
     hidden: true,
   },
   {

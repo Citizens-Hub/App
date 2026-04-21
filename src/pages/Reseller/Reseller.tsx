@@ -15,7 +15,7 @@ enum Page {
 }
 
 export default function Reseller() {
-  const [currentPage, setCurrentPage] = useState<Page>(Page.MyOrders);
+  const [currentPage, setCurrentPage] = useState<Page>(Page.MyStore);
   const { ships, loading } = useHangarData();
   const navigate = useNavigate();
 
@@ -28,16 +28,16 @@ export default function Reseller() {
             <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />
           </Typography>
         </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyOrders ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.MyOrders)}>
-          <FormattedMessage id="hangar.myOrders" defaultMessage="My Orders" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />
-          </Typography>
-        </div>
         <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.SalesBalance ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.SalesBalance)}>
           <FormattedMessage id="reseller.balance.navTitle" defaultMessage="Sales Balance" />
           <Typography variant='body2' color='text.secondary'>
             <FormattedMessage id="reseller.balance.navDescription" defaultMessage="Review available and pending balance from sold items." />
+          </Typography>
+        </div>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyOrders ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.MyOrders)}>
+          <FormattedMessage id="hangar.myOrders" defaultMessage="My Orders" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />
           </Typography>
         </div>
         <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/graphql-export')}>

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
@@ -13,7 +13,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Divider,
   IconButton,
   List,
   ListItem,
@@ -24,6 +23,12 @@ import {
   Step,
   StepLabel,
   Stepper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tooltip,
   Typography,
   type ChipProps,
@@ -34,10 +39,12 @@ import {
   ContentCopy,
   OpenInNew,
   PaymentsOutlined,
+  ReceiptLong,
   Refresh,
 } from '@mui/icons-material';
 import { Check, ChevronsRight, Info, X } from 'lucide-react';
 import Crawler from '@/components/Crawler';
+import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import { useRelatedOrderData } from '@/hooks';
 import { DetailedOrderItem, OrderPaymentInfo, OrderStatus, Ship } from '@/types';
@@ -68,27 +75,15 @@ const riskColor: Record<string, ChipProps['color']> = {
   unknown: 'default',
 };
 
-const darkPageBackground = `
-  linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)
-`;
-const darkSurfaceBg = 'rgba(255, 255, 255, 0.96)';
-const darkSurfaceAltBg = 'rgba(248, 250, 252, 0.92)';
-const darkSurfaceBorder = 'rgba(148, 163, 184, 0.28)';
-const darkTextPrimary = '#0f172a';
-const darkTextSecondary = '#64748b';
-const darkMutedText = '#94a3b8';
-const accentBlue = '#3b82f6';
-const accentOrange = '#f97316';
-const accentRed = '#ef4444';
-const accentGreen = '#22c55e';
-const accentFont = 'inherit';
+const pageContainerClassName = 'w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto';
+const sectionClassName = 'bg-white dark:bg-neutral-900 p-6 shadow-sm border border-gray-100 dark:border-neutral-700';
 
-const statusAccent: Record<OrderStatus, string> = {
-  [OrderStatus.Pending]: '#93c5fd',
-  [OrderStatus.Processing]: '#38bdf8',
-  [OrderStatus.Paid]: accentBlue,
-  [OrderStatus.Canceled]: accentOrange,
-  [OrderStatus.Finished]: accentGreen,
+const statusAccentColor: Record<OrderStatus, string> = {
+  [OrderStatus.Pending]: '#ed6c02',
+  [OrderStatus.Processing]: '#0288d1',
+  [OrderStatus.Paid]: '#2e7d32',
+  [OrderStatus.Canceled]: '#d32f2f',
+  [OrderStatus.Finished]: '#9c27b0',
 };
 
 function getActiveStep(status: OrderStatus) {
@@ -174,18 +169,7 @@ function renderOrderItemVisual(item: DetailedOrderItem, itemName: string, ships:
 
   if (item.marketItem.itemType === 'ccu' && (visual.fromImage || visual.toImage)) {
     return (
-      <Box
-        sx={{
-          position: 'relative',
-          width: '100%',
-          height: 160,
-          overflow: 'hidden',
-          borderRadius: 1,
-          bgcolor: 'background.paper',
-          border: '1px solid',
-          borderColor: darkSurfaceBorder,
-        }}
-      >
+      <Box sx={{ position: 'relative', width: 280, height: 160, overflow: 'hidden' }}>
         <Box
           component="img"
           sx={{
@@ -213,26 +197,9 @@ function renderOrderItemVisual(item: DetailedOrderItem, itemName: string, ships:
           src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
           alt={visual.toShipName || itemName}
         />
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '35%',
-            transform: 'translate(-50%, -50%)',
-            width: 42,
-            height: 42,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'rgba(15, 23, 42, 0.72)',
-            color: 'common.white',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.12)',
-          }}
-        >
-          <ChevronsRight size={24} />
-        </Box>
+        <div className="absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold">
+          <ChevronsRight className="w-8 h-8" />
+        </div>
       </Box>
     );
   }
@@ -240,15 +207,7 @@ function renderOrderItemVisual(item: DetailedOrderItem, itemName: string, ships:
   return (
     <Box
       component="img"
-      sx={{
-        width: '100%',
-        height: 160,
-        objectFit: 'cover',
-        borderRadius: 1,
-        border: '1px solid',
-        borderColor: darkSurfaceBorder,
-        bgcolor: 'background.paper',
-      }}
+      sx={{ width: 280, height: 160, objectFit: 'cover' }}
       src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
       alt={itemName}
     />
@@ -260,40 +219,24 @@ function DataField({
   value,
   action,
   mono = false,
-  tone = 'default',
-  valueVariant = 'body2',
 }: {
   label: ReactNode;
   value: ReactNode;
   action?: ReactNode;
   mono?: boolean;
-  tone?: 'default' | 'inverse';
-  valueVariant?: 'body1' | 'body2';
 }) {
-  const isInverse = tone === 'inverse';
-
   return (
     <Box sx={{ textAlign: 'left' }}>
-      <Typography
-        variant="caption"
-        sx={{
-          color: isInverse ? darkTextSecondary : 'text.secondary',
-          fontWeight: isInverse ? 700 : 400,
-          letterSpacing: isInverse ? '0.08em' : 'normal',
-          textTransform: isInverse ? 'uppercase' : 'none',
-        }}
-      >
+      <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 0.5 }}>
         <Typography
-          variant={valueVariant}
+          variant="body2"
           sx={{
-            fontFamily: mono ? '"Roboto Mono", "Consolas", monospace' : 'inherit',
-            wordBreak: 'break-all',
             flex: 1,
-            color: isInverse ? darkTextPrimary : 'text.primary',
-            fontWeight: isInverse ? 600 : 400,
+            wordBreak: 'break-all',
+            fontFamily: mono ? '"Roboto Mono", "Consolas", monospace' : 'inherit',
           }}
         >
           {value}
@@ -304,70 +247,65 @@ function DataField({
   );
 }
 
-function MetricCard({
+function SummaryCard({
   label,
   value,
   helper,
-  tone = 'default',
   valueColor,
 }: {
   label: ReactNode;
   value: ReactNode;
   helper?: ReactNode;
-  tone?: 'default' | 'inverse';
   valueColor?: string;
 }) {
-  const isInverse = tone === 'inverse';
-
   return (
     <Paper
       variant="outlined"
       sx={{
-        p: isInverse ? 2.25 : 2,
-        borderRadius: 3,
-        textAlign: 'left',
-        bgcolor: isInverse ? darkSurfaceAltBg : 'rgba(248, 250, 252, 0.88)',
-        borderColor: isInverse ? darkSurfaceBorder : 'rgba(148, 163, 184, 0.28)',
-        boxShadow: isInverse ? 'inset 0 1px 0 rgba(255,255,255,0.03)' : 'none',
+        p: 2,
+        borderRadius: 2,
+        boxShadow: 'none',
+        borderColor: 'divider',
+        bgcolor: 'background.default',
         height: '100%',
       }}
     >
-      <Typography
-        variant="caption"
-        sx={{
-          color: isInverse ? darkTextSecondary : 'text.secondary',
-          fontWeight: isInverse ? 700 : 400,
-          letterSpacing: isInverse ? '0.08em' : 'normal',
-          textTransform: isInverse ? 'uppercase' : 'none',
-        }}
-      >
+      <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
       <Box
         sx={{
           mt: 1,
-          minHeight: isInverse ? 36 : 'auto',
-          color: valueColor || (isInverse ? darkTextPrimary : 'text.primary'),
-          fontFamily: isInverse ? accentFont : 'inherit',
+          color: valueColor || 'text.primary',
           fontWeight: 700,
-          fontSize: isInverse ? { xs: '1.35rem', md: '1.65rem' } : undefined,
-          lineHeight: 1.05,
+          fontSize: '1.125rem',
+          lineHeight: 1.2,
         }}
       >
         {value}
       </Box>
       {helper ? (
-        <Typography
-          variant="body2"
-          sx={{
-            mt: 0.75,
-            color: isInverse ? darkTextSecondary : 'text.secondary',
-          }}
-        >
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
           {helper}
         </Typography>
       ) : null}
     </Paper>
+  );
+}
+
+function getStatusChip(status: OrderStatus) {
+  return (
+    <Chip
+      color={statusColor[status] || 'default'}
+      label={
+        <FormattedMessage
+          id={`orders.status.${status.toLowerCase()}`}
+          defaultMessage={status}
+        />
+      }
+      size="small"
+      sx={{ fontWeight: 500 }}
+    />
   );
 }
 
@@ -377,7 +315,6 @@ const OrderDetail = () => {
   const intl = useIntl();
   const { token } = useSelector((state: RootState) => state.user.user);
   const items = useSelector((state: RootState) => state.upgrades.items);
-  const pageShellClassName = 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto';
 
   const [isShippingDialogOpen, setIsShippingDialogOpen] = useState(false);
   const [isGoShippingDialogOpen, setIsGoShippingDialogOpen] = useState(false);
@@ -391,6 +328,7 @@ const OrderDetail = () => {
   const [paymentInfoRequested, setPaymentInfoRequested] = useState(false);
   const [paymentInfoLoading, setPaymentInfoLoading] = useState(false);
   const [paymentInfoError, setPaymentInfoError] = useState<string | null>(null);
+  const autoLoadedPaymentInfoOrderIdRef = useRef<string | null>(null);
 
   const { order, error, loading, mutateOrder: mutate, ships } = useRelatedOrderData(orderId || '');
 
@@ -476,7 +414,7 @@ const OrderDetail = () => {
     }
   };
 
-  const handleLoadPaymentInfo = async () => {
+  const handleLoadPaymentInfo = useCallback(async (refresh = Boolean(paymentInfo)) => {
     if (!order?.id) {
       return;
     }
@@ -486,7 +424,7 @@ const OrderDetail = () => {
     setPaymentInfoError(null);
 
     try {
-      const refreshQuery = paymentInfo ? '?refresh=1' : '';
+      const refreshQuery = refresh ? '?refresh=1' : '';
       const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/related/payment/${order.id}${refreshQuery}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -524,7 +462,31 @@ const OrderDetail = () => {
     } finally {
       setPaymentInfoLoading(false);
     }
-  };
+  }, [intl, order?.id, paymentInfo, token]);
+
+  useEffect(() => {
+    setPaymentInfo(null);
+    setPaymentInfoRequested(false);
+    setPaymentInfoError(null);
+    autoLoadedPaymentInfoOrderIdRef.current = null;
+  }, [order?.id]);
+
+  useEffect(() => {
+    if (!order?.id) {
+      return;
+    }
+
+    if (![OrderStatus.Paid, OrderStatus.Finished].includes(order.status)) {
+      return;
+    }
+
+    if (autoLoadedPaymentInfoOrderIdRef.current === order.id) {
+      return;
+    }
+
+    autoLoadedPaymentInfoOrderIdRef.current = order.id;
+    void handleLoadPaymentInfo(false);
+  }, [handleLoadPaymentInfo, order?.id, order?.status]);
 
   const handleOpenPaymentDocument = async () => {
     const targetUrl = paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl;
@@ -655,125 +617,116 @@ const OrderDetail = () => {
 
   if (loading) {
     return (
-      <Box
-        className={pageShellClassName}
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          background: darkPageBackground,
-        }}
-      >
-        <CircularProgress sx={{ color: accentBlue }} />
+      <div className={pageContainerClassName}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }} className="app-header">
+          <Typography variant="h5">
+            <FormattedMessage id="orderDetail.title" defaultMessage="Order Details" />
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+          <CircularProgress />
+        </Box>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box className={pageContainerClassName} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+        <Alert
+          severity="error"
+          sx={{
+            maxWidth: 500,
+            width: '100%',
+            mb: 2,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            borderRadius: 2,
+          }}
+        >
+          {error}
+        </Alert>
+        <Button
+          variant="outlined"
+          onClick={() => window.location.reload()}
+          startIcon={<Refresh />}
+        >
+          <FormattedMessage id="orders.retry" defaultMessage="Retry" />
+        </Button>
       </Box>
     );
   }
 
-  if (error || !order) {
+  if (!order) {
     return (
-      <Box
-        className={pageShellClassName}
-        sx={{
-          background: darkPageBackground,
-        }}
-      >
-        <Box sx={{ maxWidth: 960, mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 4, md: 6 } }}>
+      <Box className={pageContainerClassName} display="flex">
+        <div className="w-full max-w-[1280px] mx-auto flex gap-4 items-start">
           <Alert
-            severity="error"
+            severity="warning"
             sx={{
+              maxWidth: 500,
+              width: '100%',
               mb: 2,
-              bgcolor: 'rgba(127, 29, 29, 0.32)',
-              color: darkTextPrimary,
-              border: '1px solid rgba(248, 113, 113, 0.3)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              borderRadius: 2,
             }}
           >
-            <FormattedMessage id="orders.notFound" defaultMessage="Order not found or error loading order" />
+            <FormattedMessage id="orderDetail.notFound" defaultMessage="Order not found" />
           </Alert>
           <Button
-            startIcon={<ArrowBack />}
-            onClick={handleBack}
             variant="outlined"
-            sx={{
-              color: darkTextPrimary,
-              borderColor: 'rgba(148, 163, 184, 0.24)',
-            }}
+            onClick={handleBack}
+            startIcon={<ArrowBack />}
           >
             <FormattedMessage id="common.back" defaultMessage="Back" />
           </Button>
-        </Box>
+        </div>
       </Box>
     );
   }
 
-  const total = order.items.reduce((sum, item) => {
-    const activeQty = item.quantity - (item.cancelledQuantity || 0);
-    return sum + (activeQty * item.price);
-  }, 0);
-  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-  const availableItems = order.items.reduce((sum, item) => sum + (item.quantity - (item.cancelledQuantity || 0)), 0);
-  const paymentDocumentUrl = paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || null;
-  const paymentDocumentAvailable = Boolean(paymentDocumentUrl || order.invoiceId);
+  const orderItems = order.items;
+  const createdDate = new Date(order.createdAt).toLocaleString(intl.locale);
+  const updatedDate = new Date(order.updatedAt).toLocaleString(intl.locale);
+  const totalItemsCount = orderItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);
+  const activeItemsCount = totalItemsCount - cancelledItemsCount;
+  const total = orderItems.reduce((sum, item) => sum + ((item.quantity - (item.cancelledQuantity || 0)) * item.price), 0);
+  const paymentDocumentAvailable = Boolean(paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || order.invoiceId);
   const chargedLabel = paymentInfo
     ? formatMoney(intl.locale, paymentInfo.amountTotal, paymentInfo.currency)
     : formatOrderChargedLabel(intl, order);
   const activeStep = getActiveStep(order.status);
-  const orderProgressSteps = [
-    intl.formatMessage({ id: 'orderDetail.status.pending', defaultMessage: 'Pending' }),
-    intl.formatMessage({ id: 'orderDetail.status.processing', defaultMessage: 'Processing' }),
-    intl.formatMessage({ id: 'orderDetail.status.paid', defaultMessage: 'Paid' }),
-    intl.formatMessage({ id: 'orderDetail.status.finished', defaultMessage: 'Finished' }),
-  ];
-  const actionButtonSx = {
-    color: darkTextPrimary,
-    borderColor: 'rgba(148, 163, 184, 0.26)',
-    bgcolor: 'rgba(255,255,255,0.02)',
-    '&:hover': {
-      borderColor: 'rgba(148, 163, 184, 0.4)',
-      bgcolor: 'rgba(255,255,255,0.05)',
-    },
-  } as const;
 
   return (
-    <Box
-      className={pageShellClassName}
-      sx={{
-        background: darkPageBackground,
-      }}
-    >
-      <Box
-        sx={{
-          maxWidth: 1440,
-          mx: 'auto',
-          px: { xs: 2, md: 4 },
-          py: { xs: 3, md: 4.5 },
-          minHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3.5,
-        }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={handleBack}
-            variant="text"
-            sx={{
-              color: darkTextPrimary,
-              px: 0,
-              fontWeight: 700,
-              '&:hover': { bgcolor: 'transparent', color: accentBlue },
-            }}
-          >
-            <FormattedMessage id="common.back" defaultMessage="Back" />
-          </Button>
+    <div className={pageContainerClassName}>
+      <div className="w-full max-w-[1280px] mx-auto flex flex-col gap-4 pt-4">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+          className="app-header"
+        >
+          <div className="flex flex-row items-center gap-4">
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={handleBack}
+              variant="text"
+              sx={{ mr: 2 }}
+            >
+              <FormattedMessage id="common.back" defaultMessage="Back" />
+            </Button>
+          </div>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <Button
               variant="outlined"
               startIcon={paymentInfoLoading ? <CircularProgress size={16} color="inherit" /> : paymentInfo ? <Refresh /> : <PaymentsOutlined />}
-              onClick={handleLoadPaymentInfo}
+              onClick={() => void handleLoadPaymentInfo()}
               disabled={paymentInfoLoading}
-              sx={actionButtonSx}
             >
               <FormattedMessage
                 id={paymentInfo ? 'reseller.order.refreshPaymentInfo' : 'reseller.order.fetchPaymentInfo'}
@@ -781,639 +734,437 @@ const OrderDetail = () => {
               />
             </Button>
             <Button
-              variant="outlined"
-              startIcon={<OpenInNew />}
+              variant="text"
+              startIcon={paymentDocumentAvailable ? <ReceiptLong /> : <OpenInNew />}
               onClick={handleOpenPaymentDocument}
               disabled={!paymentDocumentAvailable}
-              sx={actionButtonSx}
             >
               <FormattedMessage id="reseller.order.openPaymentDocument" defaultMessage="Open Invoice / Receipt" />
             </Button>
           </Stack>
         </Box>
 
-        <Paper
-          sx={{
-            p: { xs: 2.25, md: 3 },
-            borderRadius: 4,
-            background: darkSurfaceBg,
-            border: '1px solid',
-            borderColor: darkSurfaceBorder,
-            boxShadow: '0 24px 80px rgba(0, 0, 0, 0.28)',
-          }}
-        >
-          <Stepper
-            activeStep={activeStep}
-            alternativeLabel
-            sx={{
-              '& .MuiStepLabel-label': {
-                mt: 1,
-                color: darkTextSecondary,
-                fontWeight: 700,
-                fontSize: { xs: '0.72rem', md: '0.82rem' },
-              },
-              '& .Mui-active .MuiStepLabel-label, & .Mui-completed .MuiStepLabel-label': {
-                color: darkTextPrimary,
-              },
-              '& .MuiStepConnector-line': {
-                borderColor: 'rgba(71, 85, 105, 0.6)',
-                borderTopWidth: 2,
-              },
-              '& .Mui-completed .MuiStepConnector-line': {
-                borderColor: accentBlue,
-              },
-              '& .MuiStepIcon-root': {
-                color: 'rgba(51, 65, 85, 0.92)',
-              },
-              '& .MuiStepIcon-text': {
-                fill: darkTextPrimary,
-                fontSize: '0.72rem',
-                fontFamily: accentFont,
-                fontWeight: 700,
-              },
-              '& .Mui-active .MuiStepIcon-root': {
-                color: statusAccent[order.status],
-                filter: `drop-shadow(0 0 16px ${statusAccent[order.status]}55)`,
-              },
-              '& .Mui-completed .MuiStepIcon-root': {
-                color: accentBlue,
-              },
-            }}
-          >
-            {orderProgressSteps.map((label, index) => (
-              <Step key={label} completed={index < activeStep}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
+        <div className="bg-white dark:bg-neutral-900 py-6 shadow-sm mb-4 border border-gray-100 dark:border-neutral-700">
+          <Stepper activeStep={activeStep} alternativeLabel>
+            <Step completed={order.status !== OrderStatus.Pending}>
+              <StepLabel>
+                <FormattedMessage id="orderDetail.status.pending" defaultMessage="Pending" />
+              </StepLabel>
+            </Step>
+            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+              <StepLabel>
+                <FormattedMessage id="orderDetail.status.processing" defaultMessage="Processing" />
+              </StepLabel>
+            </Step>
+            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+              <StepLabel>
+                <FormattedMessage id="orderDetail.status.paid" defaultMessage="Paid" />
+              </StepLabel>
+            </Step>
+            <Step completed={order.status === OrderStatus.Finished}>
+              <StepLabel>
+                <FormattedMessage id="orderDetail.status.finished" defaultMessage="Finished" />
+              </StepLabel>
+            </Step>
           </Stepper>
-        </Paper>
+        </div>
 
-        <Paper
-          sx={{
-            p: { xs: 2.5, md: 3.5 },
-            borderRadius: 5,
-            color: darkTextPrimary,
-            background: `radial-gradient(circle at top right, rgba(110,168,255,0.18), transparent 26%), ${darkSurfaceBg}`,
-            position: 'relative',
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: darkSurfaceBorder,
-            boxShadow: '0 28px 90px rgba(0, 0, 0, 0.32)',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.03), transparent 40%)',
-              pointerEvents: 'none',
-            },
-          }}
-        >
-          <Box
-            sx={{
-              position: 'relative',
-              zIndex: 1,
-              textAlign: 'left',
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1.35fr) 420px' },
-              gap: 3,
-              alignItems: 'start',
-            }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Box sx={{ borderLeft: '4px solid', borderLeftColor: statusAccent[order.status], pl: 2.25, mb: 3 }}>
-                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
-                  <Typography
-                    variant="h3"
-                    sx={{
-                      fontFamily: accentFont,
-                      fontWeight: 700,
-                      letterSpacing: '0.01em',
-                      wordBreak: 'break-word',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {order.id}
-                  </Typography>
-                  <Chip
-                    label={<FormattedMessage id={`orders.status.${order.status}`} defaultMessage={order.status} />}
-                    color={statusColor[order.status] || 'default'}
-                    size="small"
-                    sx={{ fontWeight: 700 }}
-                  />
-                </Stack>
-
-                <Typography variant="body1" sx={{ maxWidth: 760, color: darkTextSecondary }}>
-                  <FormattedMessage
-                    id="reseller.order.heroSummary"
-                    defaultMessage="Track fulfillment, review customer details, and fetch Stripe payment signals only when you need them."
-                  />
+        <div className={`${sectionClassName} mb-6`}>
+          <div className="flex flex-wrap gap-6 justify-between">
+            <div className="flex-1 min-w-[280px]">
+              <div className="flex items-center gap-3 mb-3">
+                <Typography
+                  variant="h5"
+                  fontWeight="bold"
+                  sx={{
+                    borderLeft: '4px solid',
+                    borderLeftColor: statusAccentColor[order.status],
+                    pl: 1,
+                  }}
+                >
+                  {order.id}
                 </Typography>
-              </Box>
+                {getStatusChip(order.status)}
+              </div>
 
               <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
-                  gap: 2.25,
+                  gap: 2,
+                  maxWidth: 760,
                 }}
               >
                 <DataField
-                  tone="inverse"
-                  valueVariant="body1"
-                  label={<FormattedMessage id="orders.createTime" defaultMessage="Created at" />}
-                  value={formatDateTime(intl.locale, order.createdAt)}
+                  label={<FormattedMessage id="orderDetail.created" defaultMessage="Created At" />}
+                  value={createdDate}
                 />
                 <DataField
-                  tone="inverse"
-                  valueVariant="body1"
-                  label={<FormattedMessage id="orders.updateTime" defaultMessage="Updated at" />}
-                  value={formatDateTime(intl.locale, order.updatedAt)}
+                  label={<FormattedMessage id="orderDetail.updated" defaultMessage="Updated At" />}
+                  value={updatedDate}
                 />
                 <DataField
-                  tone="inverse"
-                  valueVariant="body1"
                   label={<FormattedMessage id="orders.customerEmail" defaultMessage="Customer email" />}
                   value={order.customerEmail || '—'}
                   action={order.customerEmail ? (
                     <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
-                      <IconButton size="small" sx={{ color: darkTextPrimary }} onClick={() => handleCopyValue(order.customerEmail)}>
+                      <IconButton size="small" onClick={() => handleCopyValue(order.customerEmail)}>
                         <ContentCopy fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   ) : undefined}
                 />
                 <DataField
-                  tone="inverse"
-                  valueVariant="body1"
-                  label={<FormattedMessage id="orders.itemsAvailability" defaultMessage="Items" />}
-                  value={formatOrderActiveItemsSummary(intl, availableItems, totalItems)}
+                  label={<FormattedMessage id="orderDetail.invoiceId" defaultMessage="Invoice ID" />}
+                  value={order.invoiceId || '—'}
+                  action={order.invoiceId ? (
+                    <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
+                      <IconButton size="small" onClick={() => handleCopyValue(order.invoiceId)}>
+                        <ContentCopy fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : undefined}
                 />
               </Box>
-            </Box>
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                gap: 1.5,
-                alignSelf: 'start',
-              }}
-            >
-              <MetricCard
-                tone="inverse"
-                label={<FormattedMessage id="orders.orderTotal" defaultMessage="Order total" />}
-                value={formatOrderUsdPrice(intl.locale, total)}
-                helper={<FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />}
-                valueColor={accentBlue}
-              />
-              <MetricCard
-                tone="inverse"
-                label={<FormattedMessage id="orders.charged" defaultMessage="Charged" />}
-                value={chargedLabel}
-                helper={paymentInfo?.currency || intl.formatMessage({ id: `orders.status.${order.status}`, defaultMessage: order.status })}
-                valueColor={order.status === OrderStatus.Canceled ? accentOrange : accentBlue}
-              />
-              <MetricCard
-                tone="inverse"
-                label={<FormattedMessage id="orders.items" defaultMessage="Items" />}
-                value={formatOrderItemCountLabel(intl, availableItems)}
-                helper={<FormattedMessage id="orderDetail.activeItemsSummary" defaultMessage="{active} / {total} active" values={{ active: availableItems, total: totalItems }} />}
-              />
-              <MetricCard
-                tone="inverse"
-                label={<FormattedMessage id="reseller.order.paymentSignal" defaultMessage="Payment Signal" />}
-                value={paymentInfo ? formatStateLabel(paymentInfo.paymentStatus || paymentInfo.paymentIntentStatus) : 'On demand'}
-                helper={paymentInfo ? getPaymentMethodLabel(paymentInfo) : intl.formatMessage({
-                  id: 'reseller.order.paymentSignalHelper',
-                  defaultMessage: 'Fetch Stripe details only when needed',
-                })}
-              />
-            </Box>
-          </Box>
-        </Paper>
-
-        <Paper
-          sx={{
-            p: { xs: 2.5, md: 3.25 },
-            borderRadius: 5,
-            border: '1px solid',
-            borderColor: darkSurfaceBorder,
-            textAlign: 'left',
-            background: darkSurfaceBg,
-            boxShadow: '0 24px 72px rgba(0, 0, 0, 0.26)',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2.5 }}>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: darkTextPrimary, fontFamily: accentFont }}>
-                <FormattedMessage id="orders.itemsList" defaultMessage="Order Items" />
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5, color: darkTextSecondary }}>
-                <FormattedMessage
-                  id="reseller.order.itemsSummary"
-                  defaultMessage="{count} sellable lines · {amount} currently active"
-                  values={{
-                    count: order.items.length,
-                    amount: formatOrderActiveItemsSummary(intl, availableItems, totalItems),
-                  }}
+              <Box sx={{ mt: 2 }}>
+                <OrderPaymentDeadline
+                  status={order.status}
+                  expiresAt={order.expiresAt}
                 />
+              </Box>
+            </div>
+
+            <div className="min-w-[220px] text-left md:text-right">
+              <Typography variant="caption" color="text.secondary">
+                <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
               </Typography>
-            </Box>
+              <div className="text-[16px] text-blue-500 font-bold">
+                {formatOrderUsdPrice(intl.locale, total)}
+              </div>
+
+              <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                <FormattedMessage id="orders.charged" defaultMessage="Charged" />
+              </Typography>
+              <Typography variant="body2">
+                {chargedLabel}
+              </Typography>
+
+              <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                <FormattedMessage id="orderDetail.itemsCount" defaultMessage="Items Count" />
+              </Typography>
+              <Typography variant="body2">
+                {formatOrderActiveItemsSummary(intl, activeItemsCount, totalItemsCount)}
+              </Typography>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', md: 'center' },
+              gap: 2,
+              flexWrap: 'wrap',
+              mb: 2,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Typography variant="h6" fontWeight="medium">
+                <FormattedMessage id="orderDetail.items" defaultMessage="Order Items" />
+              </Typography>
+              <Chip
+                label={formatOrderItemCountLabel(intl, activeItemsCount)}
+                size="small"
+                variant="outlined"
+              />
+            </div>
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <Chip
-                label={formatOrderItemCountLabel(intl, order.items.length)}
-                sx={{
-                  alignSelf: { xs: 'flex-start', sm: 'center' },
-                  color: darkTextPrimary,
-                  bgcolor: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  fontWeight: 700,
-                }}
-              />
               <Crawler ships={ships} />
-              <Button variant="outlined" onClick={handleGoShippingClick} sx={actionButtonSx}>
+              <Button variant="outlined" onClick={handleGoShippingClick}>
                 <FormattedMessage id="orders.goShipping" defaultMessage="Go Shipping" />
               </Button>
             </Stack>
           </Box>
 
+          <Box sx={{ width: '100%', overflow: 'auto' }} className="resource-card">
+            <TableContainer className="overflow-hidden mb-3">
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.image" defaultMessage="Image" />
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.name" defaultMessage="Name" />
+                    </TableCell>
+                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.quantity" defaultMessage="Quantity" />
+                    </TableCell>
+                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.unitPrice" defaultMessage="Unit Price" />
+                    </TableCell>
+                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
+                    </TableCell>
+                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orderDetail.status" defaultMessage="Status" />
+                    </TableCell>
+                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                      <FormattedMessage id="orders.actionPanel" defaultMessage="Actions" />
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {orderItems.map((item, index) => {
+                    const marketItem = item.marketItem;
+                    const itemName = getOrderItemDisplayName(intl, marketItem, ships);
+                    const { shipName } = getLocalizedOrderItemShipNames(marketItem, ships);
+                    const isCCU = marketItem?.itemType === 'ccu';
+                    const isPackage = marketItem?.itemType === 'package';
+                    const isCredit = marketItem?.itemType === 'credit';
+                    const itemCancelledQty = item.cancelledQuantity || 0;
+                    const activeQty = item.quantity - itemCancelledQty;
+                    const ccuRoute = formatOrderCcuRoute(intl, marketItem, ships);
+                    const packageSummary = formatOrderPackageSummary(intl, marketItem);
+                    const isFullyCancelled = item.quantity === itemCancelledQty;
+                    const canShip = !item.shipped && activeQty > 0;
+
+                    return (
+                      <TableRow
+                        key={item.id || index}
+                        sx={{
+                          '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
+                          transition: 'background-color 0.2s',
+                        }}
+                      >
+                        <TableCell>
+                          {renderOrderItemVisual(item, itemName, ships)}
+                        </TableCell>
+                        <TableCell>
+                          <Typography fontWeight="medium">{itemName}</Typography>
+                          {isCCU && ccuRoute && (
+                            <Typography variant="body2" color="text.secondary">
+                              {ccuRoute}
+                            </Typography>
+                          )}
+                          {isPackage && (
+                            <>
+                              {shipName && shipName !== itemName && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {shipName}
+                                </Typography>
+                              )}
+                              {packageSummary && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {packageSummary}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                          {(marketItem?.itemType === 'misc' || isCredit) && (
+                            <>
+                              {marketItem?.description && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {marketItem.description}
+                                </Typography>
+                              )}
+                              {marketItem?.externalRef && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {marketItem.externalRef}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                          {!marketItem?.name && (
+                            <Typography variant="body2" color="text.secondary">
+                              <FormattedMessage
+                                id="orderDetail.unavailableItem"
+                                defaultMessage="This product is no longer listed in the marketplace, but the order record is preserved."
+                              />
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {marketItem?.belongsTo && `${marketItem.belongsTo}`}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <div className="flex justify-center items-center">
+                            {isFullyCancelled ? (
+                              <div className="flex items-center text-red-500">
+                                <X className="w-4 h-4 mr-1" />
+                                <span>0/{item.quantity}</span>
+                              </div>
+                            ) : itemCancelledQty > 0 ? (
+                              <div className="flex items-center text-orange-500">
+                                <Info className="w-4 h-4 mr-1" />
+                                <span>{activeQty}/{item.quantity}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center text-green-500">
+                                <Check className="w-4 h-4 mr-1" />
+                                <span>{item.quantity}</span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell align="right">
+                          <div className="text-[16px] text-blue-500 font-bold">
+                            {formatOrderUsdPrice(intl.locale, item.price)}
+                          </div>
+                        </TableCell>
+                        <TableCell align="right">
+                          <div className="text-[16px] text-blue-500 font-bold">
+                            {formatOrderUsdPrice(intl.locale, item.price * activeQty)}
+                          </div>
+                        </TableCell>
+                        <TableCell align="center">
+                          {isFullyCancelled ? (
+                            <Chip
+                              size="small"
+                              color="error"
+                              label={<FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />}
+                            />
+                          ) : item.shipped ? (
+                            <Chip
+                              size="small"
+                              color="success"
+                              label={<FormattedMessage id="orderDetail.delivered" defaultMessage="Delivered" />}
+                            />
+                          ) : (
+                            <Chip
+                              size="small"
+                              color="warning"
+                              label={<FormattedMessage id="orderDetail.delivering" defaultMessage="Delivering" />}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            variant={canShip ? 'contained' : 'outlined'}
+                            color={item.shipped ? 'success' : 'primary'}
+                            disabled={!canShip || isLoading}
+                            onClick={() => handleOpenShippingDialog(item)}
+                            sx={canShip ? { boxShadow: 'none' } : undefined}
+                          >
+                            {isFullyCancelled ? (
+                              <FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />
+                            ) : item.shipped ? (
+                              <FormattedMessage id="orders.shipped" defaultMessage="Shipped" />
+                            ) : (
+                              <FormattedMessage id="orders.ship" defaultMessage="Ship" />
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </div>
+
+        <div className={sectionClassName}>
           <Box
             sx={{
-              display: { xs: 'none', lg: 'grid' },
-              gridTemplateColumns: '280px minmax(0, 1.5fr) 120px 140px 140px 150px 140px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', md: 'center' },
               gap: 2,
-              px: 2.5,
-              pb: 1.5,
+              flexWrap: 'wrap',
+              mb: 2.5,
             }}
           >
-            {[
-              intl.formatMessage({ id: 'orderDetail.image', defaultMessage: 'Image' }),
-              intl.formatMessage({ id: 'orderDetail.name', defaultMessage: 'Name' }),
-              intl.formatMessage({ id: 'orderDetail.quantity', defaultMessage: 'Quantity' }),
-              intl.formatMessage({ id: 'orderDetail.unitPrice', defaultMessage: 'Unit Price' }),
-              intl.formatMessage({ id: 'orderDetail.totalPrice', defaultMessage: 'Total Price' }),
-              intl.formatMessage({ id: 'orders.status', defaultMessage: 'Status' }),
-              intl.formatMessage({ id: 'orders.actionPanel', defaultMessage: 'Actions' }),
-            ].map((label) => (
-              <Typography
-                key={label}
-                variant="caption"
-                sx={{
-                  color: darkTextSecondary,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  fontWeight: 700,
-                }}
-              >
-                {label}
-              </Typography>
-            ))}
-          </Box>
-
-          <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.12)', mb: 2.5 }} />
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {order.items.map((item) => {
-              const marketItem = item.marketItem;
-              const itemName = getOrderItemDisplayName(intl, marketItem, ships);
-              const { shipName } = getLocalizedOrderItemShipNames(marketItem, ships);
-              const isPackage = marketItem.itemType === 'package';
-              const isCredit = marketItem.itemType === 'credit';
-              const itemCancelledQty = item.cancelledQuantity || 0;
-              const activeQty = item.quantity - itemCancelledQty;
-              const ccuRoute = formatOrderCcuRoute(intl, marketItem, ships);
-              const packageSummary = formatOrderPackageSummary(intl, marketItem);
-              const isFullyCancelled = item.quantity === itemCancelledQty;
-              const canShip = !item.shipped && activeQty > 0;
-
-              return (
-                <Paper
-                  key={item.id}
-                  variant="outlined"
-                  sx={{
-                    p: { xs: 2, md: 2.5 },
-                    borderRadius: 4,
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.015))',
-                    borderColor: 'rgba(148, 163, 184, 0.12)',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: {
-                        xs: '1fr',
-                        lg: '280px minmax(0, 1.5fr) 120px 140px 140px 150px 140px',
-                      },
-                      gap: { xs: 2, lg: 2 },
-                      alignItems: { xs: 'stretch', lg: 'center' },
-                    }}
-                  >
-                    <Box>{renderOrderItemVisual(item, itemName, ships)}</Box>
-
-                    <Box sx={{ minWidth: 0 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mb: 1.25 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, wordBreak: 'break-word', color: darkTextPrimary }}>
-                          {itemName}
-                        </Typography>
-                        {isFullyCancelled ? (
-                          <Chip size="small" color="error" label={<FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />} sx={{ fontWeight: 700 }} />
-                        ) : item.shipped ? (
-                          <Chip size="small" color="success" label={<FormattedMessage id="orderDetail.delivered" defaultMessage="Delivered" />} sx={{ fontWeight: 700 }} />
-                        ) : (
-                          <Chip size="small" color="warning" label={<FormattedMessage id="orderDetail.delivering" defaultMessage="Delivering" />} sx={{ fontWeight: 700 }} />
-                        )}
-                      </Stack>
-
-                      <Stack spacing={0.75}>
-                        {ccuRoute ? (
-                          <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                            {ccuRoute}
-                          </Typography>
-                        ) : null}
-
-                        {isPackage && shipName && shipName !== itemName ? (
-                          <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                            {shipName}
-                          </Typography>
-                        ) : null}
-
-                        {isPackage && packageSummary ? (
-                          <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                            {packageSummary}
-                          </Typography>
-                        ) : null}
-
-                        {(marketItem.itemType === 'misc' || isCredit) && marketItem.description ? (
-                          <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                            {marketItem.description}
-                          </Typography>
-                        ) : null}
-
-                        {marketItem.externalRef ? (
-                          <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                            {marketItem.externalRef}
-                          </Typography>
-                        ) : null}
-
-                        <Typography variant="caption" sx={{ color: darkMutedText }}>
-                          {marketItem.skuId}
-                        </Typography>
-                      </Stack>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', flexDirection: { xs: 'row', lg: 'column' }, alignItems: { xs: 'center', lg: 'flex-start' }, gap: 1 }}>
-                      <Typography variant="caption" sx={{ display: { xs: 'inline', lg: 'block' }, color: darkTextSecondary, textTransform: { lg: 'uppercase' }, letterSpacing: { lg: '0.08em' }, minWidth: { xs: 70, lg: 'auto' } }}>
-                        <FormattedMessage id="orderDetail.quantity" defaultMessage="Quantity" />
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isFullyCancelled ? (
-                          <>
-                            <X size={16} color={accentRed} />
-                            <Typography variant="body1" sx={{ fontWeight: 700, color: accentRed }}>
-                              0 / {item.quantity}
-                            </Typography>
-                          </>
-                        ) : itemCancelledQty > 0 ? (
-                          <>
-                            <Info size={16} color={accentOrange} />
-                            <Typography variant="body1" sx={{ fontWeight: 700, color: darkTextPrimary }}>
-                              {activeQty} / {item.quantity}
-                            </Typography>
-                          </>
-                        ) : (
-                          <>
-                            <Check size={16} color={accentGreen} />
-                            <Typography variant="body1" sx={{ fontWeight: 700, color: darkTextPrimary }}>
-                              {activeQty}
-                            </Typography>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" sx={{ display: { xs: 'inline', lg: 'block' }, color: darkTextSecondary, textTransform: { lg: 'uppercase' }, letterSpacing: { lg: '0.08em' } }}>
-                        <FormattedMessage id="orderDetail.unitPrice" defaultMessage="Unit Price" />
-                      </Typography>
-                      <Typography variant="h6" sx={{ mt: { xs: 0, lg: 0.75 }, fontWeight: 700, color: accentBlue, fontFamily: accentFont }}>
-                        {formatOrderUsdPrice(intl.locale, item.price)}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" sx={{ display: { xs: 'inline', lg: 'block' }, color: darkTextSecondary, textTransform: { lg: 'uppercase' }, letterSpacing: { lg: '0.08em' } }}>
-                        <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
-                      </Typography>
-                      <Typography variant="h6" sx={{ mt: { xs: 0, lg: 0.75 }, fontWeight: 700, color: accentBlue, fontFamily: accentFont }}>
-                        {formatOrderUsdPrice(intl.locale, activeQty * item.price)}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" sx={{ display: { xs: 'inline', lg: 'block' }, color: darkTextSecondary, textTransform: { lg: 'uppercase' }, letterSpacing: { lg: '0.08em' } }}>
-                        <FormattedMessage id="orders.status" defaultMessage="Status" />
-                      </Typography>
-                      <Box sx={{ mt: { xs: 0, lg: 0.75 } }}>
-                        {isFullyCancelled ? (
-                          <Chip
-                            size="small"
-                            label={<FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />}
-                            sx={{
-                              bgcolor: 'rgba(255, 135, 94, 0.18)',
-                              color: accentOrange,
-                              fontWeight: 700,
-                              border: '1px solid rgba(255, 135, 94, 0.24)',
-                            }}
-                          />
-                        ) : item.shipped ? (
-                          <Chip
-                            size="small"
-                            label={<FormattedMessage id="orderDetail.delivered" defaultMessage="Delivered" />}
-                            sx={{
-                              bgcolor: 'rgba(74, 222, 128, 0.16)',
-                              color: accentGreen,
-                              fontWeight: 700,
-                              border: '1px solid rgba(74, 222, 128, 0.22)',
-                            }}
-                          />
-                        ) : (
-                          <Chip
-                            size="small"
-                            label={<FormattedMessage id="orderDetail.delivering" defaultMessage="Delivering" />}
-                            sx={{
-                              bgcolor: 'rgba(110, 168, 255, 0.18)',
-                              color: accentBlue,
-                              fontWeight: 700,
-                              border: '1px solid rgba(110, 168, 255, 0.24)',
-                            }}
-                          />
-                        )}
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', lg: 'flex-end' }, alignItems: 'center' }}>
-                      <Button
-                        fullWidth
-                        variant={canShip ? 'contained' : 'outlined'}
-                        color={canShip ? 'primary' : item.shipped ? 'success' : 'inherit'}
-                        disabled={!canShip || isLoading}
-                        onClick={() => handleOpenShippingDialog(item)}
-                        sx={canShip ? {
-                          fontWeight: 700,
-                          boxShadow: 'none',
-                          bgcolor: accentBlue,
-                          '&:hover': {
-                            bgcolor: '#5b97eb',
-                            boxShadow: 'none',
-                          },
-                        } : actionButtonSx}
-                      >
-                        {item.shipped ? (
-                          <FormattedMessage id="orders.shipped" defaultMessage="Shipped" />
-                        ) : (
-                          <FormattedMessage id="orders.ship" defaultMessage="Ship" />
-                        )}
-                      </Button>
-                    </Box>
-                  </Box>
-                </Paper>
-              );
-            })}
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mt: 3, pt: 2.5, borderTop: '1px solid', borderColor: 'rgba(148, 163, 184, 0.12)' }}>
             <Box>
-              <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                <FormattedMessage id="orderDetail.summary" defaultMessage="Order Summary" />
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: accentBlue, fontFamily: accentFont }}>
-                {formatOrderUsdPrice(intl.locale, total)}
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ color: darkTextSecondary, maxWidth: 620 }}>
-              <FormattedMessage
-                id="reseller.order.orderFootnote"
-                defaultMessage="Only active quantities contribute to the reseller fulfillment total."
-              />
-            </Typography>
-          </Box>
-        </Paper>
-
-        <Paper
-          sx={{
-            p: { xs: 2.5, md: 3.25 },
-            borderRadius: 5,
-            border: '1px solid',
-            borderColor: darkSurfaceBorder,
-            textAlign: 'left',
-            background: darkSurfaceBg,
-            boxShadow: '0 24px 72px rgba(0, 0, 0, 0.26)',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap', mb: 2.5 }}>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: darkTextPrimary, fontFamily: accentFont }}>
+              <Typography variant="h6" fontWeight="medium" align='left'>
                 <FormattedMessage id="reseller.order.paymentInfo" defaultMessage="Payment Details" />
               </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5, color: darkTextSecondary }}>
-                <FormattedMessage
-                  id="reseller.order.paymentInfoHint"
-                  defaultMessage="Stripe fields are loaded only after you request them, so the page stays fast by default."
-                />
-              </Typography>
             </Box>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Button
+                variant="outlined"
+                startIcon={paymentInfoLoading ? <CircularProgress size={16} color="inherit" /> : paymentInfo ? <Refresh /> : <PaymentsOutlined />}
+                onClick={() => void handleLoadPaymentInfo()}
+                disabled={paymentInfoLoading}
+              >
+                <FormattedMessage
+                  id={paymentInfo ? 'reseller.order.refreshPaymentInfo' : 'reseller.order.fetchPaymentInfo'}
+                  defaultMessage={paymentInfo ? 'Refresh Payment Details' : 'Fetch Payment Details'}
+                />
+              </Button>
+              <Button
+                variant="text"
+                startIcon={<OpenInNew />}
+                onClick={handleOpenPaymentDocument}
+                disabled={!paymentDocumentAvailable}
+              >
+                <FormattedMessage id="reseller.order.openPaymentDocument" defaultMessage="Open Invoice / Receipt" />
+              </Button>
+            </Stack>
           </Box>
 
           {paymentInfoLoading ? (
             <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
-              <CircularProgress sx={{ color: accentBlue }} />
-              <Typography variant="body2" sx={{ color: darkTextSecondary }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary">
+                <FormattedMessage id="common.loading" defaultMessage="Loading..." />
+              </Typography>
+            </Box>
+          ) : [OrderStatus.Paid, OrderStatus.Finished].includes(order.status) && !paymentInfoRequested ? (
+            <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary">
                 <FormattedMessage id="common.loading" defaultMessage="Loading..." />
               </Typography>
             </Box>
           ) : !paymentInfoRequested ? (
-            <Box
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                border: '1px dashed',
-                borderColor: 'rgba(148, 163, 184, 0.22)',
-                bgcolor: 'rgba(255,255,255,0.02)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 2,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5, color: darkTextPrimary }}>
-                  <FormattedMessage id="reseller.order.paymentNotLoaded" defaultMessage="Payment details are not loaded yet" />
-                </Typography>
-                <Typography variant="body2" sx={{ color: darkTextSecondary }}>
-                  <FormattedMessage
-                    id="reseller.order.paymentNotLoadedHint"
-                    defaultMessage="Click the button once to fetch billing, payment method, receipt, and Radar signals from Stripe."
-                  />
-                </Typography>
-              </Box>
-              <Button variant="contained" startIcon={<PaymentsOutlined />} onClick={handleLoadPaymentInfo} sx={{
-                fontWeight: 700,
-                boxShadow: 'none',
-                bgcolor: accentBlue,
-                '&:hover': {
-                  bgcolor: '#5b97eb',
-                  boxShadow: 'none',
-                },
-              }}>
-                <FormattedMessage id="reseller.order.fetchPaymentInfo" defaultMessage="Fetch Payment Details" />
-              </Button>
-            </Box>
+            <></>
           ) : !paymentInfo ? (
-            <Alert
-              severity="info"
-              sx={{
-                bgcolor: 'rgba(30, 64, 175, 0.18)',
-                color: darkTextPrimary,
-                border: '1px solid rgba(96, 165, 250, 0.2)',
-              }}
-            >
+            <Alert severity={paymentInfoError ? 'warning' : 'info'}>
               {paymentInfoError || intl.formatMessage({
                 id: 'reseller.order.paymentUnavailable',
                 defaultMessage: 'No payment details are available for this order yet.',
               })}
             </Alert>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+            <>
               <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' },
                   gap: 2,
+                  mb: 2.5,
+                  textAlign: 'left'
                 }}
               >
-                <MetricCard
-                  tone="inverse"
+                <SummaryCard
                   label={<FormattedMessage id="orders.charged" defaultMessage="Charged" />}
                   value={formatMoney(intl.locale, paymentInfo.amountTotal, paymentInfo.currency)}
                   helper={paymentInfo.currency || 'USD'}
-                  valueColor={accentBlue}
+                  valueColor="#1976d2"
                 />
-                <MetricCard
-                  tone="inverse"
+                <SummaryCard
                   label={<FormattedMessage id="orderDetail.subtotal" defaultMessage="Subtotal" />}
                   value={formatMoney(intl.locale, paymentInfo.amountSubtotal, paymentInfo.currency)}
-                  helper={<FormattedMessage id="reseller.order.tax" defaultMessage="Tax: {value}" values={{ value: formatMoney(intl.locale, paymentInfo.amountTax, paymentInfo.currency) }} />}
+                  helper={intl.formatMessage({
+                    id: 'reseller.order.tax',
+                    defaultMessage: 'Tax: {value}',
+                  }, {
+                    value: formatMoney(intl.locale, paymentInfo.amountTax, paymentInfo.currency),
+                  })}
                 />
-                <MetricCard
-                  tone="inverse"
+                <SummaryCard
                   label={<FormattedMessage id="reseller.order.paymentMethod" defaultMessage="Payment Method" />}
                   value={getPaymentMethodLabel(paymentInfo)}
                   helper={paymentInfo.paymentMethodType ? formatStateLabel(paymentInfo.paymentMethodType) : '—'}
                 />
-                <MetricCard
-                  tone="inverse"
+                <SummaryCard
                   label={<FormattedMessage id="reseller.order.riskSignal" defaultMessage="Risk Signal" />}
                   value={(
                     <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
@@ -1423,7 +1174,7 @@ const OrderDetail = () => {
                         label={paymentInfo.riskLevel ? formatStateLabel(paymentInfo.riskLevel) : '—'}
                       />
                       {typeof paymentInfo.riskScore === 'number' ? (
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: darkTextPrimary }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
                           {paymentInfo.riskScore}
                         </Typography>
                       ) : null}
@@ -1439,14 +1190,7 @@ const OrderDetail = () => {
               </Box>
 
               {paymentInfoError ? (
-                <Alert
-                  severity="warning"
-                  sx={{
-                    bgcolor: 'rgba(120, 53, 15, 0.22)',
-                    color: darkTextPrimary,
-                    border: '1px solid rgba(251, 191, 36, 0.22)',
-                  }}
-                >
+                <Alert severity="warning" sx={{ mb: 2.5 }}>
                   {paymentInfoError}
                 </Alert>
               ) : null}
@@ -1456,79 +1200,71 @@ const OrderDetail = () => {
                   display: 'grid',
                   gridTemplateColumns: { xs: '1fr', lg: 'repeat(3, minmax(0, 1fr))' },
                   gap: 2,
+                  textAlign: 'left'
                 }}
               >
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(148, 163, 184, 0.12)' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: darkTextPrimary }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                  <Typography variant="subtitle1" fontWeight="medium" sx={{ mb: 2 }}>
                     <FormattedMessage id="reseller.order.billing" defaultMessage="Billing" />
                   </Typography>
                   <Stack spacing={1.5}>
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.customerName" defaultMessage="Customer name" />}
                       value={paymentInfo.customerName || '—'}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="orders.customerEmail" defaultMessage="Customer email" />}
                       value={paymentInfo.customerEmail || order.customerEmail || '—'}
                       action={(paymentInfo.customerEmail || order.customerEmail) ? (
                         <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
-                          <IconButton size="small" sx={{ color: darkTextPrimary }} onClick={() => handleCopyValue(paymentInfo.customerEmail || order.customerEmail)}>
+                          <IconButton size="small" onClick={() => handleCopyValue(paymentInfo.customerEmail || order.customerEmail)}>
                             <ContentCopy fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       ) : undefined}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.billingCountry" defaultMessage="Billing country" />}
                       value={formatCountry(intl.locale, paymentInfo.billingCountry)}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.capturedAmount" defaultMessage="Captured amount" />}
                       value={formatMoney(intl.locale, paymentInfo.amountCaptured, paymentInfo.currency)}
                     />
                   </Stack>
                 </Paper>
 
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(148, 163, 184, 0.12)' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: darkTextPrimary }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                  <Typography variant="subtitle1" fontWeight="medium" sx={{ mb: 2 }}>
                     <FormattedMessage id="reseller.order.paymentState" defaultMessage="Payment State" />
                   </Typography>
                   <Stack spacing={1.5}>
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.checkoutStatus" defaultMessage="Checkout status" />}
                       value={formatStateLabel(paymentInfo.checkoutStatus)}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.paymentStatus" defaultMessage="Payment status" />}
                       value={formatStateLabel(paymentInfo.paymentStatus)}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.intentStatus" defaultMessage="Intent status" />}
                       value={formatStateLabel(paymentInfo.paymentIntentStatus)}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.cvcCheck" defaultMessage="CVC check" />}
                       value={formatStateLabel(paymentInfo.cvcCheck)}
                     />
                     <DataField
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.postalCheck" defaultMessage="Postal code check" />}
                       value={formatStateLabel(paymentInfo.postalCodeCheck)}
                     />
                   </Stack>
                 </Paper>
 
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(148, 163, 184, 0.12)' }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: darkTextPrimary }}>
+                    <Typography variant="subtitle1" fontWeight="medium">
                       <FormattedMessage id="reseller.order.paymentReferences" defaultMessage="Payment References" />
                     </Typography>
                     <Button
@@ -1536,7 +1272,6 @@ const OrderDetail = () => {
                       startIcon={<OpenInNew />}
                       onClick={handleOpenPaymentDocument}
                       disabled={!paymentDocumentAvailable}
-                      sx={actionButtonSx}
                     >
                       <FormattedMessage id="reseller.order.openPaymentDocument" defaultMessage="Open Invoice / Receipt" />
                     </Button>
@@ -1544,12 +1279,11 @@ const OrderDetail = () => {
                   <Stack spacing={1.5}>
                     <DataField
                       mono
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.sessionId" defaultMessage="Checkout session ID" />}
                       value={paymentInfo.checkoutSessionId || '—'}
                       action={paymentInfo.checkoutSessionId ? (
                         <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
-                          <IconButton size="small" sx={{ color: darkTextPrimary }} onClick={() => handleCopyValue(paymentInfo.checkoutSessionId)}>
+                          <IconButton size="small" onClick={() => handleCopyValue(paymentInfo.checkoutSessionId)}>
                             <ContentCopy fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -1557,12 +1291,11 @@ const OrderDetail = () => {
                     />
                     <DataField
                       mono
-                      tone="inverse"
                       label={<FormattedMessage id="reseller.order.paymentIntentId" defaultMessage="Payment intent ID" />}
                       value={paymentInfo.paymentIntentId || '—'}
                       action={paymentInfo.paymentIntentId ? (
                         <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
-                          <IconButton size="small" sx={{ color: darkTextPrimary }} onClick={() => handleCopyValue(paymentInfo.paymentIntentId)}>
+                          <IconButton size="small" onClick={() => handleCopyValue(paymentInfo.paymentIntentId)}>
                             <ContentCopy fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -1570,12 +1303,11 @@ const OrderDetail = () => {
                     />
                     <DataField
                       mono
-                      tone="inverse"
                       label={<FormattedMessage id="orderDetail.invoiceId" defaultMessage="Invoice ID" />}
                       value={paymentInfo.invoiceId || order.invoiceId || '—'}
                       action={(paymentInfo.invoiceId || order.invoiceId) ? (
                         <Tooltip title={<FormattedMessage id="common.copy" defaultMessage="Copy" />}>
-                          <IconButton size="small" sx={{ color: darkTextPrimary }} onClick={() => handleCopyValue(paymentInfo.invoiceId || order.invoiceId)}>
+                          <IconButton size="small" onClick={() => handleCopyValue(paymentInfo.invoiceId || order.invoiceId)}>
                             <ContentCopy fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -1584,10 +1316,10 @@ const OrderDetail = () => {
                   </Stack>
                 </Paper>
               </Box>
-            </Box>
+            </>
           )}
-        </Paper>
-      </Box>
+        </div>
+      </div>
 
       <Dialog open={isShippingDialogOpen} onClose={handleCloseShippingDialog}>
         <DialogTitle>
@@ -1705,7 +1437,7 @@ const OrderDetail = () => {
           {alertMessage}
         </Alert>
       </Snackbar>
-    </Box>
+    </div>
   );
 };
 
