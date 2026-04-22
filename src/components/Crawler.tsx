@@ -45,6 +45,31 @@ type CrawlerShipSummary = {
     id: number;
   }[];
 };
+type BuybackPendingItem = {
+  name: string;
+  detailUrl: string;
+  pageId: number;
+  fallbackCategory: string;
+  fallbackImageUrl: string;
+};
+type ParsedBuybackShip = {
+  id?: number;
+  name: string;
+};
+type ParsedBuybackOther = {
+  name: string;
+  type: string;
+  withImage: boolean;
+  image: string;
+};
+type ParsedBuybackDetail = {
+  name: string;
+  category: string;
+  value: number;
+  insurance: InsuranceType;
+  ships: ParsedBuybackShip[];
+  others: ParsedBuybackOther[];
+};
 const CRAWLER_SNACKBAR_TOP_OFFSET_PX = 72;
 
 function formatCrawlerErrorMessage(error: unknown, fallbackMessage: string) {
@@ -122,6 +147,54 @@ function extractTextResponse(value: unknown): string | null {
   return typeof responseData === "string" ? responseData : null;
 }
 
+function normalizeWhitespace(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+function normalizeImageUrl(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.startsWith("https://") || value.startsWith("http://")) {
+    return value;
+  }
+
+  return `https://robertsspaceindustries.com/${value.replace(/^\/+/, "")}`;
+}
+
+function extractInsuranceType(value: string) {
+  const normalizedValue = normalizeWhitespace(value).toLowerCase();
+
+  if (!normalizedValue.includes("insurance")) {
+    return null;
+  }
+
+  if (normalizedValue.includes("lifetime insurance")) {
+    return "LTI" as const;
+  }
+
+  return "Other" as const;
+}
+
+function getBuybackCategory(name: string) {
+  return normalizeWhitespace(name.split(" - ")[0]);
+}
+
+function stripBuybackCategory(name: string) {
+  return normalizeWhitespace(name.replace(/^[^-]+-\s*/, ""));
+}
+
+function inferBuybackOtherType(category: string, itemName: string) {
+  const normalizedValue = `${category} ${itemName}`.toLowerCase();
+
+  if (normalizedValue.includes("paint")) {
+    return "Skin";
+  }
+
+  return "Item";
+}
+
 function extractCrawlerShipsFromResponse(value: unknown): CrawlerShipSummary[] | null {
   const responseData = getResponseData(value);
 
@@ -191,15 +264,11 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
   const requestQueueRef = useRef<RequestItem[]>([]);
   const activeRequestsRef = useRef<Set<string | number>>(new Set());
   const shipsRef = useRef<CrawlerShipSummary[]>([])
-
-  const buybackCCUsProcessedRef = useRef<number>(0);
-  const buybackCCUsRef = useRef<{
-    name: string;
-    from: string;
-    to: string;
-    toSku: string;
-    price: number;
-  }[]>([]);
+  const buybackDetailRequestCounterRef = useRef(0);
+  const buybackDetailRequestNamesRef = useRef<Record<string, string>>({});
+  const requestedBuybackDetailNamesRef = useRef<Set<string>>(new Set());
+  const pendingBuybackItemsRef = useRef<Record<string, BuybackPendingItem[]>>({});
+  const parsedBuybackDetailsRef = useRef<Record<string, ParsedBuybackDetail>>({});
   const maxConcurrentRequests = 5;
 
   const userRef = useRef<UserInfo>({
@@ -322,6 +391,155 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     return { from, to };
   }, [normalizeShipName, resolveShipName, ships]);
 
+  const getBuybackDetailKey = useCallback((name: string) => normalizeWhitespace(name).toLowerCase(), []);
+
+  const parseBuybackDetailPage = useCallback((doc: Document, fallbackItem: BuybackPendingItem): ParsedBuybackDetail => {
+    const title = normalizeWhitespace(doc.querySelector(".buy-back-title")?.textContent)
+      || normalizeWhitespace(doc.querySelector(".content-block4 h1")?.textContent)
+      || fallbackItem.name;
+    const category = getBuybackCategory(title) || fallbackItem.fallbackCategory || "Item";
+    const priceValue = Number(doc.querySelector(".price .final-price")?.getAttribute("data-value") || "0") / 100;
+    const detailImageUrl = normalizeImageUrl(doc.querySelector(".lcol figure img")?.getAttribute("src")) || fallbackItem.fallbackImageUrl;
+    let insurance: InsuranceType = "Other";
+
+    const detailShips = Array.from(doc.querySelectorAll(".package-listing.ship ul > li"))
+      .map((shipItem) => normalizeWhitespace(shipItem.querySelector(".info span")?.textContent))
+      .filter(Boolean)
+      .map((shipName): ParsedBuybackShip => {
+        const resolvedShipName = resolveShipName(shipName);
+        const matchedShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(resolvedShipName || shipName));
+
+        if (matchedShip) {
+          return {
+            id: matchedShip.id,
+            name: matchedShip.name,
+          };
+        }
+
+        return {
+          name: shipName,
+        };
+      });
+
+    const detailOthers = Array.from(doc.querySelectorAll(".package-listing.item ul > li"))
+      .map((item) => normalizeWhitespace(item.textContent))
+      .filter(Boolean)
+      .reduce<ParsedBuybackOther[]>((others, itemName) => {
+        const insuranceType = extractInsuranceType(itemName);
+
+        if (insuranceType) {
+          if (insuranceType === "LTI") {
+            insurance = "LTI";
+          }
+
+          return others;
+        }
+
+        others.push({
+          name: itemName,
+          type: inferBuybackOtherType(category, itemName),
+          withImage: false,
+          image: "",
+        });
+
+        return others;
+      }, []);
+
+    if (!detailShips.length && detailOthers.length > 0 && detailImageUrl) {
+      detailOthers[0] = {
+        ...detailOthers[0],
+        withImage: true,
+        image: detailImageUrl,
+      };
+    }
+
+    if (!detailShips.length && !detailOthers.length) {
+      detailOthers.push({
+        name: stripBuybackCategory(title) || title,
+        type: inferBuybackOtherType(category, title),
+        withImage: !!detailImageUrl,
+        image: detailImageUrl,
+      });
+    }
+
+    return {
+      name: title,
+      category,
+      value: priceValue,
+      insurance,
+      ships: detailShips,
+      others: detailOthers,
+    };
+  }, [normalizeShipName, resolveShipName, ships]);
+
+  const materializeBuybackItem = useCallback((buybackItem: BuybackPendingItem, detail: ParsedBuybackDetail) => {
+    const isStandaloneShip = detail.category === "Standalone Ships"
+      && detail.ships.length === 1
+      && typeof detail.ships[0]?.id === "number";
+
+    if (isStandaloneShip) {
+      dispatch(addShip({
+        id: detail.ships[0].id as number,
+        name: detail.ships[0].name,
+        insurance: detail.insurance,
+        value: detail.value,
+        isBuyBack: true,
+        canGift: false,
+        belongsTo: userRef.current?.id,
+        pageId: buybackItem.pageId,
+      }));
+
+      totalShipsRef.current++
+      totalBuybacksRef.current++
+
+      return;
+    }
+
+    const bundleOthers = detail.others.length > 0
+      ? detail.others.map((other, index) => ({
+        id: buybackItem.pageId * 1000 + index + 1,
+        name: other.name,
+        withImage: other.withImage,
+        image: other.image,
+        type: other.type,
+        value: detail.value,
+        isBuyBack: true,
+        canGift: false,
+        belongsTo: userRef.current?.id,
+        pageId: buybackItem.pageId,
+      }))
+      : [{
+        id: buybackItem.pageId * 1000 + 1,
+        name: stripBuybackCategory(detail.name) || detail.name,
+        withImage: !!buybackItem.fallbackImageUrl,
+        image: buybackItem.fallbackImageUrl,
+        type: inferBuybackOtherType(detail.category, detail.name),
+        value: detail.value,
+        isBuyBack: true,
+        canGift: false,
+        belongsTo: userRef.current?.id,
+        pageId: buybackItem.pageId,
+      }];
+
+    dispatch(addBundle({
+      ships: detail.ships.map(ship => ({
+        ...(typeof ship.id === "number" ? { id: ship.id } : {}),
+        name: ship.name,
+      })),
+      others: bundleOthers,
+      name: detail.name,
+      insurance: detail.insurance,
+      value: detail.value,
+      isBuyBack: true,
+      canGift: false,
+      belongsTo: userRef.current?.id,
+      pageId: buybackItem.pageId,
+    }))
+
+    totalBundlesRef.current++
+    totalBuybacksRef.current++
+  }, [dispatch]);
+
   const parseHangarItems = useCallback((doc: Document, pageId: number) => {
     const listItems = doc.body.querySelector('.list-items');
 
@@ -366,6 +584,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         const itemType: ItemType = item.querySelector('.kind')?.textContent as ItemType;
         const itemName = item.querySelector('.title')?.textContent;
         const itemImage = item.querySelector('.image')?.getAttribute('style')?.slice(22, -3).replace(/"/g, "");
+        const withImage = !!item.querySelectorAll(".image").length
 
         switch (itemType) {
           case "Insurance":
@@ -381,8 +600,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             currentOthers.push({
               id: id,
               name: itemName || intl.formatMessage({ id: 'crawler.unknownItem', defaultMessage: 'Unknown Item' }),
-              withImage: !!item.querySelectorAll(".image").length,
-              image: itemImage?.startsWith("https://") ? itemImage : `https://robertsspaceindustries.com/${itemImage}`,
+              withImage,
+              image: withImage ? itemImage?.startsWith("https://") ? itemImage : `https://robertsspaceindustries.com/${itemImage}` : "",
               type: itemType || "",
               value: parseInt((value as string).replace("$", "").replace(" USD", "")),
               isBuyBack: false,
@@ -437,68 +656,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     });
   }, [dispatch, ships, tryResolveCCU, intl]);
 
-  const parseBuybackCCUs = useCallback((doc: Document, pageId: number) => {
-    const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
-
-    listItems.forEach((li, index) => {
-      const name = li.querySelector("h1")?.textContent;
-      const from = li.querySelector("a")?.getAttribute("data-fromshipid");
-      const to = li.querySelector("a")?.getAttribute("data-toshipid");
-      const toSku = li.querySelector("a")?.getAttribute("data-toskuid");
-
-      const id = (pageId - 1) * 250 + index + 1;
-
-      if (!from || !to || !name || !toSku) {
-        console.warn("error parsing buyback ccu", name, "reporting");
-        reportError({
-          errorType: "BUYBACK_CCU_PARSING_ERROR",
-          errorMessage: JSON.stringify({
-            name,
-            from,
-            to,
-            toSku,
-            li: li.outerHTML,
-          }),
-          appVersion: __BUILD_TIME__
-        });
-        return;
-      }
-
-      const fromShip = ships.find(ship => ship.id === Number(from))
-      const toShip = ships.find(ship => ship.id === Number(to))
-
-      const ccu = {
-        name,
-        from,
-        to,
-        toSku,
-        price: (toShip?.msrp && fromShip?.msrp) ? toShip?.msrp - fromShip?.msrp : 0,
-      }
-
-      const parsed = tryResolveCCU({
-        name: ccu.name,
-        match_items: [{ name: ccu.from }],
-        target_items: [{ name: ccu.to }],
-      });
-
-      if (parsed) {
-        dispatch(addBuybackCCU({
-          name: ccu.name,
-          from: { id: Number(ccu.from), name: parsed.from },
-          to: { id: Number(ccu.to), name: parsed.to },
-          value: ccu.price / 100,
-          parsed,
-          isBuyBack: true,
-          canGift: true,
-          belongsTo: userRef.current?.id,
-          pageId: id,
-        }));
-
-        totalBuybacksRef.current++
-      }
-    });
-  }, [dispatch, ships, tryResolveCCU]);
-
   // 处理请求队列
   const processNextRequests = useCallback(() => {
     while (activeRequestsRef.current.size < maxConcurrentRequests && requestQueueRef.current.length > 0) {
@@ -522,6 +679,113 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     console.log("added to queue", request.message?.requestId);
   }, [processNextRequests]);
 
+  const queueBuybackDetailRequest = useCallback((buybackItem: BuybackPendingItem) => {
+    const detailKey = getBuybackDetailKey(buybackItem.name);
+    const cachedDetail = parsedBuybackDetailsRef.current[detailKey];
+
+    if (cachedDetail) {
+      materializeBuybackItem(buybackItem, cachedDetail);
+      return;
+    }
+
+    pendingBuybackItemsRef.current[detailKey] = [
+      ...(pendingBuybackItemsRef.current[detailKey] || []),
+      buybackItem,
+    ];
+
+    if (requestedBuybackDetailNamesRef.current.has(detailKey)) {
+      return;
+    }
+
+    requestedBuybackDetailNamesRef.current.add(detailKey);
+
+    const requestId = `buyback-detail-${buybackDetailRequestCounterRef.current++}`;
+    buybackDetailRequestNamesRef.current[requestId] = detailKey;
+
+    addToQueue({
+      type: 'ccuPlannerAppIntegrationRequest',
+      message: {
+        type: "httpRequest",
+        request: {
+          url: new URL(buybackItem.detailUrl, "https://robertsspaceindustries.com").toString(),
+          responseType: "text",
+          method: "get",
+          data: null,
+        },
+        requestId,
+      }
+    });
+  }, [addToQueue, getBuybackDetailKey, materializeBuybackItem]);
+
+  const parseBuybackItems = useCallback((doc: Document, pageId: number) => {
+    const listItems = doc.body.querySelectorAll('.available-pledges .pledges>li');
+
+    listItems.forEach((li, index) => {
+      const id = (pageId - 1) * 250 + index + 1;
+      const buybackAction = li.querySelector("a.holosmallbtn");
+      const name = normalizeWhitespace(li.querySelector("h1")?.textContent) || normalizeWhitespace(li.querySelector("img")?.getAttribute("alt"));
+      const from = buybackAction?.getAttribute("data-fromshipid");
+      const to = buybackAction?.getAttribute("data-toshipid");
+      const toSku = buybackAction?.getAttribute("data-toskuid");
+
+      if (!name) {
+        return;
+      }
+
+      if (from && to && toSku) {
+        const fromShip = ships.find(ship => ship.id === Number(from))
+        const toShip = ships.find(ship => ship.id === Number(to))
+
+        const ccu = {
+          name,
+          from,
+          to,
+          toSku,
+          price: (toShip?.msrp && fromShip?.msrp) ? toShip?.msrp - fromShip?.msrp : 0,
+        }
+
+        const parsed = tryResolveCCU({
+          name: ccu.name,
+          match_items: [{ name: ccu.from }],
+          target_items: [{ name: ccu.to }],
+        });
+
+        if (parsed) {
+          dispatch(addBuybackCCU({
+            name: ccu.name,
+            from: { id: Number(ccu.from), name: parsed.from },
+            to: { id: Number(ccu.to), name: parsed.to },
+            value: ccu.price / 100,
+            parsed,
+            isBuyBack: true,
+            canGift: true,
+            belongsTo: userRef.current?.id,
+            pageId: id,
+          }));
+
+          totalBuybacksRef.current++
+        }
+
+        return;
+      }
+
+      const detailUrl = buybackAction?.getAttribute("href");
+
+      if (!detailUrl) {
+        console.warn("missing buyback detail url", name, li);
+        return;
+      }
+
+      queueBuybackDetailRequest({
+        name,
+        detailUrl,
+        pageId: id,
+        fallbackCategory: getBuybackCategory(name),
+        fallbackImageUrl: normalizeImageUrl(li.querySelector("img")?.getAttribute("src")),
+      });
+    });
+  }, [dispatch, queueBuybackDetailRequest, ships, tryResolveCCU]);
+
   const resetCrawlerState = useCallback(() => {
     setProgress(0);
     totalRequestsRef.current = 0;
@@ -532,8 +796,11 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     totalShipsRef.current = 0;
     requestQueueRef.current = [];
     activeRequestsRef.current.clear();
-    buybackCCUsRef.current = [];
-    buybackCCUsProcessedRef.current = 0;
+    buybackDetailRequestCounterRef.current = 0;
+    buybackDetailRequestNamesRef.current = {};
+    requestedBuybackDetailNamesRef.current.clear();
+    pendingBuybackItemsRef.current = {};
+    parsedBuybackDetailsRef.current = {};
     shipsRef.current = [];
   }, []);
 
@@ -710,7 +977,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             message: {
               type: "httpRequest",
               request: {
-                "url": "https://robertsspaceindustries.com/en/account/buy-back-pledges?page=1&product-type=upgrade&pagesize=250",
+                "url": "https://robertsspaceindustries.com/en/account/buy-back-pledges?page=1&pagesize=250",
                 "responseType": "text",
                 "method": "get",
                 "data": null
@@ -786,15 +1053,13 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           if (pageId === "1") {
             const totalPages = parseInt(new URL("https://robertsspaceindustries.com" + doc.querySelector(".raquo")?.getAttribute("href") as string).searchParams.get("page") || "1");
 
-            buybackCCUsProcessedRef.current = totalPages;
-
             for (let i = 2; i <= totalPages; i++) {
               addToQueue({
                 type: 'ccuPlannerAppIntegrationRequest',
                 message: {
                   type: "httpRequest",
                   request: {
-                    "url": `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${i}&product-type=upgrade&pagesize=250`,
+                    "url": `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${i}&pagesize=250`,
                     "responseType": "text",
                     "method": "get",
                     "data": null
@@ -805,7 +1070,33 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
             }
           }
 
-          parseBuybackCCUs(doc, Number(pageId));
+          parseBuybackItems(doc, Number(pageId));
+        }
+
+        if (typeof requestId === 'string' && requestId.startsWith("buyback-detail-")) {
+          const detailKey = buybackDetailRequestNamesRef.current[requestId];
+          const htmlString = extractTextResponse(message.value);
+
+          if (!detailKey || !htmlString) {
+            throw new Error(`Invalid buyback detail response for request ${requestId}`);
+          }
+
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlString, 'text/html');
+          const pendingItems = pendingBuybackItemsRef.current[detailKey] || [];
+
+          if (pendingItems.length === 0) {
+            delete buybackDetailRequestNamesRef.current[requestId];
+          } else {
+            const parsedDetail = parseBuybackDetailPage(doc, pendingItems[0]);
+            parsedBuybackDetailsRef.current[detailKey] = parsedDetail;
+            pendingItems.forEach((buybackItem) => {
+              materializeBuybackItem(buybackItem, parsedDetail);
+            });
+
+            delete pendingBuybackItemsRef.current[detailKey];
+            delete buybackDetailRequestNamesRef.current[requestId];
+          }
         }
 
         if (requestId === "init-ship-upgrade") {
@@ -838,17 +1129,37 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     window.addEventListener('message', handleMessage);
 
     return () => window.removeEventListener('message', handleMessage);
-  }, [addToQueue, dispatch, finishCrawlerSync, handleCrawlerFailure, intl, parseBuybackCCUs, parseHangarItems, processNextRequests, showCrawlerNotification, stopCrawlerSync]);
+  }, [
+    addToQueue,
+    dispatch,
+    finishCrawlerSync,
+    handleCrawlerFailure,
+    intl,
+    materializeBuybackItem,
+    parseBuybackDetailPage,
+    parseBuybackItems,
+    parseHangarItems,
+    processNextRequests,
+    showCrawlerNotification,
+    stopCrawlerSync
+  ]);
 
-
-  //@ts-expect-error parse
+  //@ts-expect-error parser
   window.crawlerdebugtools = {}
-  //@ts-expect-error parse
+  //@ts-expect-error parser
   window.crawlerdebugtools.parseHangar = (htmlString: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
 
     parseHangarItems(doc, 1);
+  }
+  //@ts-expect-error parser
+  window.crawlerdebugtools.parseBuybacks = (htmlString: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+
+    // parseHangarItems(doc, 1);
+    parseBuybackItems(doc, 1)
   }
 
   const progressBar = progress > 0 && typeof document !== "undefined"
@@ -905,8 +1216,11 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
         requestQueueRef.current = [];
         activeRequestsRef.current.clear();
-        buybackCCUsRef.current = [];
-        buybackCCUsProcessedRef.current = 0;
+        buybackDetailRequestCounterRef.current = 0;
+        buybackDetailRequestNamesRef.current = {};
+        requestedBuybackDetailNamesRef.current.clear();
+        pendingBuybackItemsRef.current = {};
+        parsedBuybackDetailsRef.current = {};
         shipsRef.current = [];
 
         addToQueue({

@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "@/store/upgradesStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button } from "@mui/material";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button, Tooltip } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight, Archive } from "lucide-react";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
@@ -49,9 +49,28 @@ interface DisplayEquipmentItem {
   totalCost?: number;
 }
 
+interface BundleTextItem {
+  key: string;
+  type: string;
+  name: string;
+  details?: string[];
+}
+
 const normalizeShipName = (name: string) => name.toUpperCase().trim();
 const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
+const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
+const getHangarDetailUrl = (item: Pick<DisplayEquipmentItem, 'isBuyBack' | 'pageId' | 'type'>) => {
+  if (!item.pageId) {
+    return '';
+  }
+
+  if (item.isBuyBack) {
+    return `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&pagesize=1`;
+  }
+
+  return `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}`;
+};
 
 // MARK: Bundle中船只图片的轮播组件
 function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuyBack, isLti }: {
@@ -169,10 +188,124 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
       )}
       <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
         <span className='text-white text-sm flex items-center justify-center gap-2'>
-          {isLti && <span className="text-red-500">LTI</span>} {isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {bundleName}
+          {isLti && <span className="text-red-500">LTI</span>} {isBuyBack && <span className="shrink-0 text-nowrap"><FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" /></span>} {bundleName}
         </span>
       </div>
     </div>
+  );
+}
+
+function BundleContentCard({
+  type,
+  name,
+  imageUrl,
+  meta,
+}: {
+  type?: string;
+  name?: string;
+  imageUrl?: string;
+  meta?: React.ReactNode;
+}) {
+  return (
+    <Box sx={{
+      width: 220,
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 1,
+      overflow: 'hidden'
+    }}>
+      <Box
+        component="img"
+        sx={{ width: '100%', height: 120, objectFit: 'cover' }}
+        src={imageUrl}
+        alt={name || ''}
+      />
+      <div className="p-2 flex flex-col">
+        <span className="text-gray-500 dark:text-gray-400">{type || '-'}</span>
+        <span className="text-md font-bold">{name || '-'}</span>
+        {meta}
+      </div>
+    </Box>
+  );
+}
+
+function BundleTextItemsBlock({ items }: { items: BundleTextItem[] }) {
+  const intl = useIntl();
+  const visibleItems = items.slice(0, MAX_VISIBLE_BUNDLE_TEXT_ITEMS);
+  const hiddenCount = Math.max(items.length - visibleItems.length, 0);
+
+  const renderItem = (item: BundleTextItem, useTooltipColors = false) => (
+    <Box
+      key={item.key}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          fontWeight: 700,
+          color: useTooltipColors ? 'inherit' : 'text.primary'
+        }}
+      >
+        {item.name || '-'}
+      </Typography>
+    </Box>
+  );
+
+  const content = (
+    <Box
+      sx={{
+        minWidth: 220,
+        maxWidth: 320,
+        px: 2,
+        py: 1.5,
+        borderLeft: '3px solid',
+        borderColor: 'divider',
+        backgroundColor: 'action.hover',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        cursor: hiddenCount > 0 ? 'help' : 'default'
+      }}
+    >
+      {visibleItems.map(item => renderItem(item))}
+      {hiddenCount > 0 && (
+        <Typography variant="caption" color="primary">
+          {intl.formatMessage(
+            { id: 'hangar.moreItems', defaultMessage: '+ {count} items' },
+            { count: hiddenCount }
+          )}
+        </Typography>
+      )}
+    </Box>
+  );
+
+  if (hiddenCount === 0) {
+    return content;
+  }
+
+  return (
+    <Tooltip
+      arrow
+      placement="top-start"
+      title={
+        <Box
+          sx={{
+            maxWidth: 320,
+            maxHeight: 320,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.25,
+            py: 0.5
+          }}
+        >
+          {items.map(item => renderItem(item, true))}
+        </Box>
+      }
+    >
+      <Box sx={{ display: 'inline-flex' }}>
+        {content}
+      </Box>
+    </Tooltip>
   );
 }
 
@@ -677,7 +810,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         </Box>
                       ) : item.type === 'Bundle' ? (
                         <div className="relative">
-                          <BundleImageSlider bundleShips={item.ships || []} bundleOthers={item.others?.filter(other => other.withImage) || []} ships={ships} bundleName={item.name} isBuyBack={item.isBuyBack} isLti={item.insurance === "LTI"} />
+                          <BundleImageSlider bundleShips={item.ships || []} bundleOthers={item.others || []} ships={ships} bundleName={item.name} isBuyBack={item.isBuyBack} isLti={item.insurance === "LTI"} />
                         </div>
                       ) : (
                         <div className="relative w-[320px] h-[180px]">
@@ -690,7 +823,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
                             <span className='text-white text-sm flex items-center justify-center gap-2'>
                               {item.insurance === "LTI" && <span className="text-red-500">LTI</span>}
-                              {item.isBuyBack && <span><FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" /></span>}
+                              {item.isBuyBack && <span className="shrink-0 text-nowrap"><FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" /></span>}
                               <span>{item.name}</span>
                             </span>
                           </div>
@@ -827,10 +960,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                     <TableCell sx={{ textWrap: 'nowrap' }}>
                       {!!item.pageId &&
                         <Link
-                          to={
-                            item.isBuyBack ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${item.pageId}&product-type=upgrade&pagesize=1` :
-                              `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}`
-                          }
+                          to={getHangarDetailUrl(item)}
                           target="_blank"
                           className="flex items-center gap-2"
                         >
@@ -845,72 +975,90 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       <TableCell colSpan={4} sx={{ py: 0, border: expandedBundles[item.id] ? '' : 'none' }}>
                         <Collapse in={expandedBundles[item.id]} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                              {item.ships?.map((bundleShip, index) => {
+                            {(() => {
+                              const imageItems: React.ReactNode[] = [];
+                              const textItems: BundleTextItem[] = [];
+
+                              item.ships?.forEach((bundleShip, index) => {
                                 const shipInfo = ships.find(s =>
                                   bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
                                 );
-                                return (
-                                  <Box key={index} sx={{
-                                    width: 220,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    borderRadius: 1,
-                                    overflow: 'hidden'
-                                  }}>
-                                    {shipInfo?.medias?.productThumbMediumAndSmall && (
-                                      <Box
-                                        component="img"
-                                        sx={{ width: '100%', height: 120, objectFit: 'cover' }}
-                                        src={shipInfo.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
-                                        alt={bundleShip.name || ''}
-                                      />
-                                    )}
-                                    <div className="p-2 flex flex-col">
-                                      <span className="text-gray-500 dark:text-gray-400">Ship</span>
-                                      <span className="text-md font-bold">{bundleShip.name}</span>
-                                      {shipInfo?.msrp && (
-                                        <Typography variant="caption" color="text.secondary">
-                                          <span><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
-                                          <span> {(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}</span>
-                                        </Typography>
-                                      )}
-                                      {bundleShip.insurance && (
-                                        <Typography variant="caption" display="block" color="primary">
-                                          <span><FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" /></span>
-                                          <span> {bundleShip.insurance}</span>
-                                        </Typography>
-                                      )}
-                                    </div>
-                                  </Box>
-                                );
-                              })}
-                              {!!item.others?.filter(other => other.withImage).length && !!item.ships?.length && <Divider orientation="vertical" flexItem />}
-                              {item.others?.filter(other => other.withImage).map((bundleOther, index) => {
-                                return (
-                                  <Box key={index} sx={{
-                                    width: 220,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    borderRadius: 1,
-                                    overflow: 'hidden'
-                                  }}>
-                                    {bundleOther.image && (
-                                      <Box
-                                        component="img"
-                                        sx={{ width: '100%', height: 120, objectFit: 'cover' }}
-                                        src={bundleOther.image.replace('subscribers_vault_thumbnail', 'product_thumb_large')}
-                                        alt={bundleOther.name || ''}
-                                      />
-                                    )}
-                                    <div className="p-2 flex flex-col">
-                                      <span className="text-gray-500 dark:text-gray-400">{bundleOther.type}</span>
-                                      <span className="text-md font-bold">{bundleOther.name}</span>
-                                    </div>
-                                  </Box>
-                                );
-                              })}
-                            </Box>
+                                const imageUrl = shipInfo?.medias?.productThumbMediumAndSmall?.replace('medium_and_small', 'large');
+                                const details = [
+                                  shipInfo?.msrp
+                                    ? `${intl.formatMessage({ id: 'hangar.msrp', defaultMessage: 'MSRP:' })} ${(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}`
+                                    : undefined,
+                                  bundleShip.insurance
+                                    ? `${intl.formatMessage({ id: 'hangar.insurance', defaultMessage: 'Insurance:' })} ${bundleShip.insurance}`
+                                    : undefined,
+                                ].filter(Boolean) as string[];
+
+                                if (imageUrl) {
+                                  imageItems.push(
+                                    <BundleContentCard
+                                      key={`ship-${index}`}
+                                      type="Ship"
+                                      name={bundleShip.name}
+                                      imageUrl={imageUrl}
+                                      meta={
+                                        <>
+                                          {shipInfo?.msrp && (
+                                            <Typography variant="caption" color="text.secondary">
+                                              <span><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
+                                              <span> {(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}</span>
+                                            </Typography>
+                                          )}
+                                          {bundleShip.insurance && (
+                                            <Typography variant="caption" display="block" color="primary">
+                                              <span><FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" /></span>
+                                              <span> {bundleShip.insurance}</span>
+                                            </Typography>
+                                          )}
+                                        </>
+                                      }
+                                    />
+                                  );
+                                  return;
+                                }
+
+                                textItems.push({
+                                  key: `ship-${index}`,
+                                  type: 'Ship',
+                                  name: bundleShip.name || '-',
+                                  details,
+                                });
+                              });
+
+                              item.others?.forEach((bundleOther, index) => {
+                                const imageUrl = bundleOther.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large');
+
+                                if (imageUrl) {
+                                  imageItems.push(
+                                    <BundleContentCard
+                                      key={`other-${index}`}
+                                      type={bundleOther.type}
+                                      name={bundleOther.name}
+                                      imageUrl={imageUrl}
+                                    />
+                                  );
+                                  return;
+                                }
+
+                                textItems.push({
+                                  key: `other-${index}`,
+                                  type: bundleOther.type || '-',
+                                  name: bundleOther.name || '-',
+                                });
+                              });
+
+                              return (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                  {imageItems}
+                                  {!!imageItems.length && !!textItems.length && <Divider orientation="vertical" flexItem />}
+                                  {!!textItems.length && <BundleTextItemsBlock items={textItems} />}
+                                </Box>
+                              );
+                            })()}
                           </Box>
                         </Collapse>
                       </TableCell>
@@ -933,9 +1081,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 const ownerName = users.find(user => user.id === groupedItem.belongsTo)?.nickname || '-';
                                 const quantity = groupedItem.quantity || 1;
                                 const lineTotal = groupedItem.value * quantity;
-                                const detailHangarUrl = groupedItem.isBuyBack
-                                  ? `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${groupedItem.pageId}&product-type=upgrade&pagesize=1`
-                                  : `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil((groupedItem.pageId || 0) / 10)}`;
+                                const detailHangarUrl = getHangarDetailUrl(groupedItem);
 
                                 return (
                                   <Box

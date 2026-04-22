@@ -39,7 +39,6 @@ import {
   ContentCopy,
   OpenInNew,
   PaymentsOutlined,
-  ReceiptLong,
   Refresh,
 } from '@mui/icons-material';
 import { Check, ChevronsRight, Info, X } from 'lucide-react';
@@ -596,7 +595,7 @@ const OrderDetail = () => {
               name: ccu.name,
               pageId,
               type: 'buyback',
-              url: `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${pageId}&product-type=upgrade&pagesize=1`,
+              url: `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${pageId}&pagesize=1`,
             });
             remainingToOpen -= 1;
           });
@@ -721,7 +720,7 @@ const OrderDetail = () => {
             </Button>
           </div>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          {/* <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <Button
               variant="outlined"
               startIcon={paymentInfoLoading ? <CircularProgress size={16} color="inherit" /> : paymentInfo ? <Refresh /> : <PaymentsOutlined />}
@@ -741,7 +740,7 @@ const OrderDetail = () => {
             >
               <FormattedMessage id="reseller.order.openPaymentDocument" defaultMessage="Open Invoice / Receipt" />
             </Button>
-          </Stack>
+          </Stack> */}
         </Box>
 
         <div className="bg-white dark:bg-neutral-900 py-6 shadow-sm mb-4 border border-gray-100 dark:border-neutral-700">
