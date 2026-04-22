@@ -320,6 +320,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showCcus, setShowCcus] = useState(true);
   const [showShips, setShowShips] = useState(true);
+  const [showHangarItems, setShowHangarItems] = useState(true);
   const [showBuybacks, setShowBuybacks] = useState(true);
   const [expandedBundles, setExpandedBundles] = useState<{ [key: string]: boolean }>({});
   const [expandedCcuGroups, setExpandedCcuGroups] = useState<{ [key: string]: boolean }>({});
@@ -439,6 +440,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     setPage(0); // 重置页码
   };
 
+  const handleHangarItemFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setShowHangarItems(event.target.checked);
+    setPage(0); // 重置页码
+  };
+
   const handleBuybackFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setShowBuybacks(event.target.checked);
     setPage(0); // 重置页码
@@ -489,6 +495,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       };
     });
   }, [ccus]);
+
+  const shouldShowBySourceFilter = (item: Pick<DisplayEquipmentItem, 'isBuyBack'>) => (
+    item.isBuyBack ? showBuybacks : showHangarItems
+  );
 
   // MARK: 过滤和分页数据
   const filteredEquipment: DisplayEquipmentItem[] = [...(showCcus ? mergedCcus.filter(item =>
@@ -585,7 +595,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       ships: bundle.ships,
       others: bundle.others
     };
-  }) : [])].filter(item => showBuybacks || !item.isBuyBack);
+  }) : [])].filter(item => shouldShowBySourceFilter(item));
+
+  const isBuybackOnlyView = showBuybacks && !showHangarItems;
+  const summaryItems = filteredEquipment.filter(item => isBuybackOnlyView ? item.isBuyBack : !item.isBuyBack);
 
   // 添加排序功能
   const sortedEquipment = filteredEquipment.sort((a, b) => {
@@ -661,13 +674,25 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                 <FormControlLabel
                   control={
                     <Checkbox
+                      checked={showHangarItems}
+                      onChange={handleHangarItemFilterChange}
+                      size="small"
+                      color="primary"
+                    />
+                  }
+                  label={intl.formatMessage({ id: 'hangar.filter.showHangarItems', defaultMessage: 'Hangar Items' })}
+                  sx={{ minWidth: 'auto', mr: 2 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
                       checked={showBuybacks}
                       onChange={handleBuybackFilterChange}
                       size="small"
                       color="primary"
                     />
                   }
-                  label={intl.formatMessage({ id: 'hangar.filter.showBuybacks', defaultMessage: 'Include Buybacks' })}
+                  label={intl.formatMessage({ id: 'hangar.filter.showBuybacks', defaultMessage: 'Buybacks' })}
                   sx={{ minWidth: 'auto', mr: 0 }}
                 />
               </Box>
@@ -723,15 +748,21 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       <Box sx={{ width: '100%', overflow: 'auto' }}>
         <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 2 }}>
           <Typography variant="h6" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FormattedMessage id="hangar.totalValue" defaultMessage="Hangar value:" />
+            <FormattedMessage
+              id={isBuybackOnlyView ? "hangar.buybackValue" : "hangar.totalValue"}
+              defaultMessage={isBuybackOnlyView ? "Buyback value:" : "Hangar value:"}
+            />
             <span>
-              {filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+              {summaryItems.reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
             </span>
           </Typography>
           <Typography variant="h6" color="secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FormattedMessage id="hangar.totalMsrp" defaultMessage="MSRP:" />
+            <FormattedMessage
+              id={isBuybackOnlyView ? "hangar.buybackMsrp" : "hangar.totalMsrp"}
+              defaultMessage={isBuybackOnlyView ? "Buyback MSRP:" : "MSRP:"}
+            />
             <span>
-              {(filteredEquipment.filter(item => !item.isBuyBack).reduce((sum, item) => {
+              {(summaryItems.reduce((sum, item) => {
                 // Calculate upgrade value if exists
                 const upgradeValue = item.to?.msrp && item.from?.msrp ? item.to.msrp - item.from.msrp : 0;
                 
