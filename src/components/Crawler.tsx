@@ -101,7 +101,7 @@ function extractAccountFromResponse(value: unknown): UserInfo | null {
     typeof id !== "number" ||
     typeof username !== "string" ||
     typeof nickname !== "string" ||
-    typeof avatar !== "string" ||
+    // typeof avatar !== "string" ||
     typeof isAnonymous !== "boolean"
   ) {
     return null;
@@ -111,7 +111,7 @@ function extractAccountFromResponse(value: unknown): UserInfo | null {
     id,
     username,
     nickname,
-    avatar,
+    avatar: (avatar as string | null) || "",
     isAnonymous,
   };
 }
@@ -667,9 +667,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
         if (requestId === "user-info") {
           const account = extractAccountFromResponse(message.value);
-
-          console.log("raw msaage>>>>>>>>>>", message)
-          console.log("account>>>>>>>>>>>>>>", account)
 
           if (!account) {
             throw new Error("Invalid account response from browser extension");
