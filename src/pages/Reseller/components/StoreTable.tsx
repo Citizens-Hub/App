@@ -341,7 +341,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       itemKind: entry.itemKind || "",
       imageUrl: normalizeManualPackageItemImageUrl(entry.imageUrl),
     })));
-    setManualDescription(item.description || "");
+    setManualDescription("");
     setManualImageUrl(item.imageUrl || "");
     setManualExternalRef("");
   }, [resolveShip]);

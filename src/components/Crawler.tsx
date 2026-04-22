@@ -36,7 +36,6 @@ interface ExtensionResponseMessage {
   error?: unknown;
 }
 
-type ItemType = "Insurance" | "Ship" | "Skin" | "FPS Equipment" | "Credits" | "Hangar pass" | undefined;
 type InsuranceType = "LTI" | "Other"
 type CrawlerShipSummary = {
   id: number;
@@ -161,6 +160,27 @@ function normalizeImageUrl(value: string | null | undefined) {
   }
 
   return `https://robertsspaceindustries.com/${value.replace(/^\/+/, "")}`;
+}
+
+function extractBackgroundImageUrl(styleValue: string | null | undefined) {
+  if (!styleValue) {
+    return "";
+  }
+
+  const matchedUrl = styleValue.match(/url\((['"]?)(.*?)\1\)/i)?.[2];
+
+  return normalizeImageUrl(matchedUrl);
+}
+
+function extractPriceValue(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const normalizedValue = value.replace(/,/g, "");
+  const matchedNumber = normalizedValue.match(/-?\d+(?:\.\d+)?/);
+
+  return matchedNumber ? Number(matchedNumber[0]) : 0;
 }
 
 function extractInsuranceType(value: string) {
@@ -546,6 +566,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     listItems?.querySelectorAll('li').forEach((li, index) => {
       const value = li.querySelector('.js-pledge-value')?.getAttribute('value');
       const ccuData = li.querySelector('.js-upgrade-data')?.getAttribute('value');
+      const parsedValue = extractPriceValue(value);
+      const canGift = !!li.querySelector('.gift');
 
       const id = (pageId - 1) * 10 + index + 1;
 
@@ -560,10 +582,10 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           from: content.match_items[0],
           to: content.target_items[0],
           name: content.name,
-          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          value: parsedValue,
           parsed,
           isBuyBack: false,
-          canGift: !!li.querySelector('.gift'),
+          canGift,
           belongsTo: userRef.current?.id,
           pageId: id,
         }));
@@ -574,47 +596,64 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       }
 
       const items = li.querySelectorAll('.item');
-      const bundleName = li.querySelector('.js-pledge-name')?.getAttribute('value');
+      const bundleName = normalizeWhitespace(li.querySelector('.js-pledge-name')?.getAttribute('value'));
+      const bundleCategory = getBuybackCategory(bundleName);
+      const fallbackImageUrl = extractBackgroundImageUrl(li.querySelector('.item-image-wrapper .image')?.getAttribute('style'));
 
       let currentInsurance: InsuranceType = "Other"
       const currentShips: Ship[] = []
       const currentOthers: OtherItem[] = []
 
-      items.forEach(item => {
-        const itemType: ItemType = item.querySelector('.kind')?.textContent as ItemType;
-        const itemName = item.querySelector('.title')?.textContent;
-        const itemImage = item.querySelector('.image')?.getAttribute('style')?.slice(22, -3).replace(/"/g, "");
-        const withImage = !!item.querySelectorAll(".image").length
+      items.forEach((item, itemIndex) => {
+        const itemType = normalizeWhitespace(item.querySelector('.kind')?.textContent);
+        const itemName = normalizeWhitespace(item.querySelector('.title')?.textContent)
+          || intl.formatMessage({ id: 'crawler.unknownItem', defaultMessage: 'Unknown Item' });
+        const itemImage = extractBackgroundImageUrl(item.querySelector('.image')?.getAttribute('style'));
+        const insuranceType = extractInsuranceType(`${itemType} ${itemName}`);
 
-        switch (itemType) {
-          case "Insurance":
-            if (itemName === "Lifetime Insurance") currentInsurance = "LTI"
-            break;
-          case "Ship":
-            {
-              const ship = ships.find(ship => ship.name.toLowerCase().trim() === itemName?.toLowerCase().trim())
-              if (ship) currentShips.push(ship)
-              break;
-            }
-          default:
-            currentOthers.push({
-              id: id,
-              name: itemName || intl.formatMessage({ id: 'crawler.unknownItem', defaultMessage: 'Unknown Item' }),
-              withImage,
-              image: withImage ? itemImage?.startsWith("https://") ? itemImage : `https://robertsspaceindustries.com/${itemImage}` : "",
-              type: itemType || "",
-              value: parseInt((value as string).replace("$", "").replace(" USD", "")),
-              isBuyBack: false,
-              canGift: !!li.querySelector('.gift'),
-              belongsTo: userRef.current?.id,
-              pageId: id,
-            })
-            break;
+        if (insuranceType) {
+          if (insuranceType === "LTI") {
+            currentInsurance = "LTI";
+          }
+
+          return;
         }
+
+        const resolvedShipName = resolveShipName(itemName);
+        const matchedShip = ships.find(ship =>
+          normalizeShipName(ship.name) === normalizeShipName(resolvedShipName || itemName)
+        );
+        const looksLikeShip = itemType === "Ship" || (!itemType && !!matchedShip);
+
+        if (looksLikeShip && matchedShip) {
+          currentShips.push(matchedShip);
+          return;
+        }
+
+        currentOthers.push({
+          id: id * 1000 + itemIndex + 1,
+          name: itemName,
+          withImage: !!itemImage,
+          image: itemImage,
+          type: itemType || inferBuybackOtherType(bundleCategory || "Item", itemName),
+          value: parsedValue,
+          isBuyBack: false,
+          canGift,
+          belongsTo: userRef.current?.id,
+          pageId: id,
+        })
       })
 
+      if (!currentShips.length && currentOthers.length > 0 && fallbackImageUrl && !currentOthers.some(other => other.withImage)) {
+        currentOthers[0] = {
+          ...currentOthers[0],
+          withImage: true,
+          image: fallbackImageUrl,
+        };
+      }
+
       // bundle
-      if (currentShips.length > 1 || currentOthers.filter(other => other.withImage).length > 0) {
+      if (currentShips.length > 1 || currentOthers.length > 0) {
         dispatch(addBundle({
           ships: currentShips.map(ship => ({
             id: ship.id,
@@ -623,9 +662,9 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           others: currentOthers,
           name: bundleName || intl.formatMessage({ id: 'crawler.unknownBundle', defaultMessage: 'Unknown Bundle' }),
           insurance: currentInsurance,
-          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          value: parsedValue,
           isBuyBack: false,
-          canGift: !!li.querySelector('.gift'),
+          canGift,
           belongsTo: userRef.current?.id,
           pageId: id,
         }))
@@ -641,9 +680,9 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           id: currentShips[0].id,
           name: currentShips[0].name,
           insurance: currentInsurance,
-          value: parseInt((value as string).replace("$", "").replace(" USD", "")),
+          value: parsedValue,
           isBuyBack: false,
-          canGift: !!li.querySelector('.gift'),
+          canGift,
           belongsTo: userRef.current?.id,
           pageId: id,
         }))
@@ -654,7 +693,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       }
 
     });
-  }, [dispatch, ships, tryResolveCCU, intl]);
+  }, [dispatch, intl, normalizeShipName, resolveShipName, ships, tryResolveCCU]);
 
   // 处理请求队列
   const processNextRequests = useCallback(() => {
@@ -769,7 +808,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         return;
       }
 
-      const detailUrl = buybackAction?.getAttribute("href");
+      const detailUrl = "/en" + buybackAction?.getAttribute("href");
 
       if (!detailUrl) {
         console.warn("missing buyback detail url", name, li);

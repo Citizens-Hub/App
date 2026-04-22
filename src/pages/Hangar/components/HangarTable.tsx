@@ -60,6 +60,14 @@ const normalizeShipName = (name: string) => name.toUpperCase().trim();
 const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
+const getEquipmentImageSrc = (item: Pick<DisplayEquipmentItem, 'imageUrl' | 'from'>) =>
+  item.imageUrl?.replace('medium_and_small', 'large') ||
+  item.from?.medias?.productThumbMediumAndSmall?.replace('medium_and_small', 'large') ||
+  '';
+
+const getEquipmentRowKey = (item: DisplayEquipmentItem, absoluteIndex: number) =>
+  `${item.type}-${item.id}-${item.belongsTo}-${item.pageId ?? 'na'}-${absoluteIndex}`;
+
 const getHangarDetailUrl = (item: Pick<DisplayEquipmentItem, 'isBuyBack' | 'pageId' | 'type'>) => {
   if (!item.pageId) {
     return '';
@@ -84,7 +92,7 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 获取Bundle中船只的图片
-  const images = Array.from(new Set([
+  const images = useMemo(() => Array.from(new Set([
     ...bundleShips
       .map(bundleShip => {
         const shipInfo = ships.find(s =>
@@ -95,7 +103,13 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
       .filter(img => img) as string[],
     ...bundleOthers.map(other => other.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large'))
       .filter(img => img) as string[]
-  ]))
+  ])), [bundleOthers, bundleShips, ships]);
+
+  const currentImage = images[currentIndex] || images[0];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [images]);
 
   // 如果没有图片，显示一个默认的空白图片区域
   if (images.length === 0) {
@@ -124,9 +138,10 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
   return (
     <div className="relative w-[320px] h-[180px]">
       <Box
+        key={currentImage}
         component="img"
         sx={{ width: 320, height: 180, objectFit: 'cover' }}
-        src={images[currentIndex].replace('medium_and_small', 'large')}
+        src={currentImage.replace('medium_and_small', 'large')}
         alt={`Ship in ${bundleName}`}
       />
       {images.length > 1 && (
@@ -627,9 +642,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     return b.value - a.value;
   });
 
+  const paginatedStart = page * rowsPerPage;
   const paginatedEquipment = sortedEquipment.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
+    paginatedStart,
+    paginatedStart + rowsPerPage
   );
 
   // Check if hangar is empty (based on original data, not filtered)
@@ -798,12 +814,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             </TableHead>
             <TableBody>
               {paginatedEquipment.map((item, index) => (
-                <React.Fragment key={index}>
+                <React.Fragment key={getEquipmentRowKey(item, paginatedStart + index)}>
                   <TableRow hover>
                     <TableCell>
                       {item.type === 'CCU' && item.from && item.to ? (
                         <Box sx={{ position: 'relative', width: 320, height: 180, overflow: 'hidden', }}>
                           <Box
+                            key={item.from.medias.productThumbMediumAndSmall}
                             component="img"
                             sx={{
                               position: 'absolute',
@@ -817,6 +834,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             alt={item.from.name}
                           />
                           <Box
+                            key={item.to.medias.productThumbMediumAndSmall}
                             component="img"
                             sx={{
                               position: 'absolute',
@@ -846,9 +864,10 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       ) : (
                         <div className="relative w-[320px] h-[180px]">
                           <Box
+                            key={getEquipmentImageSrc(item)}
                             component="img"
                             sx={{ width: 320, height: 180, objectFit: 'cover' }}
-                            src={item.imageUrl?.replace('medium_and_small', 'large') || item.from?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            src={getEquipmentImageSrc(item)}
                             alt={item.name}
                           />
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
