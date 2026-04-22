@@ -1200,6 +1200,25 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     // parseHangarItems(doc, 1);
     parseBuybackItems(doc, 1)
   }
+  //@ts-expect-error parser
+  window.crawlerdebugtools.addShip = (shipId: number) => {
+    const ship = ships.find(ship => ship.id === shipId)
+
+    if (!ship) return;
+
+    console.log("added ship>>>>>", ship);
+
+    dispatch(addShip({
+      id: shipId,
+      name: ship.name,
+      insurance: "LTI",
+      value: ship.msrp,
+      isBuyBack: false,
+      canGift: false,
+      belongsTo: userRef.current?.id,
+      pageId: 9999,
+    }))
+  }
 
   const progressBar = progress > 0 && typeof document !== "undefined"
     ? createPortal(

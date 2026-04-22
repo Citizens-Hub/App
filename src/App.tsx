@@ -23,6 +23,7 @@ const Auth = lazy(() => import('./pages/Auth/Auth'));
 const Admin = lazy(() => import('./pages/Admin/Admin'));
 const Navigate = lazy(() => import('./pages/Navigate/Navigate'));
 const Hangar = lazy(() => import('./pages/Hangar/Hangar'));
+const FleetView = lazy(() => import('./pages/FleetView/FleetView'));
 const Settings = lazy(() => import('./pages/Settings/Settings'));
 const FleaMarket = lazy(() => import('./pages/FleaMarket/FleaMarket'));
 const Guide = lazy(() => import('./pages/CCUPlanner/components/Guide'));
@@ -165,6 +166,7 @@ function App() {
               <Route path="/" element={<Navigate />} />
               <Route path="/ccu-planner" element={<CCUPlanner />} />
               <Route path="/hangar" element={<Hangar />} />
+              <Route path="/fleetview" element={<FleetView />} />
               <Route path="/flea-market" element={<FleaMarket />} />
               <Route path="/store-preview" element={<ResourcesTable />} />
               <Route path="/app-settings" element={<Settings />} />

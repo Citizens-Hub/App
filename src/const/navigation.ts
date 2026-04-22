@@ -21,6 +21,11 @@ export const navigation = [
     path: "/hangar",
   },
   {
+    name: "navigation.fleetview",
+    path: "/fleetview",
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+  },
+  {
     name: "navigation.market",
     path: "/market",
     hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",

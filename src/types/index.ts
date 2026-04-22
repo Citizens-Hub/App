@@ -145,6 +145,7 @@ export interface ShipDetail {
 
 export interface Ship {
   alias?: string;
+  ctm?: string;
   id: number;
   name: string;
   localizedName?: string;
@@ -177,6 +178,20 @@ export interface Ship {
 export interface ShipsData {
   data: {
     ships: Ship[];
+  };
+}
+
+export interface ShipDimensionsItem {
+  shipId: number;
+  length: number | null;
+  beam: number | null;
+  height: number | null;
+}
+
+export interface ShipDimensionsResponse {
+  success: boolean;
+  data: {
+    ships: ShipDimensionsItem[];
   };
 }
 

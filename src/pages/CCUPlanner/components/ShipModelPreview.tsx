@@ -6,6 +6,8 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+import { getRenderableBounds, recenterObjectToRenderableBounds } from '@/utils/threeObjectBounds';
+
 interface ShipModelPreviewProps {
   open: boolean;
   shipId?: number | null;
@@ -54,9 +56,7 @@ function disposeObject3D(object: THREE.Object3D) {
 }
 
 function frameObject(camera: THREE.PerspectiveCamera, controls: OrbitControls, object: THREE.Object3D) {
-  const box = new THREE.Box3().setFromObject(object);
-  const sphere = box.getBoundingSphere(new THREE.Sphere());
-  const center = sphere.center.clone();
+  const { center, sphere } = getRenderableBounds(object);
   const radius = Math.max(sphere.radius, 1);
   const verticalFov = THREE.MathUtils.degToRad(camera.fov);
   const aspect = Math.max(camera.aspect, 0.1);
@@ -218,6 +218,7 @@ export default function ShipModelPreview({
             forceDoubleSided(child.material);
           }
         });
+        recenterObjectToRenderableBounds(gltf.scene, { groundOnY: true });
         scene.add(gltf.scene);
         frameObject(camera, controls, gltf.scene);
         setLoadProgress((current) => ({
