@@ -293,7 +293,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
       if (!to) {
         toCandidates.forEach(candidate => {
-          from = ships.find(ship => ship.id === Number(candidate))?.name || from
+          to = ships.find(ship => ship.id === Number(candidate))?.name || from
         })
       }
 
