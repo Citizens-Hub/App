@@ -101,7 +101,7 @@ export default function OrderPaymentDeadline({
         color="text.secondary"
       >
         <FormattedMessage id="orders.paymentDeadline" defaultMessage="Payment Expires in" />
-        {': '}
+        <span>{': '}</span>
         <Box
           component="span"
           sx={{ fontWeight: compact ? 500 : 600 }}

@@ -51,6 +51,27 @@ import {
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
 const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
 
+type ManualPackageItemDraft = {
+  id: string;
+  itemName: string;
+  itemKind: string;
+  imageUrl: string;
+};
+
+function createManualPackageItemDraft(values?: Partial<Omit<ManualPackageItemDraft, "id">>): ManualPackageItemDraft {
+  return {
+    id: `manual-package-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    itemName: values?.itemName || "",
+    itemKind: values?.itemKind || "",
+    imageUrl: values?.imageUrl || "",
+  };
+}
+
+function normalizeManualPackageItemImageUrl(value?: string) {
+  const normalized = value?.trim() || "";
+  return normalized === "https://robertsspaceindustries.com/undefined" ? "" : normalized;
+}
+
 function normalizeShipName(name?: string) {
   return (name || "").trim().toUpperCase();
 }
@@ -87,24 +108,88 @@ function getSourceKindLabel(sourceKind: string | null | undefined, intl: IntlSha
   return sourceKind || "";
 }
 
-function getInventoryOptionLabel(item: StoreInventoryItem, intl: IntlShape) {
-  if (item.itemType === "ccu") {
-    return `${item.name} | ${item.fromShipName || "-"} -> ${item.toShipName || "-"}`;
-  }
-
-  const subtitle = item.packageKind === "bundle"
-    ? intl.formatMessage(
-        { id: "market.detail.shipCount", defaultMessage: "{count, plural, one {# ship} other {# ships}}" },
-        { count: item.packageShips?.length || 0 },
-      )
-    : (item.shipName || item.packageShips?.[0]?.shipName || "");
-
-  return subtitle ? `${item.name} | ${subtitle}` : item.name;
-}
-
 function getInventoryOptionMeta(item: StoreInventoryItem) {
   const ownerText = item.ownerLabels.join(", ");
   return `x${item.stock}${ownerText ? ` | ${ownerText}` : ""}`;
+}
+
+function getInventorySubtitle(item: StoreInventoryItem, intl: IntlShape) {
+  if (item.itemType === "ccu") {
+    return `${item.fromShipName || "-"} -> ${item.toShipName || "-"}`;
+  }
+
+  if (item.packageKind === "bundle") {
+    const shipCount = item.packageShips?.length || 0;
+    const extraCount = item.packageItems?.length || 0;
+
+    return [
+      intl.formatMessage(
+        { id: "market.detail.shipCount", defaultMessage: "{count, plural, one {# ship} other {# ships}}" },
+        { count: shipCount },
+      ),
+      intl.formatMessage(
+        { id: "market.detail.extraCount", defaultMessage: "{count, plural, one {# extra} other {# extras}}" },
+        { count: extraCount },
+      ),
+    ].join(" · ");
+  }
+
+  return item.shipName || item.packageShips?.[0]?.shipName || item.name;
+}
+
+function InventoryItemMedia({ item, ships }: { item: StoreInventoryItem; ships: Ship[] }) {
+  const visual = getMarketItemVisual(item, ships);
+
+  if (item.itemType === "ccu") {
+    return (
+      <Box sx={{ position: "relative", width: "100%", height: 180, overflow: "hidden", borderRadius: 1 }}>
+        <Box
+          component="img"
+          sx={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: "35%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+          src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
+          alt={visual.fromShipName || item.name}
+        />
+        <Box
+          component="img"
+          sx={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            width: "65%",
+            height: "100%",
+            objectFit: "cover",
+            boxShadow: "0 0 20px 0 rgba(0, 0, 0, 0.2)",
+          }}
+          src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
+          alt={visual.toShipName || item.name}
+        />
+        <Box sx={{ position: "absolute", inset: "auto 0 0 0", p: 1, bgcolor: "rgba(0,0,0,0.55)", textAlign: "center" }}>
+          <Typography variant="body2" sx={{ color: "#fff", fontWeight: 600 }}>
+            {item.name}
+          </Typography>
+        </Box>
+        <Box sx={{ position: "absolute", top: "50%", left: "35%", transform: "translate(-50%, -50%)", color: "#fff" }}>
+          <ChevronsRight className="w-8 h-8" />
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      component="img"
+      sx={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 1 }}
+      src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
+      alt={item.name}
+    />
+  );
 }
 
 export default function StoreTable({ ships }: { ships: Ship[] }) {
@@ -124,9 +209,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
   const [showBundles, setShowBundles] = useState(true);
   const [showMisc, setShowMisc] = useState(true);
+  const [isAdjustStockDialogOpen, setIsAdjustStockDialogOpen] = useState(false);
+  const [adjustStockTarget, setAdjustStockTarget] = useState<ListingItem | null>(null);
+  const [adjustStockDeltaInput, setAdjustStockDeltaInput] = useState("0");
+  const [isAdjustStockSubmitting, setIsAdjustStockSubmitting] = useState(false);
 
   const [isCreateListingDialogOpen, setIsCreateListingDialogOpen] = useState(false);
   const [selectedSourceItem, setSelectedSourceItem] = useState<StoreInventoryItem | null>(null);
+  const [prefillSearchTerm, setPrefillSearchTerm] = useState("");
+  const [prefillGiftableOnly, setPrefillGiftableOnly] = useState(true);
   const [manualItemType, setManualItemType] = useState<MarketItemType>(DEFAULT_MANUAL_ITEM_TYPE);
   const [manualPackageKind, setManualPackageKind] = useState<MarketPackageKind>(DEFAULT_PACKAGE_KIND);
   const [selectedFromShip, setSelectedFromShip] = useState<Ship | null>(null);
@@ -139,7 +230,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualItemCostTouched, setManualItemCostTouched] = useState(false);
   const [manualItemQuantity, setManualItemQuantity] = useState(1);
   const [manualInsuranceType, setManualInsuranceType] = useState("");
-  const [manualPackageItemsText, setManualPackageItemsText] = useState("");
+  const [manualPackageItems, setManualPackageItems] = useState<ManualPackageItemDraft[]>([]);
   const [manualDescription, setManualDescription] = useState("");
   const [manualImageUrl, setManualImageUrl] = useState("");
   const [manualExternalRef, setManualExternalRef] = useState("");
@@ -203,6 +294,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
   const resetManualFormFields = useCallback(() => {
     setSelectedSourceItem(null);
+    setPrefillSearchTerm("");
+    setPrefillGiftableOnly(true);
     setManualItemType(DEFAULT_MANUAL_ITEM_TYPE);
     setManualPackageKind(DEFAULT_PACKAGE_KIND);
     setSelectedFromShip(null);
@@ -215,7 +308,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCostTouched(false);
     setManualItemQuantity(1);
     setManualInsuranceType("");
-    setManualPackageItemsText("");
+    setManualPackageItems([]);
     setManualDescription("");
     setManualImageUrl("");
     setManualExternalRef("");
@@ -243,7 +336,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCostTouched(false);
     setManualItemQuantity(Math.max(item.stock, 1));
     setManualInsuranceType(item.insuranceType || "");
-    setManualPackageItemsText((item.packageItems || []).map((entry) => entry.itemName).join("\n"));
+    setManualPackageItems((item.packageItems || []).map((entry) => createManualPackageItemDraft({
+      itemName: entry.itemName,
+      itemKind: entry.itemKind || "",
+      imageUrl: normalizeManualPackageItemImageUrl(entry.imageUrl),
+    })));
     setManualDescription(item.description || "");
     setManualImageUrl(item.imageUrl || "");
     setManualExternalRef("");
@@ -277,17 +374,63 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     page * rowsPerPage + rowsPerPage
   );
 
+  const filteredInventoryItems = useMemo(() => {
+    const search = prefillSearchTerm.trim().toLowerCase();
+
+    return inventoryItems.filter((item) => {
+      if (prefillGiftableOnly && !item.canGift) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      return getInventorySearchText(item).includes(search);
+    });
+  }, [inventoryItems, prefillGiftableOnly, prefillSearchTerm]);
+
   const parseManualPackageItems = useCallback(() => {
-    return manualPackageItemsText
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry, index) => ({
-        itemName: entry,
-        withImage: false,
-        sortOrder: index + 1,
-      }));
-  }, [manualPackageItemsText]);
+    return manualPackageItems
+      .map((entry, index) => {
+        const itemName = entry.itemName.trim();
+        const itemKind = entry.itemKind.trim();
+        const imageUrl = normalizeManualPackageItemImageUrl(entry.imageUrl);
+
+        if (!itemName) {
+          return null;
+        }
+
+        return {
+          itemName,
+          itemKind: itemKind || undefined as string | undefined,
+          imageUrl: imageUrl || undefined as string | undefined,
+          withImage: Boolean(imageUrl),
+          sortOrder: index + 1,
+        };
+      })
+      .filter((entry) => entry !== null);
+  }, [manualPackageItems]);
+
+  const handleAddManualPackageItem = useCallback(() => {
+    setManualPackageItems((current) => [...current, createManualPackageItemDraft()]);
+  }, []);
+
+  const handleUpdateManualPackageItem = useCallback((
+    itemId: string,
+    field: keyof Omit<ManualPackageItemDraft, "id">,
+    value: string,
+  ) => {
+    setManualPackageItems((current) => current.map((entry) => (
+      entry.id === itemId
+        ? { ...entry, [field]: value }
+        : entry
+    )));
+  }, []);
+
+  const handleRemoveManualPackageItem = useCallback((itemId: string) => {
+    setManualPackageItems((current) => current.filter((entry) => entry.id !== itemId));
+  }, []);
 
   const handleOpenCreateListingDialog = () => {
     resetManualFormFields();
@@ -299,11 +442,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     resetManualFormFields();
   };
 
-  const handleSourceItemChange = (_event: unknown, newValue: StoreInventoryItem | null) => {
-    setSelectedSourceItem(newValue);
+  const handleSelectSourceItem = (item: StoreInventoryItem | null) => {
+    setSelectedSourceItem(item);
 
-    if (newValue) {
-      applyInventoryItemToForm(newValue);
+    if (item) {
+      applyInventoryItemToForm(item);
     }
   };
 
@@ -334,6 +477,91 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     }
   };
 
+  const handleOpenAdjustStockDialog = useCallback((item: ListingItem) => {
+    setAdjustStockTarget(item);
+    setAdjustStockDeltaInput("0");
+    setIsAdjustStockDialogOpen(true);
+  }, []);
+
+  const handleCloseAdjustStockDialog = useCallback(() => {
+    if (isAdjustStockSubmitting) {
+      return;
+    }
+
+    setIsAdjustStockDialogOpen(false);
+    setAdjustStockTarget(null);
+    setAdjustStockDeltaInput("0");
+  }, [isAdjustStockSubmitting]);
+
+  const adjustStockDelta = Number(adjustStockDeltaInput);
+  const projectedStock = adjustStockTarget ? adjustStockTarget.stock + adjustStockDelta : null;
+  const canSubmitStockAdjustment = Boolean(
+    token
+    && adjustStockTarget
+    && Number.isInteger(adjustStockDelta)
+    && adjustStockDelta !== 0
+    && projectedStock !== null
+    && projectedStock >= 0
+    && projectedStock >= adjustStockTarget.lockedStock,
+  );
+
+  const handleAdjustStock = useCallback(async () => {
+    if (!token || !adjustStockTarget) {
+      return;
+    }
+
+    const delta = Number(adjustStockDeltaInput);
+
+    if (!Number.isInteger(delta) || delta === 0) {
+      return;
+    }
+
+    setIsAdjustStockSubmitting(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+        method: "PUT",
+        body: JSON.stringify({
+          skuId: adjustStockTarget.skuId,
+          delta,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : intl.formatMessage({
+              id: "market.adjustStockFailed",
+              defaultMessage: "Failed to adjust stock",
+            }),
+        );
+      }
+
+      setListingFetchError(null);
+      await fetchListingItems();
+      handleCloseAdjustStockDialog();
+    } catch (error) {
+      console.error("Failed to adjust stock:", error);
+      setListingFetchError(
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({
+            id: "market.adjustStockFailed",
+            defaultMessage: "Failed to adjust stock",
+          }),
+      );
+    } finally {
+      setIsAdjustStockSubmitting(false);
+    }
+  }, [adjustStockDeltaInput, adjustStockTarget, fetchListingItems, handleCloseAdjustStockDialog, intl, token]);
+
   const canSubmitManualItem = useMemo(() => {
     if (!manualItemName.trim() || manualItemPrice <= 0 || manualItemQuantity <= 0) return false;
 
@@ -346,21 +574,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         return Boolean(selectedPrimaryShip);
       }
 
-      return selectedPackageShips.length > 0 && Boolean(selectedPrimaryShip || selectedPackageShips[0]);
+      return true;
     }
 
     return true;
-  }, [
-    manualItemName,
-    manualItemPrice,
-    manualItemQuantity,
-    manualItemType,
-    manualPackageKind,
-    selectedFromShip,
-    selectedPrimaryShip,
-    selectedPackageShips,
-    selectedToShip,
-  ]);
+  }, [manualItemName, manualItemPrice, manualItemQuantity, manualItemType, manualPackageKind, selectedFromShip, selectedPrimaryShip, selectedToShip]);
 
   const handleCreateListing = async () => {
     if (!token || !canSubmitManualItem) {
@@ -418,7 +636,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           ? selectedPrimaryShip
           : (selectedPrimaryShip || selectedPackageShips[0] || null);
 
-        if (!packageShips.length || !primaryShip) {
+        if (manualPackageKind === "standalone_ship" && (!packageShips.length || !primaryShip)) {
           return;
         }
 
@@ -427,9 +645,9 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           body: JSON.stringify({
             ...basePayload,
             itemType: "package",
-            shipId: primaryShip.id,
-            primaryShipId: primaryShip.id,
-            primaryShipName: primaryShip.name,
+            shipId: primaryShip?.id,
+            primaryShipId: primaryShip?.id,
+            primaryShipName: primaryShip?.name,
             packageKind: manualPackageKind,
             insuranceType: manualInsuranceType || undefined,
             packageShips,
@@ -730,13 +948,23 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          onClick={() => handleRemoveItem(item.skuId)}
-                        >
-                          <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
-                        </Button>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleOpenAdjustStockDialog(item)}
+                          >
+                            <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleRemoveItem(item.skuId)}
+                          >
+                            <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
+                          </Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );
@@ -775,58 +1003,186 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           <DialogContentText sx={{ mb: 3 }}>
             <FormattedMessage
               id="market.prefillFromHangarDescription"
-              defaultMessage="Choose a giftable hangar item to prefill the form, or leave it empty and fill the listing manually."
+              defaultMessage="Choose a hangar item to prefill the form, or leave it empty and fill the listing manually."
             />
           </DialogContentText>
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-            <Autocomplete
-              options={inventoryItems}
-              value={selectedSourceItem}
-              isOptionEqualToValue={(option, value) => option.sourceKey === value.sourceKey}
-              getOptionLabel={(option) => getInventoryOptionLabel(option, intl)}
-              noOptionsText={intl.formatMessage({ id: "hangar.noEquipment", defaultMessage: "No sharable content in your hangar" })}
-              onChange={handleSourceItemChange}
-              renderOption={(props, option) => (
-                <li {...props}>
-                  <div className="flex flex-col py-1">
-                    <span className="font-medium">{getInventoryOptionLabel(option, intl)}</span>
-                    <span className="text-sm text-gray-500">
-                      {getInventoryOptionMeta(option)}
-                      {option.isBuyBack ? ` | ${intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}` : ""}
-                    </span>
-                  </div>
-                </li>
-              )}
-              renderInput={(params) => (
+            <Box sx={{ gridColumn: { md: "1 / span 2" }, display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
                 <TextField
-                  {...params}
                   label={intl.formatMessage({ id: "market.prefillFromHangar", defaultMessage: "Prefill from Hangar" })}
-                  placeholder={intl.formatMessage({ id: "market.prefillFromHangarPlaceholder", defaultMessage: "Search giftable hangar items" })}
-                />
-              )}
-              filterOptions={(options, state) => {
-                const search = state.inputValue.trim().toLowerCase();
-                if (!search) {
-                  return options;
-                }
-
-                return options.filter((option) => getInventorySearchText(option).includes(search));
-              }}
-              sx={{ gridColumn: { md: "1 / span 2" } }}
-            />
-
-            {selectedSourceItem && (
-              <Alert severity={selectedSourceItem.isBuyBack ? "warning" : "info"} sx={{ gridColumn: { md: "1 / span 2" } }}>
-                <FormattedMessage
-                  id="market.prefillDetachedHint"
-                  defaultMessage="{buybackNotice}"
-                  values={{
-                    buybackNotice: selectedSourceItem.isBuyBack
-                      ? intl.formatMessage({ id: "market.prefillBuybackNotice", defaultMessage: "This selected hangar item is a buyback item." })
-                      : intl.formatMessage({ id: "market.prefillNonBuybackNotice", defaultMessage: "This selected hangar item is not a buyback item." }),
+                  placeholder={intl.formatMessage({ id: "market.prefillFromHangarPlaceholder", defaultMessage: "Search hangar items" })}
+                  value={prefillSearchTerm}
+                  onChange={(event) => setPrefillSearchTerm(event.target.value)}
+                  sx={{ flexGrow: 1, minWidth: 260 }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search />
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={prefillGiftableOnly}
+                      onChange={(event) => setPrefillGiftableOnly(event.target.checked)}
+                    />
+                  )}
+                  label={intl.formatMessage({ id: "market.prefillGiftableOnly", defaultMessage: "Giftable only" })}
+                />
+                {selectedSourceItem && (
+                  <Button variant="outlined" onClick={() => handleSelectSourceItem(null)}>
+                    <FormattedMessage id="market.prefillClearSelection" defaultMessage="Clear Selection" />
+                  </Button>
+                )}
+              </Box>
+
+              {selectedSourceItem ? (
+                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    <FormattedMessage id="market.prefillSelectedItem" defaultMessage="Selected Hangar Item" />
+                  </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "320px 1fr" }, gap: 2 }}>
+                    <InventoryItemMedia item={selectedSourceItem} ships={ships} />
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      <Typography variant="h6">{selectedSourceItem.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {getInventorySubtitle(selectedSourceItem, intl)}
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                        <Chip size="small" label={getDisplayTypeLabel(selectedSourceItem.displayType, intl)} />
+                        <Chip
+                          size="small"
+                          color={selectedSourceItem.canGift ? "success" : "warning"}
+                          label={selectedSourceItem.canGift
+                            ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
+                            : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
+                        />
+                        {selectedSourceItem.isBuyBack && (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {getInventoryOptionMeta(selectedSourceItem)}
+                      </Typography>
+                      <Typography variant="body2" color="primary" fontWeight={700}>
+                        {selectedSourceItem.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1, p: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage
+                      id="market.prefillSelectionHint"
+                      defaultMessage="Select a hangar item below if you want to prefill this listing."
+                    />
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, maxHeight: 420, overflowY: "auto" }}>
+                {filteredInventoryItems.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+                    {filteredInventoryItems.map((item) => {
+                      const isSelected = selectedSourceItem?.sourceKey === item.sourceKey;
+
+                      return (
+                        <Box
+                          key={item.sourceKey}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSelectSourceItem(item)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              handleSelectSourceItem(item);
+                            }
+                          }}
+                          sx={{
+                            border: "1px solid",
+                            borderColor: isSelected ? "primary.main" : "divider",
+                            bgcolor: isSelected ? "action.selected" : "background.paper",
+                            borderRadius: 1,
+                            p: 1.5,
+                            cursor: "pointer",
+                            transition: "border-color 0.2s ease, background-color 0.2s ease",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            <InventoryItemMedia item={item} ships={ships} />
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                              <Typography variant="subtitle1" fontWeight={700}>
+                                {item.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {getInventorySubtitle(item, intl)}
+                              </Typography>
+                              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                                <Chip size="small" label={getDisplayTypeLabel(item.displayType, intl)} />
+                                <Chip
+                                  size="small"
+                                  color={item.canGift ? "success" : "warning"}
+                                  label={item.canGift
+                                    ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
+                                    : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
+                                />
+                                {item.isBuyBack && (
+                                  <Chip
+                                    size="small"
+                                    variant="outlined"
+                                    color="warning"
+                                    label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
+                                  />
+                                )}
+                              </Box>
+                              <Typography variant="body2" color="text.secondary">
+                                {getInventoryOptionMeta(item)}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+
+            {selectedSourceItem && (
+              <Alert
+                severity={!selectedSourceItem.canGift || selectedSourceItem.isBuyBack ? "warning" : "info"}
+                sx={{ gridColumn: { md: "1 / span 2" } }}
+              >
+                {!selectedSourceItem.canGift
+                  ? intl.formatMessage({
+                    id: "market.prefillNotGiftableNotice",
+                    defaultMessage: "This selected hangar item is not giftable. You can still list it, but it cannot be sent as a gift.",
+                  })
+                  : selectedSourceItem.isBuyBack
+                    ? intl.formatMessage({
+                      id: "market.prefillBuybackNotice",
+                      defaultMessage: "This selected hangar item is a buyback item.",
+                    })
+                    : intl.formatMessage({
+                      id: "market.prefillGiftableNotice",
+                      defaultMessage: "This selected hangar item is giftable and can be used to prefill the listing.",
+                    })}
               </Alert>
             )}
 
@@ -999,14 +1355,75 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             )}
 
             {manualItemType === "package" && manualPackageKind === "bundle" && (
-              <TextField
-                multiline
-                minRows={4}
-                label={intl.formatMessage({ id: "market.packageItems", defaultMessage: "Bundle Extra Items (one per line)" })}
-                value={manualPackageItemsText}
-                onChange={(event) => setManualPackageItemsText(event.target.value)}
-                sx={{ gridColumn: { md: "1 / span 2" } }}
-              />
+              <Box sx={{ gridColumn: { md: "1 / span 2" }, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    <FormattedMessage id="market.packageItems" defaultMessage="Bundle Extra Items" />
+                  </Typography>
+                  <Button size="small" startIcon={<PlusCircle />} onClick={handleAddManualPackageItem}>
+                    <FormattedMessage id="market.addPackageItem" defaultMessage="Add Extra Item" />
+                  </Button>
+                </Box>
+
+                {manualPackageItems.length === 0 ? (
+                  <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1, px: 2, py: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      <FormattedMessage
+                        id="market.packageItemsEmpty"
+                        defaultMessage="No extra items added yet. Add rows for text-only items or items with images."
+                      />
+                    </Typography>
+                  </Box>
+                ) : (
+                  manualPackageItems.map((entry, index) => (
+                    <Box
+                      key={entry.id}
+                      sx={{
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        p: 2,
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                        gap: 1.5,
+                      }}
+                    >
+                      <TextField
+                        label={intl.formatMessage({ id: "market.packageItemName", defaultMessage: "Extra Item Name" })}
+                        value={entry.itemName}
+                        onChange={(event) => handleUpdateManualPackageItem(entry.id, "itemName", event.target.value)}
+                      />
+                      <TextField
+                        label={intl.formatMessage({ id: "market.packageItemKind", defaultMessage: "Extra Item Kind" })}
+                        value={entry.itemKind}
+                        onChange={(event) => handleUpdateManualPackageItem(entry.id, "itemKind", event.target.value)}
+                      />
+                      <TextField
+                        label={intl.formatMessage({ id: "market.packageItemImageUrl", defaultMessage: "Extra Item Image URL" })}
+                        value={entry.imageUrl}
+                        onChange={(event) => handleUpdateManualPackageItem(entry.id, "imageUrl", event.target.value)}
+                        sx={{ gridColumn: { md: "1 / span 2" } }}
+                        helperText={intl.formatMessage({
+                          id: "market.packageItemImageUrlHelp",
+                          defaultMessage: "Leave empty for text-only items.",
+                        })}
+                      />
+                      <Box sx={{ gridColumn: { md: "1 / span 2" }, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                        <Typography variant="body2" color="text.secondary">
+                          <FormattedMessage
+                            id="market.packageItemRowLabel"
+                            defaultMessage="Extra item #{index}"
+                            values={{ index: index + 1 }}
+                          />
+                        </Typography>
+                        <Button color="error" onClick={() => handleRemoveManualPackageItem(entry.id)}>
+                          <FormattedMessage id="remove" defaultMessage="Remove" />
+                        </Button>
+                      </Box>
+                    </Box>
+                  ))
+                )}
+              </Box>
             )}
 
             {(manualItemType === "package" || manualItemType === "misc") && (
@@ -1036,6 +1453,98 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           </Button>
           <Button onClick={handleCreateListing} disabled={!canSubmitManualItem} variant="contained">
             <FormattedMessage id="hangar.addItem" defaultMessage="Add Item" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isAdjustStockDialogOpen}
+        onClose={handleCloseAdjustStockDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            <FormattedMessage
+              id="market.adjustStockDescription"
+              defaultMessage="Enter a positive number to add stock or a negative number to reduce stock. The server applies this as an atomic stock delta update."
+            />
+          </DialogContentText>
+
+          {adjustStockTarget && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {adjustStockTarget.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage
+                    id="market.listingStockBreakdown"
+                    defaultMessage="Total {stock} / Locked {lockedStock}"
+                    values={{ stock: adjustStockTarget.stock, lockedStock: adjustStockTarget.lockedStock }}
+                  />
+                </Typography>
+                {projectedStock !== null && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                    <FormattedMessage
+                      id="market.adjustStockProjected"
+                      defaultMessage="Projected total stock: {stock}"
+                      values={{ stock: projectedStock }}
+                    />
+                  </Typography>
+                )}
+              </Box>
+
+              <TextField
+                label={intl.formatMessage({ id: "market.stockDelta", defaultMessage: "Stock Delta" })}
+                type="number"
+                value={adjustStockDeltaInput}
+                onChange={(event) => setAdjustStockDeltaInput(event.target.value)}
+                InputProps={{
+                  inputProps: {
+                    step: 1,
+                    min: -Math.max(adjustStockTarget.stock - adjustStockTarget.lockedStock, 0),
+                  },
+                }}
+                helperText={intl.formatMessage({
+                  id: "market.stockDeltaHelp",
+                  defaultMessage: "For example: 3 adds three units, -2 removes two units.",
+                })}
+              />
+
+              {projectedStock !== null && projectedStock < 0 && (
+                <Alert severity="warning">
+                  <FormattedMessage
+                    id="market.adjustStockNegativeWarning"
+                    defaultMessage="Projected stock cannot be less than 0."
+                  />
+                </Alert>
+              )}
+
+              {projectedStock !== null && projectedStock < adjustStockTarget.lockedStock && (
+                <Alert severity="warning">
+                  <FormattedMessage
+                    id="market.adjustStockLockedWarning"
+                    defaultMessage="Projected stock cannot be lower than the currently locked quantity."
+                  />
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAdjustStockDialog} disabled={isAdjustStockSubmitting}>
+            <FormattedMessage id="cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button
+            onClick={handleAdjustStock}
+            disabled={!canSubmitStockAdjustment || isAdjustStockSubmitting}
+            variant="contained"
+          >
+            <FormattedMessage id="save" defaultMessage="Save" />
           </Button>
         </DialogActions>
       </Dialog>

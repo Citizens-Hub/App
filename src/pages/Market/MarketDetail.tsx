@@ -1026,8 +1026,14 @@ export default function MarketDetail() {
   ];
   const packageShips = normalizedPackageShips;
   const packageItems = item.packageItems || [];
-  const packageItemsWithImage = packageItems.filter((entry) => entry.imageUrl !== "https://robertsspaceindustries.com/undefined");
-  const packageItemsWithoutImage = packageItems.filter((entry) => entry.imageUrl === "https://robertsspaceindustries.com/undefined");
+  const packageItemsWithImage = packageItems.filter((entry) => {
+    const imageUrl = entry.imageUrl?.trim();
+    return Boolean(imageUrl && imageUrl !== "https://robertsspaceindustries.com/undefined");
+  });
+  const packageItemsWithoutImage = packageItems.filter((entry) => {
+    const imageUrl = entry.imageUrl?.trim();
+    return !imageUrl || imageUrl === "https://robertsspaceindustries.com/undefined";
+  });
   // const formattedCreatedAt = new Date(item.createdAt).toLocaleString(intl.locale);
 
   return (

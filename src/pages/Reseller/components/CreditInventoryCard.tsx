@@ -166,11 +166,13 @@ export default function CreditInventoryCard({ defaultExpanded = false }: CreditI
           endIcon={expanded ? <ExpandLess /> : <ExpandMore />}
           aria-expanded={expanded}
         >
-          {intl.formatMessage(
-            expanded
-              ? { id: 'common.collapse', defaultMessage: 'Collapse' }
-              : { id: 'common.expand', defaultMessage: 'Expand' },
-          )}
+          <span>
+            {intl.formatMessage(
+              expanded
+                ? { id: 'common.collapse', defaultMessage: 'Collapse' }
+                : { id: 'common.expand', defaultMessage: 'Expand' },
+            )}
+          </span>
         </Button>
       </Box>
 

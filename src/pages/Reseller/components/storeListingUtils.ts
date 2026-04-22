@@ -47,13 +47,12 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
   const ccuGroups = new Map<string, StoreInventoryItem>();
 
   ccus
-    .filter((item) => item.canGift)
     .forEach((item) => {
       const fromShip = marketShips.find((ship) => normalizeName(ship.name) === normalizeName(item.parsed.from));
       const toShip = marketShips.find((ship) => normalizeName(ship.name) === normalizeName(item.parsed.to));
       if (!fromShip || !toShip) return;
 
-      const key = `ccu:${fromShip.id}:${toShip.id}:${item.isBuyBack ? 1 : 0}`;
+      const key = `ccu:${fromShip.id}:${toShip.id}:${item.canGift ? 1 : 0}:${item.isBuyBack ? 1 : 0}`;
       const ownerName = users.find((user) => user.id === item.belongsTo)?.nickname || `User ${item.belongsTo}`;
       const customPriceKey = `${item.name}-${fromShip.id}-${toShip.id}`;
       const resolvedPrice = allItemPrices[customPriceKey] ?? item.value;
@@ -95,7 +94,6 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
     });
 
   const standaloneShips = ships
-    .filter((item) => item.canGift)
     .map<StoreInventoryItem | null>((item) => {
       const shipInfo = marketShips.find((ship) => ship.id === item.id || normalizeName(ship.name) === normalizeName(item.name));
       if (!shipInfo) return null;
@@ -104,7 +102,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
       const quantity = item.quantity || 1;
 
       return {
-        sourceKey: `package:ship:${item.belongsTo}:${item.pageId || item.id}:${shipInfo.id}:${item.isBuyBack ? 1 : 0}`,
+        sourceKey: `package:ship:${item.belongsTo}:${item.pageId || item.id}:${shipInfo.id}:${item.canGift ? 1 : 0}:${item.isBuyBack ? 1 : 0}`,
         itemType: 'package',
         displayType: 'standalone_ship',
         name: item.name,
@@ -128,7 +126,6 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
     .filter((item): item is StoreInventoryItem => item !== null);
 
   const bundleItems = bundles
-    .filter((item) => item.canGift)
     .map<StoreInventoryItem>((item) => {
       const bundleShips = (item.ships || [])
         .map((bundleShip, index) => {
@@ -163,7 +160,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
       const quantity = item.quantity || 1;
 
       return {
-        sourceKey: `package:bundle:${item.belongsTo}:${item.pageId || item.name}:${item.isBuyBack ? 1 : 0}`,
+        sourceKey: `package:bundle:${item.belongsTo}:${item.pageId || item.name}:${item.canGift ? 1 : 0}:${item.isBuyBack ? 1 : 0}`,
         itemType: 'package',
         displayType: 'bundle',
         name: item.name,
@@ -204,6 +201,10 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
 
     if (a.isBuyBack !== b.isBuyBack) {
       return a.isBuyBack ? 1 : -1;
+    }
+
+    if (a.canGift !== b.canGift) {
+      return a.canGift ? -1 : 1;
     }
 
     return b.price - a.price;
