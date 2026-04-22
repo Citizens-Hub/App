@@ -668,6 +668,9 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (requestId === "user-info") {
           const account = extractAccountFromResponse(message.value);
 
+          console.log("raw msaage>>>>>>>>>>", message)
+          console.log("account>>>>>>>>>>>>>>", account)
+
           if (!account) {
             throw new Error("Invalid account response from browser extension");
           }
