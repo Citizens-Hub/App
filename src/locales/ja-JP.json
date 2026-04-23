@@ -544,7 +544,7 @@
   "fleetview.card.sourceSummary": "ソース概要",
   "fleetview.card.unknownManufacturer": "不明なメーカー",
   "fleetview.catalogWarning": "艦船カタログデータを一時的に取得できません。ローカルのハンガーデータからフリートは表示されますが、一部の画像や 3D 対応が欠ける場合があります。",
-  "fleetview.empty.description": "まず RSI ハンガーを同期するか、上のユーザー範囲を切り替えてください。リスト表示では現在ハンガーにある艦船のみを表示し、買い戻しは含みませんが、3D ビューアーでは完全なモデルピッカーを開けます。",
+  "fleetview.empty.description": "まず RSI ハンガーを同期するか。リスト表示では現在ハンガーにある艦船のみを表示し、買い戻しは含みませんが。",
   "fleetview.empty.hint": "ヒント: バンドルに含まれる艦船も自動的にこの一覧へ統合されます。",
   "fleetview.empty.title": "現在の対象範囲に保有艦船がありません",
   "fleetview.mode.list": "リスト表示",

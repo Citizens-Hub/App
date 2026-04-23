@@ -544,7 +544,7 @@
   "fleetview.card.sourceSummary": "Quellenübersicht",
   "fleetview.card.unknownManufacturer": "Unbekannter Hersteller",
   "fleetview.catalogWarning": "Katalogdaten für Schiffe sind vorübergehend nicht verfügbar. Die Flotte wird weiterhin aus Ihren lokalen Hangar-Daten angezeigt, aber einige Bilder und 3D-Zuordnungen können fehlen.",
-  "fleetview.empty.description": "Synchronisieren Sie zuerst Ihren RSI-Hangar oder wechseln Sie oben den Benutzerbereich. Die Listenansicht zeigt nur Schiffe im aktuellen Hangar und schließt Rückkäufe aus, aber im 3D-Viewer können Sie weiterhin den vollständigen Modell-Picker öffnen.",
+  "fleetview.empty.description": "Synchronisieren Sie zuerst Ihren RSI-Hangar. Die Listenansicht zeigt nur Schiffe im aktuellen Hangar und schließt Rückkäufe aus.",
   "fleetview.empty.hint": "Hinweis: In Bundles enthaltene Schiffe werden automatisch in diese Liste übernommen.",
   "fleetview.empty.title": "Keine besessenen Schiffe im aktuellen Bereich",
   "fleetview.mode.list": "Listenansicht",

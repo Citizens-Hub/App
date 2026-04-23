@@ -544,7 +544,7 @@
   "fleetview.card.sourceSummary": "来源概览",
   "fleetview.card.unknownManufacturer": "未知制造商",
   "fleetview.catalogWarning": "舰船目录数据暂时不可用。页面仍会根据本地机库数据展示舰队，但部分图片和 3D 匹配可能缺失。",
-  "fleetview.empty.description": "请先同步 RSI 机库，或切换上方用户范围。列表视图只显示当前机库中的舰船，不包含回购；3D 查看器仍可打开完整模型选择器。",
+  "fleetview.empty.description": "请先同步 RSI 机库，列表视图只显示当前机库中的舰船，不包含回购；",
   "fleetview.empty.hint": "提示：礼包内包含的舰船也会自动合并到此列表。",
   "fleetview.empty.title": "当前范围内没有已拥有舰船",
   "fleetview.mode.list": "列表查看",

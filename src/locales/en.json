@@ -544,7 +544,7 @@
   "fleetview.card.sourceSummary": "Source Summary",
   "fleetview.card.unknownManufacturer": "Unknown manufacturer",
   "fleetview.catalogWarning": "Ship catalog data is temporarily unavailable. Fleet entries are still shown from your local hangar data, but some images and 3D matches may be missing.",
-  "fleetview.empty.description": "Sync your RSI hangar first, or change the selected user scope above. List View only shows ships currently in hangar and excludes buybacks, but the 3D viewer can still open the full model picker.",
+  "fleetview.empty.description": "Please sync your RSI hangar first. List View only shows ships currently in hangar and excludes buybacks.",
   "fleetview.empty.hint": "Tip: bundle-contained ships will be merged into this list automatically.",
   "fleetview.empty.title": "No owned ships in the current scope",
   "fleetview.mode.list": "List View",
