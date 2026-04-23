@@ -695,6 +695,8 @@
   "header.friendlyLinks": "友情連結",
   "header.friendlyLinkScm": "SCM",
   "header.language": "切換語言",
+  "header.shipNameTranslation": "艦船名稱翻譯",
+  "header.shipNameTranslationHint": "有可用翻譯時，優先顯示翻譯後的艦船名稱。",
   "header.lightMode": "切換到淺色模式",
   "header.openDiscord": "打開 Discord 伺服器",
   "header.openGithub": "打開 GitHub 倉庫",

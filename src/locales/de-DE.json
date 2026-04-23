@@ -695,6 +695,8 @@
   "header.friendlyLinks": "Partnerlinks",
   "header.friendlyLinkScm": "SCM",
   "header.language": "Switch language",
+  "header.shipNameTranslation": "Ship name translation",
+  "header.shipNameTranslationHint": "Show translated ship names when translations are available.",
   "header.lightMode": "Switch to light mode",
   "header.openDiscord": "Open Discord server",
   "header.openGithub": "Open GitHub repository",

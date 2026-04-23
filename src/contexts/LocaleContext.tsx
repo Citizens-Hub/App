@@ -9,6 +9,8 @@ import deDEMessages from '../locales/de-DE.json';
 export type Locale = 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE';
 
 const SUPPORTED_LOCALES: Locale[] = ['zh-CN', 'zh-HK', 'en', 'ja-JP', 'de-DE'];
+const LOCALE_STORAGE_KEY = 'locale';
+const SHIP_NAME_TRANSLATION_STORAGE_KEY = 'ship-name-translation-enabled';
 
 const messages: Record<Locale, Record<string, string>> = {
   'en': enMessages,
@@ -21,6 +23,8 @@ const messages: Record<Locale, Record<string, string>> = {
 interface LocaleContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  shipNameTranslationEnabled: boolean;
+  setShipNameTranslationEnabled: (enabled: boolean) => void;
   messages: Record<string, string>;
 }
 
@@ -53,21 +57,40 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
     return 'en'; // set default language to en
   };
 
-  let savedLocale = localStorage.getItem('locale') as Locale;
-  // Check if the language stored in the browser is supported, if not, reset it
-  if (!SUPPORTED_LOCALES.includes(savedLocale)) {
-    savedLocale = getBrowserLocale();
-  }
-  const [locale, setLocale] = useState<Locale>(savedLocale);
+  const getSavedLocale = (): Locale => {
+    const savedLocale = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null;
+    if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale)) {
+      return savedLocale;
+    }
+    return getBrowserLocale();
+  };
+
+  const getSavedShipNameTranslationEnabled = (): boolean => {
+    const savedValue = localStorage.getItem(SHIP_NAME_TRANSLATION_STORAGE_KEY);
+    if (savedValue === null) {
+      return true;
+    }
+    return savedValue === 'true';
+  };
+
+  const [locale, setLocale] = useState<Locale>(getSavedLocale);
+  const [shipNameTranslationEnabled, setShipNameTranslationEnabled] = useState<boolean>(getSavedShipNameTranslationEnabled);
 
   const handleSetLocale = (newLocale: Locale) => {
     setLocale(newLocale);
-    localStorage.setItem('locale', newLocale);
+    localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+  };
+
+  const handleSetShipNameTranslationEnabled = (enabled: boolean) => {
+    setShipNameTranslationEnabled(enabled);
+    localStorage.setItem(SHIP_NAME_TRANSLATION_STORAGE_KEY, String(enabled));
   };
 
   const value = {
     locale,
     setLocale: handleSetLocale,
+    shipNameTranslationEnabled,
+    setShipNameTranslationEnabled: handleSetShipNameTranslationEnabled,
     messages: messages[locale],
   };
 

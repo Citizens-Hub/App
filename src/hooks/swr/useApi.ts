@@ -48,17 +48,22 @@ function mergeShipNameTranslations(shipsData: ShipsData, translationsResponse: S
  * 基本数据获取hook，无需认证
  */
 export function useApi<T>(path: string | null, options?: SWRConfiguration) {
-  const { locale } = useLocale();
+  const { locale, shipNameTranslationEnabled } = useLocale();
   const localizedPath = appendShipLocaleToPath(path, locale);
   const fullUrl = localizedPath ? `${API_BASE_URL}${localizedPath}` : null;
   const requestPathname = localizedPath ? new URL(localizedPath, 'http://localhost').pathname : null;
   const isShipListRequest = requestPathname === '/api/ships';
-  const swrKey = fullUrl ? (isShipListRequest ? `${fullUrl}#locale=${locale}` : fullUrl) : null;
+  const shouldMergeShipNameTranslations = locale !== 'en' && shipNameTranslationEnabled;
+  const swrKey = fullUrl
+    ? (isShipListRequest
+      ? `${fullUrl}#locale=${locale}#ship-name-translation=${shouldMergeShipNameTranslations ? 'on' : 'off'}`
+      : fullUrl)
+    : null;
   const swrFetcher = async (url: string) => {
     const [requestUrlString] = url.split('#');
     const data = await fetcher(requestUrlString);
 
-    if (locale === 'en') {
+    if (!shouldMergeShipNameTranslations) {
       return data as T;
     }
 
