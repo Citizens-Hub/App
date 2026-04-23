@@ -1,6 +1,6 @@
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Drawer, IconButton, InputAdornment, TextField } from '@mui/material';
-import { Theme, alpha } from '@mui/material/styles';
+import { Theme, alpha, useTheme } from '@mui/material/styles';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ViewInArRoundedIcon from '@mui/icons-material/ViewInArRounded';
@@ -11,8 +11,12 @@ import Crawler from '@/components/Crawler';
 import UserSelector from '@/components/UserSelector';
 import { useApi } from '@/hooks/swr/useApi';
 import FleetModelViewer from '@/pages/FleetView/FleetModelViewer';
+import type {
+  FleetModelViewerRotationState,
+  FleetModelViewerTransformMode,
+  FleetModelViewerTransformState,
+} from '@/pages/FleetView/FleetModelViewer';
 import { formatUsdPrice } from '@/pages/Market/marketI18n';
-import { RootState } from '@/store';
 import { BundleItem, ShipItem, selectUsersHangarItems } from '@/store/upgradesStore';
 import type { Ship, ShipDimensionsResponse, ShipsData } from '@/types';
 
@@ -40,6 +44,10 @@ interface FleetPickerShipEntry extends Omit<FleetShipEntry, 'shipId'> {
   isOwned: boolean;
 }
 
+interface FleetStagedShipEntry extends FleetPickerShipEntry {
+  sourceShipKey: string;
+}
+
 interface MutableFleetShipEntry {
   key: string;
   shipId: number | null;
@@ -61,17 +69,135 @@ interface MutableFleetShipEntry {
 
 const FALLBACK_SHIP_IMAGE = '/rsi-icons/shipEmpty.svg';
 const MODEL_PICKER_DRAG_TYPE = 'application/citizenshub-fleet-ship-key';
+const FLEET_VIEW_SCENE_STORAGE_KEY = 'fleetViewSceneState';
+const FLEET_VIEW_SCENE_STORAGE_VERSION = 2;
+const FLEET_VIEW_SHIP_INSTANCE_KEY_DELIMITER = '::instance:';
+
+interface FleetViewSceneState {
+  version: number;
+  stagedShipKeys: string[];
+  selectedShipKey: string | null;
+  viewerTransformMode: FleetModelViewerTransformMode | null;
+  shipTransforms: Record<string, FleetModelViewerTransformState>;
+}
+
+function getDefaultFleetViewSceneState(): FleetViewSceneState {
+  return {
+    version: FLEET_VIEW_SCENE_STORAGE_VERSION,
+    stagedShipKeys: [],
+    selectedShipKey: null,
+    viewerTransformMode: null,
+    shipTransforms: {},
+  };
+}
+
+function getFleetViewShipInstanceSourceKey(instanceKey: string) {
+  const delimiterIndex = instanceKey.indexOf(FLEET_VIEW_SHIP_INSTANCE_KEY_DELIMITER);
+  if (delimiterIndex === -1) {
+    return instanceKey;
+  }
+
+  return instanceKey.slice(0, delimiterIndex);
+}
+
+function createFleetViewShipInstanceKey(shipKey: string) {
+  const instanceSuffix = globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return `${shipKey}${FLEET_VIEW_SHIP_INSTANCE_KEY_DELIMITER}${instanceSuffix}`;
+}
+
+function createLegacyFleetViewShipInstanceKey(shipKey: string, index: number) {
+  return `${shipKey}${FLEET_VIEW_SHIP_INSTANCE_KEY_DELIMITER}legacy-${index}`;
+}
+
+function migrateFleetViewSceneStateV1(parsed: Partial<FleetViewSceneState>): FleetViewSceneState {
+  const legacyShipKeys = Array.isArray(parsed.stagedShipKeys)
+    ? parsed.stagedShipKeys.filter((value): value is string => typeof value === 'string')
+    : [];
+  const migratedShipTransforms: Record<string, FleetModelViewerTransformState> = {};
+  const migratedShipKeys = legacyShipKeys.map((shipKey, index) => {
+    const instanceKey = createLegacyFleetViewShipInstanceKey(shipKey, index + 1);
+    const legacyTransform = parsed.shipTransforms?.[shipKey];
+    if (legacyTransform) {
+      migratedShipTransforms[instanceKey] = legacyTransform;
+    }
+    return instanceKey;
+  });
+  const selectedShipIndex = legacyShipKeys.findIndex((shipKey) => shipKey === parsed.selectedShipKey);
+
+  return {
+    version: FLEET_VIEW_SCENE_STORAGE_VERSION,
+    stagedShipKeys: migratedShipKeys,
+    selectedShipKey: selectedShipIndex >= 0 ? migratedShipKeys[selectedShipIndex] : null,
+    viewerTransformMode: null,
+    shipTransforms: migratedShipTransforms,
+  };
+}
+
+function loadFleetViewSceneState(): FleetViewSceneState {
+  if (typeof window === 'undefined') {
+    return getDefaultFleetViewSceneState();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(FLEET_VIEW_SCENE_STORAGE_KEY);
+    if (!raw) {
+      return getDefaultFleetViewSceneState();
+    }
+
+    const parsed = JSON.parse(raw) as Partial<FleetViewSceneState>;
+    if (parsed.version === 1) {
+      return migrateFleetViewSceneStateV1(parsed);
+    }
+
+    if (parsed.version !== FLEET_VIEW_SCENE_STORAGE_VERSION) {
+      return getDefaultFleetViewSceneState();
+    }
+
+    return {
+      version: FLEET_VIEW_SCENE_STORAGE_VERSION,
+      stagedShipKeys: Array.isArray(parsed.stagedShipKeys)
+        ? parsed.stagedShipKeys.filter((value): value is string => typeof value === 'string')
+        : [],
+      selectedShipKey: typeof parsed.selectedShipKey === 'string' ? parsed.selectedShipKey : null,
+      viewerTransformMode: parsed.viewerTransformMode === 'translate' || parsed.viewerTransformMode === 'rotate'
+        ? parsed.viewerTransformMode
+        : null,
+      shipTransforms: parsed.shipTransforms && typeof parsed.shipTransforms === 'object'
+        ? parsed.shipTransforms
+        : {},
+    };
+  } catch (error) {
+    console.error('Failed to load fleet view scene state', error);
+    return getDefaultFleetViewSceneState();
+  }
+}
+
+function saveFleetViewSceneState(state: FleetViewSceneState) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(FLEET_VIEW_SCENE_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error('Failed to save fleet view scene state', error);
+  }
+}
 
 const fleetTextFieldSx = {
   '& .MuiOutlinedInput-root': {
-    borderRadius: '4px',
-    backgroundColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#121212' : '#ffffff'),
+    borderRadius: '8px',
+    backgroundColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#121212' : alpha('#ffffff', 0.78)),
     color: (theme: Theme) => (theme.palette.mode === 'dark' ? '#f5f5f5' : '#18181b'),
+    // boxShadow: (theme: Theme) => (theme.palette.mode === 'dark' ? 'none' : '0 12px 36px rgba(148, 163, 184, 0.12)'),
+    backdropFilter: 'blur(16px)',
     '& fieldset': {
-      borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#404040' : '#d4d4d8'),
+      borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#404040' : alpha('#94a3b8', 0.34)),
     },
     '&:hover fieldset': {
-      borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#737373' : '#a1a1aa'),
+      borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? '#737373' : alpha('#64748b', 0.56)),
     },
     '&.Mui-focused fieldset': {
       borderColor: '#2563eb',
@@ -83,45 +209,62 @@ const fleetTextFieldSx = {
   },
   '& .MuiInputAdornment-root .MuiSvgIcon-root': {
     color: (theme: Theme) => (theme.palette.mode === 'dark' ? '#a3a3a3' : '#71717a'),
-  },
-};
-
-const viewerTextFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: '4px',
-    backgroundColor: '#121212',
-    color: '#f5f5f5',
-    '& fieldset': {
-      borderColor: '#404040',
-    },
-    '&:hover fieldset': {
-      borderColor: '#737373',
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: '#2563eb',
-    },
-  },
-  '& .MuiInputBase-input::placeholder': {
-    color: '#a3a3a3',
-    opacity: 1,
-  },
-  '& .MuiInputAdornment-root .MuiSvgIcon-root': {
-    color: '#a3a3a3',
   },
 };
 
 const viewerIconButtonSx = {
   border: '1px solid',
-  borderColor: '#404040',
-  backgroundColor: alpha('#ffffff', 0.03),
-  color: '#e5e5e5',
-  borderRadius: '4px',
+  borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#ffffff', 0.12) : alpha('#0f172a', 0.12)),
+  backgroundColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#ffffff', 0.03) : alpha('#ffffff', 0.78)),
+  color: (theme: Theme) => (theme.palette.mode === 'dark' ? '#e5e5e5' : '#0f172a'),
+  borderRadius: '999px',
+  // boxShadow: (theme: Theme) => (theme.palette.mode === 'dark' ? 'none' : '0 14px 36px rgba(148, 163, 184, 0.22)'),
+  backdropFilter: 'blur(16px)',
   '&:hover': {
-    borderColor: alpha('#60a5fa', 0.7),
-    backgroundColor: alpha('#2563eb', 0.16),
-    color: '#dbeafe',
+    borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#60a5fa', 0.7) : alpha('#2563eb', 0.3)),
+    backgroundColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#2563eb', 0.16) : alpha('#dbeafe', 0.92)),
+    color: (theme: Theme) => (theme.palette.mode === 'dark' ? '#dbeafe' : '#1d4ed8'),
   },
 };
+
+function viewerTransformButtonSx(active: boolean) {
+  return {
+    borderRadius: '999px',
+    px: 1.5,
+    minHeight: 34,
+    minWidth: 0,
+    textTransform: 'none',
+    fontWeight: 600,
+    border: '1px solid',
+    borderColor: (theme: Theme) => {
+      if (theme.palette.mode === 'dark') {
+        return active ? alpha('#7dd3fc', 0.36) : alpha('#ffffff', 0.1);
+      }
+
+      return active ? alpha('#2563eb', 0.22) : alpha('#0f172a', 0.08);
+    },
+    backgroundColor: (theme: Theme) => {
+      if (theme.palette.mode === 'dark') {
+        return active ? alpha('#38bdf8', 0.12) : alpha('#ffffff', 0.02);
+      }
+
+      return active ? alpha('#dbeafe', 0.82) : alpha('#ffffff', 0.72);
+    },
+    color: (theme: Theme) => {
+      if (theme.palette.mode === 'dark') {
+        return active ? '#e0f2fe' : '#e5e7eb';
+      }
+
+      return active ? '#1d4ed8' : '#334155';
+    },
+    // boxShadow: (theme: Theme) => (theme.palette.mode === 'dark' ? 'none' : '0 10px 24px rgba(148, 163, 184, 0.16)'),
+    backdropFilter: 'blur(14px)',
+    '&:hover': {
+      borderColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#7dd3fc', 0.52) : alpha('#2563eb', 0.3)),
+      backgroundColor: (theme: Theme) => (theme.palette.mode === 'dark' ? alpha('#38bdf8', 0.16) : alpha('#eff6ff', 0.94)),
+    },
+  };
+}
 
 function normalizeShipName(value?: string | null) {
   return value?.trim().toUpperCase() || '';
@@ -151,15 +294,23 @@ function getShipManufacturerName(ship?: Ship | null) {
 
 export default function FleetView() {
   const intl = useIntl();
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+  const initialSceneState = useMemo(() => loadFleetViewSceneState(), []);
   const [searchText, setSearchText] = useState('');
   const deferredSearchText = useDeferredValue(searchText);
   const [isViewerDrawerOpen, setIsViewerDrawerOpen] = useState(false);
-  const [selectedShipKey, setSelectedShipKey] = useState<string | null>(null);
-  const [stagedShipKeys, setStagedShipKeys] = useState<string[]>([]);
+  const [selectedShipKey, setSelectedShipKey] = useState<string | null>(initialSceneState.selectedShipKey);
+  const [viewerTransformMode, setViewerTransformMode] = useState<FleetModelViewerTransformMode | null>(null);
+  const [selectedShipRotation, setSelectedShipRotation] = useState<FleetModelViewerRotationState | null>(null);
+  const [stagedShipKeys, setStagedShipKeys] = useState<string[]>(initialSceneState.stagedShipKeys);
   const [isSceneDragOver, setIsSceneDragOver] = useState(false);
+  const savedShipTransformsRef = useRef<Record<string, FleetModelViewerTransformState>>(initialSceneState.shipTransforms);
+  const selectedShipKeyRef = useRef<string | null>(initialSceneState.selectedShipKey);
+  const stagedShipKeysRef = useRef<string[]>(initialSceneState.stagedShipKeys);
   const selectedHangarItems = useSelector(selectUsersHangarItems);
-  const selectedUser = useSelector((state: RootState) => state.upgrades.selectedUser);
-  const users = useSelector((state: RootState) => state.upgrades.users);
+  // const selectedUser = useSelector((state: RootState) => state.upgrades.selectedUser);
+  // const users = useSelector((state: RootState) => state.upgrades.users);
   const { data: shipsResponse, error: shipsError, isLoading: shipsLoading } = useApi<ShipsData>('/api/ships');
   const { data: shipDimensionsResponse } = useApi<ShipDimensionsResponse>('/api/ships/dimensions', {
     revalidateOnFocus: false,
@@ -413,17 +564,51 @@ export default function FleetView() {
   );
 
   useEffect(() => {
-    setStagedShipKeys((current) => current.filter((shipKey) => pickerShipByKey.has(shipKey)));
+    setStagedShipKeys((current) => {
+      const nextShipKeys = current.filter((shipKey) => pickerShipByKey.has(getFleetViewShipInstanceSourceKey(shipKey)));
+      if (nextShipKeys.length === current.length) {
+        return current;
+      }
+
+      const nextShipKeySet = new Set(nextShipKeys);
+      savedShipTransformsRef.current = Object.fromEntries(
+        Object.entries(savedShipTransformsRef.current)
+          .filter(([shipKey]) => nextShipKeySet.has(shipKey)),
+      );
+
+      return nextShipKeys;
+    });
   }, [pickerShipByKey]);
 
   const stagedViewerShips = useMemo(
     () => stagedShipKeys
-      .map((shipKey) => pickerShipByKey.get(shipKey))
-      .filter((ship): ship is FleetPickerShipEntry => ship !== undefined),
+      .map((shipKey) => {
+        const sourceShipKey = getFleetViewShipInstanceSourceKey(shipKey);
+        const sourceShip = pickerShipByKey.get(sourceShipKey);
+        if (!sourceShip) {
+          return undefined;
+        }
+
+        return {
+          ...sourceShip,
+          key: shipKey,
+          sourceShipKey,
+        };
+      })
+      .filter((ship): ship is FleetStagedShipEntry => ship !== undefined),
     [pickerShipByKey, stagedShipKeys],
   );
 
-  const stagedShipKeySet = useMemo(() => new Set(stagedShipKeys), [stagedShipKeys]);
+  // const stagedShipCountBySourceKey = useMemo(() => {
+  //   const counts = new Map<string, number>();
+
+  //   stagedShipKeys.forEach((shipKey) => {
+  //     const sourceShipKey = getFleetViewShipInstanceSourceKey(shipKey);
+  //     counts.set(sourceShipKey, (counts.get(sourceShipKey) || 0) + 1);
+  //   });
+
+  //   return counts;
+  // }, [stagedShipKeys]);
 
   useEffect(() => {
     if (stagedViewerShips.length === 0) {
@@ -433,36 +618,112 @@ export default function FleetView() {
       return;
     }
 
-    if (!selectedShipKey || !stagedViewerShips.some((ship) => ship.key === selectedShipKey)) {
-      setSelectedShipKey(stagedViewerShips[0].key);
+    if (selectedShipKey && !stagedViewerShips.some((ship) => ship.key === selectedShipKey)) {
+      setSelectedShipKey(null);
     }
   }, [selectedShipKey, stagedViewerShips]);
+
+  useEffect(() => {
+    if (selectedShipKey !== null) {
+      return;
+    }
+
+    setViewerTransformMode(null);
+    setSelectedShipRotation(null);
+  }, [selectedShipKey]);
+
+  useEffect(() => {
+    selectedShipKeyRef.current = selectedShipKey;
+  }, [selectedShipKey]);
+
+  useEffect(() => {
+    stagedShipKeysRef.current = stagedShipKeys;
+  }, [stagedShipKeys]);
+
+  const persistSceneState = useCallback(() => {
+    saveFleetViewSceneState({
+      version: FLEET_VIEW_SCENE_STORAGE_VERSION,
+      stagedShipKeys: stagedShipKeysRef.current,
+      selectedShipKey: selectedShipKeyRef.current,
+      viewerTransformMode: null,
+      shipTransforms: savedShipTransformsRef.current,
+    });
+  }, []);
+
+  useEffect(() => {
+    persistSceneState();
+  }, [persistSceneState, selectedShipKey, stagedShipKeys]);
 
   const selectedViewerShip = stagedViewerShips.find((ship) => ship.key === selectedShipKey) || null;
   const totalHullCount = useMemo(
     () => ownedShips.reduce((sum, ship) => sum + ship.quantity, 0),
     [ownedShips],
   );
-  const totalBundleHullCount = useMemo(
-    () => ownedShips.reduce((sum, ship) => sum + ship.bundleQuantity, 0),
-    [ownedShips],
-  );
-  const selectedUserLabel = useMemo(() => {
-    if (selectedUser === -1) {
-      return intl.formatMessage({ id: 'navigation.hangar.allUsers', defaultMessage: 'All Users' });
-    }
+  // const totalBundleHullCount = useMemo(
+  //   () => ownedShips.reduce((sum, ship) => sum + ship.bundleQuantity, 0),
+  //   [ownedShips],
+  // );
+  // const selectedUserLabel = useMemo(() => {
+  //   if (selectedUser === -1) {
+  //     return intl.formatMessage({ id: 'navigation.hangar.allUsers', defaultMessage: 'All Users' });
+  //   }
 
-    const activeUser = users.find((user) => user.id === selectedUser);
-    return activeUser?.nickname
-      || activeUser?.username
-      || intl.formatMessage({ id: 'navigation.hangar.selectUser', defaultMessage: 'Select User' });
-  }, [intl, selectedUser, users]);
+  //   const activeUser = users.find((user) => user.id === selectedUser);
+  //   return activeUser?.nickname
+  //     || activeUser?.username
+  //     || intl.formatMessage({ id: 'navigation.hangar.selectUser', defaultMessage: 'Select User' });
+  // }, [intl, selectedUser, users]);
 
-  const addShipToScene = (ship: FleetPickerShipEntry) => {
+  const addShipToScene = useCallback((ship: FleetPickerShipEntry) => {
+    const instanceKey = createFleetViewShipInstanceKey(ship.key);
+
     startTransition(() => {
-      setStagedShipKeys((current) => (current.includes(ship.key) ? current : [...current, ship.key]));
+      setStagedShipKeys((current) => [...current, instanceKey]);
+      setSelectedShipKey(instanceKey);
     });
+  }, []);
+
+  const toggleViewerTransformMode = (nextMode: FleetModelViewerTransformMode) => {
+    setViewerTransformMode((current) => (current === nextMode ? null : nextMode));
   };
+
+  const handleSelectedShipRotationChange = useCallback((rotation: FleetModelViewerRotationState | null) => {
+    setSelectedShipRotation((current) => {
+      if (current === rotation) {
+        return current;
+      }
+
+      if (!current || !rotation) {
+        return rotation;
+      }
+
+      if (current.x === rotation.x && current.y === rotation.y && current.z === rotation.z) {
+        return current;
+      }
+
+      return rotation;
+    });
+  }, []);
+
+  const handleShipTransformChange = useCallback((shipKey: string, transform: FleetModelViewerTransformState) => {
+    savedShipTransformsRef.current = {
+      ...savedShipTransformsRef.current,
+      [shipKey]: transform,
+    };
+
+    persistSceneState();
+  }, [persistSceneState]);
+
+  const handleDeleteShip = useCallback((shipKey: string) => {
+    setStagedShipKeys((current) => current.filter((entryKey) => entryKey !== shipKey));
+    setSelectedShipKey((current) => (current === shipKey ? null : current));
+
+    if (savedShipTransformsRef.current[shipKey]) {
+      const nextTransforms = { ...savedShipTransformsRef.current };
+      delete nextTransforms[shipKey];
+      savedShipTransformsRef.current = nextTransforms;
+    }
+  }, []);
 
   const handlePickerDragStart = (event: React.DragEvent<HTMLDivElement>, ship: FleetPickerShipEntry) => {
     event.dataTransfer.setData(MODEL_PICKER_DRAG_TYPE, ship.key);
@@ -488,8 +749,8 @@ export default function FleetView() {
     event.preventDefault();
     setIsSceneDragOver(false);
 
-    const shipKey = event.dataTransfer.getData(MODEL_PICKER_DRAG_TYPE);
-    const ship = pickerShipByKey.get(shipKey);
+    const sourceShipKey = event.dataTransfer.getData(MODEL_PICKER_DRAG_TYPE);
+    const ship = pickerShipByKey.get(sourceShipKey);
     if (!ship) {
       return;
     }
@@ -497,29 +758,29 @@ export default function FleetView() {
     addShipToScene(ship);
   };
 
-  const renderSourceSummary = (ship: Pick<FleetShipEntry, 'standaloneQuantity' | 'bundleQuantity'>) => {
-    const segments: string[] = [];
+  // const renderSourceSummary = (ship: Pick<FleetShipEntry, 'standaloneQuantity' | 'bundleQuantity'>) => {
+  //   const segments: string[] = [];
 
-    if (ship.standaloneQuantity > 0) {
-      segments.push(
-        intl.formatMessage(
-          { id: 'fleetview.source.standalone', defaultMessage: 'Standalone {count}' },
-          { count: ship.standaloneQuantity },
-        ),
-      );
-    }
+  //   if (ship.standaloneQuantity > 0) {
+  //     segments.push(
+  //       intl.formatMessage(
+  //         { id: 'fleetview.source.standalone', defaultMessage: 'Standalone {count}' },
+  //         { count: ship.standaloneQuantity },
+  //       ),
+  //     );
+  //   }
 
-    if (ship.bundleQuantity > 0) {
-      segments.push(
-        intl.formatMessage(
-          { id: 'fleetview.source.bundle', defaultMessage: 'Bundle {count}' },
-          { count: ship.bundleQuantity },
-        ),
-      );
-    }
+  //   if (ship.bundleQuantity > 0) {
+  //     segments.push(
+  //       intl.formatMessage(
+  //         { id: 'fleetview.source.bundle', defaultMessage: 'Bundle {count}' },
+  //         { count: ship.bundleQuantity },
+  //       ),
+  //     );
+  //   }
 
-    return segments.join(' · ');
-  };
+  //   return segments.join(' · ');
+  // };
 
   const renderInsuranceBadges = (ship: FleetShipEntry) => {
     const visibleLabels = ship.insuranceLabels.filter(Boolean).slice(0, 3);
@@ -552,12 +813,12 @@ export default function FleetView() {
   };
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-[65px] overflow-hidden bg-gray-50 dark:bg-[#121212]">
-      <div className="flex h-full flex-col gap-4 p-4 text-left">
-        <section className="mx-auto w-full max-w-[1800px] rounded-none border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-[#121212]">
+    <div className="absolute inset-x-0 bottom-0 top-[65px] overflow-hidden">
+      <div className="flex h-full flex-col gap-4 p-4 text-left md:p-5">
+        <section className="mx-auto w-full max-w-[1800px] border border-slate-200/80 bg-white/82 p-4 backdrop-blur-sm dark:border-neutral-700 dark:bg-[#121212]">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-2 mt-2">
-              <div>
+              {/* <div>
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
                   <FormattedMessage id="fleetview.title" defaultMessage="Fleet View" />
                 </h1>
@@ -567,27 +828,27 @@ export default function FleetView() {
                     defaultMessage="Browse the ships in your current hangar scope, then open the 3D viewer to stage only the catalog ships you want to inspect."
                   />
                 </p>
-              </div>
+              </div> */}
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-none border border-gray-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="border border-slate-200/80 bg-slate-50/78 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+                  <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
                     <FormattedMessage id="fleetview.stat.uniqueShips" defaultMessage="{count} unique ships" values={{ count: ownedShips.length }} />
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{ownedShips.length}</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{ownedShips.length}</div>
                 </div>
-                <div className="rounded-none border border-gray-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="border border-slate-200/80 bg-slate-50/78 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+                  <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
                     <FormattedMessage id="fleetview.stat.totalHulls" defaultMessage="{count} hulls tracked" values={{ count: totalHullCount }} />
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{totalHullCount}</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{totalHullCount}</div>
                 </div>
-                <div className="rounded-none border border-gray-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                {/* <div className="border border-slate-200/80 bg-slate-50/78 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+                  <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
                     <FormattedMessage id="fleetview.stat.bundleHulls" defaultMessage="{count} ships from bundles" values={{ count: totalBundleHullCount }} />
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{totalBundleHullCount}</div>
-                </div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{totalBundleHullCount}</div>
+                </div> */}
               </div>
             </div>
 
@@ -625,7 +886,7 @@ export default function FleetView() {
                 <Crawler ships={ships} />
               </div>
 
-              <div className="w-full border border-gray-200 bg-white px-3 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="w-full border border-slate-200/80 bg-white/74 px-3 py-3  backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900">
                 {/* <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
                   <FormattedMessage id="fleetview.userScopeTitle" defaultMessage="User Scope" />
                 </div> */}
@@ -635,7 +896,7 @@ export default function FleetView() {
           </div>
 
           {shipsError && (
-            <div className="mt-4 rounded-none border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-200">
+            <div className="mt-4 border border-amber-200/80 bg-amber-50/86 px-3 py-2 text-sm text-amber-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-200">
               <FormattedMessage
                 id="fleetview.catalogWarning"
                 defaultMessage="Ship catalog data is temporarily unavailable. Fleet entries are still shown from your local hangar data, but some images and 3D matches may be missing."
@@ -645,7 +906,7 @@ export default function FleetView() {
         </section>
 
         {ownedShips.length === 0 ? (
-          <section className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 items-center justify-center rounded-none border border-dashed border-gray-300 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-900">
+          <section className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 items-center justify-center border border-dashed border-slate-300 bg-white/78 p-8 backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900">
             <div className="max-w-xl text-center">
               {shipsLoading ? (
                 <div className="mb-4 flex justify-center">
@@ -667,9 +928,9 @@ export default function FleetView() {
             </div>
           </section>
         ) : (
-          <section className="mx-auto min-h-0 w-full max-w-[1800px] flex-1 overflow-y-auto rounded-none border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+          <section className="mx-auto min-h-0 w-full max-w-[1800px] flex-1 overflow-y-auto border border-slate-200/80 bg-white/78 p-4 backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900">
             {filteredOwnedShips.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-none border border-dashed border-gray-300 dark:border-neutral-700">
+              <div className="flex h-full items-center justify-center border border-dashed border-slate-300 bg-white/40 dark:border-neutral-700 dark:bg-transparent">
                 <div className="text-center">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     <FormattedMessage id="fleetview.searchEmpty.title" defaultMessage="No ships match this search" />
@@ -682,7 +943,8 @@ export default function FleetView() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                 {filteredOwnedShips.map((ship) => {
-                  const isStaged = stagedShipKeySet.has(ship.key);
+                  // const stagedCount = stagedShipCountBySourceKey.get(ship.key) || 0;
+                  // const isStaged = stagedCount > 0;
 
                   return (
                     <div
@@ -693,12 +955,9 @@ export default function FleetView() {
                       //     setSelectedShipKey(ship.key);
                       //   }
                       // }}
-                      className={`overflow-hidden rounded-none border text-left transition-colors ${isStaged
-                        ? 'border-blue-400 dark:border-neutral-600'
-                        : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-700 dark:hover:border-neutral-500'
-                      }`}
+                      className={`overflow-hidden border text-left transition-all border-slate-200/80 bg-white/88 hover:border-slate-300 dark:border-neutral-700 dark:bg-transparent dark:hover:border-neutral-500`}
                     >
-                      <div className="relative aspect-[16/8.6] overflow-hidden bg-gray-200 dark:bg-[#1b1b1b]">
+                      <div className="relative aspect-[16/8.6] overflow-hidden bg-slate-200 dark:bg-[#1b1b1b]">
                         <img
                           src={ship.imageUrl}
                           alt={ship.displayName}
@@ -706,7 +965,7 @@ export default function FleetView() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-                        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                        {/* <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                           {ship.bundleQuantity > 0 && (
                             <span className="rounded-sm border border-blue-200/70 bg-blue-50/90 px-2 py-1 text-[11px] text-blue-900 backdrop-blur-sm dark:border-neutral-600 dark:bg-neutral-900/85 dark:text-gray-100">
                               <FormattedMessage id="fleetview.source.bundleShort" defaultMessage="Bundle" />
@@ -717,11 +976,21 @@ export default function FleetView() {
                               <FormattedMessage id="fleetview.source.standaloneShort" defaultMessage="Hangar" />
                             </span>
                           )}
-                        </div>
+                        </div> */}
 
                         <div className="absolute right-3 top-3 rounded-sm border border-neutral-700/70 bg-neutral-950/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
                           <FormattedMessage id="fleetview.card.quantity" defaultMessage="x{count}" values={{ count: ship.quantity }} />
                         </div>
+
+                        {/* {stagedCount > 0 && (
+                          <div className="absolute left-3 top-3 rounded-sm border border-blue-300/60 bg-blue-500/15 px-2 py-1 text-[11px] font-medium text-blue-100 backdrop-blur-sm">
+                            <FormattedMessage
+                              id="fleetview.viewer.instancesInScene"
+                              defaultMessage="{count} in scene"
+                              values={{ count: stagedCount }}
+                            />
+                          </div>
+                        )} */}
 
                         <div className="absolute inset-x-3 bottom-3">
                           <div className="text-xl font-semibold text-white">{ship.displayName}</div>
@@ -731,12 +1000,12 @@ export default function FleetView() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-3 bg-white p-4 dark:bg-neutral-900">
+                      <div className="flex flex-col gap-3 bg-white/94 p-4 dark:bg-neutral-900">
                         <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">
+                          <span className="text-slate-500 dark:text-gray-400">
                             <FormattedMessage id="fleetview.card.msrp" defaultMessage="MSRP" />
                           </span>
-                          <span className="font-medium text-gray-900 dark:text-white">
+                          <span className="font-medium text-slate-900 dark:text-white">
                             {ship.msrpCents !== null
                               ? formatUsdPrice(intl.locale, ship.msrpCents / 100)
                               : '-'}
@@ -744,7 +1013,7 @@ export default function FleetView() {
                         </div>
 
                         <div className="flex items-start justify-between gap-3 text-sm">
-                          <span className="pt-1 text-gray-500 dark:text-gray-400">
+                          <span className="pt-1 text-slate-500 dark:text-gray-400">
                             <FormattedMessage id="fleetview.card.insurance" defaultMessage="Insurance" />
                           </span>
                           <div className="flex flex-wrap justify-end gap-2">
@@ -773,23 +1042,22 @@ export default function FleetView() {
           paper: {
             sx: {
               height: '100vh',
-              backgroundColor: '#121212',
-              color: '#f5f5f5',
+              backgroundColor: isDarkMode ? '#121212' : '#f8fafc',
               backgroundImage: 'none',
               overflow: 'hidden',
             },
           },
         }}
       >
-        <div className="flex h-full min-h-0 flex-col bg-[#121212] text-gray-100">
-          <div className="border-b border-neutral-700 px-4 py-3">
-            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-700 lg:hidden" />
+        <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,#eff6ff_0%,#f8fafc_44%,#edf2f7_100%)] text-slate-900 dark:bg-[#121212] dark:text-gray-100">
+          <div className="border-b border-slate-200/80 bg-white/72 px-4 py-3 backdrop-blur-xl dark:border-neutral-700 dark:bg-[#121212]/92">
+            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-300 dark:bg-neutral-700 lg:hidden" />
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-gray-400">
                   <FormattedMessage id="fleetview.mode.viewer" defaultMessage="3D View" />
                 </div>
-                <div className="mt-1 text-lg font-semibold text-gray-100">
+                <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-gray-100">
                   <FormattedMessage id="fleetview.viewer.title" defaultMessage="Fleet Overview" />
                 </div>
               </div>
@@ -811,10 +1079,10 @@ export default function FleetView() {
           {modelPickerShips.length === 0 ? (
             <div className="flex min-h-0 flex-1 items-center justify-center p-8">
               <div className="max-w-xl text-center">
-                <h2 className="text-2xl font-semibold text-gray-100">
+                <h2 className="text-2xl font-semibold text-slate-950 dark:text-gray-100">
                   <FormattedMessage id="fleetview.viewer.emptyTitle" defaultMessage="No 3D models available in this filter" />
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-gray-400">
+                <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-gray-400">
                   <FormattedMessage
                     id="fleetview.viewer.emptyDescription"
                     defaultMessage="The current filtered fleet entries cannot be matched to ship catalog models yet, so the shared 3D viewer cannot be staged."
@@ -824,9 +1092,9 @@ export default function FleetView() {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-              <aside className="flex w-full shrink-0 flex-col border-b border-neutral-700 bg-neutral-900 lg:w-[360px] lg:border-b-0 lg:border-r">
-                <div className="border-b border-neutral-700 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400 mb-4">
+              <aside className="flex w-full shrink-0 flex-col border-b border-slate-200/80 bg-white/68 backdrop-blur-xl dark:border-neutral-700 dark:bg-neutral-900 lg:w-[360px] lg:border-b-0 lg:border-r">
+                <div className="border-b border-slate-200/80 p-4 dark:border-neutral-700">
+                  <div className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-gray-400">
                     <FormattedMessage id="fleetview.viewer.pickerTitle" defaultMessage="Model Picker" />
                   </div>
                   {/* <p className="mt-2 text-sm leading-6 text-gray-400">
@@ -841,7 +1109,7 @@ export default function FleetView() {
                     size="small"
                     variant="outlined"
                     className="mt-4"
-                    sx={viewerTextFieldSx}
+                    sx={fleetTextFieldSx}
                     placeholder={intl.formatMessage({
                       id: 'fleetview.viewer.pickerSearchPlaceholder',
                       defaultMessage: 'Search 3D-capable ships',
@@ -879,11 +1147,11 @@ export default function FleetView() {
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-3">
                   {filteredPickerShips.length === 0 ? (
-                    <div className="rounded-none border border-dashed border-neutral-700 bg-[#121212] p-5 text-center">
-                      <div className="text-base font-semibold text-gray-100">
+                    <div className="border border-dashed border-slate-300 bg-white/66 p-5 text-center dark:border-neutral-700 dark:bg-[#121212]">
+                      <div className="text-base font-semibold text-slate-900 dark:text-gray-100">
                         <FormattedMessage id="fleetview.viewer.pickerEmptyTitle" defaultMessage="No ships match this picker search" />
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-gray-400">
+                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-gray-400">
                         <FormattedMessage
                           id="fleetview.viewer.pickerEmptyDescription"
                           defaultMessage="Try a different ship name or manufacturer. The picker includes every ship with a published 3D model."
@@ -893,18 +1161,17 @@ export default function FleetView() {
                   ) : (
                     <div className="space-y-3">
                       {filteredPickerShips.map((ship) => {
-                        const isStaged = stagedShipKeySet.has(ship.key);
+                        // const stagedCount = stagedShipCountBySourceKey.get(ship.key) || 0;
+                        // const isStaged = stagedCount > 0;
 
                         return (
                           <div
                             key={ship.key}
                             draggable
                             onDragStart={(event) => handlePickerDragStart(event, ship)}
-                            className={`cursor-grab rounded-none border p-3 transition ${isStaged
-                              ? 'border-blue-400/60 bg-blue-50/80 dark:border-neutral-600 dark:bg-[#121212]'
-                              : ship.isOwned
-                                ? 'border-neutral-700 bg-[#121212] hover:border-neutral-500'
-                                : 'border-neutral-700 bg-neutral-900 hover:border-neutral-500'
+                            className={`cursor-grab border p-3 transition-all ${ship.isOwned
+                              ? 'border-slate-200/80 bg-white/88 hover:border-slate-300 dark:border-neutral-700 dark:bg-[#121212] dark:hover:border-neutral-500'
+                              : 'border-slate-200/70 bg-slate-50/84 hover:border-slate-300 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500'
                             }`}
                           >
                             <div className="flex gap-3">
@@ -917,10 +1184,10 @@ export default function FleetView() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <div className="truncate text-sm font-semibold text-gray-100">
+                                    <div className="truncate text-sm font-semibold text-slate-900 dark:text-gray-100">
                                       {ship.displayName}
                                     </div>
-                                    <div className="mt-1 truncate text-xs text-gray-400">
+                                    <div className="mt-1 truncate text-xs text-slate-500 dark:text-gray-400">
                                       {ship.manufacturerName || <FormattedMessage id="fleetview.card.unknownManufacturer" defaultMessage="Unknown manufacturer" />}
                                     </div>
                                   </div>
@@ -932,10 +1199,19 @@ export default function FleetView() {
                                   )}
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-200">
-                                  <span className={`rounded-full px-2 py-0.5 ${ship.isOwned
+                                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                  {/* {stagedCount > 0 && (
+                                    <span className="rounded-full border border-cyan-300/70 bg-cyan-50/80 px-2 py-0.5 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-100">
+                                      <FormattedMessage
+                                        id="fleetview.viewer.instancesInScene"
+                                        defaultMessage="{count} in scene"
+                                        values={{ count: stagedCount }}
+                                      />
+                                    </span>
+                                  )} */}
+                                  {/* <span className={`rounded-full px-2 py-0.5 ${ship.isOwned
                                     ? 'border border-blue-200 bg-blue-50 text-blue-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-200'
-                                    : 'border border-neutral-700 bg-[#121212] text-gray-200'
+                                    : 'border border-slate-200 bg-white text-slate-600 dark:border-neutral-700 dark:bg-[#121212] dark:text-gray-200'
                                   }`}
                                   >
                                     {ship.isOwned
@@ -947,9 +1223,9 @@ export default function FleetView() {
                                         id: 'fleetview.viewer.catalogOnly',
                                         defaultMessage: 'Catalog only',
                                       })}
-                                  </span>
+                                  </span> */}
                                   {ship.msrpCents !== null && (
-                                    <span className="rounded-full border border-neutral-700 bg-[#121212] px-2 py-0.5 text-gray-200">
+                                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-600 dark:border-neutral-700 dark:bg-[#121212] dark:text-gray-200">
                                       {formatUsdPrice(intl.locale, ship.msrpCents / 100)}
                                     </span>
                                   )}
@@ -1003,41 +1279,88 @@ export default function FleetView() {
                     open={isViewerDrawerOpen}
                     ships={stagedViewerShips}
                     selectedShipKey={selectedViewerShip?.key ?? null}
+                    transformMode={viewerTransformMode}
+                    savedTransforms={savedShipTransformsRef.current}
+                    onSelectedShipKeyChange={setSelectedShipKey}
+                    onSelectedShipRotationChange={handleSelectedShipRotationChange}
+                    onShipTransformChange={handleShipTransformChange}
+                    onDeleteShip={handleDeleteShip}
                   />
 
-                  <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2 text-xs text-gray-100">
-                    <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700 dark:border-neutral-700 dark:bg-neutral-900/85 dark:text-gray-100">
+                  <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full border border-blue-200/90 bg-white/86 px-3 py-1 text-blue-700 backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/85 dark:text-gray-100">
                       <FormattedMessage
                         id="fleetview.viewer.stagedCount"
                         defaultMessage="{count} ships staged"
                         values={{ count: stagedViewerShips.length }}
                       />
                     </span>
-                    <span className="rounded-full border border-neutral-700 bg-neutral-900/85 px-3 py-1 text-gray-100">
+                    {/* <span className="rounded-full border border-neutral-700 bg-neutral-900/85 px-3 py-1 text-gray-100">
                       <FormattedMessage
                         id="fleetview.scope"
                         defaultMessage="Current scope: {scope}"
                         values={{ scope: selectedUserLabel }}
                       />
-                    </span>
+                    </span> */}
                   </div>
 
                   {selectedViewerShip && (
-                    <div className="pointer-events-none absolute right-4 top-4 hidden max-w-sm rounded-none border border-neutral-700 bg-neutral-900/85 p-4 text-gray-100 shadow-2xl shadow-black/30 backdrop-blur-md xl:block">
-                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+                    <div className="pointer-events-auto absolute right-4 top-4 w-[min(92vw,20rem)] border border-white/80 bg-white/78 p-4 text-slate-900 backdrop-blur-xl dark:border-neutral-700 dark:bg-neutral-900/85 dark:text-gray-100">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-gray-400">
                         <FormattedMessage id="fleetview.viewer.shipLabel" defaultMessage="Selected Entry" />
                       </div>
-                      <div className="mt-2 text-lg font-semibold text-gray-100">
+                      <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-gray-100">
                         {selectedViewerShip.displayName}
                       </div>
-                      <div className="mt-1 text-sm text-gray-300">
+                      <div className="mt-1 text-sm text-slate-600 dark:text-gray-300">
                         {selectedViewerShip.manufacturerName || <FormattedMessage id="fleetview.card.unknownManufacturer" defaultMessage="Unknown manufacturer" />}
                       </div>
-                      <div className="mt-3 text-xs text-gray-400">
+                      {/* <div className="mt-3 text-xs text-slate-500 dark:text-gray-400">
                         {renderSourceSummary(selectedViewerShip) || intl.formatMessage({
                           id: 'fleetview.viewer.catalogOnly',
                           defaultMessage: 'Catalog only',
                         })}
+                      </div> */}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          onClick={() => toggleViewerTransformMode('translate')}
+                          variant="text"
+                          sx={viewerTransformButtonSx(viewerTransformMode === 'translate')}
+                        >
+                          <FormattedMessage
+                            id="fleetview.viewer.transformTranslate"
+                            defaultMessage="Move"
+                          />
+                        </Button>
+                        <Button
+                          onClick={() => toggleViewerTransformMode('rotate')}
+                          variant="text"
+                          sx={viewerTransformButtonSx(viewerTransformMode === 'rotate')}
+                        >
+                          <FormattedMessage
+                            id="fleetview.viewer.transformRotate"
+                            defaultMessage="Rotate"
+                          />
+                        </Button>
+                      </div>
+                      <div className="mt-3 border border-slate-200/80 bg-slate-100/76 px-3 py-2 dark:border-neutral-700 dark:bg-black/20">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
+                          <FormattedMessage
+                            id="fleetview.viewer.rotationAngleLabel"
+                            defaultMessage="Rotation"
+                          />
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold tabular-nums text-cyan-700 dark:text-cyan-100">
+                            {selectedShipRotation ? `X ${selectedShipRotation.x}°  Y ${selectedShipRotation.y}°  Z ${selectedShipRotation.z}°` : '--'}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-gray-500">
+                            <FormattedMessage
+                              id="fleetview.viewer.rotationAngleSnapHint"
+                              defaultMessage="1° snap"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
