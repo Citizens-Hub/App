@@ -23,7 +23,6 @@ export const navigation = [
   {
     name: "navigation.fleetview",
     path: "/fleetview",
-    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
   },
   {
     name: "navigation.market",
@@ -49,15 +48,40 @@ export const navigation = [
     name: "navigation.storePreview",
     path: "/store-preview",
   },
-  {
-    name: "navigation.appSettings",
-    path: "/app-settings",
-  },
   // {
   //   name: "navigation.fleaMarket",
   //   path: "/flea-market",
   //   hidden: true,
   // },
+  {
+    name: "navigation.blog",
+    path: "/blog",
+  },
+  {
+    name: "navigation.appSettings",
+    path: "/app-settings",
+  },
+  {
+    name: "navigation.blog",
+    path: "/blog/:slug",
+    hidden: true,
+  },
+  {
+    name: "navigation.blog",
+    path: "/blog/:slug/edit",
+    hidden: true,
+  },
+  {
+    name: "navigation.blog",
+    path: "/blog/create",
+    hidden: true,
+  },
+  {
+    name: "navigation.reseller",
+    path: "/reseller",
+    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+    requireReseller: true
+  },
   {
     name: "navigation.guide",
     path: "/guide",
@@ -92,31 +116,6 @@ export const navigation = [
     name: "navigation.checkout",
     path: "/checkout",
     hidden: true,
-  },
-  {
-    name: "navigation.blog",
-    path: "/blog",
-  },
-  {
-    name: "navigation.blog",
-    path: "/blog/:slug",
-    hidden: true,
-  },
-  {
-    name: "navigation.blog",
-    path: "/blog/:slug/edit",
-    hidden: true,
-  },
-  {
-    name: "navigation.blog",
-    path: "/blog/create",
-    hidden: true,
-  },
-  {
-    name: "navigation.reseller",
-    path: "/reseller",
-    // hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
-    requireReseller: true
   },
   {
     name: "navigation.reseller",

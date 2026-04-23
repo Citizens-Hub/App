@@ -1,7 +1,8 @@
-import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Drawer, IconButton, InputAdornment, TextField } from '@mui/material';
+import { type KeyboardEvent, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Dialog, DialogContent, DialogTitle, Drawer, IconButton, InputAdornment, TextField, useMediaQuery } from '@mui/material';
 import { Theme, alpha, useTheme } from '@mui/material/styles';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ViewInArRoundedIcon from '@mui/icons-material/ViewInArRounded';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -9,6 +10,8 @@ import { useSelector } from 'react-redux';
 
 import Crawler from '@/components/Crawler';
 import { useApi } from '@/hooks/swr/useApi';
+import { getRsiIconPath } from '@/data/rsiIcons';
+import ShipInfoContent from '@/pages/CCUPlanner/components/ShipInfoContent';
 import FleetModelViewer from '@/pages/FleetView/FleetModelViewer';
 import type {
   FleetModelViewerRotationState,
@@ -16,8 +19,23 @@ import type {
   FleetModelViewerTransformState,
 } from '@/pages/FleetView/FleetModelViewer';
 import { formatUsdPrice } from '@/pages/Market/marketI18n';
+import { BiSlots, reportBi } from '@/report';
+import RsiIcon from '@/components/RsiIcon';
+import type { RootState } from '@/store';
 import { BundleItem, ShipItem, selectUsersHangarItems } from '@/store/upgradesStore';
 import type { Ship, ShipDimensionsResponse, ShipsData } from '@/types';
+
+interface FleetShipSourceEntry {
+  key: string;
+  kind: 'standalone' | 'bundle';
+  label: string;
+  ownerId: number | null;
+  ownerName: string;
+  quantity: number;
+  insuranceLabel: string;
+  pageId: number | null;
+  hangarUrl: string | null;
+}
 
 interface FleetShipEntry {
   key: string;
@@ -35,6 +53,7 @@ interface FleetShipEntry {
   heightMeters: number | null;
   insuranceLabels: string[];
   bundleNames: string[];
+  sources: FleetShipSourceEntry[];
   searchIndex: string;
 }
 
@@ -63,6 +82,7 @@ interface MutableFleetShipEntry {
   heightMeters: number | null;
   insuranceLabels: Set<string>;
   bundleNames: Set<string>;
+  sourceEntries: Map<string, FleetShipSourceEntry>;
   firstSeenOrder: number;
 }
 
@@ -87,6 +107,56 @@ function getDefaultFleetViewSceneState(): FleetViewSceneState {
     selectedShipKey: null,
     viewerTransformMode: null,
     shipTransforms: {},
+  };
+}
+
+function getRsiHangarDetailUrl(pageId?: number | null, isBuyBack = false) {
+  if (!pageId) {
+    return null;
+  }
+
+  if (isBuyBack) {
+    return `https://robertsspaceindustries.com/en/account/buy-back-pledges?page=${pageId}&pagesize=1`;
+  }
+
+  return `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(pageId / 10)}`;
+}
+
+function toAbsoluteRsiUrl(url?: string | null) {
+  if (!url) {
+    return '';
+  }
+
+  return url.startsWith('http') ? url : `https://robertsspaceindustries.com${url}`;
+}
+
+function createFallbackShipFromFleetEntry(ship: FleetShipEntry): Ship {
+  const imageUrl = ship.imageUrl === FALLBACK_SHIP_IMAGE ? '' : ship.imageUrl;
+
+  return {
+    id: ship.shipId ?? 0,
+    name: ship.shipName || ship.displayName || '-',
+    localizedName: ship.displayName || ship.shipName || '',
+    medias: {
+      productThumbMediumAndSmall: imageUrl,
+      slideShow: imageUrl,
+    },
+    manufacturer: {
+      id: 0,
+      name: ship.manufacturerName || '',
+    },
+    focus: '',
+    type: '',
+    flyableStatus: '',
+    owned: true,
+    msrp: ship.msrpCents ?? 0,
+    link: '',
+    skus: null,
+    details: {
+      length: ship.lengthMeters,
+      beam: ship.beamMeters,
+      height: ship.heightMeters,
+    },
   };
 }
 
@@ -295,10 +365,12 @@ export default function FleetView() {
   const intl = useIntl();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const isMobileDialog = useMediaQuery('(max-width: 644px)');
   const initialSceneState = useMemo(() => loadFleetViewSceneState(), []);
   const [searchText, setSearchText] = useState('');
   const deferredSearchText = useDeferredValue(searchText);
   const [isViewerDrawerOpen, setIsViewerDrawerOpen] = useState(false);
+  const [selectedShipDetailKey, setSelectedShipDetailKey] = useState<string | null>(null);
   const [selectedShipKey, setSelectedShipKey] = useState<string | null>(initialSceneState.selectedShipKey);
   const [viewerTransformMode, setViewerTransformMode] = useState<FleetModelViewerTransformMode | null>(null);
   const [selectedShipRotation, setSelectedShipRotation] = useState<FleetModelViewerRotationState | null>(null);
@@ -308,6 +380,7 @@ export default function FleetView() {
   const selectedShipKeyRef = useRef<string | null>(initialSceneState.selectedShipKey);
   const stagedShipKeysRef = useRef<string[]>(initialSceneState.stagedShipKeys);
   const selectedHangarItems = useSelector(selectUsersHangarItems);
+  const users = useSelector((state: RootState) => state.upgrades.users);
   // const selectedUser = useSelector((state: RootState) => state.upgrades.selectedUser);
   // const users = useSelector((state: RootState) => state.upgrades.users);
   const { data: shipsResponse, error: shipsError, isLoading: shipsLoading } = useApi<ShipsData>('/api/ships');
@@ -318,6 +391,10 @@ export default function FleetView() {
   });
 
   const ships = useMemo(() => shipsResponse?.data?.ships || [], [shipsResponse?.data?.ships]);
+  const catalogShipById = useMemo(
+    () => new Map(ships.map((ship) => [ship.id, ship])),
+    [ships],
+  );
   const shipDimensionsById = useMemo(
     () => new Map(
       (shipDimensionsResponse?.data?.ships || []).map((ship) => [
@@ -335,6 +412,7 @@ export default function FleetView() {
   const ownedShips = useMemo(() => {
     const shipById = new Map<number, Ship>();
     const shipByName = new Map<string, Ship>();
+    const ownerNameById = new Map(users.map((user) => [user.id, user.nickname || user.username]));
     const entryMap = new Map<string, MutableFleetShipEntry>();
     let order = 0;
 
@@ -383,11 +461,38 @@ export default function FleetView() {
           heightMeters: dimensions?.height ?? catalogShip?.details?.height ?? null,
           insuranceLabels: new Set<string>(),
           bundleNames: new Set<string>(),
+          sourceEntries: new Map<string, FleetShipSourceEntry>(),
           firstSeenOrder: order++,
         });
       }
 
       return entryMap.get(key) || null;
+    };
+
+    const addSourceEntry = (
+      entry: MutableFleetShipEntry,
+      source: Omit<FleetShipSourceEntry, 'key'>,
+    ) => {
+      const normalizedLabel = source.label.trim().toLowerCase();
+      const normalizedInsurance = source.insuranceLabel.trim().toLowerCase();
+      const sourceKey = [
+        source.kind,
+        source.ownerId ?? 'unknown',
+        source.pageId ?? 'na',
+        normalizedLabel,
+        normalizedInsurance,
+      ].join('|');
+
+      const existing = entry.sourceEntries.get(sourceKey);
+      if (existing) {
+        existing.quantity += source.quantity;
+        return;
+      }
+
+      entry.sourceEntries.set(sourceKey, {
+        ...source,
+        key: sourceKey,
+      });
     };
 
     selectedHangarItems.ships
@@ -407,6 +512,17 @@ export default function FleetView() {
         if (item.insurance?.trim()) {
           entry.insuranceLabels.add(item.insurance.trim());
         }
+
+        addSourceEntry(entry, {
+          kind: 'standalone',
+          label: item.name?.trim() || entry.displayName,
+          ownerId: item.belongsTo ?? null,
+          ownerName: ownerNameById.get(item.belongsTo) || '',
+          quantity,
+          insuranceLabel: item.insurance?.trim() || '',
+          pageId: item.pageId ?? null,
+          hangarUrl: getRsiHangarDetailUrl(item.pageId ?? null),
+        });
       });
 
     selectedHangarItems.bundles
@@ -433,6 +549,20 @@ export default function FleetView() {
           if (bundle.name?.trim()) {
             entry.bundleNames.add(bundle.name.trim());
           }
+
+          addSourceEntry(entry, {
+            kind: 'bundle',
+            label: bundle.name?.trim() || intl.formatMessage({
+              id: 'fleetview.source.unknownBundle',
+              defaultMessage: 'Unknown bundle',
+            }),
+            ownerId: bundle.belongsTo ?? null,
+            ownerName: ownerNameById.get(bundle.belongsTo) || '',
+            quantity,
+            insuranceLabel: bundle.insurance?.trim() || '',
+            pageId: bundle.pageId ?? null,
+            hangarUrl: getRsiHangarDetailUrl(bundle.pageId ?? null),
+          });
         });
       });
 
@@ -453,6 +583,20 @@ export default function FleetView() {
         heightMeters: entry.heightMeters,
         insuranceLabels: Array.from(entry.insuranceLabels),
         bundleNames: Array.from(entry.bundleNames),
+        sources: Array.from(entry.sourceEntries.values()).sort((left, right) => {
+          if (right.quantity !== left.quantity) {
+            return right.quantity - left.quantity;
+          }
+
+          if (left.kind !== right.kind) {
+            return left.kind === 'standalone' ? -1 : 1;
+          }
+
+          return left.label.localeCompare(right.label, intl.locale, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+        }),
         searchIndex: [
           entry.displayName,
           entry.shipName,
@@ -476,7 +620,7 @@ export default function FleetView() {
         const rightOrder = entryMap.get(right.key)?.firstSeenOrder || 0;
         return leftOrder - rightOrder;
       });
-  }, [selectedHangarItems.bundles, selectedHangarItems.ships, shipDimensionsById, ships]);
+  }, [intl, selectedHangarItems.bundles, selectedHangarItems.ships, shipDimensionsById, ships, users]);
 
   const ownedShipsById = useMemo(
     () => new Map(
@@ -509,6 +653,7 @@ export default function FleetView() {
         heightMeters: dimensions?.height ?? ship.details?.height ?? null,
         insuranceLabels: ownedShip?.insuranceLabels || [],
         bundleNames: ownedShip?.bundleNames || [],
+        sources: ownedShip?.sources || [],
         searchIndex: [
           getShipDisplayName(ship, ship.name),
           ship.name,
@@ -557,10 +702,36 @@ export default function FleetView() {
     return modelPickerShips.filter((ship) => ship.searchIndex.includes(normalizedSearch));
   }, [modelPickerShips, normalizedSearch]);
 
+  const selectedDetailShip = useMemo(
+    () => ownedShips.find((ship) => ship.key === selectedShipDetailKey) || null,
+    [ownedShips, selectedShipDetailKey],
+  );
+  const selectedDetailShipInfo = useMemo(() => {
+    if (!selectedDetailShip) {
+      return null;
+    }
+
+    if (selectedDetailShip.shipId !== null) {
+      return catalogShipById.get(selectedDetailShip.shipId) || createFallbackShipFromFleetEntry(selectedDetailShip);
+    }
+
+    return createFallbackShipFromFleetEntry(selectedDetailShip);
+  }, [catalogShipById, selectedDetailShip]);
+  const selectedDetailShipExternalUrl = useMemo(
+    () => toAbsoluteRsiUrl(selectedDetailShipInfo?.details?.url || selectedDetailShipInfo?.link),
+    [selectedDetailShipInfo],
+  );
+
   const pickerShipByKey = useMemo(
     () => new Map(modelPickerShips.map((ship) => [ship.key, ship])),
     [modelPickerShips],
   );
+
+  useEffect(() => {
+    if (selectedShipDetailKey && !ownedShips.some((ship) => ship.key === selectedShipDetailKey)) {
+      setSelectedShipDetailKey(null);
+    }
+  }, [ownedShips, selectedShipDetailKey]);
 
   useEffect(() => {
     setStagedShipKeys((current) => {
@@ -773,6 +944,37 @@ export default function FleetView() {
     );
   };
 
+  const handleOpenShipDetail = useCallback((shipKey: string) => {
+    setSelectedShipDetailKey(shipKey);
+  }, []);
+
+  const handleShipCardKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>, shipKey: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSelectedShipDetailKey(shipKey);
+    }
+  }, []);
+
+  const handleOpenHangarSource = useCallback((ship: FleetShipEntry, source: FleetShipSourceEntry) => {
+    if (!source.hangarUrl || typeof window === 'undefined') {
+      return;
+    }
+
+    reportBi({
+      slot: BiSlots.NAVIGATE_RSI_HANGAR,
+      data: {
+        shipId: ship.shipId,
+        shipName: ship.shipName,
+        sourceKind: source.kind,
+        sourceLabel: source.label,
+        pageId: source.pageId,
+        quantity: source.quantity,
+      },
+    });
+
+    window.open(source.hangarUrl, '_blank', 'noopener,noreferrer');
+  }, []);
+
   return (
     <div className="absolute inset-x-0 bottom-0 top-[65px] overflow-hidden">
       <div className="flex h-full flex-col gap-4 p-4 text-left md:p-5">
@@ -882,7 +1084,11 @@ export default function FleetView() {
                   return (
                     <div
                       key={ship.key}
-                      className={`overflow-hidden border text-left transition-all border-slate-200/80 bg-white/88 hover:border-slate-300 dark:border-neutral-700 dark:bg-transparent dark:hover:border-neutral-500`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleOpenShipDetail(ship.key)}
+                      onKeyDown={(event) => handleShipCardKeyDown(event, ship.key)}
+                      className={`cursor-pointer overflow-hidden border text-left transition-all border-slate-200/80 bg-white/88 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/60 dark:border-neutral-700 dark:bg-transparent dark:hover:border-neutral-500`}
                     >
                       <div className="relative aspect-[16/8.6] overflow-hidden bg-slate-200 dark:bg-[#1b1b1b]">
                         <img
@@ -1186,6 +1392,131 @@ export default function FleetView() {
           )}
         </div>
       </Drawer>
+
+      <Dialog
+        open={Boolean(selectedDetailShip)}
+        onClose={() => setSelectedShipDetailKey(null)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobileDialog}
+      >
+        <DialogTitle className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <RsiIcon src={getRsiIconPath('ship')} className="h-5 w-5" toneClassName="bg-slate-700 dark:bg-slate-100" />
+              <span className="truncate">{selectedDetailShip?.displayName || '-'}</span>
+            </div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {selectedDetailShip?.manufacturerName || intl.formatMessage({
+                id: 'fleetview.card.unknownManufacturer',
+                defaultMessage: 'Unknown manufacturer',
+              })}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {selectedDetailShipExternalUrl && (
+              <Button
+                variant="text"
+                size="small"
+                startIcon={<OpenInNewRoundedIcon fontSize="small" />}
+                onClick={() => {
+                  if (typeof window === 'undefined') {
+                    return;
+                  }
+
+                  window.open(selectedDetailShipExternalUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                <FormattedMessage id="ccuPlanner.shipInfo.openOnRsi" defaultMessage="Open on RSI" />
+              </Button>
+            )}
+            <IconButton
+              onClick={() => setSelectedShipDetailKey(null)}
+              size="small"
+              aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </div>
+        </DialogTitle>
+
+        <DialogContent className="!p-0">
+          <ShipInfoContent
+            open={Boolean(selectedDetailShip)}
+            ship={selectedDetailShipInfo}
+            extraSections={selectedDetailShip ? (
+              <section className="flex flex-col gap-3">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <FormattedMessage id="fleetview.source.title" defaultMessage="Sources" />
+                </div>
+
+                {selectedDetailShip.sources.length === 0 ? (
+                  <div className="rounded border border-black/10 bg-black/[0.02] p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                    <FormattedMessage
+                      id="fleetview.source.empty"
+                      defaultMessage="No hangar source records are available for this ship yet."
+                    />
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {selectedDetailShip.sources.map((source) => (
+                      <div
+                        key={source.key}
+                        className="rounded border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {source.label}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {source.kind === 'standalone'
+                                ? intl.formatMessage({
+                                  id: 'fleetview.source.kind.standalone',
+                                  defaultMessage: 'Standalone ship',
+                                })
+                                : intl.formatMessage({
+                                  id: 'fleetview.source.kind.bundle',
+                                  defaultMessage: 'Bundle',
+                                })}
+                              {source.ownerName ? ` · ${source.ownerName}` : ''}
+                            </div>
+                          </div>
+
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-200">
+                            <FormattedMessage id="fleetview.card.quantity" defaultMessage="x{count}" values={{ count: source.quantity }} />
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                          {source.insuranceLabel && (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-300">
+                              {source.insuranceLabel}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-4">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<OpenInNewRoundedIcon fontSize="small" />}
+                            disabled={!source.hangarUrl}
+                            onClick={() => handleOpenHangarSource(selectedDetailShip, source)}
+                          >
+                            <FormattedMessage id="hangar.viewInHangar" defaultMessage="RSI Hangar" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
