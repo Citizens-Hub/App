@@ -119,23 +119,25 @@ function extractAccountFromResponse(value: unknown): UserInfo | null {
   }
 
   const account = firstResult.data.account;
-  const { id, username, nickname, avatar, isAnonymous } = account;
+  const { id, username, nickname, avatar, isAnonymous } = account as { 
+    id: number | undefined, 
+    username: string | undefined, 
+    nickname: string | undefined, 
+    avatar: string | undefined, 
+    isAnonymous: boolean | undefined 
+  };
 
   if (
-    typeof id !== "number" ||
-    typeof username !== "string" ||
-    typeof nickname !== "string" ||
-    // typeof avatar !== "string" ||
     typeof isAnonymous !== "boolean"
   ) {
     return null;
   }
 
   return {
-    id,
-    username,
-    nickname,
-    avatar: (avatar as string | null) || "",
+    id: id || -1,
+    username: username || "",
+    nickname: nickname || "",
+    avatar: avatar || "",
     isAnonymous,
   };
 }
@@ -261,6 +263,31 @@ function extractCrawlerShipsFromResponse(value: unknown): CrawlerShipSummary[] |
   return crawlerShips;
 }
 
+function extractCCUShipNameCandidates(packageName: string) {
+  const normalizedPackageName = normalizeWhitespace(packageName);
+  const supportedPatterns = [
+    /^upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)?$/i,
+    /^(.*?)\s+to\s+(.*?)\s+upgrade(?:\s+\w+\s+edition)?$/i,
+  ];
+
+  for (const pattern of supportedPatterns) {
+    const match = normalizedPackageName.match(pattern);
+
+    if (!match) {
+      continue;
+    }
+
+    const fromCandidate = normalizeWhitespace(match[1]);
+    const toCandidate = normalizeWhitespace(match[2]);
+
+    if (fromCandidate && toCandidate) {
+      return { fromCandidate, toCandidate };
+    }
+  }
+
+  return null;
+}
+
 export default function Crawler({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -349,20 +376,19 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     let to = "";
 
     try {
-      const regExp = /upgrade\s*-\s*(.*?)\s+to\s+(.*?)(?:\s+\w+\s+edition)/i
-      const match = name.match(regExp);
+      const nameCandidates = extractCCUShipNameCandidates(name);
       const fallbackFrom = content.match_items[0]?.name?.trim() || "";
       const fallbackTo = content.target_items[0]?.name?.trim() || "";
 
-      const fromCandidates = [
-        match?.[1]?.trim() || "",
+      const fromCandidates = Array.from(new Set([
+        nameCandidates?.fromCandidate || "",
         fallbackFrom,
-      ].filter(Boolean);
+      ].filter(Boolean)));
 
-      const toCandidates = [
-        match?.[2]?.trim() || "",
+      const toCandidates = Array.from(new Set([
+        nameCandidates?.toCandidate || "",
         fallbackTo,
-      ].filter(Boolean);
+      ].filter(Boolean)));
 
       from = fromCandidates.reduce((resolved, candidate) => {
         if (resolved) return resolved;
@@ -382,7 +408,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
       if (!to) {
         toCandidates.forEach(candidate => {
-          to = ships.find(ship => ship.id === Number(candidate))?.name || from
+          to = ships.find(ship => ship.id === Number(candidate))?.name || to
         })
       }
 
