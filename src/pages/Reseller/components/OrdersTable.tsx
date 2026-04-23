@@ -106,7 +106,10 @@ const OrdersTable: React.FC = () => {
       </Box>
 
       <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="orders table">
+        <Table
+          sx={{ minWidth: 650 }}
+          aria-label={intl.formatMessage({ id: 'reseller.orders.table.ariaLabel', defaultMessage: 'Orders table' })}
+        >
           <TableHead>
             <TableRow>
               <TableCell><FormattedMessage id="orders.id" defaultMessage="ID" /></TableCell>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Typography, Box, CircularProgress, Tabs, Tab } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale } from '@/contexts/LocaleContext';
 
 interface TabPanelProps {
@@ -38,6 +38,7 @@ function a11yProps(index: number) {
 }
 
 export default function Guide({ showTitle = false }: { showTitle?: boolean }) {
+  const intl = useIntl();
   const { locale } = useLocale();
   const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
@@ -108,8 +109,8 @@ export default function Guide({ showTitle = false }: { showTitle?: boolean }) {
           <Box>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
               <Tabs value={tabValue} onChange={handleTabChange} centered>
-                <Tab label="中文" {...a11yProps(0)} />
-                <Tab label="English" {...a11yProps(1)} />
+                <Tab label={intl.formatMessage({ id: 'language.name.zh', defaultMessage: 'Chinese' })} {...a11yProps(0)} />
+                <Tab label={intl.formatMessage({ id: 'language.name.en', defaultMessage: 'English' })} {...a11yProps(1)} />
               </Tabs>
             </Box>
 

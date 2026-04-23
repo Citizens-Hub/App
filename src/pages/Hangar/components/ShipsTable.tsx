@@ -128,7 +128,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
       ) : (
         <Box sx={{ width: '100%', overflow: 'auto' }}>
           <TableContainer sx={{ mb: 2 }}>
-            <Table aria-label="Ships table">
+            <Table aria-label={intl.formatMessage({ id: 'ships.table.ariaLabel', defaultMessage: 'Ships table' })}>
               <TableHead>
                 <TableRow>
                   <TableCell width="200px" sx={{ textWrap: 'nowrap' }}>

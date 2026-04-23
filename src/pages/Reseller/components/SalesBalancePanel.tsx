@@ -125,6 +125,30 @@ export default function SalesBalancePanel() {
     return new Date(value).toLocaleString(intl.locale);
   };
 
+  const formatWithdrawalStatus = (status: WithdrawalRequestItem['status']) => {
+    switch (status) {
+      case 'pending':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.pending', defaultMessage: 'Pending' });
+      case 'paid':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.paid', defaultMessage: 'Paid' });
+      case 'rejected':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.rejected', defaultMessage: 'Rejected' });
+      default:
+        return status;
+    }
+  };
+
+  const formatSettlementStatus = (status: ResellerBalanceTransaction['settlementStatus']) => {
+    switch (status) {
+      case 'available':
+        return intl.formatMessage({ id: 'reseller.balance.status.available', defaultMessage: 'Withdrawable' });
+      case 'pending':
+        return intl.formatMessage({ id: 'reseller.balance.status.pending', defaultMessage: 'Pending' });
+      default:
+        return status;
+    }
+  };
+
   const getSettlementStatusTooltip = (transaction: ResellerBalanceTransaction) => {
     if (transaction.settlementStatus === 'available') {
       return intl.formatMessage({
@@ -388,7 +412,7 @@ export default function SalesBalancePanel() {
               </Box>
             ) : (
               <TableContainer component={Paper} variant="outlined">
-                <Table aria-label="withdrawal history table">
+                <Table aria-label={intl.formatMessage({ id: 'reseller.withdrawal.table.ariaLabel', defaultMessage: 'Withdrawal history table' })}>
                   <TableHead>
                     <TableRow>
                       <TableCell>
@@ -442,10 +466,7 @@ export default function SalesBalancePanel() {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={intl.formatMessage({
-                                id: `reseller.withdrawal.status.${request.status}`,
-                                defaultMessage: request.status,
-                              })}
+                              label={formatWithdrawalStatus(request.status)}
                               color={withdrawalStatusColor[request.status]}
                               size="small"
                             />
@@ -462,7 +483,10 @@ export default function SalesBalancePanel() {
           </Paper>
 
           <TableContainer component={Paper} sx={{ mt: 3 }}>
-            <Table sx={{ minWidth: 760 }} aria-label="reseller balance table">
+            <Table
+              sx={{ minWidth: 760 }}
+              aria-label={intl.formatMessage({ id: 'reseller.balance.table.ariaLabel', defaultMessage: 'Reseller balance table' })}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell>
@@ -553,10 +577,7 @@ export default function SalesBalancePanel() {
                         <Tooltip title={getSettlementStatusTooltip(transaction)} placement="top">
                           <span>
                             <Chip
-                              label={intl.formatMessage({
-                                id: `reseller.balance.status.${transaction.settlementStatus}`,
-                                defaultMessage: transaction.settlementStatus,
-                              })}
+                              label={formatSettlementStatus(transaction.settlementStatus)}
                               color={settlementStatusColor[transaction.settlementStatus]}
                               size="small"
                             />

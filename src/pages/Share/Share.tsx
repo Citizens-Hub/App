@@ -157,7 +157,7 @@ const ShipsList = ({ items, getShipImageById, currency, getShipById, totalItems 
                 <div className="absolute left-0 top-0 w-[35%] h-full">
                   <img
                     src={getShipImageById(Number(item.from))}
-                    alt="From Ship"
+                    alt={intl.formatMessage({ id: 'share.imageAlt.fromShip', defaultMessage: 'From ship' })}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -165,7 +165,7 @@ const ShipsList = ({ items, getShipImageById, currency, getShipById, totalItems 
                 <div className="absolute right-0 top-0 w-[65%] h-full shadow-[-8px_0px_12px_-6px_rgba(0,0,0,0.3)]">
                   <img
                     src={getShipImageById(Number(item.to))}
-                    alt="To Ship"
+                    alt={intl.formatMessage({ id: 'share.imageAlt.toShip', defaultMessage: 'To ship' })}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -193,7 +193,10 @@ const ShipsList = ({ items, getShipImageById, currency, getShipById, totalItems 
                 totalItems > ITEMS_PER_PAGE && index === ITEMS_PER_PAGE - 1 && (
                   <div className="absolute z-10 bottom-0 left-0 right-0 p-2 w-full h-full bg-gray-600/30 backdrop-blur-sm grayscale-30 rounded-md flex items-center justify-center">
                     <span className="text-white text-sm truncate max-w-full">
-                      + {totalItems - ITEMS_PER_PAGE} more
+                      {intl.formatMessage(
+                        { id: 'share.moreItems', defaultMessage: '+ {count} more' },
+                        { count: totalItems - ITEMS_PER_PAGE },
+                      )}
                     </span>
                   </div>
                 )

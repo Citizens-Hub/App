@@ -5,9 +5,10 @@ import App from '@/App'
 import { store } from '@/store'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-import { ErrorBoundary } from "react-error-boundary"
+import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { BiSlots, reportBi, reportError } from '@/report'
 import { RawSourceMap, SourceMapConsumer } from "source-map-js"
+import { useIntl } from 'react-intl'
 
 const isDynamicImportError = (error: Error | unknown): boolean => {
   return String(error).includes('Failed to fetch dynamically imported module');
@@ -107,45 +108,85 @@ const logError = (error: unknown) => {
   })()
 }
 
-createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary
-    onError={logError}
-    fallbackRender={({ error, resetErrorBoundary }) => {
-      if (isDynamicImportError(error)) {
-        reportBi({
-          slot: BiSlots.VERSION_UPDATE,
-          data: null
-        })
-        handleDynamicImportError()
-        return (
-          <div className="flex flex-col gap-4 p-4 items-center justify-center h-screen">
-            <h1 className="text-xl font-bold">Version Updated</h1>
-            <p className="text-gray-600">Reloading page...</p>
-          </div>
-        )
-      }
+function AppErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+  const intl = useIntl()
 
-      return (
-        <div className="flex flex-col gap-4 p-4">
-          <h1>Something went wrong</h1>
-          <p>{String(error)}</p>
-          <button onClick={resetErrorBoundary}>Reload</button>
-          <button onClick={() => {
-            window.localStorage.clear()
-            window.location.reload()
-          }}>Clear Storage & Reload</button>
-          <button onClick={() => window.location.href = "https://github.com/Citizens-Hub/App/issues"}>Report Issue</button>
-          <button onClick={() => window.location.href = "https://discord.com/invite/AEuRtb5Vy8"}>Discord Support</button>
-        </div>
-      )
-    }}
-  >
-    <Provider store={store}>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID}>
-        <LocaleProvider>
+  if (isDynamicImportError(error)) {
+    reportBi({
+      slot: BiSlots.VERSION_UPDATE,
+      data: null
+    })
+    handleDynamicImportError()
+    return (
+      <div className="flex flex-col gap-4 p-4 items-center justify-center h-screen">
+        <h1 className="text-xl font-bold">
+          {intl.formatMessage({
+            id: 'errorBoundary.versionUpdated',
+            defaultMessage: 'Version Updated',
+          })}
+        </h1>
+        <p className="text-gray-600">
+          {intl.formatMessage({
+            id: 'errorBoundary.reloading',
+            defaultMessage: 'Reloading page...',
+          })}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <h1>
+        {intl.formatMessage({
+          id: 'errorBoundary.title',
+          defaultMessage: 'Something went wrong',
+        })}
+      </h1>
+      <p>{String(error)}</p>
+      <button onClick={resetErrorBoundary}>
+        {intl.formatMessage({
+          id: 'errorBoundary.reload',
+          defaultMessage: 'Reload',
+        })}
+      </button>
+      <button onClick={() => {
+        window.localStorage.clear()
+        window.location.reload()
+      }}
+      >
+        {intl.formatMessage({
+          id: 'errorBoundary.clearStorageReload',
+          defaultMessage: 'Clear Storage & Reload',
+        })}
+      </button>
+      <button onClick={() => window.location.href = "https://github.com/Citizens-Hub/App/issues"}>
+        {intl.formatMessage({
+          id: 'errorBoundary.reportIssue',
+          defaultMessage: 'Report Issue',
+        })}
+      </button>
+      <button onClick={() => window.location.href = "https://discord.com/invite/AEuRtb5Vy8"}>
+        {intl.formatMessage({
+          id: 'errorBoundary.discordSupport',
+          defaultMessage: 'Discord Support',
+        })}
+      </button>
+    </div>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(
+  <Provider store={store}>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID}>
+      <LocaleProvider>
+        <ErrorBoundary
+          onError={logError}
+          FallbackComponent={AppErrorFallback}
+        >
           <App />
-        </LocaleProvider>
-      </GoogleOAuthProvider>
-    </Provider>
-  </ErrorBoundary>
+        </ErrorBoundary>
+      </LocaleProvider>
+    </GoogleOAuthProvider>
+  </Provider>
 )

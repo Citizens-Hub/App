@@ -55,31 +55,31 @@ export default function LanguageSwitcher() {
           onClick={() => handleLanguageChange('zh-CN')}
           selected={locale === 'zh-CN'}
         >
-          中文（Simplified）
+          {intl.formatMessage({ id: 'language.name.zh-CN', defaultMessage: 'Chinese (Simplified)' })}
         </MenuItem>
         <MenuItem
           onClick={() => handleLanguageChange('zh-HK')}
           selected={locale === 'zh-HK'}
         >
-          中文（Traditional）
+          {intl.formatMessage({ id: 'language.name.zh-HK', defaultMessage: 'Chinese (Traditional)' })}
         </MenuItem>
         <MenuItem 
           onClick={() => handleLanguageChange('en')}
           selected={locale === 'en'}
         >
-          English
+          {intl.formatMessage({ id: 'language.name.en', defaultMessage: 'English' })}
         </MenuItem>
         <MenuItem 
           onClick={() => handleLanguageChange('ja-JP')}
           selected={locale === 'ja-JP'}
         >
-          日本語
+          {intl.formatMessage({ id: 'language.name.ja-JP', defaultMessage: 'Japanese' })}
         </MenuItem>
         <MenuItem 
           onClick={() => handleLanguageChange('de-DE')}
           selected={locale === 'de-DE'}
         >
-          Deutsch
+          {intl.formatMessage({ id: 'language.name.de-DE', defaultMessage: 'German' })}
         </MenuItem>
       </Menu>
     </>

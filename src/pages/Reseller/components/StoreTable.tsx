@@ -778,7 +778,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       ) : (
         <Box sx={{ width: "100%", overflow: "auto" }}>
           <TableContainer sx={{ mb: 2 }}>
-            <Table aria-label="store listings table">
+            <Table aria-label={intl.formatMessage({ id: 'reseller.store.table.ariaLabel', defaultMessage: 'Store listings table' })}>
               <TableHead>
                 <TableRow>
                   <TableCell width="360px">

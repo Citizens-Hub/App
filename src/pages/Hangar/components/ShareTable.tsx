@@ -401,7 +401,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>
         <TableContainer sx={{ mb: 2 }}>
-          <Table aria-label="Equipment table">
+          <Table aria-label={intl.formatMessage({ id: 'hangar.shareTable.ariaLabel', defaultMessage: 'Equipment table' })}>
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">

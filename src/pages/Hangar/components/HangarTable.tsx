@@ -795,7 +795,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           </Typography>
         </Box>
         <TableContainer sx={{ mb: 2 }}>
-          <Table aria-label="Equipment table">
+          <Table aria-label={intl.formatMessage({ id: 'hangar.table.ariaLabel', defaultMessage: 'Equipment table' })}>
             <TableHead>
               <TableRow>
                 <TableCell width="380px">

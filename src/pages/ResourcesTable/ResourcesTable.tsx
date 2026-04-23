@@ -173,7 +173,7 @@ export default function ResourcesTable() {
       {isMobile && (
         <Fab
           color="primary"
-          aria-label="查看清单"
+          aria-label={intl.formatMessage({ id: 'cart.view', defaultMessage: 'View Cart' })}
           onClick={openCart}
           className="cart-button"
           sx={{

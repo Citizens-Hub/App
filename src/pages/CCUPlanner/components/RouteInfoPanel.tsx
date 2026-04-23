@@ -1064,7 +1064,9 @@ export default function RouteInfoPanel({
                                     <span className="text-gray-600 dark:text-gray-400 flex gap-1">
                                       <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
                                       <span>:</span>
-                                      <span className="text-red-600 dark:text-red-400">Not available</span>
+                                      <span className="text-red-600 dark:text-red-400">
+                                        {intl.formatMessage({ id: 'common.notAvailable', defaultMessage: 'Not available' })}
+                                      </span>
                                     </span>
                                   ) : (
                                     <>

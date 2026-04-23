@@ -160,7 +160,7 @@ export default function ErrorsTable() {
   return (<>
     <Box sx={{ width: '100%', overflow: 'auto' }}>
       <TableContainer sx={{ mb: 2 }}>
-        <Table aria-label="Equipment table">
+        <Table aria-label={intl.formatMessage({ id: 'admin.errors.table.ariaLabel', defaultMessage: 'Errors table' })}>
           <TableHead>
             <TableRow>
               <TableCell>

@@ -456,9 +456,15 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 />
               </span>
             </div>
-            <span>This is an unofficial </span>
-            <Link to="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">Star Citizen</Link>
-            <span> application, not affiliated with the Cloud Imperium group of companies.</span>
+            <FormattedMessage
+              id="header.unofficialDisclaimer"
+              defaultMessage="This is an unofficial <starCitizenLink>Star Citizen</starCitizenLink> application, not affiliated with the Cloud Imperium group of companies."
+              values={{
+                starCitizenLink: (chunks) => (
+                  <Link to="https://robertsspaceindustries.com" target="_blank" className="text-blue-500">{chunks}</Link>
+                ),
+              }}
+            />
             <span className="dark:hidden">
               <Avatar src="/MadeByTheCommunity_White.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
             </span>
@@ -466,8 +472,24 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <Avatar src="/MadeByTheCommunity_Black.png" sx={{ width: 100, height: 100, margin: '0 auto', my: 2 }} />
             </span>
             <span>&copy; {new Date().getFullYear()} Citizens' Hub</span>
-            <div className="text-black dark:text-white text-xs mt-1">App version: {import.meta.env.VITE_PUBLIC_RELEASE_VERSION}</div>
-            <div className="text-black dark:text-white text-xs mt-1 scale-80">Build ({__BUILD_TIME__})</div>
+            <div className="text-black dark:text-white text-xs mt-1">
+              {intl.formatMessage(
+                {
+                  id: 'header.appVersion',
+                  defaultMessage: 'App version: {version}',
+                },
+                { version: import.meta.env.VITE_PUBLIC_RELEASE_VERSION },
+              )}
+            </div>
+            <div className="text-black dark:text-white text-xs mt-1 scale-80">
+              {intl.formatMessage(
+                {
+                  id: 'header.buildTime',
+                  defaultMessage: 'Build ({time})',
+                },
+                { time: __BUILD_TIME__ },
+              )}
+            </div>
           </div>
         </div>
       </Drawer>

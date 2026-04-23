@@ -440,8 +440,8 @@ export default function BlogPostForm({ mode }: BlogPostFormProps) {
               required
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
-              <option value="zh">中文</option>
-              <option value="en">English</option>
+              <option value="zh">{intl.formatMessage({ id: 'language.name.zh', defaultMessage: 'Chinese' })}</option>
+              <option value="en">{intl.formatMessage({ id: 'language.name.en', defaultMessage: 'English' })}</option>
             </select>
           </div>
 
@@ -564,4 +564,3 @@ export default function BlogPostForm({ mode }: BlogPostFormProps) {
     </div>
   );
 }
-

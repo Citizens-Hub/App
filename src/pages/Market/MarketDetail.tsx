@@ -1398,20 +1398,6 @@ export default function MarketDetail() {
                     ))}
                   </TextField> */}
 
-                  {/* {selectedCcuVariant && (
-                    <div className='rounded border border-black/10 bg-black/[0.02] p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300'>
-                      <FormattedMessage
-                        id="market.ccu.selectionSummary"
-                        defaultMessage="Current match: {price} · Exchange value {cost}"
-                        values={{
-                          price: formatUsdPrice(intl.locale, selectedCcuVariant.price),
-                          cost: typeof selectedCcuVariant.cost === 'number'
-                            ? formatUsdPrice(intl.locale, selectedCcuVariant.cost)
-                            : intl.formatMessage({ id: 'market.notAvailable', defaultMessage: 'N/A' }),
-                        }}
-                      />
-                    </div>
-                  )} */}
                 </div>
               )}
 

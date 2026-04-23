@@ -208,11 +208,12 @@ function ShipImage({
   className: string;
   placeholderClassName?: string;
 }) {
+  const intl = useIntl();
   const imageUrl = getShipImageUrl(ship);
   if (!imageUrl) {
     return (
       <div className={`${className} ${placeholderClassName || ''} bg-gray-200 dark:bg-neutral-700 flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400`}>
-        N/A
+        {intl.formatMessage({ id: 'common.na', defaultMessage: 'N/A' })}
       </div>
     );
   }
@@ -220,7 +221,7 @@ function ShipImage({
   return (
     <img
       src={imageUrl}
-      alt={ship?.name || 'ship'}
+      alt={ship?.name || intl.formatMessage({ id: 'ccuPlanner.pathBuilder.imageAlt.ship', defaultMessage: 'Ship image' })}
       className={`${className} object-cover border border-gray-200 dark:border-neutral-700`}
     />
   );
@@ -235,6 +236,7 @@ function UpgradePreview({
   toShip: Ship;
   className?: string;
 }) {
+  const intl = useIntl();
   const fromImage = getShipImageUrl(fromShip);
   const toImage = getShipImageUrl(toShip);
 
@@ -247,7 +249,9 @@ function UpgradePreview({
           className="absolute left-0 top-0 w-[35%] h-full object-cover"
         />
       ) : (
-        <div className="absolute left-0 top-0 w-[35%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">N/A</div>
+        <div className="absolute left-0 top-0 w-[35%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">
+          {intl.formatMessage({ id: 'common.na', defaultMessage: 'N/A' })}
+        </div>
       )}
 
       {toImage ? (
@@ -257,7 +261,9 @@ function UpgradePreview({
           className="absolute right-0 top-0 w-[65%] h-full object-cover shadow-[0_0_20px_0_rgba(0,0,0,0.22)]"
         />
       ) : (
-        <div className="absolute right-0 top-0 w-[65%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">N/A</div>
+        <div className="absolute right-0 top-0 w-[65%] h-full flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-neutral-700">
+          {intl.formatMessage({ id: 'common.na', defaultMessage: 'N/A' })}
+        </div>
       )}
 
       <div className="absolute top-1/2 left-[35%] -translate-x-1/2 -translate-y-1/2 text-white">

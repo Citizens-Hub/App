@@ -234,123 +234,6 @@ function getLargestRenderableDimension(size: THREE.Vector3) {
   return Math.max(size.x, size.y, size.z, 1);
 }
 
-// function createDeterministicRandom(seed: number) {
-//   let state = seed >>> 0;
-
-//   return () => {
-//     state = (state + 0x6D2B79F5) >>> 0;
-//     let value = Math.imul(state ^ (state >>> 15), 1 | state);
-//     value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-//     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-//   };
-// }
-
-// function createFleetSceneSkyboxTexture() {
-//   const canvas = document.createElement('canvas');
-//   canvas.width = SKYBOX_TEXTURE_WIDTH;
-//   canvas.height = SKYBOX_TEXTURE_HEIGHT;
-
-//   const context = canvas.getContext('2d');
-//   if (!context) {
-//     return null;
-//   }
-
-//   const random = createDeterministicRandom(0xC1712E5);
-//   const { width, height } = canvas;
-
-//   const backgroundGradient = context.createLinearGradient(0, 0, 0, height);
-//   backgroundGradient.addColorStop(0, '#030712');
-//   backgroundGradient.addColorStop(0.38, '#08111f');
-//   backgroundGradient.addColorStop(0.72, '#050b16');
-//   backgroundGradient.addColorStop(1, '#010308');
-//   context.fillStyle = backgroundGradient;
-//   context.fillRect(0, 0, width, height);
-
-//   const paintNebula = (
-//     x: number,
-//     y: number,
-//     radius: number,
-//     colorStops: Array<[number, string]>,
-//     alpha: number,
-//   ) => {
-//     const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-//     colorStops.forEach(([offset, color]) => {
-//       gradient.addColorStop(offset, color);
-//     });
-//     context.save();
-//     context.globalAlpha = alpha;
-//     context.globalCompositeOperation = 'screen';
-//     context.fillStyle = gradient;
-//     context.beginPath();
-//     context.arc(x, y, radius, 0, Math.PI * 2);
-//     context.fill();
-//     context.restore();
-//   };
-
-//   paintNebula(width * 0.2, height * 0.24, height * 0.42, [
-//     [0, 'rgba(96,165,250,0.95)'],
-//     [0.24, 'rgba(14,165,233,0.38)'],
-//     [0.58, 'rgba(37,99,235,0.14)'],
-//     [1, 'rgba(0,0,0,0)'],
-//   ], 0.35);
-
-//   paintNebula(width * 0.78, height * 0.33, height * 0.32, [
-//     [0, 'rgba(244,114,182,0.9)'],
-//     [0.3, 'rgba(168,85,247,0.36)'],
-//     [0.66, 'rgba(59,130,246,0.12)'],
-//     [1, 'rgba(0,0,0,0)'],
-//   ], 0.24);
-
-//   paintNebula(width * 0.5, height * 0.82, height * 0.4, [
-//     [0, 'rgba(250,204,21,0.55)'],
-//     [0.28, 'rgba(56,189,248,0.22)'],
-//     [0.62, 'rgba(14,116,144,0.08)'],
-//     [1, 'rgba(0,0,0,0)'],
-//   ], 0.2);
-
-//   context.save();
-//   context.globalCompositeOperation = 'screen';
-//   for (let index = 0; index < 2400; index += 1) {
-//     const x = random() * width;
-//     const y = random() * height;
-//     const radius = random() < 0.985
-//       ? 0.25 + random() * 1.05
-//       : 1.4 + random() * 2.8;
-//     const brightness = 185 + Math.floor(random() * 70);
-//     const tintShift = Math.floor(random() * 30);
-//     context.fillStyle = `rgba(${brightness}, ${brightness - tintShift}, 255, ${0.2 + random() * 0.8})`;
-//     context.beginPath();
-//     context.arc(x, y, radius, 0, Math.PI * 2);
-//     context.fill();
-
-//     if (radius > 2.4) {
-//       context.strokeStyle = `rgba(255,255,255,${0.08 + random() * 0.1})`;
-//       context.lineWidth = 1;
-//       context.beginPath();
-//       context.moveTo(x - radius * 3.2, y);
-//       context.lineTo(x + radius * 3.2, y);
-//       context.moveTo(x, y - radius * 3.2);
-//       context.lineTo(x, y + radius * 3.2);
-//       context.stroke();
-//     }
-//   }
-//   context.restore();
-
-//   const vignette = context.createRadialGradient(width * 0.5, height * 0.5, height * 0.16, width * 0.5, height * 0.5, width * 0.7);
-//   vignette.addColorStop(0, 'rgba(0,0,0,0)');
-//   vignette.addColorStop(0.72, 'rgba(0,0,0,0.08)');
-//   vignette.addColorStop(1, 'rgba(0,0,0,0.34)');
-//   context.fillStyle = vignette;
-//   context.fillRect(0, 0, width, height);
-
-//   const texture = new THREE.CanvasTexture(canvas);
-//   texture.colorSpace = THREE.SRGBColorSpace;
-//   texture.mapping = THREE.EquirectangularReflectionMapping;
-//   texture.needsUpdate = true;
-
-//   return texture;
-// }
-
 function createFocusStateForObject(
   camera: THREE.PerspectiveCamera,
   controls: OrbitControls,
@@ -747,6 +630,38 @@ function layoutFleetObjects(entries: LoadedFleetObject[]) {
   });
 }
 
+function placeFleetObjectWithoutRelayout(entry: LoadedFleetObject, existingEntries: LoadedFleetObject[]) {
+  if (existingEntries.length === 0) {
+    entry.basePosition.set(0, 0, 0);
+    entry.offsetPosition.set(0, 0, 0);
+    entry.savedWorldPosition = null;
+    applyLoadedEntryTransform(entry);
+    return;
+  }
+
+  const globalFootprint = Math.max(
+    entry.footprint,
+    entry.depth,
+    ...existingEntries.map((existingEntry) => Math.max(existingEntry.footprint, existingEntry.depth)),
+  );
+  const gap = Math.max(8, globalFootprint * 0.18);
+  let rightMostEdge = Number.NEGATIVE_INFINITY;
+  let anchorZ = 0;
+
+  existingEntries.forEach((existingEntry) => {
+    const rightEdge = existingEntry.root.position.x + (existingEntry.footprint / 2);
+    if (rightEdge > rightMostEdge) {
+      rightMostEdge = rightEdge;
+      anchorZ = existingEntry.root.position.z;
+    }
+  });
+
+  entry.basePosition.set(rightMostEdge + gap + (entry.footprint / 2), 0, anchorZ);
+  entry.offsetPosition.set(0, 0, 0);
+  entry.savedWorldPosition = null;
+  applyLoadedEntryTransform(entry);
+}
+
 function createInfiniteFleetStageSurface(isDarkMode: boolean) {
   const surface = new THREE.Group();
   const plane = new THREE.Mesh(
@@ -939,6 +854,7 @@ export default function FleetModelViewer({
   const requestTokenByKeyRef = useRef<Map<string, number>>(new Map());
   const requestSequenceRef = useRef(0);
   const cameraFocusTransitionRef = useRef<CameraFocusTransitionState | null>(null);
+  const layoutLockedRef = useRef(false);
   const [activeShipKey, setActiveShipKey] = useState<string | null>(selectedShipKey);
   const [isLoading, setIsLoading] = useState(false);
   const [hasAnyLoadedModels, setHasAnyLoadedModels] = useState(false);
@@ -1010,6 +926,21 @@ export default function FleetModelViewer({
       failed,
       currentShipName: pending > 0 ? (currentShipName ?? current.currentShipName) : null,
     }));
+  }, []);
+
+  const syncLayoutLockState = useCallback(() => {
+    if (loadedEntriesRef.current.size === 0 || desiredShipsRef.current.length === 0) {
+      layoutLockedRef.current = false;
+      return;
+    }
+
+    const allDesiredShipsResolved = desiredShipsRef.current.every((ship) => (
+      loadedEntriesRef.current.has(ship.key) || failedShipKeysRef.current.has(ship.key)
+    ));
+
+    if (allDesiredShipsResolved) {
+      layoutLockedRef.current = true;
+    }
   }, []);
 
   const reportSelectedShipRotation = useCallback(() => {
@@ -1206,12 +1137,19 @@ export default function FleetModelViewer({
 
       const order = desiredShipsRef.current.findIndex((entry) => entry.key === ship.key);
       const hadLoadedEntries = loadedEntriesRef.current.size > 0;
+      const shouldPreserveExistingLayout = layoutLockedRef.current;
+      const existingEntries = Array.from(loadedEntriesRef.current.values());
       const loadedEntry = prepareFleetObject(gltf.scene, ship, order >= 0 ? order : desiredShipsRef.current.length);
       applySavedTransformToEntry(loadedEntry, savedTransformsRef.current[ship.key]);
       currentStage.add(loadedEntry.root);
       loadedEntriesRef.current.set(ship.key, loadedEntry);
       shipObjectsRef.current.set(ship.key, loadedEntry.root);
-      relayoutStage({ preserveCamera: hadLoadedEntries });
+      if (shouldPreserveExistingLayout) {
+        placeFleetObjectWithoutRelayout(loadedEntry, existingEntries);
+        reportShipTransform(ship.key, loadedEntry);
+      } else {
+        relayoutStage({ preserveCamera: hadLoadedEntries });
+      }
       syncSelectionHighlight();
       syncTransformTarget();
       if (ship.key === selectedShipKeyRef.current) {
@@ -1227,9 +1165,19 @@ export default function FleetModelViewer({
       if (requestTokenByKeyRef.current.get(ship.key) === requestToken) {
         pendingShipKeysRef.current.delete(ship.key);
         updateLoadState(null);
+        syncLayoutLockState();
       }
     }
-  }, [focusCurrentStage, relayoutStage, reportSelectedShipRotation, syncSelectionHighlight, syncTransformTarget, updateLoadState]);
+  }, [
+    focusCurrentStage,
+    relayoutStage,
+    reportSelectedShipRotation,
+    reportShipTransform,
+    syncLayoutLockState,
+    syncSelectionHighlight,
+    syncTransformTarget,
+    updateLoadState,
+  ]);
 
   useEffect(() => {
     if (!open || !containerRef.current) {
@@ -1282,6 +1230,7 @@ export default function FleetModelViewer({
     failedShipKeysRef.current = new Set();
     requestTokenByKeyRef.current = new Map();
     requestSequenceRef.current = 0;
+    layoutLockedRef.current = false;
 
     dracoLoader.setDecoderPath(DRACO_DECODER_PATH);
     loader.setDRACOLoader(dracoLoader);
@@ -1602,6 +1551,7 @@ export default function FleetModelViewer({
       pendingShipKeysRef.current = new Set();
       failedShipKeysRef.current = new Set();
       requestTokenByKeyRef.current = new Map();
+      layoutLockedRef.current = false;
 
       transformControls.detach();
       stopCameraFocusTransition(cameraFocusTransitionRef);
@@ -1686,8 +1636,11 @@ export default function FleetModelViewer({
       }
     });
 
-    relayoutStage({ preserveCamera: true });
+    if (!layoutLockedRef.current) {
+      relayoutStage({ preserveCamera: true });
+    }
     updateLoadState(null);
+    syncLayoutLockState();
 
     ships.forEach((ship) => {
       if (failedShipKeysRef.current.has(ship.key)) {
@@ -1696,7 +1649,7 @@ export default function FleetModelViewer({
 
       void loadShip(ship);
     });
-  }, [loadShip, open, relayoutStage, removeLoadedEntry, ships, updateLoadState]);
+  }, [loadShip, open, relayoutStage, removeLoadedEntry, ships, syncLayoutLockState, updateLoadState]);
 
   useEffect(() => {
     if (!open) {

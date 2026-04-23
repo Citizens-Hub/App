@@ -198,6 +198,26 @@ export default function ResellerGraphqlExport() {
           })}
         </Typography>
 
+        {/* <Button
+          onClick={() => {
+            window.postMessage({
+              type: 'ccuPlannerAppIntegrationRequest',
+              message: {
+                type: 'httpRequest',
+                request: {
+                  url: "https://robertsspaceindustries.com/api/store/buyBackPledge",
+                  responseType: 'json',
+                  method: 'post',
+                  data: { id },
+                },
+                requestId: "bbk",
+              },
+            }, '*');
+          }}
+        >
+          add buy back to cart
+        </Button> */}
+
         <Button
           variant="contained"
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <CloudDownloadIcon />}

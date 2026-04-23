@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Typography, Box, CircularProgress, Tabs, Tab, Dialog } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
+import { useIntl } from 'react-intl';
 import { useLocale } from '@/contexts/LocaleContext';
 
 interface TabPanelProps {
@@ -41,6 +42,7 @@ interface NewsModalProps {
 }
 
 export default function NewsModal({ open, onClose }: NewsModalProps) {
+  const intl = useIntl();
   const { locale } = useLocale();
   const [chineseMarkdown, setChineseMarkdown] = useState<string>('');
   const [englishMarkdown, setEnglishMarkdown] = useState<string>('');
@@ -118,8 +120,8 @@ export default function NewsModal({ open, onClose }: NewsModalProps) {
             <Box>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={tabValue} onChange={handleTabChange} centered>
-                  <Tab label="中文" {...a11yProps(0)} />
-                  <Tab label="English" {...a11yProps(1)} />
+                  <Tab label={intl.formatMessage({ id: 'language.name.zh', defaultMessage: 'Chinese' })} {...a11yProps(0)} />
+                  <Tab label={intl.formatMessage({ id: 'language.name.en', defaultMessage: 'English' })} {...a11yProps(1)} />
                 </Tabs>
               </Box>
 

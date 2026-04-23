@@ -457,17 +457,6 @@ export default function Orders() {
                     <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'left' }}>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                         {getStatusChip(order.status)}
-                        {/* <Chip
-                          size="small"
-                          variant="outlined"
-                          label={intl.formatMessage(
-                            {
-                              id: 'orders.itemsCountSummary',
-                              defaultMessage: '{active} active / {total} items',
-                            },
-                            { active: activeItemsCount, total: totalItemsCount },
-                          )}
-                        /> */}
                       </Box>
 
                       <Box>
@@ -536,17 +525,6 @@ export default function Orders() {
                         <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
                           <FormattedMessage id="orders.actionPanel" defaultMessage="Actions" />
                         </Typography>
-                        {/* <Typography variant="body2" sx={{ mt: 0.75, color: 'text.secondary' }}>
-                          {order.status === OrderStatus.Pending
-                            ? intl.formatMessage({
-                              id: 'orders.pendingHelpText',
-                              defaultMessage: 'Complete payment before the deadline to keep your reserved inventory.',
-                            })
-                            : intl.formatMessage({
-                              id: 'orders.detailsHelpText',
-                              defaultMessage: 'Review line items, invoice, and fulfillment details.',
-                            })}
-                        </Typography> */}
                       </Box>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>

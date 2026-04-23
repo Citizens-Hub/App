@@ -13,6 +13,7 @@ import { Add, Delete } from '@mui/icons-material';
 import { Resource } from '@/types';
 import ImageSlideshow from './ImageSlideshow';
 import PriceDisplay from './PriceDisplay';
+import { useIntl } from 'react-intl';
 
 interface ResourceDesktopViewProps {
   resources: Resource[];
@@ -35,15 +36,23 @@ export default function ResourceDesktopView({
   onAddToCart,
   onRemoveFromCart
 }: ResourceDesktopViewProps) {
+  const intl = useIntl();
+
   return (
     <TableContainer component={Box} sx={{ height: 'calc(100vh - 280px)', overflow: 'auto' }}>
-      <Table sx={{ minWidth: 650 }} aria-label="resources table">
+      <Table
+        sx={{ minWidth: 650 }}
+        aria-label={intl.formatMessage({
+          id: 'resourcesTable.ariaLabel',
+          defaultMessage: 'Resources table',
+        })}
+      >
         <TableHead>
           <TableRow>
-            <TableCell>图片</TableCell>
-            <TableCell>名称</TableCell>
-            <TableCell>价格</TableCell>
-            <TableCell align="center">操作</TableCell>
+            <TableCell>{intl.formatMessage({ id: 'resourcesTable.column.image', defaultMessage: 'Image' })}</TableCell>
+            <TableCell>{intl.formatMessage({ id: 'resourcesTable.column.name', defaultMessage: 'Name' })}</TableCell>
+            <TableCell>{intl.formatMessage({ id: 'resourcesTable.column.price', defaultMessage: 'Price' })}</TableCell>
+            <TableCell align="center">{intl.formatMessage({ id: 'resourcesTable.column.actions', defaultMessage: 'Actions' })}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -62,7 +71,7 @@ export default function ResourceDesktopView({
               </TableCell>
               <TableCell>
                 <div className='flex gap-2 items-center'>
-                  {resource.isPackage && <img src="/pack.svg" alt="pack" className='w-12 h-12' />}
+                  {resource.isPackage && <img src="/pack.svg" alt="" aria-hidden="true" className='w-12 h-12' />}
                   <div>
                     <Typography variant="subtitle1" sx={{ fontSize: '20px' }}>
                       {resource.name}

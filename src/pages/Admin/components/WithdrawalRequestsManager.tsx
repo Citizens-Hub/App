@@ -83,6 +83,19 @@ export default function WithdrawalRequestsManager() {
     return new Date(value).toLocaleString(intl.locale);
   };
 
+  const formatWithdrawalStatus = (status: WithdrawalRequestStatus) => {
+    switch (status) {
+      case 'pending':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.pending', defaultMessage: 'Pending' });
+      case 'paid':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.paid', defaultMessage: 'Paid' });
+      case 'rejected':
+        return intl.formatMessage({ id: 'reseller.withdrawal.status.rejected', defaultMessage: 'Rejected' });
+      default:
+        return status;
+    }
+  };
+
   const openActionDialog = (request: WithdrawalRequestItem, status: 'paid' | 'rejected') => {
     setPendingAction({ request, status });
     setAdminNote('');
@@ -237,7 +250,7 @@ export default function WithdrawalRequestsManager() {
       )}
 
       <TableContainer component={Paper}>
-        <Table aria-label="admin withdrawal requests table">
+        <Table aria-label={intl.formatMessage({ id: 'admin.withdrawals.table.ariaLabel', defaultMessage: 'Withdrawal requests table' })}>
           <TableHead>
             <TableRow>
               <TableCell>
@@ -290,10 +303,7 @@ export default function WithdrawalRequestsManager() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={intl.formatMessage({
-                        id: `reseller.withdrawal.status.${request.status}`,
-                        defaultMessage: request.status,
-                      })}
+                      label={formatWithdrawalStatus(request.status)}
                       color={statusColorMap[request.status]}
                       size="small"
                     />

@@ -8,7 +8,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 
 import Crawler from '@/components/Crawler';
-import UserSelector from '@/components/UserSelector';
 import { useApi } from '@/hooks/swr/useApi';
 import FleetModelViewer from '@/pages/FleetView/FleetModelViewer';
 import type {
@@ -659,20 +658,6 @@ export default function FleetView() {
     () => ownedShips.reduce((sum, ship) => sum + ship.quantity, 0),
     [ownedShips],
   );
-  // const totalBundleHullCount = useMemo(
-  //   () => ownedShips.reduce((sum, ship) => sum + ship.bundleQuantity, 0),
-  //   [ownedShips],
-  // );
-  // const selectedUserLabel = useMemo(() => {
-  //   if (selectedUser === -1) {
-  //     return intl.formatMessage({ id: 'navigation.hangar.allUsers', defaultMessage: 'All Users' });
-  //   }
-
-  //   const activeUser = users.find((user) => user.id === selectedUser);
-  //   return activeUser?.nickname
-  //     || activeUser?.username
-  //     || intl.formatMessage({ id: 'navigation.hangar.selectUser', defaultMessage: 'Select User' });
-  // }, [intl, selectedUser, users]);
 
   const addShipToScene = useCallback((ship: FleetPickerShipEntry) => {
     const instanceKey = createFleetViewShipInstanceKey(ship.key);
@@ -758,30 +743,6 @@ export default function FleetView() {
     addShipToScene(ship);
   };
 
-  // const renderSourceSummary = (ship: Pick<FleetShipEntry, 'standaloneQuantity' | 'bundleQuantity'>) => {
-  //   const segments: string[] = [];
-
-  //   if (ship.standaloneQuantity > 0) {
-  //     segments.push(
-  //       intl.formatMessage(
-  //         { id: 'fleetview.source.standalone', defaultMessage: 'Standalone {count}' },
-  //         { count: ship.standaloneQuantity },
-  //       ),
-  //     );
-  //   }
-
-  //   if (ship.bundleQuantity > 0) {
-  //     segments.push(
-  //       intl.formatMessage(
-  //         { id: 'fleetview.source.bundle', defaultMessage: 'Bundle {count}' },
-  //         { count: ship.bundleQuantity },
-  //       ),
-  //     );
-  //   }
-
-  //   return segments.join(' · ');
-  // };
-
   const renderInsuranceBadges = (ship: FleetShipEntry) => {
     const visibleLabels = ship.insuranceLabels.filter(Boolean).slice(0, 3);
 
@@ -818,18 +779,6 @@ export default function FleetView() {
         <section className="mx-auto w-full max-w-[1800px] border border-slate-200/80 bg-white/82 p-4 backdrop-blur-sm dark:border-neutral-700 dark:bg-[#121212]">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-2 mt-2">
-              {/* <div>
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  <FormattedMessage id="fleetview.title" defaultMessage="Fleet View" />
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-400">
-                  <FormattedMessage
-                    id="fleetview.subtitle"
-                    defaultMessage="Browse the ships in your current hangar scope, then open the 3D viewer to stage only the catalog ships you want to inspect."
-                  />
-                </p>
-              </div> */}
-
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="border border-slate-200/80 bg-slate-50/78 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
@@ -843,12 +792,6 @@ export default function FleetView() {
                   </div>
                   <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{totalHullCount}</div>
                 </div>
-                {/* <div className="border border-slate-200/80 bg-slate-50/78 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
-                  <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">
-                    <FormattedMessage id="fleetview.stat.bundleHulls" defaultMessage="{count} ships from bundles" values={{ count: totalBundleHullCount }} />
-                  </div>
-                  <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{totalBundleHullCount}</div>
-                </div> */}
               </div>
             </div>
 
@@ -884,13 +827,6 @@ export default function FleetView() {
                 </Button>
 
                 <Crawler ships={ships} />
-              </div>
-
-              <div className="w-full border border-slate-200/80 bg-white/74 px-3 py-3  backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900">
-                {/* <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
-                  <FormattedMessage id="fleetview.userScopeTitle" defaultMessage="User Scope" />
-                </div> */}
-                <UserSelector variant="embedded" align="start" preserveSpace minHeight={52} />
               </div>
             </div>
           </div>
@@ -943,18 +879,9 @@ export default function FleetView() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                 {filteredOwnedShips.map((ship) => {
-                  // const stagedCount = stagedShipCountBySourceKey.get(ship.key) || 0;
-                  // const isStaged = stagedCount > 0;
-
                   return (
                     <div
                       key={ship.key}
-                      // onClick={() => {
-                      //   setIsViewerDrawerOpen(true);
-                      //   if (isStaged) {
-                      //     setSelectedShipKey(ship.key);
-                      //   }
-                      // }}
                       className={`overflow-hidden border text-left transition-all border-slate-200/80 bg-white/88 hover:border-slate-300 dark:border-neutral-700 dark:bg-transparent dark:hover:border-neutral-500`}
                     >
                       <div className="relative aspect-[16/8.6] overflow-hidden bg-slate-200 dark:bg-[#1b1b1b]">
@@ -965,32 +892,9 @@ export default function FleetView() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-                        {/* <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-                          {ship.bundleQuantity > 0 && (
-                            <span className="rounded-sm border border-blue-200/70 bg-blue-50/90 px-2 py-1 text-[11px] text-blue-900 backdrop-blur-sm dark:border-neutral-600 dark:bg-neutral-900/85 dark:text-gray-100">
-                              <FormattedMessage id="fleetview.source.bundleShort" defaultMessage="Bundle" />
-                            </span>
-                          )}
-                          {ship.standaloneQuantity > 0 && (
-                            <span className="rounded-sm border border-white/50 bg-white/90 px-2 py-1 text-[11px] text-gray-900 backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/85 dark:text-gray-100">
-                              <FormattedMessage id="fleetview.source.standaloneShort" defaultMessage="Hangar" />
-                            </span>
-                          )}
-                        </div> */}
-
                         <div className="absolute right-3 top-3 rounded-sm border border-neutral-700/70 bg-neutral-950/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
                           <FormattedMessage id="fleetview.card.quantity" defaultMessage="x{count}" values={{ count: ship.quantity }} />
                         </div>
-
-                        {/* {stagedCount > 0 && (
-                          <div className="absolute left-3 top-3 rounded-sm border border-blue-300/60 bg-blue-500/15 px-2 py-1 text-[11px] font-medium text-blue-100 backdrop-blur-sm">
-                            <FormattedMessage
-                              id="fleetview.viewer.instancesInScene"
-                              defaultMessage="{count} in scene"
-                              values={{ count: stagedCount }}
-                            />
-                          </div>
-                        )} */}
 
                         <div className="absolute inset-x-3 bottom-3">
                           <div className="text-xl font-semibold text-white">{ship.displayName}</div>
@@ -1097,12 +1001,6 @@ export default function FleetView() {
                   <div className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-gray-400">
                     <FormattedMessage id="fleetview.viewer.pickerTitle" defaultMessage="Model Picker" />
                   </div>
-                  {/* <p className="mt-2 text-sm leading-6 text-gray-400">
-                    <FormattedMessage
-                      id="fleetview.viewer.pickerDescription"
-                      defaultMessage="Drag ships into the scene to load them. Ships from the current hangar scope are listed first."
-                    />
-                  </p> */}
 
                   <TextField
                     fullWidth
@@ -1126,23 +1024,6 @@ export default function FleetView() {
                       },
                     }}
                   />
-
-                  {/* <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-200">
-                    <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700 dark:border-neutral-700 dark:bg-[#121212] dark:text-gray-200">
-                      <FormattedMessage
-                        id="fleetview.viewer.pickerOwnedCount"
-                        defaultMessage="{count} in hangar"
-                        values={{ count: ownedModelCount }}
-                      />
-                    </span>
-                    <span className="rounded-full border border-neutral-700 bg-[#121212] px-3 py-1 text-gray-200">
-                      <FormattedMessage
-                        id="fleetview.viewer.pickerCatalogCount"
-                        defaultMessage="{count} ships with 3D models"
-                        values={{ count: modelPickerShips.length }}
-                      />
-                    </span>
-                  </div> */}
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -1200,64 +1081,12 @@ export default function FleetView() {
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                  {/* {stagedCount > 0 && (
-                                    <span className="rounded-full border border-cyan-300/70 bg-cyan-50/80 px-2 py-0.5 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-100">
-                                      <FormattedMessage
-                                        id="fleetview.viewer.instancesInScene"
-                                        defaultMessage="{count} in scene"
-                                        values={{ count: stagedCount }}
-                                      />
-                                    </span>
-                                  )} */}
-                                  {/* <span className={`rounded-full px-2 py-0.5 ${ship.isOwned
-                                    ? 'border border-blue-200 bg-blue-50 text-blue-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-200'
-                                    : 'border border-slate-200 bg-white text-slate-600 dark:border-neutral-700 dark:bg-[#121212] dark:text-gray-200'
-                                  }`}
-                                  >
-                                    {ship.isOwned
-                                      ? (renderSourceSummary(ship) || intl.formatMessage({
-                                        id: 'fleetview.viewer.catalogOnly',
-                                        defaultMessage: 'Catalog only',
-                                      }))
-                                      : intl.formatMessage({
-                                        id: 'fleetview.viewer.catalogOnly',
-                                        defaultMessage: 'Catalog only',
-                                      })}
-                                  </span> */}
                                   {ship.msrpCents !== null && (
                                     <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-600 dark:border-neutral-700 dark:bg-[#121212] dark:text-gray-200">
                                       {formatUsdPrice(intl.locale, ship.msrpCents / 100)}
                                     </span>
                                   )}
                                 </div>
-
-                                {/* <div className="mt-3 flex items-center justify-between gap-3">
-                                  <div className="text-[11px] uppercase tracking-[0.14em] text-gray-500">
-                                    <FormattedMessage id="fleetview.viewer.dragToStage" defaultMessage="Drag to stage" />
-                                  </div>
-
-                                  <Button
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (!isStaged) {
-                                        addShipToScene(ship);
-                                        return;
-                                      }
-
-                                      setSelectedShipKey(ship.key);
-                                    }}
-                                    disableElevation
-                                    variant={isStaged ? 'outlined' : 'contained'}
-                                    size="small"
-                                    sx={isStaged ? viewerOutlinedButtonSx : viewerContainedButtonSx}
-                                  >
-                                    {isStaged ? (
-                                      <FormattedMessage id="fleetview.viewer.addedToScene" defaultMessage="In scene" />
-                                    ) : (
-                                      <FormattedMessage id="fleetview.viewer.addToScene" defaultMessage="Add" />
-                                    )}
-                                  </Button>
-                                </div> */}
                               </div>
                             </div>
                           </div>
@@ -1295,13 +1124,6 @@ export default function FleetView() {
                         values={{ count: stagedViewerShips.length }}
                       />
                     </span>
-                    {/* <span className="rounded-full border border-neutral-700 bg-neutral-900/85 px-3 py-1 text-gray-100">
-                      <FormattedMessage
-                        id="fleetview.scope"
-                        defaultMessage="Current scope: {scope}"
-                        values={{ scope: selectedUserLabel }}
-                      />
-                    </span> */}
                   </div>
 
                   {selectedViewerShip && (
@@ -1315,12 +1137,6 @@ export default function FleetView() {
                       <div className="mt-1 text-sm text-slate-600 dark:text-gray-300">
                         {selectedViewerShip.manufacturerName || <FormattedMessage id="fleetview.card.unknownManufacturer" defaultMessage="Unknown manufacturer" />}
                       </div>
-                      {/* <div className="mt-3 text-xs text-slate-500 dark:text-gray-400">
-                        {renderSourceSummary(selectedViewerShip) || intl.formatMessage({
-                          id: 'fleetview.viewer.catalogOnly',
-                          defaultMessage: 'Catalog only',
-                        })}
-                      </div> */}
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button
                           onClick={() => toggleViewerTransformMode('translate')}
@@ -1365,103 +1181,6 @@ export default function FleetView() {
                     </div>
                   )}
                 </div>
-
-                {/* <div className="border-t border-neutral-700 bg-neutral-900 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-300">
-                      <FormattedMessage id="fleetview.viewer.stagedTitle" defaultMessage="Staged Ships" />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="hidden text-xs text-gray-400 md:block">
-                        <FormattedMessage
-                          id="fleetview.viewer.sceneHint"
-                          defaultMessage="Drag to orbit · Scroll to zoom · Shift-drag or right-drag to pan"
-                        />
-                      </div>
-                      <Button
-                        onClick={clearScene}
-                        disabled={stagedViewerShips.length === 0}
-                        variant="outlined"
-                        size="small"
-                        sx={viewerOutlinedButtonSx}
-                      >
-                        <FormattedMessage id="fleetview.viewer.clearScene" defaultMessage="Clear scene" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {stagedViewerShips.length === 0 ? (
-                    <div className="rounded-none border border-dashed border-neutral-700 bg-[#121212] p-5 text-center">
-                      <div className="text-sm font-semibold text-gray-100">
-                        <FormattedMessage id="fleetview.viewer.stagedEmptyTitle" defaultMessage="No ships staged yet" />
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-gray-400">
-                        <FormattedMessage
-                          id="fleetview.viewer.stagedEmptyDescription"
-                          defaultMessage="Drag from the picker above to start loading ships into the shared 3D scene."
-                        />
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex gap-3 overflow-x-auto pb-1">
-                      {stagedViewerShips.map((ship) => (
-                        <div
-                          key={ship.key}
-                          onClick={() => setSelectedShipKey(ship.key)}
-                          className={`min-w-[220px] max-w-[240px] shrink-0 overflow-hidden rounded-none border text-left transition-colors ${selectedShipKey === ship.key
-                            ? 'border-blue-400 bg-[#121212]'
-                            : 'border-neutral-700 bg-neutral-900 hover:border-neutral-500'
-                          }`}
-                        >
-                          <div className="relative">
-                            <img
-                              src={ship.imageUrl}
-                              alt={ship.displayName}
-                              className="h-24 w-full object-cover"
-                            />
-                            <IconButton
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                removeShipFromScene(ship.key);
-                              }}
-                              size="small"
-                              sx={{
-                                ...viewerIconButtonSx,
-                                position: 'absolute',
-                                right: 8,
-                                top: 8,
-                              }}
-                              aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
-                            >
-                              <CloseRoundedIcon fontSize="small" />
-                            </IconButton>
-                          </div>
-
-                          <div className="p-3">
-                            <div className="truncate text-sm font-semibold text-gray-100">
-                              {ship.displayName}
-                            </div>
-                            <div className="mt-1 truncate text-xs text-gray-400">
-                              {ship.manufacturerName || <FormattedMessage id="fleetview.card.unknownManufacturer" defaultMessage="Unknown manufacturer" />}
-                            </div>
-                            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-300">
-                              <span className="truncate">
-                                {renderSourceSummary(ship) || intl.formatMessage({
-                                  id: 'fleetview.viewer.catalogOnly',
-                                  defaultMessage: 'Catalog only',
-                                })}
-                              </span>
-                              <span className="rounded-full border border-neutral-700 bg-[#121212] px-2 py-0.5 text-[11px] text-white">
-                                {ship.quantity > 0 ? ship.quantity : '1'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div> */}
               </div>
             </div>
           )}

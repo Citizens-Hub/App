@@ -385,7 +385,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>
         <TableContainer sx={{ mb: 2 }}>
-          <Table aria-label="Equipment table">
+          <Table aria-label={intl.formatMessage({ id: 'hangar.storeTable.ariaLabel', defaultMessage: 'Equipment table' })}>
             <TableHead>
               <TableRow>
                 <TableCell width="380px">
