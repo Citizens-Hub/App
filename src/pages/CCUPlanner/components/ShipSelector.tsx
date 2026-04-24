@@ -255,7 +255,7 @@ function ShipSelector({
               >
                 <div className="flex items-center text-left">
                   <img
-                    src={ship.medias.productThumbMediumAndSmall}
+                    src={ship?.medias?.productThumbMediumAndSmall}
                     alt={ship.name}
                     className="w-17 h-17 object-cover mr-2"
                   />

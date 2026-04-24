@@ -638,7 +638,7 @@ export default function RouteInfoPanel({
 
       <div className="mb-4">
         <img
-          src={selectedNode.data.ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+          src={selectedNode.data.ship?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
           alt={selectedShipDisplayName || selectedNode.data.ship.name}
           className="mb-2 m-auto w-[360px]"
         />
@@ -964,7 +964,7 @@ export default function RouteInfoPanel({
                         <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
                           <div className="flex items-center gap-2 mb-2">
                             <img
-                              src={startShip.medias.productThumbMediumAndSmall}
+                              src={startShip?.medias?.productThumbMediumAndSmall}
                               alt={getShipDisplayName(startShip) || startShip.name}
                               className="w-8 h-8 rounded object-cover"
                             />
@@ -1041,7 +1041,7 @@ export default function RouteInfoPanel({
                                     <span className='text-black dark:text-white'>{getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}</span>
                                   </span>
                                   <img
-                                    src={pathEdge.targetNode.data?.ship?.medias.productThumbMediumAndSmall}
+                                    src={pathEdge.targetNode.data?.ship?.medias?.productThumbMediumAndSmall}
                                     alt={getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />

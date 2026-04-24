@@ -262,7 +262,7 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 >
                   <div className="flex items-center text-left">
                     <img
-                      src={fromShip.medias.productThumbMediumAndSmall}
+                      src={fromShip?.medias?.productThumbMediumAndSmall}
                       alt={getShipDisplayName(fromShip) || fromShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />
@@ -314,7 +314,7 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 >
                   <div className="flex items-center text-left">
                     <img
-                      src={toShip.medias.productThumbMediumAndSmall}
+                      src={toShip?.medias?.productThumbMediumAndSmall}
                       alt={getShipDisplayName(toShip) || toShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />

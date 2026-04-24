@@ -386,7 +386,7 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
             {ship.flyableStatus !== 'Flyable' && <div className="text-sm text-white bg-sky-400 rounded-sm py-0.5 px-2">{localizedStatus}</div>}
           </div>
           <img
-            src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+            src={ship?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
             alt={shipDisplayName || ship.name}
             className="w-full h-full object-cover"
           />

@@ -155,11 +155,11 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                 {paginatedShips.map((ship) => (
                   <TableRow key={ship.id} hover>
                     <TableCell>
-                      {ship.medias && ship.medias.productThumbMediumAndSmall && (
+                      {ship.medias && ship?.medias?.productThumbMediumAndSmall && (
                         <Box
                           component="img"
                           sx={{ width: 180, height: 100, objectFit: 'cover', maxWidth: '180px' }}
-                          src={ship.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={ship?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
                           alt={ship.name}
                         />
                       )}

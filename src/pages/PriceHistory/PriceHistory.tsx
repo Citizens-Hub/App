@@ -584,7 +584,7 @@ export default function PriceHistory() {
                     <div className='flex items-center gap-3'>
                       {ship.medias?.productThumbMediumAndSmall && (
                         <img
-                          src={ship.medias.productThumbMediumAndSmall}
+                          src={ship?.medias?.productThumbMediumAndSmall}
                           alt={ship.name}
                           className='w-16 h-16 object-cover rounded'
                         />

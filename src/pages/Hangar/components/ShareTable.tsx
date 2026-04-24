@@ -447,7 +447,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                             height: '100%',
                             objectFit: 'cover',
                           }}
-                          src={item.from.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={item.from?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
                           alt={item.from.name}
                         />
                         <Box
@@ -461,7 +461,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                             objectFit: 'cover',
                             boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                           }}
-                          src={item.to.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={item.to?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
                           alt={item.to.name}
                         />
                         <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>

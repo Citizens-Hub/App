@@ -820,7 +820,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       {item.type === 'CCU' && item.from && item.to ? (
                         <Box sx={{ position: 'relative', width: 320, height: 180, overflow: 'hidden', }}>
                           <Box
-                            key={item.from.medias.productThumbMediumAndSmall}
+                            key={item.from?.medias?.productThumbMediumAndSmall}
                             component="img"
                             sx={{
                               position: 'absolute',
@@ -830,11 +830,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               height: '100%',
                               objectFit: 'cover',
                             }}
-                            src={item.from.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            src={item.from?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
                             alt={item.from.name}
                           />
                           <Box
-                            key={item.to.medias.productThumbMediumAndSmall}
+                            key={item.to?.medias?.productThumbMediumAndSmall}
                             component="img"
                             sx={{
                               position: 'absolute',
@@ -845,7 +845,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               objectFit: 'cover',
                               boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                             }}
-                            src={item.to.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            src={item.to?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
                             alt={item.to.name}
                           />
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
