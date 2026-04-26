@@ -21,8 +21,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.5)
       '@eduarte/chc':
-        specifier: ^0.2.2
-        version: 0.2.2
+        specifier: ^0.2.3
+        version: 0.2.3
       '@eduarte/cmc':
         specifier: ^0.1.0
         version: 0.1.0
@@ -301,8 +301,8 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@eduarte/chc@0.2.2':
-    resolution: {integrity: sha512-qRz4LzLF8odU1QhExMNNNEmTt26yZkrX8bCUlhkLuYEHR1TbZ/8qFaPY9ejyL/xmbnrNWBp6mxaWKhhp4/dShQ==}
+  '@eduarte/chc@0.2.3':
+    resolution: {integrity: sha512-ACGisZ0to1ShZYRggJ62LmmpHKwLBouFvkZnf3zBmul/6v20j6EjpS4j7M7oniRO9ToBwLYvfvBCf2t8c38Nlw==}
 
   '@eduarte/cmc@0.1.0':
     resolution: {integrity: sha512-39kVfoMpLLhhH0FJzfWfFegsxCQo8JY45NsXOm/5wSnt0ZS1Yu6FufxvtXvIV8P8EnVyLQuJq+rFQBLzhRfmvg==}
@@ -3213,7 +3213,7 @@ snapshots:
       react: 19.2.5
       tslib: 2.8.1
 
-  '@eduarte/chc@0.2.2': {}
+  '@eduarte/chc@0.2.3': {}
 
   '@eduarte/cmc@0.1.0': {}
 
