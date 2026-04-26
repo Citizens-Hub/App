@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, CircularProgress, LinearProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
-import { BlurOn, ViewInAr } from '@mui/icons-material';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { Alert, CircularProgress, LinearProgress } from '@mui/material';
+import { FormattedMessage } from 'react-intl';
 import * as THREE from 'three';
 import type { SparkRenderer as SparkRendererInstance, SplatMesh as SplatMeshInstance } from '@sparkjsdev/spark';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -164,7 +163,7 @@ export default function ShipModelPreview({
   showHeader = true,
   variant = 'inline',
 }: ShipModelPreviewProps) {
-  const intl = useIntl();
+  // const intl = useIntl();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState<ModelLoadProgress | null>(null);
@@ -448,48 +447,48 @@ export default function ShipModelPreview({
     return null;
   }
 
-  const modelModeToggle = hasSogModel ? (
-    <ToggleButtonGroup
-      exclusive
-      size="small"
-      value={activeModelMode}
-      onChange={(_, nextMode: ShipModelMode | null) => {
-        if (nextMode) {
-          setModelMode(nextMode);
-        }
-      }}
-      aria-label={intl.formatMessage({
-        id: 'ccuPlanner.shipInfo.modelModeLabel',
-        defaultMessage: '3D model type',
-      })}
-      sx={{
-        backgroundColor: 'rgba(255, 255, 255, 0.86)',
-        backdropFilter: 'blur(6px)',
-        '.dark &': {
-          backgroundColor: 'rgba(15, 23, 42, 0.78)',
-        },
-        '& .MuiToggleButton-root': {
-          gap: 0.5,
-          px: 1.15,
-          py: 0.45,
-          borderColor: 'rgba(100, 116, 139, 0.28)',
-          fontSize: 11,
-          fontWeight: 700,
-          lineHeight: 1.2,
-          textTransform: 'none',
-        },
-      }}
-    >
-      <ToggleButton value="glb" aria-label="GLB">
-        <ViewInAr fontSize="inherit" />
-        <FormattedMessage id="ccuPlanner.shipInfo.modelModeGlb" defaultMessage="GLB White" />
-      </ToggleButton>
-      <ToggleButton value="sog" aria-label="SOG">
-        <BlurOn fontSize="inherit" />
-        <FormattedMessage id="ccuPlanner.shipInfo.modelModeSog" defaultMessage="SOG Gaussian" />
-      </ToggleButton>
-    </ToggleButtonGroup>
-  ) : null;
+  // const modelModeToggle = hasSogModel ? (
+  //   <ToggleButtonGroup
+  //     exclusive
+  //     size="small"
+  //     value={activeModelMode}
+  //     onChange={(_, nextMode: ShipModelMode | null) => {
+  //       if (nextMode) {
+  //         setModelMode(nextMode);
+  //       }
+  //     }}
+  //     aria-label={intl.formatMessage({
+  //       id: 'ccuPlanner.shipInfo.modelModeLabel',
+  //       defaultMessage: '3D model type',
+  //     })}
+  //     sx={{
+  //       backgroundColor: 'rgba(255, 255, 255, 0.86)',
+  //       backdropFilter: 'blur(6px)',
+  //       '.dark &': {
+  //         backgroundColor: 'rgba(15, 23, 42, 0.78)',
+  //       },
+  //       '& .MuiToggleButton-root': {
+  //         gap: 0.5,
+  //         px: 1.15,
+  //         py: 0.45,
+  //         borderColor: 'rgba(100, 116, 139, 0.28)',
+  //         fontSize: 11,
+  //         fontWeight: 700,
+  //         lineHeight: 1.2,
+  //         textTransform: 'none',
+  //       },
+  //     }}
+  //   >
+  //     <ToggleButton value="glb" aria-label="GLB">
+  //       <ViewInAr fontSize="inherit" />
+  //       <FormattedMessage id="ccuPlanner.shipInfo.modelModeGlb" defaultMessage="GLB White" />
+  //     </ToggleButton>
+  //     <ToggleButton value="sog" aria-label="SOG">
+  //       <BlurOn fontSize="inherit" />
+  //       <FormattedMessage id="ccuPlanner.shipInfo.modelModeSog" defaultMessage="SOG Gaussian" />
+  //     </ToggleButton>
+  //   </ToggleButtonGroup>
+  // ) : null;
 
   return (
     <section className={isFullscreen ? 'flex flex-1 min-h-0 flex-col' : 'flex flex-col gap-2'}>
@@ -499,7 +498,7 @@ export default function ShipModelPreview({
             <FormattedMessage id="ccuPlanner.shipInfo.modelPreview" defaultMessage="3D Preview" />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {modelModeToggle}
+            {/* {modelModeToggle} */}
             <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
               <FormattedMessage id="ccuPlanner.shipInfo.modelPreviewHint" defaultMessage="Drag to orbit · Scroll to zoom" />
             </div>
@@ -508,11 +507,11 @@ export default function ShipModelPreview({
       )}
 
       <div className={`relative overflow-hidden border border-black/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(226,232,240,0.72)_52%,rgba(203,213,225,0.52))] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,rgba(30,41,59,0.9),rgba(15,23,42,0.92)_55%,rgba(2,6,23,0.98))] ${isFullscreen ? 'flex-1 min-h-0 rounded-none border-x-0 border-b-0' : 'rounded'}`}>
-        {!showHeader && modelModeToggle && (
+        {/* {!showHeader && modelModeToggle && (
           <div className="absolute left-3 top-3 z-10">
             {modelModeToggle}
           </div>
-        )}
+        )} */}
 
         <div
           ref={containerRef}
