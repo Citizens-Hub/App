@@ -3,6 +3,7 @@ import { CircularProgress, LinearProgress, Menu, MenuItem } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles';
 import { FormattedMessage } from 'react-intl';
 import * as THREE from 'three';
+import type { SparkRenderer as SparkRendererInstance, SplatMesh as SplatMeshInstance } from '@sparkjsdev/spark';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
@@ -14,6 +15,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 
+import type { ShipSogModelConfig, ShipSogModelResponse } from '@/types';
 import { getRenderableBounds, recenterObjectToRenderableBounds } from '@/utils/threeObjectBounds';
 
 export interface FleetModelViewerShip {
@@ -58,11 +60,16 @@ interface FleetLoadState {
   currentShipName: string | null;
 }
 
+type SparkModule = typeof import('@sparkjsdev/spark');
+type FleetModelKind = 'glb' | 'sog';
+
 interface LoadedFleetObject {
   key: string;
   order: number;
+  modelKind: FleetModelKind;
   root: THREE.Group;
   rotationRoot: THREE.Group;
+  splat: SplatMeshInstance | null;
   footprint: number;
   depth: number;
   basePosition: THREE.Vector3;
@@ -165,6 +172,49 @@ interface DimensionalScaleResolution {
   unitLabel: string;
   fitError: number | null;
   comparedDimensions: number;
+}
+
+function getShipGlbModelUrl(shipId: number) {
+  return MODEL_ENDPOINT
+    ? `${MODEL_ENDPOINT}/${shipId}.glb`
+    : `${API_BASE_URL}/api/ship-models/${shipId}`;
+}
+
+function joinModelEndpoint(baseUrl: string, modelPath: string) {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  const encodedPath = modelPath
+    .replace(/^\/+/, '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `${normalizedBaseUrl}/${encodedPath}`;
+}
+
+function getShipSogModelUrl(shipId: number, modelPath: string) {
+  return MODEL_ENDPOINT
+    ? joinModelEndpoint(MODEL_ENDPOINT, modelPath)
+    : `${API_BASE_URL}/api/ship-sog-models/${shipId}/file.sog`;
+}
+
+async function fetchShipSogModelConfig(shipId: number) {
+  const response = await fetch(`${API_BASE_URL}/api/ship-sog-models/${shipId}`);
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json() as ShipSogModelResponse;
+  const model = payload.success ? payload.data.model : null;
+  return model?.enabled && model.modelPath ? model : null;
+}
+
+function isFiniteBoundingBox(box: THREE.Box3) {
+  return Number.isFinite(box.min.x)
+    && Number.isFinite(box.min.y)
+    && Number.isFinite(box.min.z)
+    && Number.isFinite(box.max.x)
+    && Number.isFinite(box.max.y)
+    && Number.isFinite(box.max.z);
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -436,6 +486,62 @@ function resolveDimensionalScale(rawDimensions: number[], targetDimensions: numb
   };
 }
 
+function resolveAbsoluteDimensionalScale(rawDimensions: number[], targetDimensions: number[]) {
+  const dimensionCount = Math.min(rawDimensions.length, targetDimensions.length);
+  if (dimensionCount === 0) {
+    return {
+      scaleFactor: 1,
+      unitLabel: 'identity',
+      fitError: null,
+      comparedDimensions: 0,
+    };
+  }
+
+  const rawReferenceDimension = rawDimensions[0];
+  const targetReferenceDimension = targetDimensions[0];
+  if (
+    !Number.isFinite(rawReferenceDimension)
+    || !Number.isFinite(targetReferenceDimension)
+    || rawReferenceDimension <= 0
+    || targetReferenceDimension <= 0
+  ) {
+    return {
+      scaleFactor: 1,
+      unitLabel: 'identity',
+      fitError: null,
+      comparedDimensions: 0,
+    };
+  }
+
+  const scaleFactor = targetReferenceDimension / rawReferenceDimension;
+  let totalRelativeError = 0;
+  let comparedDimensions = 0;
+
+  for (let index = 0; index < dimensionCount; index += 1) {
+    const rawDimension = rawDimensions[index];
+    const targetDimension = targetDimensions[index];
+    if (
+      !Number.isFinite(rawDimension)
+      || !Number.isFinite(targetDimension)
+      || rawDimension <= 0
+      || targetDimension <= 0
+    ) {
+      continue;
+    }
+
+    const scaledDimension = rawDimension * scaleFactor;
+    totalRelativeError += Math.abs(scaledDimension - targetDimension) / targetDimension;
+    comparedDimensions += 1;
+  }
+
+  return {
+    scaleFactor,
+    unitLabel: 'absolute-longest-dimension',
+    fitError: comparedDimensions > 0 ? totalRelativeError / comparedDimensions : null,
+    comparedDimensions,
+  };
+}
+
 function roundDebugDimension(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return null;
@@ -509,6 +615,76 @@ function syncLoadedEntryTransformFromScene(entry: LoadedFleetObject) {
   entry.rotationQuaternion.copy(entry.rotationRoot.quaternion).normalize();
 }
 
+function getSplatRenderableBounds(splat: SplatMeshInstance) {
+  const localBox = splat.getBoundingBox(true).clone();
+  const hasRenderableContent = !localBox.isEmpty() && isFiniteBoundingBox(localBox);
+
+  if (!hasRenderableContent) {
+    localBox.min.set(0, 0, 0);
+    localBox.max.set(0, 0, 0);
+  }
+
+  splat.updateWorldMatrix(true, true);
+  const resolvedBox = localBox.clone().applyMatrix4(splat.matrixWorld);
+  if (resolvedBox.isEmpty() || !isFiniteBoundingBox(resolvedBox)) {
+    resolvedBox.min.set(0, 0, 0);
+    resolvedBox.max.set(0, 0, 0);
+  }
+
+  return {
+    box: resolvedBox,
+    center: resolvedBox.getCenter(new THREE.Vector3()),
+    size: resolvedBox.getSize(new THREE.Vector3()),
+    sphere: resolvedBox.getBoundingSphere(new THREE.Sphere()),
+    hasRenderableContent,
+  };
+}
+
+function recenterSplatToRenderableBounds(
+  splat: SplatMeshInstance,
+  options?: {
+    groundOnY?: boolean;
+    centerY?: boolean;
+  },
+) {
+  const bounds = getSplatRenderableBounds(splat);
+  const offset = new THREE.Vector3(
+    bounds.center.x,
+    options?.groundOnY ? bounds.box.min.y : options?.centerY ? bounds.center.y : 0,
+    bounds.center.z,
+  );
+
+  splat.position.sub(offset);
+  splat.updateWorldMatrix(true, true);
+
+  return getSplatRenderableBounds(splat);
+}
+
+function createSogBoundsProxy(size: THREE.Vector3, shipKey: string) {
+  const geometry = new THREE.BoxGeometry(
+    Math.max(size.x, 1),
+    Math.max(size.y, 1),
+    Math.max(size.z, 1),
+  );
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    depthTest: false,
+  });
+  material.colorWrite = false;
+
+  const proxy = new THREE.Mesh(geometry, material);
+  proxy.name = `${shipKey}::sog-bounds-proxy`;
+  proxy.userData.shipKey = shipKey;
+  proxy.userData.isFleetSogBoundsProxy = true;
+  proxy.castShadow = false;
+  proxy.receiveShadow = false;
+
+  return proxy;
+}
+
 function prepareFleetObject(sceneObject: THREE.Object3D, ship: FleetModelViewerShip, order: number) {
   const root = new THREE.Group();
   const rotationRoot = new THREE.Group();
@@ -568,8 +744,10 @@ function prepareFleetObject(sceneObject: THREE.Object3D, ship: FleetModelViewerS
   return {
     key: ship.key,
     order,
+    modelKind: 'glb' as const,
     root,
     rotationRoot,
+    splat: null,
     footprint: Math.max(finalBounds.size.x, 6),
     depth: Math.max(finalBounds.size.z, 6),
     basePosition: new THREE.Vector3(),
@@ -577,6 +755,85 @@ function prepareFleetObject(sceneObject: THREE.Object3D, ship: FleetModelViewerS
     rotationQuaternion: new THREE.Quaternion(),
     savedWorldPosition: null,
   };
+}
+
+function prepareFleetSogObject(
+  splat: SplatMeshInstance,
+  ship: FleetModelViewerShip,
+  order: number,
+  sogModel: ShipSogModelConfig,
+) {
+  const root = new THREE.Group();
+  const rotationRoot = new THREE.Group();
+  root.name = ship.key;
+  root.userData.shipKey = ship.key;
+  rotationRoot.name = `${ship.key}::rotation-root`;
+  rotationRoot.userData.shipKey = ship.key;
+  splat.name = `${ship.key}::sog`;
+  splat.userData.shipKey = ship.key;
+
+  rotationRoot.add(splat);
+  root.add(rotationRoot);
+
+  const initialBounds = getSplatRenderableBounds(splat);
+  const rawDimensions = [initialBounds.size.x, initialBounds.size.y, initialBounds.size.z]
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => right - left);
+  const targetDimensions = [ship.lengthMeters, ship.beamMeters, ship.heightMeters]
+    .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0)
+    .sort((left, right) => right - left);
+  const scaleResolution = resolveAbsoluteDimensionalScale(rawDimensions, targetDimensions);
+  const scaleFactor = scaleResolution.scaleFactor;
+
+  splat.scale.setScalar(scaleFactor);
+  const finalBounds = recenterSplatToRenderableBounds(splat, { groundOnY: true });
+  rotationRoot.position.y = finalBounds.center.y;
+  splat.position.y -= finalBounds.center.y;
+  splat.updateWorldMatrix(true, true);
+  rotationRoot.add(createSogBoundsProxy(finalBounds.size, ship.key));
+
+  console.log('[FleetModelViewer] SOG model scale debug', {
+    shipKey: ship.key,
+    shipId: ship.shipId,
+    shipName: ship.displayName,
+    modelPath: sogModel.modelPath,
+    rawModelBounds: toDebugBoundsSize(initialBounds.size),
+    rawModelDimensionsSorted: rawDimensions.map((value) => roundDebugDimension(value)),
+    dataDimensions: {
+      lengthMeters: roundDebugDimension(ship.lengthMeters),
+      beamMeters: roundDebugDimension(ship.beamMeters),
+      heightMeters: roundDebugDimension(ship.heightMeters),
+    },
+    dataDimensionsSorted: targetDimensions.map((value) => roundDebugDimension(value)),
+    selectedUnit: scaleResolution.unitLabel,
+    comparedDimensions: scaleResolution.comparedDimensions,
+    fitErrorPercent: roundDebugDimension(
+      scaleResolution.fitError === null ? null : scaleResolution.fitError * 100,
+    ),
+    scaleFactor: roundDebugDimension(scaleFactor),
+    scaledModelBounds: toDebugBoundsSize(finalBounds.size),
+    scaledModelDimensionsSorted: rawDimensions.map((value) => roundDebugDimension(value * scaleFactor)),
+  });
+
+  return {
+    key: ship.key,
+    order,
+    modelKind: 'sog' as const,
+    root,
+    rotationRoot,
+    splat,
+    footprint: Math.max(finalBounds.size.x, 6),
+    depth: Math.max(finalBounds.size.z, 6),
+    basePosition: new THREE.Vector3(),
+    offsetPosition: new THREE.Vector3(),
+    rotationQuaternion: new THREE.Quaternion(),
+    savedWorldPosition: null,
+  };
+}
+
+function disposeLoadedEntry(entry: LoadedFleetObject) {
+  disposeObject3D(entry.root);
+  entry.splat?.dispose();
 }
 
 function layoutFleetObjects(entries: LoadedFleetObject[]) {
@@ -840,6 +1097,9 @@ export default function FleetModelViewer({
   const colladaLoaderRef = useRef<ColladaLoader | null>(null);
   const loaderRef = useRef<GLTFLoader | null>(null);
   const dracoLoaderRef = useRef<DRACOLoader | null>(null);
+  const sparkModulePromiseRef = useRef<Promise<SparkModule> | null>(null);
+  const sparkRendererRef = useRef<SparkRendererInstance | null>(null);
+  const sogModelConfigRequestsRef = useRef<Map<number, Promise<ShipSogModelConfig | null>>>(new Map());
   const stageSurfaceRef = useRef<THREE.Group | null>(null);
   const animationFrameRef = useRef(0);
   const shipObjectsRef = useRef<Map<string, THREE.Object3D>>(new Map());
@@ -927,6 +1187,75 @@ export default function FleetModelViewer({
       currentShipName: pending > 0 ? (currentShipName ?? current.currentShipName) : null,
     }));
   }, []);
+
+  const resolveShipSogModelConfig = useCallback((shipId: number) => {
+    const cachedRequest = sogModelConfigRequestsRef.current.get(shipId);
+    if (cachedRequest) {
+      return cachedRequest;
+    }
+
+    const request = fetchShipSogModelConfig(shipId).catch((error) => {
+      console.warn('Failed to load fleet SOG model config, falling back to GLB', shipId, error);
+      return null;
+    });
+    sogModelConfigRequestsRef.current.set(shipId, request);
+
+    return request;
+  }, []);
+
+  const getSparkModule = useCallback(() => {
+    if (!sparkModulePromiseRef.current) {
+      sparkModulePromiseRef.current = import('@sparkjsdev/spark');
+    }
+
+    return sparkModulePromiseRef.current;
+  }, []);
+
+  const ensureSparkRenderer = useCallback((sparkModule: SparkModule) => {
+    if (sparkRendererRef.current) {
+      return sparkRendererRef.current;
+    }
+
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    if (!renderer || !scene) {
+      throw new Error('Fleet SOG renderer cannot be created before the scene is ready.');
+    }
+
+    const sparkRenderer = new sparkModule.SparkRenderer({
+      renderer,
+      focalAdjustment: 2,
+      sortRadial: false,
+      minSortIntervalMs: 80,
+    });
+    sparkRendererRef.current = sparkRenderer;
+    scene.add(sparkRenderer);
+
+    return sparkRenderer;
+  }, []);
+
+  const loadShipSogObject = useCallback(async (
+    ship: FleetModelViewerShip,
+    sogModel: ShipSogModelConfig,
+  ) => {
+    const sparkModule = await getSparkModule();
+    ensureSparkRenderer(sparkModule);
+
+    const splat = new sparkModule.SplatMesh({
+      url: getShipSogModelUrl(ship.shipId, sogModel.modelPath),
+      raycastable: true,
+    });
+
+    try {
+      const initializedSplat = await splat.initialized;
+      initializedSplat.rotation.set(...sogModel.rotation);
+      initializedSplat.updateWorldMatrix(true, true);
+      return initializedSplat;
+    } catch (error) {
+      splat.dispose();
+      throw error;
+    }
+  }, [ensureSparkRenderer, getSparkModule]);
 
   const syncLayoutLockState = useCallback(() => {
     if (loadedEntriesRef.current.size === 0 || desiredShipsRef.current.length === 0) {
@@ -1102,7 +1431,7 @@ export default function FleetModelViewer({
     }
 
     stage.remove(entry.root);
-    disposeObject3D(entry.root);
+    disposeLoadedEntry(entry);
     loadedEntriesRef.current.delete(shipKey);
     shipObjectsRef.current.delete(shipKey);
   }, []);
@@ -1122,16 +1451,51 @@ export default function FleetModelViewer({
     updateLoadState(ship.displayName);
 
     try {
-      const url = MODEL_ENDPOINT
-        ? `${MODEL_ENDPOINT}/${ship.shipId}.glb`
-        : `${API_BASE_URL}/api/ship-models/${ship.shipId}`;
-      const gltf = await loader.loadAsync(url);
+      const isRequestStillCurrent = () => (
+        requestTokenByKeyRef.current.get(ship.key) === requestToken
+        && desiredShipsRef.current.some((entry) => entry.key === ship.key)
+      );
+      let loadedSceneObject: THREE.Object3D | null = null;
+      let loadedSplat: SplatMeshInstance | null = null;
+      let loadedSogModel: ShipSogModelConfig | null = null;
+      const sogModel = await resolveShipSogModelConfig(ship.shipId);
+
+      if (!isRequestStillCurrent()) {
+        return;
+      }
+
+      if (sogModel) {
+        try {
+          loadedSplat = await loadShipSogObject(ship, sogModel);
+          loadedSceneObject = loadedSplat;
+          loadedSogModel = sogModel;
+        } catch (sogError) {
+          if (!isRequestStillCurrent()) {
+            return;
+          }
+
+          console.warn('Failed to load fleet SOG model, falling back to GLB', ship.shipId, sogError);
+          loadedSplat = null;
+          loadedSceneObject = null;
+          loadedSogModel = null;
+        }
+      }
+
+      if (!loadedSceneObject) {
+        const gltf = await loader.loadAsync(getShipGlbModelUrl(ship.shipId));
+        loadedSceneObject = gltf.scene;
+      }
+
       const currentRequestToken = requestTokenByKeyRef.current.get(ship.key);
       const stillDesired = desiredShipsRef.current.some((entry) => entry.key === ship.key);
       const currentStage = stageRef.current;
 
       if (currentRequestToken !== requestToken || !stillDesired || !currentStage) {
-        disposeObject3D(gltf.scene);
+        if (loadedSplat) {
+          loadedSplat.dispose();
+        } else {
+          disposeObject3D(loadedSceneObject);
+        }
         return;
       }
 
@@ -1139,7 +1503,9 @@ export default function FleetModelViewer({
       const hadLoadedEntries = loadedEntriesRef.current.size > 0;
       const shouldPreserveExistingLayout = layoutLockedRef.current;
       const existingEntries = Array.from(loadedEntriesRef.current.values());
-      const loadedEntry = prepareFleetObject(gltf.scene, ship, order >= 0 ? order : desiredShipsRef.current.length);
+      const loadedEntry = loadedSplat && loadedSogModel
+        ? prepareFleetSogObject(loadedSplat, ship, order >= 0 ? order : desiredShipsRef.current.length, loadedSogModel)
+        : prepareFleetObject(loadedSceneObject, ship, order >= 0 ? order : desiredShipsRef.current.length);
       applySavedTransformToEntry(loadedEntry, savedTransformsRef.current[ship.key]);
       currentStage.add(loadedEntry.root);
       loadedEntriesRef.current.set(ship.key, loadedEntry);
@@ -1170,9 +1536,11 @@ export default function FleetModelViewer({
     }
   }, [
     focusCurrentStage,
+    loadShipSogObject,
     relayoutStage,
     reportSelectedShipRotation,
     reportShipTransform,
+    resolveShipSogModelConfig,
     syncLayoutLockState,
     syncSelectionHighlight,
     syncTransformTarget,
@@ -1223,6 +1591,8 @@ export default function FleetModelViewer({
     colladaLoaderRef.current = colladaLoader;
     loaderRef.current = loader;
     dracoLoaderRef.current = dracoLoader;
+    sparkRendererRef.current = null;
+    sogModelConfigRequestsRef.current = new Map();
     stageSurfaceRef.current = stageSurface;
     shipObjectsRef.current = new Map();
     loadedEntriesRef.current = new Map();
@@ -1543,14 +1913,21 @@ export default function FleetModelViewer({
 
       loadedEntriesRef.current.forEach((entry) => {
         stage.remove(entry.root);
-        disposeObject3D(entry.root);
+        disposeLoadedEntry(entry);
       });
+
+      if (sparkRendererRef.current) {
+        scene.remove(sparkRendererRef.current);
+        sparkRendererRef.current.dispose();
+        sparkRendererRef.current = null;
+      }
 
       loadedEntriesRef.current = new Map();
       shipObjectsRef.current = new Map();
       pendingShipKeysRef.current = new Set();
       failedShipKeysRef.current = new Set();
       requestTokenByKeyRef.current = new Map();
+      sogModelConfigRequestsRef.current = new Map();
       layoutLockedRef.current = false;
 
       transformControls.detach();
@@ -1579,6 +1956,7 @@ export default function FleetModelViewer({
       colladaLoaderRef.current = null;
       loaderRef.current = null;
       dracoLoaderRef.current = null;
+      sparkRendererRef.current = null;
 
       setIsLoading(false);
       setHasAnyLoadedModels(false);
