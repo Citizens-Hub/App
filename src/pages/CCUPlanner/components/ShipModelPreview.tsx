@@ -3,6 +3,9 @@ import { Alert, CircularProgress, LinearProgress } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import * as THREE from 'three';
 import type { SparkRenderer as SparkRendererInstance, SplatMesh as SplatMeshInstance } from '@sparkjsdev/spark';
+import { fetchModelBytes, type ModelCryptoProgress } from '@eduarte/cmc';
+import modelCryptoWasmUrl from '@eduarte/cmc/cmc.wasm?url';
+import modelCryptoWasmExecUrl from '@eduarte/cmc/wasm_exec.js?url';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -143,6 +146,10 @@ function getShipSogModelUrl(shipId: number, modelPath: string) {
     : `${API_BASE_URL}/api/ship-sog-models/${shipId}/file.sog`;
 }
 
+function getModelFileName(modelPath: string) {
+  return modelPath.split('/').pop() || 'model.sog';
+}
+
 function formatTransferSize(bytes: number) {
   if (bytes >= 1024 * 1024) {
     const value = bytes / (1024 * 1024);
@@ -180,6 +187,10 @@ export default function ShipModelPreview({
   const sogModel = sogModelData?.data.model ?? null;
   const hasSogModel = Boolean(sogModel?.enabled && sogModel.modelPath);
   const sogModelUrl = shipId && sogModel?.modelPath ? getShipSogModelUrl(shipId, sogModel.modelPath) : null;
+  const sogEncrypted = Boolean(sogModel?.encrypted);
+  const sogEncryptionAlgorithm = sogModel?.encryptionAlgorithm ?? undefined;
+  const sogEncryptionNonce = sogModel?.encryptionNonce ?? undefined;
+  const sogFileName = sogModel?.modelPath ? getModelFileName(sogModel.modelPath) : 'model.sog';
   const sogRotationX = sogModel?.rotation?.[0] ?? 0;
   const sogRotationY = sogModel?.rotation?.[1] ?? 0;
   const sogRotationZ = sogModel?.rotation?.[2] ?? 0;
@@ -290,20 +301,19 @@ export default function ShipModelPreview({
       renderer.render(scene, camera);
     };
 
-    const handleProgress = (progressEvent: ProgressEvent<EventTarget>) => {
+    const updateLoadProgress = (loadedBytes: number, totalBytes: number | null) => {
       if (disposed) {
         return;
       }
 
-      const totalBytes = progressEvent.total > 0 ? progressEvent.total : null;
       const percent = totalBytes
-        ? Math.min(100, Math.round((progressEvent.loaded / totalBytes) * 100))
+        ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
         : null;
 
       setLoadProgress((current) => {
         if (
           current &&
-          current.loadedBytes === progressEvent.loaded &&
+          current.loadedBytes === loadedBytes &&
           current.totalBytes === totalBytes &&
           current.percent === percent
         ) {
@@ -311,11 +321,19 @@ export default function ShipModelPreview({
         }
 
         return {
-          loadedBytes: progressEvent.loaded,
+          loadedBytes,
           totalBytes,
           percent,
         };
       });
+    };
+
+    const handleProgress = (progressEvent: ProgressEvent<EventTarget>) => {
+      updateLoadProgress(progressEvent.loaded, progressEvent.total > 0 ? progressEvent.total : null);
+    };
+
+    const handleEncryptedProgress = (progress: ModelCryptoProgress) => {
+      updateLoadProgress(progress.loadedBytes, progress.totalBytes);
     };
 
     const handleLoadError = (loadError: unknown) => {
@@ -329,7 +347,7 @@ export default function ShipModelPreview({
 
     if (activeModelMode === 'sog' && sogModelUrl) {
       void import('@sparkjsdev/spark')
-        .then(({ SparkRenderer, SplatMesh }) => {
+        .then(async ({ SparkRenderer, SplatMesh }) => {
           if (disposed) {
             return;
           }
@@ -342,10 +360,28 @@ export default function ShipModelPreview({
           });
           scene.add(sparkRenderer);
 
-          const splat = new SplatMesh({
-            url: sogModelUrl,
-            onProgress: handleProgress,
-          });
+          const splat = sogEncrypted
+            ? new SplatMesh({
+              fileBytes: await fetchModelBytes(sogModelUrl, {
+                encrypted: true,
+                algorithm: sogEncryptionAlgorithm,
+                nonce: sogEncryptionNonce,
+                wasmUrl: modelCryptoWasmUrl,
+                wasmExecUrl: modelCryptoWasmExecUrl,
+                onProgress: handleEncryptedProgress,
+              }),
+              fileName: sogFileName,
+            })
+            : new SplatMesh({
+              url: sogModelUrl,
+              onProgress: handleProgress,
+            });
+
+          if (disposed) {
+            splat.dispose();
+            return;
+          }
+
           pendingSplat = splat;
 
           return splat.initialized.then((initializedSplat) => {
@@ -441,7 +477,17 @@ export default function ShipModelPreview({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [activeModelMode, open, shipId, sogModelUrl, sogRotation]);
+  }, [
+    activeModelMode,
+    open,
+    shipId,
+    sogEncrypted,
+    sogEncryptionAlgorithm,
+    sogEncryptionNonce,
+    sogFileName,
+    sogModelUrl,
+    sogRotation,
+  ]);
 
   if (!shipId) {
     return null;

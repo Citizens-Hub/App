@@ -250,6 +250,9 @@ export interface ShipSogModelConfig {
   modelPath: string;
   rotation: [number, number, number];
   enabled: boolean;
+  encrypted: boolean;
+  encryptionAlgorithm: 'xtea-ctr-v1' | null;
+  encryptionNonce: string | null;
   originalFileName: string | null;
   fileSize: number | null;
   contentType: string | null;
