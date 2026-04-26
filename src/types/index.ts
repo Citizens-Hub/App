@@ -245,6 +245,46 @@ export interface ShipNameTranslationsResponse {
   translations: ShipNameTranslationItem[];
 }
 
+export interface ShipSogModelConfig {
+  shipId: number;
+  modelPath: string;
+  rotation: [number, number, number];
+  enabled: boolean;
+  originalFileName: string | null;
+  fileSize: number | null;
+  contentType: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShipSogModelResponse {
+  success: boolean;
+  data: {
+    model: ShipSogModelConfig | null;
+  };
+}
+
+export interface AdminShipSogModelListItem {
+  shipId: number;
+  name: string;
+  slug: string | null;
+  model: ShipSogModelConfig | null;
+}
+
+export interface AdminShipSogModelListResponse {
+  success: boolean;
+  data: {
+    shipModels: AdminShipSogModelListItem[];
+  };
+}
+
+export interface ShipSogModelMutationResponse {
+  success: boolean;
+  data: {
+    model: ShipSogModelConfig | null;
+  };
+}
+
 export type ShipTranslationLocale = 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE' | 'en';
 export type ShipTranslationField = 'shipName' | 'title' | 'excerpt' | 'body';
 

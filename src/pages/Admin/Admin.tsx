@@ -5,6 +5,7 @@ import ErrorsTable from './components/ErrorsTable';
 import BiTable from './components/BiTable';
 import ManufacturerTranslationsManager from './components/ManufacturerTranslationsManager';
 import ShipTranslationsManager from './components/ShipTranslationsManager';
+import ShipSogModelsManager from './components/ShipSogModelsManager';
 import GameShopsManager from './components/GameShopsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 
@@ -13,6 +14,7 @@ enum Page {
   Bi = 'bi',
   ShipTranslations = 'shipTranslations',
   ManufacturerTranslations = 'manufacturerTranslations',
+  ShipSogModels = 'shipSogModels',
   GameShops = 'gameShops',
   Withdrawals = 'withdrawals',
 }
@@ -47,6 +49,12 @@ export default function Admin() {
             <FormattedMessage id="admin.manufacturerTranslations.description" defaultMessage="Manage reusable manufacturer translations separately." />
           </Typography>
         </div>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ShipSogModels ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ShipSogModels)}>
+          <FormattedMessage id="admin.shipSogModels.title" defaultMessage="Ship SOG Models" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="admin.shipSogModels.description" defaultMessage="Upload and configure SOG Gaussian model files." />
+          </Typography>
+        </div>
         <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.GameShops ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.GameShops)}>
           <FormattedMessage id="admin.gameShops.title" defaultMessage="Game Shops" />
           <Typography variant='body2' color='text.secondary'>
@@ -66,6 +74,7 @@ export default function Admin() {
         {currentPage === Page.Bi && <BiTable />}
         {currentPage === Page.ShipTranslations && <ShipTranslationsManager />}
         {currentPage === Page.ManufacturerTranslations && <ManufacturerTranslationsManager />}
+        {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
       </div>
