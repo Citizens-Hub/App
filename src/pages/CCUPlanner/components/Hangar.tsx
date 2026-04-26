@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip, Link } from "@mui/material";
+import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip } from "@mui/material";
 import { Ccu, Ship } from "@/types";
 import { useSelector } from "react-redux";
 import { selectUsersHangarItems } from "@/store/upgradesStore";
@@ -148,9 +148,9 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
       </div>
 
       <div className="flex items-center justify-left gap-2 px-1">
-        <Link href="#" onClick={() => setExtensionModalOpen(true)}>
+        <Button onClick={() => setExtensionModalOpen(true)}>
           <FormattedMessage id="ccuPlanner.downloadBrowserExtension" defaultMessage="Download Extension" />
-        </Link>
+        </Button>
       </div>
 
       {hangarExpanded && (

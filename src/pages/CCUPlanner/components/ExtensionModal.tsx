@@ -1,6 +1,7 @@
-import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box, Link } from '@mui/material';
+import { Dialog, DialogContent, DialogTitle, IconButton, Typography, Button, Box } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { FormattedMessage } from 'react-intl';
+import { Link } from 'react-router';
 
 interface ExtensionModalProps {
   open: boolean;
@@ -48,15 +49,15 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
               <FormattedMessage id="extensionModal.chromeEdge" defaultMessage="Chrome & Edge:" />
               <Box component="span" sx={{ display: 'flex', gap: 2 }}>
                 <Link 
-                  href="https://chromewebstore.google.com/detail/hngpbfpdnkobjjjbdmfncbbjjhpdmaap?utm_source=item-share-cb" 
+                  to="https://chromewebstore.google.com/detail/hngpbfpdnkobjjjbdmfncbbjjhpdmaap?utm_source=item-share-cb" 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
                   <FormattedMessage id="extensionModal.chromeLink" defaultMessage="Chrome Web Store" />
                 </Link>
                 <Link 
-                  href="/extension.zip" 
-                  target="_blank" 
+                  to="/blog/how-to-manualy-install-extension" 
+                  // target="_blank" 
                   rel="noopener noreferrer"
                 >
                   <FormattedMessage id="extensionModal.manualLink" defaultMessage="Manual" />
@@ -68,14 +69,14 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
               <FormattedMessage id="extensionModal.firefox" defaultMessage="Firefox:" />
               <Box component="span" sx={{ display: 'flex', gap: 2 }}>
                 <Link 
-                  href="https://addons.mozilla.org/en-US/firefox/addon/citizens-hub/" 
-                  target="_blank" 
+                  to="https://addons.mozilla.org/en-US/firefox/addon/citizens-hub/" 
+                  // target="_blank" 
                   rel="noopener noreferrer"
                 >
                   <FormattedMessage id="extensionModal.firefoxLink" defaultMessage="Firefox Add-ons" />
                 </Link>
                 <Link 
-                  href="/citizens_hub-1.0.5.xpi" 
+                  to="/blog/how-to-manualy-install-extension" 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
