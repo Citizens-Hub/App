@@ -169,7 +169,7 @@ export default function ShipModelPreview({
   const [isLoading, setIsLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState<ModelLoadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [modelMode, setModelMode] = useState<ShipModelMode>('glb');
+  const [modelMode, setModelMode] = useState<ShipModelMode>('sog');
   const isFullscreen = variant === 'fullscreen';
   const { data: sogModelData } = useApi<ShipSogModelResponse>(
     open && shipId ? `/api/ship-sog-models/${shipId}` : null,
@@ -198,7 +198,7 @@ export default function ShipModelPreview({
         : null;
 
   useEffect(() => {
-    setModelMode('glb');
+    setModelMode('sog');
   }, [shipId]);
 
   useEffect(() => {
