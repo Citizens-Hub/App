@@ -56,6 +56,13 @@ export default function ExtensionModal({ open, onClose }: ExtensionModalProps) {
                   <FormattedMessage id="extensionModal.chromeLink" defaultMessage="Chrome Web Store" />
                 </Link>
                 <Link 
+                  to="https://microsoftedge.microsoft.com/addons/detail/citizens-hub/ecimcphmjnlpnackndhobcmefjkpchfm" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <FormattedMessage id="extensionModal.edgeLink" defaultMessage="Edge Add-ons" />
+                </Link>
+                <Link 
                   to="/blog/how-to-manualy-install-extension" 
                   // target="_blank" 
                   rel="noopener noreferrer"
