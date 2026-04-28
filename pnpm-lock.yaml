@@ -21,11 +21,11 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.5)
       '@eduarte/chc':
-        specifier: ^0.2.3
-        version: 0.2.3
+        specifier: ^0.2.4
+        version: 0.2.4
       '@eduarte/cmc':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: ^0.1.2
+        version: 0.1.2
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.1.2)(react@19.2.5)
@@ -301,11 +301,11 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@eduarte/chc@0.2.3':
-    resolution: {integrity: sha512-ACGisZ0to1ShZYRggJ62LmmpHKwLBouFvkZnf3zBmul/6v20j6EjpS4j7M7oniRO9ToBwLYvfvBCf2t8c38Nlw==}
+  '@eduarte/chc@0.2.4':
+    resolution: {integrity: sha512-UdzEQC68mgU4agV15+J6NQ45E5WhaC0UKy6spTiHOqogYjSj2JLqx5aCWXlNmu+qN6kw7rgZar4k/vnV5hO1fQ==}
 
-  '@eduarte/cmc@0.1.1':
-    resolution: {integrity: sha512-VxUOqfEBrX+aT7A/DoMMMhB/iNo7zeiCUMFOcTiuxfNhbe+9vz1aqrCcHG8HrjdwoMVPgxQOOsr8p2GSnhu3KQ==}
+  '@eduarte/cmc@0.1.2':
+    resolution: {integrity: sha512-LhmXAhHPLTvkoWeL9w5Gw2PIDvrpkT+d7f1YHjmJTK/T99ijVH4n2jkvmoJQjosr+ESvp3VeLaaRMnBtp7loHg==}
 
   '@emotion/babel-plugin@11.13.5':
     resolution: {integrity: sha512-pxHCpT2ex+0q+HH91/zsdHkw/lXd468DIN2zvfvLtPKLLMo6gQj7oLObq8PhkrxOZb/gGCq03S3Z7PDhS8pduQ==}
@@ -3213,9 +3213,9 @@ snapshots:
       react: 19.2.5
       tslib: 2.8.1
 
-  '@eduarte/chc@0.2.3': {}
+  '@eduarte/chc@0.2.4': {}
 
-  '@eduarte/cmc@0.1.1': {}
+  '@eduarte/cmc@0.1.2': {}
 
   '@emotion/babel-plugin@11.13.5':
     dependencies:
