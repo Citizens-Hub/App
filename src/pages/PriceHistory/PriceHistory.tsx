@@ -23,6 +23,7 @@ import { Button, Snackbar, Alert, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import BlankPageAd from '@/components/BlankPageAd';
+import { getShipThumbSmall } from '@/utils/shipImage';
 
 // Generate URL-friendly slug from ship name
 const generateSlug = (name: string): string => {
@@ -348,7 +349,7 @@ export default function PriceHistory() {
     ? `Track the price history of ${selectedShip.name} (${selectedShip.manufacturer.name}) in Star Citizen. View current price ${currentPrice ? `(${currentPrice})` : ''}, historical price changes, warbond deals, and availability timeline.`
     : 'Browse and track price history for all Star Citizen ships. Monitor ship prices, warbond deals, and availability changes. Find the best deals on your favorite ships.';
 
-  const metaImage = selectedShip?.medias?.productThumbMediumAndSmall || '';
+  const metaImage = getShipThumbSmall(selectedShip) || '';
 
   // Mobile view: full screen price history when ship is selected
   if (isMobile && selectedShipId) {
@@ -582,11 +583,11 @@ export default function PriceHistory() {
                     className={`p-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${selectedShipId === ship.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                   >
                     <div className='flex items-center gap-3'>
-                      {ship.medias?.productThumbMediumAndSmall && (
+                      {getShipThumbSmall(ship) && (
                         <img
-                          src={ship?.medias?.productThumbMediumAndSmall}
+                          src={getShipThumbSmall(ship)}
                           alt={ship.name}
-                          className='w-16 h-16 object-cover rounded'
+                          className='w-16 h-16 object-cover'
                         />
                       )}
                       <div className='flex-1 min-w-0'>

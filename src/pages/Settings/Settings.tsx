@@ -30,12 +30,17 @@ import CcuPriorityList from './components/CcuPriorityList';
 import { useProfileData } from '@/hooks';
 import { Camera, Move } from 'lucide-react';
 import {
+  clearShipImageCacheEntries,
   clearModelCacheEntries,
   formatModelCacheSize,
+  listShipImageCacheEntries,
   listModelCacheEntries,
   type ModelCacheEntrySummary,
   type ModelCacheListResult,
   type ModelCacheType,
+  type ShipImageCacheEntrySummary,
+  type ShipImageCacheListResult,
+  type ShipImageCacheSource,
 } from '@/utils/modelCache';
 
 const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
@@ -93,6 +98,26 @@ const EMPTY_MODEL_CACHE_SUMMARY: ModelCacheListResult = {
   countsByType: {
     glb: 0,
     sog: 0,
+  },
+};
+
+const EMPTY_SHIP_IMAGE_CACHE_SUMMARY: ShipImageCacheListResult = {
+  supported: true,
+  entries: [],
+  totalBytes: 0,
+  bytesBySource: {
+    app: 0,
+    worker: 0,
+    workerShipImage: 0,
+    r2: 0,
+    unknown: 0,
+  },
+  countsBySource: {
+    app: 0,
+    worker: 0,
+    workerShipImage: 0,
+    r2: 0,
+    unknown: 0,
   },
 };
 
@@ -205,6 +230,9 @@ export default function Settings() {
   const [modelCacheSummary, setModelCacheSummary] = useState<ModelCacheListResult>(EMPTY_MODEL_CACHE_SUMMARY);
   const [isLoadingModelCache, setIsLoadingModelCache] = useState(false);
   const [modelCacheActionKey, setModelCacheActionKey] = useState<string | null>(null);
+  const [shipImageCacheSummary, setShipImageCacheSummary] = useState<ShipImageCacheListResult>(EMPTY_SHIP_IMAGE_CACHE_SUMMARY);
+  const [isLoadingShipImageCache, setIsLoadingShipImageCache] = useState(false);
+  const [shipImageCacheActionKey, setShipImageCacheActionKey] = useState<string | null>(null);
   const avatarCropMetrics = avatarCropSource
     ? getAvatarCropMetrics(avatarCropSource, avatarCropPreviewSize, avatarCropZoom)
     : null;
@@ -298,6 +326,7 @@ export default function Settings() {
     }
 
     void refreshModelCacheSummary();
+    void refreshShipImageCacheSummary();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
@@ -382,6 +411,23 @@ export default function Settings() {
     }
   };
 
+  const refreshShipImageCacheSummary = async () => {
+    setIsLoadingShipImageCache(true);
+
+    try {
+      const summary = await listShipImageCacheEntries();
+      setShipImageCacheSummary(summary);
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(intl.formatMessage({
+        id: 'settings.shipImageCacheLoadFailed',
+        defaultMessage: 'Failed to load ship image cache.'
+      }));
+    } finally {
+      setIsLoadingShipImageCache(false);
+    }
+  };
+
   const handleClearModelCache = async (scope: 'all' | ModelCacheType | ModelCacheEntrySummary, label: string) => {
     const confirmed = window.confirm(intl.formatMessage({
       id: 'settings.modelCacheClearConfirm',
@@ -413,6 +459,67 @@ export default function Settings() {
       }));
     } finally {
       setModelCacheActionKey(null);
+    }
+  };
+
+  const getShipImageCacheSourceLabel = (source: ShipImageCacheSource) => {
+    switch (source) {
+      case 'workerShipImage':
+        return intl.formatMessage({
+          id: 'settings.shipImageCacheSourceWorkerShipImage',
+          defaultMessage: 'Worker Ship Images'
+        });
+      case 'r2':
+        return 'R2';
+      case 'worker':
+        return 'Worker';
+      case 'app':
+        return intl.formatMessage({
+          id: 'settings.shipImageCacheSourceApp',
+          defaultMessage: 'App Assets'
+        });
+      default:
+        return intl.formatMessage({
+          id: 'settings.shipImageCacheSourceUnknown',
+          defaultMessage: 'Other'
+        });
+    }
+  };
+
+  const handleClearShipImageCache = async (
+    scope: 'all' | ShipImageCacheSource | ShipImageCacheEntrySummary,
+    label: string,
+  ) => {
+    const confirmed = window.confirm(intl.formatMessage({
+      id: 'settings.shipImageCacheClearConfirm',
+      defaultMessage: 'Clear {label} ship image cache?'
+    }, { label }));
+
+    if (!confirmed) {
+      return;
+    }
+
+    const actionKey = typeof scope === 'string' ? scope : scope.id;
+    setShipImageCacheActionKey(actionKey);
+
+    try {
+      const result = typeof scope === 'string'
+        ? await clearShipImageCacheEntries(scope === 'all' ? {} : { source: scope })
+        : await clearShipImageCacheEntries({ id: scope.id });
+
+      await refreshShipImageCacheSummary();
+      showSuccessMessage(intl.formatMessage({
+        id: 'settings.shipImageCacheCleared',
+        defaultMessage: 'Cleared {count} cached ship images.'
+      }, { count: result.deletedCount }));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(intl.formatMessage({
+        id: 'settings.shipImageCacheClearFailed',
+        defaultMessage: 'Failed to clear ship image cache.'
+      }));
+    } finally {
+      setShipImageCacheActionKey(null);
     }
   };
 
@@ -1637,6 +1744,184 @@ export default function Settings() {
                                   <CircularProgress size={16} color="inherit" />
                                 ) : (
                                   <FormattedMessage id="settings.modelCacheDeleteEntry" defaultMessage="Delete" />
+                                )}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <Divider sx={{ my: 2 }} />
+
+                <div className='flex flex-col gap-4'>
+                  <div className='flex flex-row items-start gap-4 justify-between'>
+                    <div>
+                      <Typography variant="h6">
+                        <FormattedMessage id="settings.shipImageCache" defaultMessage="Ship Image Cache" />
+                      </Typography>
+                      <Typography variant="body2" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.shipImageCacheDescription"
+                          defaultMessage="Manage locally cached ship images fetched from CitizensHub worker and R2."
+                        />
+                      </Typography>
+                    </div>
+                    <Button
+                      variant="outlined"
+                      disabled={isLoadingShipImageCache}
+                      onClick={() => void refreshShipImageCacheSummary()}
+                    >
+                      {isLoadingShipImageCache ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <FormattedMessage id="settings.shipImageCacheRefresh" defaultMessage="Refresh" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {!shipImageCacheSummary.supported ? (
+                    <Alert severity="info">
+                      <FormattedMessage
+                        id="settings.shipImageCacheUnsupported"
+                        defaultMessage="Ship image cache management is unavailable in this browser context."
+                      />
+                    </Alert>
+                  ) : (
+                    <>
+                      <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>
+                            <FormattedMessage id="settings.shipImageCacheTotal" defaultMessage="Total" />
+                          </Typography>
+                          <Typography variant="h6">{formatModelCacheSize(shipImageCacheSummary.totalBytes)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.shipImageCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: shipImageCacheSummary.entries.length }}
+                            />
+                          </Typography>
+                        </div>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>
+                            <FormattedMessage id="settings.shipImageCacheWorkerShipImage" defaultMessage="Worker Ship Images" />
+                          </Typography>
+                          <Typography variant="h6">{formatModelCacheSize(shipImageCacheSummary.bytesBySource.workerShipImage)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.shipImageCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: shipImageCacheSummary.countsBySource.workerShipImage }}
+                            />
+                          </Typography>
+                        </div>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>R2</Typography>
+                          <Typography variant="h6">{formatModelCacheSize(shipImageCacheSummary.bytesBySource.r2)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.shipImageCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: shipImageCacheSummary.countsBySource.r2 }}
+                            />
+                          </Typography>
+                        </div>
+                      </div>
+
+                      <div className='flex flex-wrap gap-2'>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={shipImageCacheSummary.entries.length === 0 || shipImageCacheActionKey !== null}
+                          onClick={() => void handleClearShipImageCache('all', intl.formatMessage({
+                            id: 'settings.shipImageCacheAll',
+                            defaultMessage: 'all'
+                          }))}
+                        >
+                          {shipImageCacheActionKey === 'all' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.shipImageCacheClearAll" defaultMessage="Clear All Ship Image Cache" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={shipImageCacheSummary.countsBySource.workerShipImage === 0 || shipImageCacheActionKey !== null}
+                          onClick={() => void handleClearShipImageCache('workerShipImage', intl.formatMessage({
+                            id: 'settings.shipImageCacheSourceWorkerShipImage',
+                            defaultMessage: 'Worker Ship Images'
+                          }))}
+                        >
+                          {shipImageCacheActionKey === 'workerShipImage' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.shipImageCacheClearWorkerShipImage" defaultMessage="Clear Worker Ship Images" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={shipImageCacheSummary.countsBySource.r2 === 0 || shipImageCacheActionKey !== null}
+                          onClick={() => void handleClearShipImageCache('r2', 'R2')}
+                        >
+                          {shipImageCacheActionKey === 'r2' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.shipImageCacheClearR2" defaultMessage="Clear R2 Images" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {isLoadingShipImageCache ? (
+                        <div className='flex flex-row items-center gap-2 text-sm text-gray-500'>
+                          <CircularProgress size={16} />
+                          <FormattedMessage id="settings.shipImageCacheLoading" defaultMessage="Loading ship image cache..." />
+                        </div>
+                      ) : shipImageCacheSummary.entries.length === 0 ? (
+                        <Typography variant="body2" color='text.secondary'>
+                          <FormattedMessage id="settings.shipImageCacheEmpty" defaultMessage="No cached ship images yet." />
+                        </Typography>
+                      ) : (
+                        <div className='flex flex-col gap-3'>
+                          {shipImageCacheSummary.entries.map((entry) => (
+                            <div key={entry.id} className='flex flex-col gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800 md:flex-row md:items-start md:justify-between'>
+                              <div className='min-w-0 flex-1'>
+                                <div className='flex flex-wrap items-center gap-2'>
+                                  <span className='rounded border border-gray-200 px-2 py-0.5 text-xs font-semibold dark:border-gray-700'>
+                                    {getShipImageCacheSourceLabel(entry.source)}
+                                  </span>
+                                  <Typography variant="body2" color='text.secondary'>
+                                    {formatModelCacheSize(entry.size)}
+                                  </Typography>
+                                </div>
+                                <Typography variant="body2" className='break-all'>
+                                  {entry.pathname}
+                                </Typography>
+                                <Typography variant="caption" color='text.secondary' className='break-all'>
+                                  {entry.host}
+                                </Typography>
+                                <Typography variant="caption" color='text.secondary'>
+                                  <FormattedMessage
+                                    id="settings.shipImageCacheUpdatedAt"
+                                    defaultMessage="Cached: {date}"
+                                    values={{ date: new Date(entry.cachedAt).toLocaleString() }}
+                                  />
+                                </Typography>
+                              </div>
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                disabled={shipImageCacheActionKey !== null}
+                                onClick={() => void handleClearShipImageCache(entry, `${getShipImageCacheSourceLabel(entry.source)} ${entry.pathname}`)}
+                              >
+                                {shipImageCacheActionKey === entry.id ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <FormattedMessage id="settings.shipImageCacheDeleteEntry" defaultMessage="Delete" />
                                 )}
                               </Button>
                             </div>

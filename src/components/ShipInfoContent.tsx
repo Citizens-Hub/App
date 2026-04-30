@@ -41,6 +41,7 @@ import { getShipMetadataEntry, localizeShipFocus, localizeShipSize, localizeShip
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import { useApi } from '@/hooks';
 import { Ship, ShipDetailComponent, ShipGameShopAvailabilityResponse, ShipResponse } from '@/types';
+import { getShipDetailImageUrl, getShipSlideshowImage, getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
 import ShipModelPreview from './ShipModelPreview';
 
 interface ShipInfoContentProps {
@@ -52,11 +53,6 @@ interface ShipInfoContentProps {
 const TBD_STRIPED_BACKGROUND_IMAGE = 'repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.18) 0px, rgba(148, 163, 184, 0.18) 12px, rgba(255, 255, 255, 0) 12px, rgba(255, 255, 255, 0) 24px)';
 
 type DetailFieldVariant = 'default' | 'tbd';
-
-function toAbsoluteRsiUrl(url?: string | null) {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `https://robertsspaceindustries.com${url}`;
-}
 
 function stripRichText(value?: string | null) {
   if (!value) return '';
@@ -127,21 +123,31 @@ interface ResolvedShipImages {
 }
 
 function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): ResolvedShipImages {
+  const imageOwnerShip = detailedShip || listShip;
   const previewImages = [
-    toAbsoluteRsiUrl(listShip?.medias?.productThumbMediumAndSmall),
-    toAbsoluteRsiUrl(detailedShip?.medias?.productThumbMediumAndSmall),
+    getShipThumbSmall(listShip),
+    getShipThumbSmall(detailedShip),
   ].filter(Boolean) as string[];
 
-  const composerImages = [
+  const detailImages = [
     ...(detailedShip?.details?.imageComposer || []),
-  ].map((entry) => toAbsoluteRsiUrl(entry.url));
+  ].map((entry, index) => getShipDetailImageUrl(imageOwnerShip, entry, index)).filter(Boolean) as string[];
+
+  const fallbackLargeImages = [
+    getShipSlideshowImage(detailedShip),
+    getShipThumbLarge(detailedShip),
+    getShipSlideshowImage(listShip),
+    getShipThumbLarge(listShip),
+  ].filter(Boolean) as string[];
 
   const uniquePreviewImages = Array.from(new Set(previewImages));
-  const uniqueComposerImages = Array.from(new Set(composerImages));
+  const uniqueDetailImages = Array.from(new Set(detailImages));
+  const uniqueFallbackLargeImages = Array.from(new Set(fallbackLargeImages));
+  const primaryImages = uniqueDetailImages.length > 0 ? uniqueDetailImages : uniqueFallbackLargeImages;
 
   return {
-    images: uniqueComposerImages.length > 0 ? uniqueComposerImages : uniquePreviewImages,
-    previewImageUrl: uniqueComposerImages.length > 0 ? (uniquePreviewImages[0] || '') : '',
+    images: primaryImages.length > 0 ? primaryImages : uniquePreviewImages,
+    previewImageUrl: primaryImages.length > 0 ? (uniquePreviewImages[0] || '') : '',
     blurredImageUrls: uniquePreviewImages,
   };
 }

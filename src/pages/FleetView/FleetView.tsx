@@ -24,6 +24,7 @@ import RsiIcon from '@/components/RsiIcon';
 import type { RootState } from '@/store';
 import { BundleItem, ShipItem, selectUsersHangarItems } from '@/store/upgradesStore';
 import type { Ship, ShipDimensionsResponse, ShipsData } from '@/types';
+import { getShipThumbLarge } from '@/utils/shipImage';
 
 interface FleetShipSourceEntry {
   key: string;
@@ -140,6 +141,11 @@ function createFallbackShipFromFleetEntry(ship: FleetShipEntry): Ship {
     medias: {
       productThumbMediumAndSmall: imageUrl,
       slideShow: imageUrl,
+    },
+    imageUrls: {
+      thumbSmall: imageUrl,
+      thumbLarge: imageUrl,
+      slideshow: imageUrl,
     },
     manufacturer: {
       id: 0,
@@ -348,9 +354,7 @@ function getShipImageUrl(ship?: Ship | null) {
     return '';
   }
 
-  return ship.medias?.productThumbMediumAndSmall?.replace('medium_and_small', 'large')
-    || ship.medias?.slideShow
-    || '';
+  return getShipThumbLarge(ship);
 }
 
 function getShipDisplayName(ship?: Ship | null, fallbackName?: string | null) {

@@ -7,6 +7,7 @@ import { InfoOutlined, Search } from '@mui/icons-material';
 import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipFocus, localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
+import { getShipThumbSmall } from '@/utils/shipImage';
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -255,7 +256,7 @@ function ShipSelector({
               >
                 <div className="flex items-center text-left">
                   <img
-                    src={ship?.medias?.productThumbMediumAndSmall}
+                    src={getShipThumbSmall(ship)}
                     alt={ship.name}
                     className="w-17 h-17 object-cover mr-2"
                   />

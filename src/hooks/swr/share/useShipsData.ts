@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
 import { Ship, ShipsData } from '@/types';
+import { getShipThumbSmall } from '@/utils/shipImage';
 
 /**
  * Hook to fetch and manage ships data
@@ -54,7 +55,7 @@ export default function useShipsData() {
    * 获取船只图片
    */
   const getShipImageById = (id: number): string | undefined => {
-    return shipsMap[id]?.medias?.productThumbMediumAndSmall;
+    return getShipThumbSmall(shipsMap[id]);
   };
 
   return { 

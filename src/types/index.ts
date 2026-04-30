@@ -110,6 +110,7 @@ export interface ShipDetailImage {
   name?: string;
   slot?: string;
   url?: string;
+  source?: 'citizenshub' | 'rsi';
 }
 
 export interface ShipDetail {
@@ -152,6 +153,12 @@ export interface Ship {
   medias: {
     productThumbMediumAndSmall: string;
     slideShow: string;
+    source?: 'citizenshub' | 'rsi';
+  };
+  imageUrls: {
+    thumbSmall: string;
+    thumbLarge: string;
+    slideshow: string;
   };
   manufacturer: {
     id: number;

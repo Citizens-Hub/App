@@ -9,6 +9,7 @@ import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, PlusCircle, Lis
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
 import { ListingItem, Ship } from "@/types";
+import { getShipThumbLarge, toApiAssetUrl } from "@/utils/shipImage";
 
 interface DisplayEquipmentItem {
   id: string;
@@ -418,7 +419,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             height: '100%',
                             objectFit: 'cover',
                           }}
-                          src={item.from.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={getShipThumbLarge(item.from as Ship)}
                           alt={item.from.name}
                         />
                         <Box
@@ -432,7 +433,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             objectFit: 'cover',
                             boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                           }}
-                          src={item.to.medias.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={getShipThumbLarge(item.to as Ship)}
                           alt={item.to.name}
                         />
                         <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
@@ -448,7 +449,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                       <Box
                         component="img"
                         sx={{ width: 100, height: 50, objectFit: 'cover' }}
-                        src={item.imageUrl}
+                        src={toApiAssetUrl(item.imageUrl)}
                         alt={item.name}
                       />
                     )}

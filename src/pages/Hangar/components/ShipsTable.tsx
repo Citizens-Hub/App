@@ -9,6 +9,7 @@ import { addPredict, removePredict } from "@/store/upgradesStore";
 import { localizeShipDataLabel } from "@/data/shipDetailLabelI18n";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
+import { getShipThumbLarge } from "@/utils/shipImage";
 
 export default function ShipsTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
@@ -159,7 +160,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                         <Box
                           component="img"
                           sx={{ width: 180, height: 100, objectFit: 'cover', maxWidth: '180px' }}
-                          src={ship?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                          src={getShipThumbLarge(ship)}
                           alt={ship.name}
                         />
                       )}

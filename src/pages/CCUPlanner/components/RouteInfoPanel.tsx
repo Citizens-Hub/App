@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import pathFinderCWasmService from '../services/PathFinderCWasmService';
 import { getShipDisplayName } from '@/utils/shipDisplay';
+import { getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
 
 interface RouteInfoPanelProps {
   selectedNode: {
@@ -638,7 +639,7 @@ export default function RouteInfoPanel({
 
       <div className="mb-4">
         <img
-          src={selectedNode.data.ship?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+          src={getShipThumbLarge(selectedNode.data.ship)}
           alt={selectedShipDisplayName || selectedNode.data.ship.name}
           className="mb-2 m-auto w-[360px]"
         />
@@ -964,7 +965,7 @@ export default function RouteInfoPanel({
                         <div className="mb-3 p-2 bg-gray-50 dark:bg-[#222] rounded">
                           <div className="flex items-center gap-2 mb-2">
                             <img
-                              src={startShip?.medias?.productThumbMediumAndSmall}
+                              src={getShipThumbSmall(startShip)}
                               alt={getShipDisplayName(startShip) || startShip.name}
                               className="w-8 h-8 rounded object-cover"
                             />
@@ -1024,7 +1025,7 @@ export default function RouteInfoPanel({
                               <div className="flex mb-1 gap-2 justify-between w-full">
                                 <div className='flex gap-4'>
                                   <img
-                                    src={pathEdge.sourceNode.data?.ship?.medias?.productThumbMediumAndSmall || pathEdge.sourceNode.data?.ship?.medias?.slideShow}
+                                    src={getShipThumbSmall(pathEdge.sourceNode.data?.ship)}
                                     alt={getShipDisplayName(pathEdge.sourceNode.data?.ship) || pathEdge.sourceNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />
@@ -1041,7 +1042,7 @@ export default function RouteInfoPanel({
                                     <span className='text-black dark:text-white'>{getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}</span>
                                   </span>
                                   <img
-                                    src={pathEdge.targetNode.data?.ship?.medias?.productThumbMediumAndSmall}
+                                    src={getShipThumbSmall(pathEdge.targetNode.data?.ship)}
                                     alt={getShipDisplayName(pathEdge.targetNode.data?.ship) || pathEdge.targetNode.data?.ship?.name}
                                     className="w-8 h-8 rounded object-cover"
                                   />

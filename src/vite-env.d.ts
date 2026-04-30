@@ -4,6 +4,7 @@ declare const __BUILD_TIME__: string;
 
 interface ImportMetaEnv {
   readonly VITE_PUBLIC_API_ENDPOINT: string;
+  readonly VITE_PUBLIC_IMAGES_ENDPOINT?: string;
   readonly VITE_PUBLIC_MODEL_ENDPOINT?: string;
   readonly VITE_PUBLIC_CN_MIRROR?: string;
   readonly VITE_PUBLIC_TENCNET_CAPTCHA_APP_ID?: string;

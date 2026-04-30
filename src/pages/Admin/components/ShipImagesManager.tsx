@@ -90,14 +90,45 @@ function getAssetStatusColor(status: ShipImageAssetStatus): 'default' | 'success
   return 'default';
 }
 
+function getStatusLabel(status: ShipImageSyncStatus | ShipImageAssetStatus, intl: ReturnType<typeof useIntl>): string {
+  switch (status) {
+    case 'pending':
+      return intl.formatMessage({ id: 'admin.shipImages.status.pending', defaultMessage: 'Pending' });
+    case 'running':
+      return intl.formatMessage({ id: 'admin.shipImages.status.running', defaultMessage: 'Running' });
+    case 'completed':
+      return intl.formatMessage({ id: 'admin.shipImages.status.completed', defaultMessage: 'Completed' });
+    case 'synced':
+      return intl.formatMessage({ id: 'admin.shipImages.status.synced', defaultMessage: 'Synced' });
+    case 'skipped':
+      return intl.formatMessage({ id: 'admin.shipImages.status.skipped', defaultMessage: 'Skipped' });
+    case 'failed':
+      return intl.formatMessage({ id: 'admin.shipImages.status.failed', defaultMessage: 'Failed' });
+    default:
+      return status;
+  }
+}
+
 function BatchProgress({ batch }: { batch: ShipImageSyncBatch }) {
+  const intl = useIntl();
+
   return (
     <Stack spacing={0.25}>
       <Typography variant="body2">
         {batch.processedImages}/{batch.totalImages}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        +{batch.succeededImages} / skip {batch.skippedImages} / fail {batch.failedImages}
+        {intl.formatMessage(
+          {
+            id: 'admin.shipImages.progressSummary',
+            defaultMessage: '+{succeeded} / skip {skipped} / fail {failed}',
+          },
+          {
+            succeeded: batch.succeededImages,
+            skipped: batch.skippedImages,
+            failed: batch.failedImages,
+          },
+        )}
       </Typography>
     </Stack>
   );
@@ -275,15 +306,54 @@ export default function ShipImagesManager() {
       )}
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip icon={<Image />} label={`Bucket citizenshub-images`} />
-        <Chip label={`Assets ${stats?.data.totalAssets ?? '-'}`} />
-        <Chip color="success" label={`Synced ${stats?.data.syncedAssets ?? '-'}`} />
-        <Chip color="warning" label={`Skipped ${stats?.data.skippedAssets ?? '-'}`} />
-        <Chip color="error" label={`Failed ${stats?.data.failedAssets ?? '-'}`} />
+        <Chip
+          icon={<Image />}
+          label={intl.formatMessage(
+            { id: 'admin.shipImages.bucket', defaultMessage: 'Bucket {bucket}' },
+            { bucket: 'citizenshub-images' },
+          )}
+        />
+        <Chip
+          label={intl.formatMessage(
+            { id: 'admin.shipImages.assetsCount', defaultMessage: 'Assets {count}' },
+            { count: stats?.data.totalAssets ?? '-' },
+          )}
+        />
+        <Chip
+          color="success"
+          label={intl.formatMessage(
+            { id: 'admin.shipImages.syncedCount', defaultMessage: 'Synced {count}' },
+            { count: stats?.data.syncedAssets ?? '-' },
+          )}
+        />
+        <Chip
+          color="warning"
+          label={intl.formatMessage(
+            { id: 'admin.shipImages.skippedCount', defaultMessage: 'Skipped {count}' },
+            { count: stats?.data.skippedAssets ?? '-' },
+          )}
+        />
+        <Chip
+          color="error"
+          label={intl.formatMessage(
+            { id: 'admin.shipImages.failedCount', defaultMessage: 'Failed {count}' },
+            { count: stats?.data.failedAssets ?? '-' },
+          )}
+        />
         {latestBatch && (
           <Chip
             color={getBatchStatusColor(latestBatch.status)}
-            label={`Latest ${latestBatch.status} ${latestBatch.processedImages}/${latestBatch.totalImages}`}
+            label={intl.formatMessage(
+              {
+                id: 'admin.shipImages.latestBatch',
+                defaultMessage: 'Latest {status} {processed}/{total}',
+              },
+              {
+                status: getStatusLabel(latestBatch.status, intl),
+                processed: latestBatch.processedImages,
+                total: latestBatch.totalImages,
+              },
+            )}
           />
         )}
       </Stack>
@@ -351,7 +421,7 @@ export default function ShipImagesManager() {
           >
             <MenuItem value="">{intl.formatMessage({ id: 'admin.shipImages.allStatuses', defaultMessage: 'All' })}</MenuItem>
             {['pending', 'running', 'completed', 'failed'].map((status) => (
-              <MenuItem key={status} value={status}>{status}</MenuItem>
+              <MenuItem key={status} value={status}>{getStatusLabel(status as ShipImageSyncStatus, intl)}</MenuItem>
             ))}
           </TextField>
         </Stack>
@@ -412,11 +482,18 @@ export default function ShipImagesManager() {
                     <Typography variant="body2" className="break-all">{batch.id}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" color={getBatchStatusColor(batch.status)} label={batch.status} />
+                    <Chip size="small" color={getBatchStatusColor(batch.status)} label={getStatusLabel(batch.status, intl)} />
                   </TableCell>
                   <TableCell>
-                    {batch.shipId ? `ship ${batch.shipId}` : batch.scope}
-                    {batch.force ? ' / force' : ''}
+                    {batch.shipId
+                      ? intl.formatMessage(
+                        { id: 'admin.shipImages.scope.ship', defaultMessage: 'Ship {shipId}' },
+                        { shipId: batch.shipId },
+                      )
+                      : intl.formatMessage({ id: 'admin.shipImages.scope.all', defaultMessage: 'All ships' })}
+                    {batch.force
+                      ? intl.formatMessage({ id: 'admin.shipImages.forceSuffix', defaultMessage: ' / force' })
+                      : ''}
                   </TableCell>
                   <TableCell><BatchProgress batch={batch} /></TableCell>
                   <TableCell>{formatTimestamp(batch.createdAt, intl.locale)}</TableCell>
@@ -472,7 +549,7 @@ export default function ShipImagesManager() {
           >
             <MenuItem value="">{intl.formatMessage({ id: 'admin.shipImages.allStatuses', defaultMessage: 'All' })}</MenuItem>
             {['pending', 'synced', 'skipped', 'failed'].map((status) => (
-              <MenuItem key={status} value={status}>{status}</MenuItem>
+              <MenuItem key={status} value={status}>{getStatusLabel(status as ShipImageAssetStatus, intl)}</MenuItem>
             ))}
           </TextField>
           {selectedBatchId && (
@@ -533,7 +610,7 @@ export default function ShipImagesManager() {
                   </TableCell>
                   <TableCell>{asset.imageKind}</TableCell>
                   <TableCell>
-                    <Chip size="small" color={getAssetStatusColor(asset.status)} label={asset.status} />
+                    <Chip size="small" color={getAssetStatusColor(asset.status)} label={getStatusLabel(asset.status, intl)} />
                   </TableCell>
                   <TableCell sx={{ maxWidth: 280 }}>
                     <Typography variant="body2" className="break-all">{asset.r2Key}</Typography>

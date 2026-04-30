@@ -1,5 +1,7 @@
 export type ModelCacheType = 'glb' | 'sog';
 
+export type ShipImageCacheSource = 'app' | 'worker' | 'workerShipImage' | 'r2' | 'unknown';
+
 export interface ModelCacheUrlMetadata {
   type: ModelCacheType;
   shipId: number;
@@ -37,6 +39,35 @@ export interface ClearModelCacheResult {
   deletedCount: number;
 }
 
+export interface ShipImageCacheEntrySummary {
+  id: string;
+  url: string;
+  host: string;
+  pathname: string;
+  source: ShipImageCacheSource;
+  size: number;
+  status: number;
+  contentType: string | null;
+  cachedAt: number;
+}
+
+export interface ShipImageCacheListResult {
+  supported: boolean;
+  entries: ShipImageCacheEntrySummary[];
+  totalBytes: number;
+  bytesBySource: Record<ShipImageCacheSource, number>;
+  countsBySource: Record<ShipImageCacheSource, number>;
+}
+
+export interface ClearShipImageCacheOptions {
+  id?: string;
+  source?: ShipImageCacheSource;
+}
+
+export interface ClearShipImageCacheResult {
+  deletedCount: number;
+}
+
 const MODEL_CACHE_PARAMS = {
   enabled: 'ch_model_cache',
   type: 'ch_model_type',
@@ -47,6 +78,11 @@ const MODEL_CACHE_PARAMS = {
 const MODEL_CACHE_SERVICE_WORKER_MESSAGES = {
   list: 'CH_MODEL_CACHE_LIST',
   clear: 'CH_MODEL_CACHE_CLEAR',
+} as const;
+
+const IMAGE_CACHE_SERVICE_WORKER_MESSAGES = {
+  list: 'CH_IMAGE_CACHE_LIST',
+  clear: 'CH_IMAGE_CACHE_CLEAR',
 } as const;
 
 const EMPTY_MODEL_CACHE_RESULT: ModelCacheListResult = {
@@ -60,6 +96,26 @@ const EMPTY_MODEL_CACHE_RESULT: ModelCacheListResult = {
   countsByType: {
     glb: 0,
     sog: 0,
+  },
+};
+
+const EMPTY_SHIP_IMAGE_CACHE_RESULT: ShipImageCacheListResult = {
+  supported: false,
+  entries: [],
+  totalBytes: 0,
+  bytesBySource: {
+    app: 0,
+    worker: 0,
+    workerShipImage: 0,
+    r2: 0,
+    unknown: 0,
+  },
+  countsBySource: {
+    app: 0,
+    worker: 0,
+    workerShipImage: 0,
+    r2: 0,
+    unknown: 0,
   },
 };
 
@@ -81,7 +137,7 @@ function createTimeout<T>(ms: number, message: string) {
   });
 }
 
-async function getModelCacheServiceWorker() {
+async function getServiceWorker() {
   if (!isServiceWorkerAvailable()) {
     throw new Error('Service worker is not available in this browser context.');
   }
@@ -99,8 +155,8 @@ async function getModelCacheServiceWorker() {
   return worker;
 }
 
-async function postModelCacheMessage<T>(type: string, payload?: unknown) {
-  const worker = await getModelCacheServiceWorker();
+async function postServiceWorkerMessage<T>(type: string, payload?: unknown) {
+  const worker = await getServiceWorker();
 
   return await new Promise<T>((resolve, reject) => {
     const channel = new MessageChannel();
@@ -153,7 +209,7 @@ export function registerModelCacheServiceWorker() {
   const scope = new URL(basePath, window.location.origin).toString();
 
   navigator.serviceWorker.register(serviceWorkerUrl, { scope }).catch((error) => {
-    console.warn('Failed to register model cache service worker.', error);
+    console.warn('Failed to register cache service worker.', error);
   });
 }
 
@@ -162,12 +218,27 @@ export async function listModelCacheEntries() {
     return EMPTY_MODEL_CACHE_RESULT;
   }
 
-  return await postModelCacheMessage<ModelCacheListResult>(MODEL_CACHE_SERVICE_WORKER_MESSAGES.list);
+  return await postServiceWorkerMessage<ModelCacheListResult>(MODEL_CACHE_SERVICE_WORKER_MESSAGES.list);
 }
 
 export async function clearModelCacheEntries(options: ClearModelCacheOptions = {}) {
-  return await postModelCacheMessage<ClearModelCacheResult>(
+  return await postServiceWorkerMessage<ClearModelCacheResult>(
     MODEL_CACHE_SERVICE_WORKER_MESSAGES.clear,
+    options,
+  );
+}
+
+export async function listShipImageCacheEntries() {
+  if (!isServiceWorkerAvailable()) {
+    return EMPTY_SHIP_IMAGE_CACHE_RESULT;
+  }
+
+  return await postServiceWorkerMessage<ShipImageCacheListResult>(IMAGE_CACHE_SERVICE_WORKER_MESSAGES.list);
+}
+
+export async function clearShipImageCacheEntries(options: ClearShipImageCacheOptions = {}) {
+  return await postServiceWorkerMessage<ClearShipImageCacheResult>(
+    IMAGE_CACHE_SERVICE_WORKER_MESSAGES.clear,
     options,
   );
 }

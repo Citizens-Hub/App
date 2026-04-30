@@ -66,6 +66,7 @@ import {
   getMarketItemDisplayName,
   getMarketItemSummary,
 } from './marketDisplayI18n';
+import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -87,11 +88,6 @@ function DetailField({ label, value }: { label: string; value?: string | null; }
       </div>
     </div>
   );
-}
-
-function toAbsoluteRsiUrl(url?: string | null) {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `https://robertsspaceindustries.com${url}`;
 }
 
 function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
@@ -133,11 +129,8 @@ function getAvailableUnits(stock: number, lockedStock: number) {
 }
 
 function resolveShipImage(ship?: Ship | null, fallbackImage?: string) {
-  const thumbnailImage = ship?.details?.imageComposer?.find((entry) => entry.slot === 'thumbnail')?.url;
-
-  return toAbsoluteRsiUrl(thumbnailImage)
-    || toLargeRsiImage(ship?.medias?.productThumbMediumAndSmall)
-    || toAbsoluteRsiUrl(ship?.medias?.slideShow)
+  return getShipSlideshowImage(ship)
+    || getShipThumbLarge(ship)
     || fallbackImage
     || MARKET_ITEM_PLACEHOLDER;
 }
@@ -1178,7 +1171,7 @@ export default function MarketDetail() {
                       <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
                         {packageShips.map((ship) => {
                           const shipInfo = findShip(ships, ship.shipId, ship.shipName);
-                          const shipImage = toLargeRsiImage(shipInfo?.medias?.productThumbMediumAndSmall) || MARKET_ITEM_PLACEHOLDER;
+                          const shipImage = getShipThumbLarge(shipInfo) || MARKET_ITEM_PLACEHOLDER;
                           const msrpText = shipInfo?.msrp
                             ? formatUsdPrice(intl.locale, shipInfo.msrp / 100)
                             : null;
@@ -1267,7 +1260,7 @@ export default function MarketDetail() {
                               const detailedShip = packageShip.shipId ? packageShipDetailsById[packageShip.shipId] : undefined;
                               const fallbackShip = findShip(ships, packageShip.shipId, packageShip.shipName);
                               const shipInfo = detailedShip || fallbackShip;
-                              const shipImage = resolveShipImage(shipInfo, toLargeRsiImage(fallbackShip?.medias?.productThumbMediumAndSmall) || MARKET_ITEM_PLACEHOLDER);
+                              const shipImage = resolveShipImage(shipInfo, getShipThumbLarge(fallbackShip) || MARKET_ITEM_PLACEHOLDER);
 
                               return (
                                 <ShipIntroductionCard

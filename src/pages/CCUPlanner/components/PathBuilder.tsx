@@ -20,6 +20,7 @@ import { useApi } from '@/hooks/swr/useApi';
 import { useCartStore } from '@/hooks/useCartStore';
 import { buildMarketResource } from '@/components/marketItemDisplay';
 import { getShipDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
+import { getShipThumbSmall } from '@/utils/shipImage';
 
 interface AutoPathNodeData {
   ship: Ship;
@@ -190,13 +191,7 @@ function buildRequiredHangarKeySet(keys: string[]): Set<string> {
 
 function getShipImageUrl(ship?: Ship | null): string {
   if (!ship) return '';
-  if (ship.medias?.productThumbMediumAndSmall) {
-    return ship.medias.productThumbMediumAndSmall;
-  }
-  if (ship.medias?.slideShow) {
-    return ship.medias.slideShow;
-  }
-  return '';
+  return getShipThumbSmall(ship);
 }
 
 function ShipImage({

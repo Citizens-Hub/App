@@ -1,4 +1,5 @@
 import { ListingItem, MarketCartItem, MarketItemType, Resource, Ship } from '@/types';
+import { getShipThumbLarge, toApiAssetUrl } from '@/utils/shipImage';
 
 type MarketDisplayItem = {
   skuId?: string;
@@ -32,7 +33,10 @@ export const MARKET_ITEM_PLACEHOLDER = '/imgs/credit.webp';
 
 export function toLargeRsiImage(url?: string) {
   if (!url) return '';
-  return url.replace('product_thumb_medium_and_small', 'slideshow').replace('subscribers_vault_thumbnail', 'slideshow');
+  if (url.includes('/api/ship-images/') || url.includes('/ship-images/')) {
+    return toApiAssetUrl(url);
+  }
+  return toApiAssetUrl(url.replace('subscribers_vault_thumbnail', 'product_thumb_large'));
 }
 
 export function getShipById(ships: Ship[] | undefined, shipId?: number) {
@@ -49,9 +53,9 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
   const toShipName = item.toShipName || toShip?.name || '';
   const shipName = item.shipName || ship?.name || '';
 
-  const fromImage = toLargeRsiImage(item.fromImageUrl) || toLargeRsiImage(fromShip?.medias?.productThumbMediumAndSmall) || '';
-  const toImage = toLargeRsiImage(item.toImageUrl) || toLargeRsiImage(toShip?.medias?.productThumbMediumAndSmall) || '';
-  const primaryImage = toLargeRsiImage(item.imageUrl) || toLargeRsiImage(ship?.medias?.productThumbMediumAndSmall) || '';
+  const fromImage = toLargeRsiImage(item.fromImageUrl) || getShipThumbLarge(fromShip) || '';
+  const toImage = toLargeRsiImage(item.toImageUrl) || getShipThumbLarge(toShip) || '';
+  const primaryImage = toLargeRsiImage(item.imageUrl) || getShipThumbLarge(ship) || '';
   const thumbnail = item.itemType === 'ccu'
     ? toImage || fromImage || primaryImage
     : primaryImage || toImage || fromImage;

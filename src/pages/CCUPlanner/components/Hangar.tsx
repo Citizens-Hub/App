@@ -11,6 +11,7 @@ import Crawler from "@/components/Crawler";
 import { Gift } from "lucide-react";
 import { selectImportItems } from "@/store/importStore";
 import { getShipDisplayName, matchesShipNameQuery } from "@/utils/shipDisplay";
+import { getShipThumbSmall } from "@/utils/shipImage";
 
 interface ShipSelectorProps {
   ships: Ship[];
@@ -262,7 +263,7 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 >
                   <div className="flex items-center text-left">
                     <img
-                      src={fromShip?.medias?.productThumbMediumAndSmall}
+                      src={getShipThumbSmall(fromShip)}
                       alt={getShipDisplayName(fromShip) || fromShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />
@@ -314,7 +315,7 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                 >
                   <div className="flex items-center text-left">
                     <img
-                      src={toShip?.medias?.productThumbMediumAndSmall}
+                      src={getShipThumbSmall(toShip)}
                       alt={getShipDisplayName(toShip) || toShip.name}
                       className="w-16 h-16 object-cover mr-2"
                     />

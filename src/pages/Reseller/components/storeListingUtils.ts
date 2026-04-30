@@ -1,5 +1,6 @@
 import { ListingItem, MarketPackageItem, MarketPackageShip, Ship } from '@/types';
 import { BundleItem, CCUItem, ShipItem, UserInfo } from '@/store/upgradesStore';
+import { getShipThumbLarge } from '@/utils/shipImage';
 
 export type StoreInventoryType = 'ccu' | 'standalone_ship' | 'bundle';
 export type StoreListingDisplayType = StoreInventoryType | 'misc' | 'credit';
@@ -87,7 +88,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         toShipName: toShip.name,
         fromMsrp: fromShip.msrp || 0,
         toMsrp: toShip.msrp || 0,
-        imageUrl: toShip.medias?.productThumbMediumAndSmall || fromShip.medias?.productThumbMediumAndSmall,
+        imageUrl: getShipThumbLarge(toShip) || getShipThumbLarge(fromShip),
         ownerLabels: [ownerName],
         quantityByOwner: [{ id: item.belongsTo, name: ownerName, quantity }],
       });
@@ -116,7 +117,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         packageKind: 'standalone_ship',
         insuranceType: item.insurance,
         packageShips: [{ shipId: shipInfo.id, shipName: shipInfo.name, sortOrder: 1 }],
-        imageUrl: shipInfo.medias?.productThumbMediumAndSmall,
+        imageUrl: getShipThumbLarge(shipInfo),
         ownerLabels: [ownerName],
         quantityByOwner: [{ id: item.belongsTo, name: ownerName, quantity }],
         fromMsrp: shipInfo.msrp || 0,
@@ -175,7 +176,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         insuranceType: item.insurance,
         packageShips: bundleShips,
         packageItems: bundleOthers,
-        imageUrl: primaryShipInfo?.medias?.productThumbMediumAndSmall || bundleOthers.find((entry) => entry.imageUrl)?.imageUrl,
+        imageUrl: getShipThumbLarge(primaryShipInfo) || bundleOthers.find((entry) => entry.imageUrl)?.imageUrl,
         ownerLabels: [ownerName],
         quantityByOwner: [{ id: item.belongsTo, name: ownerName, quantity }],
         fromMsrp: totalMsrp,

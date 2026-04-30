@@ -11,6 +11,7 @@ import { Ship } from "@/types";
 import { Link } from "react-router";
 import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
 import MarkdownPreview from '@uiw/react-markdown-preview';
+import { getShipThumbLarge } from "@/utils/shipImage";
 
 interface DisplayEquipmentItem {
   pageId?: number;
@@ -61,8 +62,8 @@ const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}-
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
 const getEquipmentImageSrc = (item: Pick<DisplayEquipmentItem, 'imageUrl' | 'from'>) =>
-  item.imageUrl?.replace('medium_and_small', 'large') ||
-  item.from?.medias?.productThumbMediumAndSmall?.replace('medium_and_small', 'large') ||
+  item.imageUrl ||
+  getShipThumbLarge(item.from as Ship) ||
   '';
 
 const getEquipmentRowKey = (item: DisplayEquipmentItem, absoluteIndex: number) =>
@@ -98,7 +99,7 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
         const shipInfo = ships.find(s =>
           bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
         );
-        return shipInfo?.medias?.productThumbMediumAndSmall;
+        return getShipThumbLarge(shipInfo);
       })
       .filter(img => img) as string[],
     ...bundleOthers.map(other => other.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large'))
@@ -141,7 +142,7 @@ function BundleImageSlider({ bundleShips, bundleOthers, ships, bundleName, isBuy
         key={currentImage}
         component="img"
         sx={{ width: 320, height: 180, objectFit: 'cover' }}
-        src={currentImage.replace('medium_and_small', 'large')}
+        src={currentImage}
         alt={`Ship in ${bundleName}`}
       />
       {images.length > 1 && (
@@ -536,7 +537,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       isBuyBack: ship.isBuyBack,
       from: {
         name: ship.name,
-        imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+        imageUrl: getShipThumbLarge(shipInfo),
         medias: {
           productThumbMediumAndSmall: shipInfo?.medias?.productThumbMediumAndSmall || ''
         },
@@ -544,13 +545,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       },
       to: {
         name: ship.name,
-        imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+        imageUrl: getShipThumbLarge(shipInfo),
         medias: {
           productThumbMediumAndSmall: shipInfo?.medias?.productThumbMediumAndSmall || ''
         },
         msrp: shipInfo?.msrp || 0
       },
-      imageUrl: shipInfo?.medias?.productThumbMediumAndSmall,
+      imageUrl: getShipThumbLarge(shipInfo),
       belongsTo: ship.belongsTo,
       quantity: ship.quantity,
       pageId: ship.pageId,
@@ -830,7 +831,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               height: '100%',
                               objectFit: 'cover',
                             }}
-                            src={item.from?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            src={getShipThumbLarge(item.from as Ship)}
                             alt={item.from.name}
                           />
                           <Box
@@ -845,7 +846,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                               objectFit: 'cover',
                               boxShadow: '0 0 20px 0 rgba(0, 0, 0, 0.2)'
                             }}
-                            src={item.to?.medias?.productThumbMediumAndSmall.replace('medium_and_small', 'large')}
+                            src={getShipThumbLarge(item.to as Ship)}
                             alt={item.to.name}
                           />
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
@@ -1033,7 +1034,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 const shipInfo = ships.find(s =>
                                   bundleShip.name && s.name.toUpperCase().trim() === bundleShip.name.toUpperCase().trim()
                                 );
-                                const imageUrl = shipInfo?.medias?.productThumbMediumAndSmall?.replace('medium_and_small', 'large');
+                                const imageUrl = getShipThumbLarge(shipInfo);
                                 const details = [
                                   shipInfo?.msrp
                                     ? `${intl.formatMessage({ id: 'hangar.msrp', defaultMessage: 'MSRP:' })} ${(shipInfo.msrp / 100).toLocaleString(intl.locale, { style: 'currency', currency: 'USD' })}`
