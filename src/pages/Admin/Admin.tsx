@@ -8,6 +8,7 @@ import ShipTranslationsManager from './components/ShipTranslationsManager';
 import ShipSogModelsManager from './components/ShipSogModelsManager';
 import GameShopsManager from './components/GameShopsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
+import ShipImagesManager from './components/ShipImagesManager';
 
 enum Page {
   Errors = 'errors',
@@ -15,6 +16,7 @@ enum Page {
   ShipTranslations = 'shipTranslations',
   ManufacturerTranslations = 'manufacturerTranslations',
   ShipSogModels = 'shipSogModels',
+  ShipImages = 'shipImages',
   GameShops = 'gameShops',
   Withdrawals = 'withdrawals',
 }
@@ -55,6 +57,12 @@ export default function Admin() {
             <FormattedMessage id="admin.shipSogModels.description" defaultMessage="Upload and configure SOG Gaussian model files." />
           </Typography>
         </div>
+        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ShipImages ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ShipImages)}>
+          <FormattedMessage id="admin.shipImages.title" defaultMessage="Ship Images" />
+          <Typography variant='body2' color='text.secondary'>
+            <FormattedMessage id="admin.shipImages.description" defaultMessage="Sync RSI ship images into the images R2 bucket." />
+          </Typography>
+        </div>
         <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.GameShops ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.GameShops)}>
           <FormattedMessage id="admin.gameShops.title" defaultMessage="Game Shops" />
           <Typography variant='body2' color='text.secondary'>
@@ -75,6 +83,7 @@ export default function Admin() {
         {currentPage === Page.ShipTranslations && <ShipTranslationsManager />}
         {currentPage === Page.ManufacturerTranslations && <ManufacturerTranslationsManager />}
         {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
+        {currentPage === Page.ShipImages && <ShipImagesManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
       </div>

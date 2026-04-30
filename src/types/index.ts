@@ -288,6 +288,97 @@ export interface ShipSogModelMutationResponse {
   };
 }
 
+export type ShipImageSyncStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type ShipImageAssetStatus = 'pending' | 'synced' | 'failed' | 'skipped';
+
+export interface ShipImageSyncBatch {
+  id: string;
+  status: ShipImageSyncStatus;
+  scope: string;
+  shipId: number | null;
+  force: boolean;
+  totalImages: number;
+  processedImages: number;
+  succeededImages: number;
+  failedImages: number;
+  skippedImages: number;
+  errorMessage: string | null;
+  createdBy: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShipImageAsset {
+  id: number;
+  shipId: number;
+  shipName: string | null;
+  sourceUrl: string;
+  urlHash: string;
+  r2Key: string;
+  imageKind: string;
+  status: ShipImageAssetStatus;
+  contentType: string | null;
+  fileSize: number | null;
+  etag: string | null;
+  errorMessage: string | null;
+  lastBatchId: string | null;
+  lastSyncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShipImageSyncStatsResponse {
+  success: boolean;
+  data: {
+    totalAssets: number;
+    syncedAssets: number;
+    failedAssets: number;
+    skippedAssets: number;
+    latestBatch: ShipImageSyncBatch | null;
+  };
+}
+
+export interface ShipImageSyncPreviewResponse {
+  success: boolean;
+  data: {
+    shipCount: number;
+    imageCount: number;
+    images: Array<{
+      shipId: number;
+      shipName: string;
+      imageKind: string;
+      sourceUrl: string;
+      urlHash: string;
+      r2Key: string;
+    }>;
+  };
+}
+
+export interface ShipImageSyncBatchListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  list: ShipImageSyncBatch[];
+}
+
+export interface ShipImageAssetListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  list: ShipImageAsset[];
+}
+
+export interface ShipImageSyncCreateResponse {
+  success: boolean;
+  data: {
+    batch: ShipImageSyncBatch;
+  };
+}
+
 export type ShipTranslationLocale = 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE' | 'en';
 export type ShipTranslationField = 'shipName' | 'title' | 'excerpt' | 'body';
 
