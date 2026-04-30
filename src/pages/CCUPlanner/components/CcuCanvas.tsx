@@ -43,7 +43,7 @@ import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } 
 import { MousePointer2, Plus, Route, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
 import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
-import ShipInfoDialog from './ShipInfoDialog';
+import ShipInfoDialog from '@/components/ShipInfoDialog';
 import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslationEditorDialog';
 import { RootState } from '@/store';
 

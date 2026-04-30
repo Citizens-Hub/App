@@ -12,6 +12,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import { useApi } from '@/hooks';
 import type { ShipSogModelResponse } from '@/types';
+import { withModelCacheParams } from '@/utils/modelCache';
 import { getRenderableBounds, recenterObjectToRenderableBounds } from '@/utils/threeObjectBounds';
 
 interface ShipModelPreviewProps {
@@ -177,16 +178,23 @@ export default function ShipModelPreview({
   const [error, setError] = useState<string | null>(null);
   const [modelMode, setModelMode] = useState<ShipModelMode>('sog');
   const isFullscreen = variant === 'fullscreen';
-  const { data: sogModelData } = useApi<ShipSogModelResponse>(
+  const { data: sogModelData, error: sogModelError } = useApi<ShipSogModelResponse>(
     open && shipId ? `/api/ship-sog-models/${shipId}` : null,
     {
       revalidateOnFocus: false,
       shouldRetryOnError: false,
     },
   );
+  const isSogModelResolving = Boolean(open && shipId && !sogModelData && !sogModelError);
   const sogModel = sogModelData?.data.model ?? null;
   const hasSogModel = Boolean(sogModel?.enabled && sogModel.modelPath);
-  const sogModelUrl = shipId && sogModel?.modelPath ? getShipSogModelUrl(shipId, sogModel.modelPath) : null;
+  const sogModelUrl = shipId && sogModel?.modelPath
+    ? withModelCacheParams(getShipSogModelUrl(shipId, sogModel.modelPath), {
+      type: 'sog',
+      shipId,
+      modelKey: sogModel.modelPath,
+    })
+    : null;
   const sogEncrypted = Boolean(sogModel?.encrypted);
   const sogEncryptionAlgorithm = sogModel?.encryptionAlgorithm ?? undefined;
   const sogEncryptionNonce = sogModel?.encryptionNonce ?? undefined;
@@ -212,7 +220,7 @@ export default function ShipModelPreview({
   }, [shipId]);
 
   useEffect(() => {
-    if (!open || !shipId || !containerRef.current) {
+    if (!open || !shipId || !containerRef.current || isSogModelResolving) {
       return undefined;
     }
 
@@ -411,9 +419,17 @@ export default function ShipModelPreview({
         })
         .catch(handleLoadError);
     } else {
+      const glbModelUrl = withModelCacheParams(
+        MODEL_ENDPOINT ? `${MODEL_ENDPOINT}/${shipId}.glb` : `${API_BASE_URL}/api/ship-models/${shipId}`,
+        {
+          type: 'glb',
+          shipId,
+          modelKey: `${shipId}.glb`,
+        },
+      );
+
       loader.load(
-        MODEL_ENDPOINT ? `${MODEL_ENDPOINT}/${shipId}.glb` :
-          `${API_BASE_URL}/api/ship-models/${shipId}`,
+        glbModelUrl,
         (gltf) => {
           if (disposed) {
             disposeObject3D(gltf.scene);
@@ -479,6 +495,7 @@ export default function ShipModelPreview({
     };
   }, [
     activeModelMode,
+    isSogModelResolving,
     open,
     shipId,
     sogEncrypted,
@@ -564,7 +581,7 @@ export default function ShipModelPreview({
           className={isFullscreen ? 'h-full w-full' : 'h-[320px] w-full md:h-[420px]'}
         />
 
-        {isLoading && (
+        {(isLoading || isSogModelResolving) && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/65 backdrop-blur-[1px] dark:bg-slate-950/45">
             <div className="w-[min(88vw,340px)] border border-black/10 bg-white/90 p-4 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-100">
               <div className="mb-3 flex items-center gap-3">
@@ -574,14 +591,14 @@ export default function ShipModelPreview({
                     <span className="truncate font-medium">
                       <FormattedMessage id="ccuPlanner.shipInfo.modelLoading" defaultMessage="Loading 3D model" />
                     </span>
-                    {progressLabel && (
+                    {progressLabel && !isSogModelResolving && (
                       <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">
                         {progressLabel}
                       </span>
                     )}
                   </div>
 
-                  {loadProgress?.totalBytes && loadProgress.loadedBytes > 0 && (
+                  {!isSogModelResolving && loadProgress?.totalBytes && loadProgress.loadedBytes > 0 && (
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {formatTransferSize(loadProgress.loadedBytes)} / {formatTransferSize(loadProgress.totalBytes)}
                     </div>
@@ -590,8 +607,8 @@ export default function ShipModelPreview({
               </div>
 
               <LinearProgress
-                variant={progressPercent !== null ? 'determinate' : 'indeterminate'}
-                value={progressPercent ?? 0}
+                variant={!isSogModelResolving && progressPercent !== null ? 'determinate' : 'indeterminate'}
+                value={!isSogModelResolving ? progressPercent ?? 0 : 0}
                 sx={{
                   height: 8,
                   borderRadius: 9999,

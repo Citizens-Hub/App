@@ -11,7 +11,7 @@ import { useSelector } from 'react-redux';
 import Crawler from '@/components/Crawler';
 import { useApi } from '@/hooks/swr/useApi';
 import { getRsiIconPath } from '@/data/rsiIcons';
-import ShipInfoContent from '@/pages/CCUPlanner/components/ShipInfoContent';
+import ShipInfoContent from '@/components/ShipInfoContent';
 import FleetModelViewer from '@/pages/FleetView/FleetModelViewer';
 import type {
   FleetModelViewerRotationState,

@@ -29,6 +29,14 @@ import { ProfileData, UserRole } from '@/types';
 import CcuPriorityList from './components/CcuPriorityList';
 import { useProfileData } from '@/hooks';
 import { Camera, Move } from 'lucide-react';
+import {
+  clearModelCacheEntries,
+  formatModelCacheSize,
+  listModelCacheEntries,
+  type ModelCacheEntrySummary,
+  type ModelCacheListResult,
+  type ModelCacheType,
+} from '@/utils/modelCache';
 
 const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
 const AVATAR_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -72,6 +80,20 @@ type AvatarCropSource = {
 type CropOffset = {
   x: number;
   y: number;
+};
+
+const EMPTY_MODEL_CACHE_SUMMARY: ModelCacheListResult = {
+  supported: true,
+  entries: [],
+  totalBytes: 0,
+  bytesByType: {
+    glb: 0,
+    sog: 0,
+  },
+  countsByType: {
+    glb: 0,
+    sog: 0,
+  },
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -180,6 +202,9 @@ export default function Settings() {
   const [avatarCropOffset, setAvatarCropOffset] = useState<CropOffset>({ x: 0, y: 0 });
   const [avatarCropPreviewSize, setAvatarCropPreviewSize] = useState(DEFAULT_AVATAR_CROP_PREVIEW_SIZE);
   const [isAvatarCropDragging, setIsAvatarCropDragging] = useState(false);
+  const [modelCacheSummary, setModelCacheSummary] = useState<ModelCacheListResult>(EMPTY_MODEL_CACHE_SUMMARY);
+  const [isLoadingModelCache, setIsLoadingModelCache] = useState(false);
+  const [modelCacheActionKey, setModelCacheActionKey] = useState<string | null>(null);
   const avatarCropMetrics = avatarCropSource
     ? getAvatarCropMetrics(avatarCropSource, avatarCropPreviewSize, avatarCropZoom)
     : null;
@@ -267,6 +292,15 @@ export default function Settings() {
     setAvatarCropOffset((prev) => clampCropOffset(avatarCropSource, avatarCropPreviewSize, avatarCropZoom, prev));
   }, [avatarCropPreviewSize, avatarCropSource, avatarCropZoom]);
 
+  useEffect(() => {
+    if (currentPage !== Page.LocalData) {
+      return;
+    }
+
+    void refreshModelCacheSummary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
   // 处理货币变更
   const handleCurrencyChange = (event: SelectChangeEvent) => {
     const newCurrency = event.target.value as string;
@@ -317,6 +351,69 @@ export default function Settings() {
     setSnackbarOpen(true);
     
     setClearImportDialog(false);
+  };
+
+  const showSuccessMessage = (message: string) => {
+    setErrorMessage(null);
+    setSuccessMessage(message);
+    setSnackbarOpen(true);
+  };
+
+  const showErrorMessage = (message: string) => {
+    setSuccessMessage(null);
+    setErrorMessage(message);
+    setSnackbarOpen(true);
+  };
+
+  const refreshModelCacheSummary = async () => {
+    setIsLoadingModelCache(true);
+
+    try {
+      const summary = await listModelCacheEntries();
+      setModelCacheSummary(summary);
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(intl.formatMessage({
+        id: 'settings.modelCacheLoadFailed',
+        defaultMessage: 'Failed to load model cache.'
+      }));
+    } finally {
+      setIsLoadingModelCache(false);
+    }
+  };
+
+  const handleClearModelCache = async (scope: 'all' | ModelCacheType | ModelCacheEntrySummary, label: string) => {
+    const confirmed = window.confirm(intl.formatMessage({
+      id: 'settings.modelCacheClearConfirm',
+      defaultMessage: 'Clear {label} model cache?'
+    }, { label }));
+
+    if (!confirmed) {
+      return;
+    }
+
+    const actionKey = typeof scope === 'string' ? scope : scope.id;
+    setModelCacheActionKey(actionKey);
+
+    try {
+      const result = typeof scope === 'string'
+        ? await clearModelCacheEntries(scope === 'all' ? {} : { type: scope })
+        : await clearModelCacheEntries({ id: scope.id });
+
+      await refreshModelCacheSummary();
+      showSuccessMessage(intl.formatMessage({
+        id: 'settings.modelCacheCleared',
+        defaultMessage: 'Cleared {count} cached model files.'
+      }, { count: result.deletedCount }));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(intl.formatMessage({
+        id: 'settings.modelCacheClearFailed',
+        defaultMessage: 'Failed to clear model cache.'
+      }));
+    } finally {
+      setModelCacheActionKey(null);
+    }
   };
 
   const uploadAvatarFile = async (file: File) => {
@@ -1372,6 +1469,183 @@ export default function Settings() {
                 >
                   <FormattedMessage id="settings.clearImportData" defaultMessage="Clear Imported Data" />
                 </Button>
+
+                <Divider sx={{ my: 2 }} />
+
+                <div className='flex flex-col gap-4'>
+                  <div className='flex flex-row items-start gap-4 justify-between'>
+                    <div>
+                      <Typography variant="h6">
+                        <FormattedMessage id="settings.modelCache" defaultMessage="Model Cache" />
+                      </Typography>
+                      <Typography variant="body2" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.modelCacheDescription"
+                          defaultMessage="Manage locally cached GLB and SOG ship models."
+                        />
+                      </Typography>
+                    </div>
+                    <Button
+                      variant="outlined"
+                      disabled={isLoadingModelCache}
+                      onClick={() => void refreshModelCacheSummary()}
+                    >
+                      {isLoadingModelCache ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <FormattedMessage id="settings.modelCacheRefresh" defaultMessage="Refresh" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {!modelCacheSummary.supported ? (
+                    <Alert severity="info">
+                      <FormattedMessage
+                        id="settings.modelCacheUnsupported"
+                        defaultMessage="Model cache management is unavailable in this browser context."
+                      />
+                    </Alert>
+                  ) : (
+                    <>
+                      <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>
+                            <FormattedMessage id="settings.modelCacheTotal" defaultMessage="Total" />
+                          </Typography>
+                          <Typography variant="h6">{formatModelCacheSize(modelCacheSummary.totalBytes)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.modelCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: modelCacheSummary.entries.length }}
+                            />
+                          </Typography>
+                        </div>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>GLB</Typography>
+                          <Typography variant="h6">{formatModelCacheSize(modelCacheSummary.bytesByType.glb)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.modelCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: modelCacheSummary.countsByType.glb }}
+                            />
+                          </Typography>
+                        </div>
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>SOG</Typography>
+                          <Typography variant="h6">{formatModelCacheSize(modelCacheSummary.bytesByType.sog)}</Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.modelCacheFiles"
+                              defaultMessage="{count} files"
+                              values={{ count: modelCacheSummary.countsByType.sog }}
+                            />
+                          </Typography>
+                        </div>
+                      </div>
+
+                      <div className='flex flex-wrap gap-2'>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={modelCacheSummary.entries.length === 0 || modelCacheActionKey !== null}
+                          onClick={() => void handleClearModelCache('all', intl.formatMessage({
+                            id: 'settings.modelCacheAll',
+                            defaultMessage: 'all'
+                          }))}
+                        >
+                          {modelCacheActionKey === 'all' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.modelCacheClearAll" defaultMessage="Clear All Model Cache" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={modelCacheSummary.countsByType.glb === 0 || modelCacheActionKey !== null}
+                          onClick={() => void handleClearModelCache('glb', 'GLB')}
+                        >
+                          {modelCacheActionKey === 'glb' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.modelCacheClearGlb" defaultMessage="Clear GLB" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          disabled={modelCacheSummary.countsByType.sog === 0 || modelCacheActionKey !== null}
+                          onClick={() => void handleClearModelCache('sog', 'SOG')}
+                        >
+                          {modelCacheActionKey === 'sog' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <FormattedMessage id="settings.modelCacheClearSog" defaultMessage="Clear SOG" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {isLoadingModelCache ? (
+                        <div className='flex flex-row items-center gap-2 text-sm text-gray-500'>
+                          <CircularProgress size={16} />
+                          <FormattedMessage id="settings.modelCacheLoading" defaultMessage="Loading model cache..." />
+                        </div>
+                      ) : modelCacheSummary.entries.length === 0 ? (
+                        <Typography variant="body2" color='text.secondary'>
+                          <FormattedMessage id="settings.modelCacheEmpty" defaultMessage="No cached models yet." />
+                        </Typography>
+                      ) : (
+                        <div className='flex flex-col gap-3'>
+                          {modelCacheSummary.entries.map((entry) => (
+                            <div key={entry.id} className='flex flex-col gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-800 md:flex-row md:items-start md:justify-between'>
+                              <div className='min-w-0 flex-1'>
+                                <div className='flex flex-wrap items-center gap-2'>
+                                  <span className='rounded border border-gray-200 px-2 py-0.5 text-xs font-semibold uppercase dark:border-gray-700'>
+                                    {entry.type}
+                                  </span>
+                                  <Typography variant="body1">
+                                    <FormattedMessage
+                                      id="settings.modelCacheShip"
+                                      defaultMessage="Ship #{shipId}"
+                                      values={{ shipId: entry.shipId }}
+                                    />
+                                  </Typography>
+                                  <Typography variant="body2" color='text.secondary'>
+                                    {formatModelCacheSize(entry.size)}
+                                  </Typography>
+                                </div>
+                                <Typography variant="body2" color='text.secondary' className='break-all'>
+                                  {entry.modelKey}
+                                </Typography>
+                                <Typography variant="caption" color='text.secondary'>
+                                  <FormattedMessage
+                                    id="settings.modelCacheUpdatedAt"
+                                    defaultMessage="Updated: {date}"
+                                    values={{ date: new Date(entry.updatedAt).toLocaleString() }}
+                                  />
+                                </Typography>
+                              </div>
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                disabled={modelCacheActionKey !== null}
+                                onClick={() => void handleClearModelCache(entry, `${entry.type.toUpperCase()} ${entry.modelKey}`)}
+                              >
+                                {modelCacheActionKey === entry.id ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <FormattedMessage id="settings.modelCacheDeleteEntry" defaultMessage="Delete" />
+                                )}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {users.length > 0 && (
                   <>

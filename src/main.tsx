@@ -9,6 +9,9 @@ import { ErrorBoundary, type FallbackProps } from "react-error-boundary"
 import { BiSlots, reportBi, reportError } from '@/report'
 import { RawSourceMap, SourceMapConsumer } from "source-map-js"
 import { useIntl } from 'react-intl'
+import { registerModelCacheServiceWorker } from '@/utils/modelCache'
+
+registerModelCacheServiceWorker()
 
 const isDynamicImportError = (error: Error | unknown): boolean => {
   return String(error).includes('Failed to fetch dynamically imported module');

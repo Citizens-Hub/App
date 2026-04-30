@@ -15,6 +15,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 
 import { getRenderableBounds, recenterObjectToRenderableBounds } from '@/utils/threeObjectBounds';
+import { withModelCacheParams } from '@/utils/modelCache';
 
 export interface FleetModelViewerShip {
   key: string;
@@ -1122,9 +1123,14 @@ export default function FleetModelViewer({
     updateLoadState(ship.displayName);
 
     try {
-      const url = MODEL_ENDPOINT
-        ? `${MODEL_ENDPOINT}/${ship.shipId}.glb`
-        : `${API_BASE_URL}/api/ship-models/${ship.shipId}`;
+      const url = withModelCacheParams(
+        MODEL_ENDPOINT ? `${MODEL_ENDPOINT}/${ship.shipId}.glb` : `${API_BASE_URL}/api/ship-models/${ship.shipId}`,
+        {
+          type: 'glb',
+          shipId: ship.shipId,
+          modelKey: `${ship.shipId}.glb`,
+        },
+      );
       const gltf = await loader.loadAsync(url);
       const currentRequestToken = requestTokenByKeyRef.current.get(ship.key);
       const stillDesired = desiredShipsRef.current.some((entry) => entry.key === ship.key);
