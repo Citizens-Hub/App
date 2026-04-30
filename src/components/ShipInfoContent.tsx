@@ -133,8 +133,7 @@ function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): 
   ].filter(Boolean) as string[];
 
   const composerImages = [
-    ...(detailedShip?.details?.imageComposer?.filter((entry) => entry.slot === 'thumbnail') || []),
-    ...(detailedShip?.details?.imageComposer?.filter((entry) => entry.slot !== 'thumbnail') || []),
+    ...(detailedShip?.details?.imageComposer || []),
   ].map((entry) => toAbsoluteRsiUrl(entry.url));
 
   const uniquePreviewImages = Array.from(new Set(previewImages));
