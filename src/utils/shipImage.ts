@@ -21,6 +21,10 @@ function normalizeShipImageSlot(value?: string | null) {
   );
 }
 
+function isDetailThumbnailSlot(value?: string | null) {
+  return normalizeShipImageSlot(value) === 'thumbnail';
+}
+
 function toImageBaseUrl(value: string) {
   return `${IMAGE_BASE_URL}${value.startsWith('/') ? value : `/${value}`}`;
 }
@@ -137,4 +141,18 @@ export function getShipDetailImageUrl(
   }
 
   return toApiAssetUrl(entry.url, { source: entry.source });
+}
+
+export function getShipDetailThumbnailUrl(ship?: Ship | null) {
+  const detailImages = ship?.details?.imageComposer;
+  if (!detailImages?.length) {
+    return '';
+  }
+
+  const detailThumbnailIndex = detailImages.findIndex((entry) => isDetailThumbnailSlot(entry.slot));
+  if (detailThumbnailIndex >= 0) {
+    return getShipDetailImageUrl(ship, detailImages[detailThumbnailIndex], detailThumbnailIndex);
+  }
+
+  return getShipDetailImageUrl(ship, detailImages[0], 0);
 }

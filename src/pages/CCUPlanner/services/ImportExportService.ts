@@ -281,106 +281,121 @@ export class ImportExportService {
     options?: { allowEmptyNodes?: boolean }
   ): FlowData | null {
     try {
-      const { nodes: importedNodes, edges: importedEdges, startShipPrices: importedPrices } = JSON.parse(jsonData);
-      const allowEmptyNodes = options?.allowEmptyNodes ?? false;
-
-      if (!importedNodes || !Array.isArray(importedNodes)) {
-        throw new Error('Invalid JSON format: missing node data');
-      }
-
-      // 确保导入的节点引用的舰船在当前舰船列表中存在
-      const validNodes = importedNodes.filter(node => {
-        const shipId = node.data?.ship?.id;
-        return shipId && ships.some(s => s.id === shipId);
-      });
-
-      if (validNodes.length === 0 && !allowEmptyNodes) {
-        throw new Error('No valid ship nodes found');
-      }
-
-      // 更新节点数据，确保包含最新的舰船信息
-      const updatedNodes = validNodes.map(node => {
-        const currentShip = ships.find(s => s.id === node.data.ship.id);
-        if (currentShip) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              ship: currentShip,
-              ccus: data.ccus,
-              wbHistory: data.wbHistory,
-              hangarItems: data.hangarItems
-            }
-          };
-        }
-        return node;
-      });
-
-      // 确保所有边都有sourceType字段
-      const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
-        if (edge.data && !edge.data.sourceType) {
-          return {
-            ...edge,
-            data: {
-              ...edge.data,
-              sourceType: CcuSourceType.OFFICIAL
-            }
-          };
-        }
-        return edge;
-      }) || [];
-
-      // 只导入与有效节点相关的边
-      const validNodeIds = new Set(updatedNodes.map(node => node.id));
-      const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) =>
-        validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+      return this.importFromFlowData(
+        JSON.parse(jsonData) as FlowData,
+        ships,
+        data,
+        options
       );
-
-      // 更新边的数据，确保包含最新的价格信息
-      const updatedEdges = validEdges.map((edge: Edge<CcuEdgeData>) => {
-        const sourceNode = updatedNodes.find(n => n.id === edge.source);
-        const targetNode = updatedNodes.find(n => n.id === edge.target);
-        
-        if (sourceNode && targetNode && edge.data) {
-          return {
-            ...edge,
-            data: {
-              ...edge.data,
-              sourceShip: sourceNode.data.ship,
-              targetShip: targetNode.data.ship,
-              ccus: data.ccus,
-              wbHistory: data.wbHistory,
-              hangarItems: data.hangarItems
-            }
-          };
-        }
-        return edge;
-      });
-
-      if (importedPrices) {
-        const validPrices: Record<string, number | string> = {};
-        Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
-          if (validNodeIds.has(nodeId)) {
-            validPrices[nodeId] = price;
-          }
-        });
-        
-        return {
-          nodes: updatedNodes,
-          edges: updatedEdges,
-          startShipPrices: validPrices
-        };
-      }
-
-      return {
-        nodes: updatedNodes,
-        edges: updatedEdges,
-        startShipPrices: {}
-      };
     } catch (error) {
       console.error('Error importing JSON file:', error);
       return null;
     }
+  }
+
+  importFromFlowData(
+    importedFlowData: {
+      nodes?: Node[];
+      edges?: Edge<CcuEdgeData>[];
+      startShipPrices?: Record<string, number | string>;
+    },
+    ships: Ship[],
+    data: { hangarItems: HangarItem[]; wbHistory: WbHistoryData[]; ccus: Ccu[] },
+    options?: { allowEmptyNodes?: boolean }
+  ): FlowData | null {
+    const importedNodes = importedFlowData.nodes;
+    const importedEdges = importedFlowData.edges;
+    const importedPrices = importedFlowData.startShipPrices;
+    const allowEmptyNodes = options?.allowEmptyNodes ?? false;
+
+    if (!importedNodes || !Array.isArray(importedNodes)) {
+      throw new Error('Invalid JSON format: missing node data');
+    }
+
+    const validNodes = importedNodes.filter(node => {
+      const shipId = node.data?.ship?.id;
+      return shipId && ships.some(s => s.id === shipId);
+    });
+
+    if (validNodes.length === 0 && !allowEmptyNodes) {
+      throw new Error('No valid ship nodes found');
+    }
+
+    const updatedNodes = validNodes.map(node => {
+      const currentShip = ships.find(s => s.id === node.data.ship.id);
+      if (currentShip) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            ship: currentShip,
+            ccus: data.ccus,
+            wbHistory: data.wbHistory,
+            hangarItems: data.hangarItems
+          }
+        };
+      }
+      return node;
+    });
+
+    const processedEdges = importedEdges?.map((edge: Edge<CcuEdgeData>) => {
+      if (edge.data && !edge.data.sourceType) {
+        return {
+          ...edge,
+          data: {
+            ...edge.data,
+            sourceType: CcuSourceType.OFFICIAL
+          }
+        };
+      }
+      return edge;
+    }) || [];
+
+    const validNodeIds = new Set(updatedNodes.map(node => node.id));
+    const validEdges = processedEdges.filter((edge: Edge<CcuEdgeData>) =>
+      validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+    );
+
+    const updatedEdges = validEdges.map((edge: Edge<CcuEdgeData>) => {
+      const sourceNode = updatedNodes.find(n => n.id === edge.source);
+      const targetNode = updatedNodes.find(n => n.id === edge.target);
+
+      if (sourceNode && targetNode && edge.data) {
+        return {
+          ...edge,
+          data: {
+            ...edge.data,
+            sourceShip: sourceNode.data.ship,
+            targetShip: targetNode.data.ship,
+            ccus: data.ccus,
+            wbHistory: data.wbHistory,
+            hangarItems: data.hangarItems
+          }
+        };
+      }
+      return edge;
+    });
+
+    if (importedPrices) {
+      const validPrices: Record<string, number | string> = {};
+      Object.entries(importedPrices as Record<string, number | string>).forEach(([nodeId, price]) => {
+        if (validNodeIds.has(nodeId)) {
+          validPrices[nodeId] = price;
+        }
+      });
+
+      return {
+        nodes: updatedNodes,
+        edges: updatedEdges,
+        startShipPrices: validPrices
+      };
+    }
+
+    return {
+      nodes: updatedNodes,
+      edges: updatedEdges,
+      startShipPrices: {}
+    };
   }
 
   /**

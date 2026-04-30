@@ -49,7 +49,6 @@ import { useCartStore } from '@/hooks/useCartStore';
 import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import CartDrawer from './components/CartDrawer';
-import MarketItemMedia from './components/MarketItemMedia';
 import { findShip, getAvailableStock, getListingBasePrice, getListingDiscountPercent } from './marketUtils';
 import {
   formatCreditAmountSummary,
@@ -66,7 +65,7 @@ import {
   getMarketItemDisplayName,
   getMarketItemSummary,
 } from './marketDisplayI18n';
-import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
+import { getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -129,10 +128,58 @@ function getAvailableUnits(stock: number, lockedStock: number) {
 }
 
 function resolveShipImage(ship?: Ship | null, fallbackImage?: string) {
-  return getShipSlideshowImage(ship)
+  return getShipDetailThumbnailUrl(ship)
+    || getShipSlideshowImage(ship)
     || getShipThumbLarge(ship)
     || fallbackImage
     || MARKET_ITEM_PLACEHOLDER;
+}
+
+function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading: boolean) {
+  const visual = getMarketItemVisual(item, ships);
+
+  if (item.itemType === 'ccu') {
+    const fromShip = findShip(ships, item.fromShipId, item.fromShipName);
+    const toShip = findShip(ships, item.toShipId, item.toShipName);
+    const deferFromShipFallback = loading && !fromShip && Boolean(item.fromShipId || item.fromShipName);
+    const deferToShipFallback = loading && !toShip && Boolean(item.toShipId || item.toShipName);
+
+    return {
+      isCCU: true,
+      fromImage: fromShip
+        ? resolveShipImage(fromShip, visual.fromImage || MARKET_ITEM_PLACEHOLDER)
+        : deferFromShipFallback
+          ? MARKET_ITEM_PLACEHOLDER
+          : (visual.fromImage || MARKET_ITEM_PLACEHOLDER),
+      toImage: toShip
+        ? resolveShipImage(toShip, visual.toImage || MARKET_ITEM_PLACEHOLDER)
+        : deferToShipFallback
+          ? MARKET_ITEM_PLACEHOLDER
+          : (visual.toImage || MARKET_ITEM_PLACEHOLDER),
+      fromAlt: visual.fromShipName || item.fromShipName || item.name,
+      toAlt: visual.toShipName || item.toShipName || item.name,
+      thumbnail: '',
+    };
+  }
+
+  const primaryShip = findShip(ships, item.shipId, item.shipName)
+    || (item.packageShips || [])
+      .map((packageShip) => findShip(ships, packageShip.shipId, packageShip.shipName))
+      .find(Boolean)
+    || undefined;
+  const hasShipReference = Boolean(item.shipId || item.shipName || item.packageShips?.length);
+  const deferPrimaryShipFallback = loading && hasShipReference && !primaryShip;
+
+  return {
+    isCCU: false,
+    fromImage: '',
+    toImage: '',
+    fromAlt: '',
+    toAlt: '',
+    thumbnail: deferPrimaryShipFallback
+      ? MARKET_ITEM_PLACEHOLDER
+      : resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER),
+  };
 }
 
 type ShipComparisonRow = {
@@ -897,6 +944,7 @@ export default function MarketDetail() {
 
   const displayItem = activeItem || item;
   const visual = getMarketItemVisual(displayItem, ships);
+  const heroVisual = resolveMarketDetailHeroImage(displayItem, ships, loading);
   const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(displayItem);
   const displayPrice = item.itemType === 'credit'
     ? (selectedCreditOption?.price || item.price)
@@ -1063,12 +1111,62 @@ export default function MarketDetail() {
         <div className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,_1fr)_360px]'>
           <div className='flex flex-col gap-6'>
             <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
-              <MarketItemMedia
-                item={displayItem}
-                ships={ships}
-                height={460}
-                badgeText={item.itemType === 'credit' ? null : (discount ? formatMarketDiscount(intl, discount) : null)}
-              />
+              {heroVisual.isCCU ? (
+                <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
+                  <Box
+                    component="img"
+                    sx={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      width: '36%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                    src={heroVisual.fromImage}
+                    alt={heroVisual.fromAlt}
+                  />
+                  <Box
+                    component="img"
+                    sx={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 0,
+                      width: '64%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      boxShadow: '0 0 24px 0 rgba(0, 0, 0, 0.2)',
+                    }}
+                    src={heroVisual.toImage}
+                    alt={heroVisual.toAlt}
+                  />
+                  <div className='absolute top-1/2 left-[36%] -translate-x-1/2 -translate-y-1/2 bg-black/45 p-2 text-white'>
+                    <ArrowRightLeft className='h-6 w-6' />
+                  </div>
+                  {item.itemType !== 'credit' && discount && (
+                    <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
+                      {formatMarketDiscount(intl, discount)}
+                    </div>
+                  )}
+                  <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white'>
+                    <div className='line-clamp-2 text-sm font-medium'>{displayItem.name}</div>
+                  </div>
+                </Box>
+              ) : (
+                <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
+                  <Box
+                    component="img"
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    src={heroVisual.thumbnail}
+                    alt={displayItem.name}
+                  />
+                  {item.itemType !== 'credit' && discount && (
+                    <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
+                      {formatMarketDiscount(intl, discount)}
+                    </div>
+                  )}
+                </Box>
+              )}
             </div>
 
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
@@ -1171,7 +1269,7 @@ export default function MarketDetail() {
                       <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
                         {packageShips.map((ship) => {
                           const shipInfo = findShip(ships, ship.shipId, ship.shipName);
-                          const shipImage = getShipThumbLarge(shipInfo) || MARKET_ITEM_PLACEHOLDER;
+                          const shipImage = getShipDetailThumbnailUrl(shipInfo) || getShipThumbLarge(shipInfo) || MARKET_ITEM_PLACEHOLDER;
                           const msrpText = shipInfo?.msrp
                             ? formatUsdPrice(intl.locale, shipInfo.msrp / 100)
                             : null;

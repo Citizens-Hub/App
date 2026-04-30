@@ -103,6 +103,28 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     return item.resource.name || item.resource.id;
   };
 
+  const getCartItemThumbnail = (item: CartItem) => {
+    const itemType = getResourceItemType(item.resource);
+    const visual = getMarketItemVisual({
+      skuId: item.resource.id,
+      name: item.resource.name || item.resource.id,
+      itemType,
+      fromShipId: item.resource.fromShipId,
+      toShipId: item.resource.toShipId,
+      shipId: item.resource.shipId,
+      fromShipName: item.resource.fromShipName,
+      toShipName: item.resource.toShipName,
+      shipName: item.resource.shipName,
+      packageKind: item.resource.packageKind,
+      insuranceType: item.resource.insuranceType,
+      imageUrl: item.resource.imageUrl,
+      fromImageUrl: item.resource.fromImageUrl,
+      toImageUrl: item.resource.toImageUrl,
+    }, ships);
+
+    return visual.thumbnail || item.resource.imageUrl || '';
+  };
+
   // 计算总价，考虑数量
   const total = cart.reduce((sum, item) => sum + (item.resource.nativePrice.amount / 100) * (item.quantity || 1), 0);
 
@@ -181,7 +203,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   >
                     <Avatar
                       variant="square"
-                      src={item.resource.media.thumbnail.storeSmall}
+                      src={getCartItemThumbnail(item)}
                       alt={displayName}
                       sx={{ mr: 2, width: 60, height: 60 }}
                     />

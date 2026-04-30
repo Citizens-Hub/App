@@ -1,11 +1,12 @@
 import { memo, useState } from 'react';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem } from '@mui/material';
 import { Download, Upload, Route, HelpCircle, Save, SaveOff } from 'lucide-react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 interface ToolbarProps {
   onClear: () => void;
-  onExport: () => void;
+  onExportImage: () => void;
+  onExportData: () => void;
   onImport: () => void;
   onOpenPathBuilder?: () => void;
   onOpenPathReview?: () => void;
@@ -17,7 +18,8 @@ interface ToolbarProps {
 
 function Toolbar({
   onClear,
-  onExport,
+  onExportImage,
+  onExportData,
   onImport,
   onOpenPathBuilder,
   onOpenGuide,
@@ -27,6 +29,7 @@ function Toolbar({
 }: ToolbarProps) {
   const intl = useIntl();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [exportMenuAnchorEl, setExportMenuAnchorEl] = useState<null | HTMLElement>(null);
   const actionButtonSx = {
     display: 'flex',
     alignItems: 'center',
@@ -78,6 +81,24 @@ function Toolbar({
     setClearDialogOpen(false);
   };
 
+  const handleOpenExportMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setExportMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseExportMenu = () => {
+    setExportMenuAnchorEl(null);
+  };
+
+  const handleExportImage = () => {
+    handleCloseExportMenu();
+    onExportImage();
+  };
+
+  const handleExportData = () => {
+    handleCloseExportMenu();
+    onExportData();
+  };
+
   const handleConfirmClear = () => {
     onClear();
     setClearDialogOpen(false);
@@ -103,7 +124,7 @@ function Toolbar({
 
         <Button
           variant="outlined"
-          onClick={onExport}
+          onClick={handleOpenExportMenu}
           disabled={!hasContent}
           title={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
           aria-label={intl.formatMessage({ id: "toolbar.export", defaultMessage: "Export" })}
@@ -114,6 +135,19 @@ function Toolbar({
             <FormattedMessage id="toolbar.export" defaultMessage="Export" />
           </span>
         </Button>
+
+        <Menu
+          anchorEl={exportMenuAnchorEl}
+          open={Boolean(exportMenuAnchorEl)}
+          onClose={handleCloseExportMenu}
+        >
+          <MenuItem onClick={handleExportImage}>
+            <FormattedMessage id="toolbar.exportImage" defaultMessage="Export Image" />
+          </MenuItem>
+          <MenuItem onClick={handleExportData}>
+            <FormattedMessage id="toolbar.exportData" defaultMessage="Export Data (JSON)" />
+          </MenuItem>
+        </Menu>
 
         <Button
           variant="outlined"

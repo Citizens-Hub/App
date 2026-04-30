@@ -31,31 +31,55 @@ type MarketDisplayItem = {
 
 export const MARKET_ITEM_PLACEHOLDER = '/imgs/credit.webp';
 
-export function toLargeRsiImage(url?: string) {
-  if (!url) return '';
-  if (url.includes('/api/ship-images/') || url.includes('/ship-images/')) {
-    return toApiAssetUrl(url);
-  }
-  return toApiAssetUrl(url.replace('subscribers_vault_thumbnail', 'product_thumb_large'));
+function upgradeToLargeImageVariant(url: string) {
+  return url
+    .replace('/thumb-small', '/thumb-large')
+    .replace('product_thumb_medium_and_small', 'product_thumb_large')
+    .replace('subscribers_vault_thumbnail', 'product_thumb_large');
 }
 
-export function getShipById(ships: Ship[] | undefined, shipId?: number) {
-  if (!shipId) return undefined;
-  return ships?.find((ship) => ship.id === shipId);
+export function toLargeRsiImage(url?: string) {
+  const normalizedUrl = url?.trim();
+  if (!normalizedUrl) return '';
+  return toApiAssetUrl(upgradeToLargeImageVariant(normalizedUrl));
+}
+
+function normalizeShipName(value?: string) {
+  return value?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
+}
+
+export function getShipById(ships: Ship[] | undefined, shipId?: number, shipName?: string) {
+  if (!ships?.length) return undefined;
+
+  if (shipId) {
+    const matchedShip = ships.find((ship) => ship.id === shipId);
+    if (matchedShip) {
+      return matchedShip;
+    }
+  }
+
+  const normalizedShipName = normalizeShipName(shipName);
+  if (!normalizedShipName) return undefined;
+
+  return ships.find((ship) => [
+    ship.localizedName,
+    ship.name,
+    ship.alias,
+  ].some((candidate) => normalizeShipName(candidate) === normalizedShipName));
 }
 
 export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
-  const fromShip = getShipById(ships, item.fromShipId);
-  const toShip = getShipById(ships, item.toShipId);
-  const ship = getShipById(ships, item.shipId);
+  const fromShip = getShipById(ships, item.fromShipId, item.fromShipName);
+  const toShip = getShipById(ships, item.toShipId, item.toShipName);
+  const ship = getShipById(ships, item.shipId, item.shipName);
 
   const fromShipName = item.fromShipName || fromShip?.name || '';
   const toShipName = item.toShipName || toShip?.name || '';
   const shipName = item.shipName || ship?.name || '';
 
-  const fromImage = toLargeRsiImage(item.fromImageUrl) || getShipThumbLarge(fromShip) || '';
-  const toImage = toLargeRsiImage(item.toImageUrl) || getShipThumbLarge(toShip) || '';
-  const primaryImage = toLargeRsiImage(item.imageUrl) || getShipThumbLarge(ship) || '';
+  const fromImage = getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
+  const toImage = getShipThumbLarge(toShip) || toLargeRsiImage(item.toImageUrl) || '';
+  const primaryImage = getShipThumbLarge(ship) || toLargeRsiImage(item.imageUrl) || '';
   const thumbnail = item.itemType === 'ccu'
     ? toImage || fromImage || primaryImage
     : primaryImage || toImage || fromImage;

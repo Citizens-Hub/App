@@ -891,7 +891,7 @@ export default function Settings() {
   };
 
   return (
-    <div className='absolute top-[65px] h-[calc(100vh-65px)] overflow-y-scroll left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
+    <div className='absolute top-[65px] right-0 bottom-0 left-0 flex h-[calc(100vh-65px)] min-h-0 flex-col justify-start overflow-hidden text-left md:flex-row'>
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
@@ -1090,7 +1090,7 @@ export default function Settings() {
         </DialogActions>
       </Dialog>
 
-      <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
+      <div className='shrink-0 border-b border-gray-200 text-left dark:border-gray-800 md:min-w-[300px] md:border-r md:border-b-0'>
         {
           user.role !== UserRole.Guest && <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.profile", defaultMessage: "Profile" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Profile ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Profile)}>
             <FormattedMessage id="settings.profile" defaultMessage="Profile" />
@@ -1113,8 +1113,8 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className='w-full'>
-        <div className='max-w-[700px] py-4 px-4 flex flex-col gap-6'>
+      <div className='min-h-0 flex-1 overflow-y-auto'>
+        <div className='flex max-w-[700px] flex-col gap-6 px-4 py-4'>
           {
             currentPage === Page.Profile && (<>
               <div className='text-2xl font-bold'>

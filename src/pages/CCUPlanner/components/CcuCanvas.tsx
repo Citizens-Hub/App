@@ -26,7 +26,7 @@ import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, Menu, MenuItem, Snackbar, useMediaQuery } from '@mui/material';
+import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, LinearProgress, Menu, MenuItem, Snackbar, useMediaQuery } from '@mui/material';
 import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
@@ -46,11 +46,23 @@ import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTa
 import ShipInfoDialog from '@/components/ShipInfoDialog';
 import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslationEditorDialog';
 import { RootState } from '@/store';
+import { CanvasImageExportProgress, exportCanvasImage } from '../services/CanvasImageExportService';
+import routeImagePayloadService from '../services/RouteImagePayloadService';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
 const MAX_HISTORY_STEPS = 100;
 type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+type ImageImportStage = 'decoding' | 'extracting' | 'importing';
+type ImageTaskKind = 'export' | 'import';
+
+interface ImageTaskProgress {
+  kind: ImageTaskKind;
+  stage: CanvasImageExportProgress['stage'] | ImageImportStage;
+  progress: number;
+  indeterminate?: boolean;
+  message: string;
+}
 
 interface PlannerTabState {
   id: string;
@@ -361,6 +373,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   const [shipContextMenu, setShipContextMenu] = useState<ShipContextMenuState | null>(null);
   const [shipInfoShip, setShipInfoShip] = useState<Ship | null>(null);
   const [shipTranslationShip, setShipTranslationShip] = useState<Ship | null>(null);
+  const [imageTaskProgress, setImageTaskProgress] = useState<ImageTaskProgress | null>(null);
 
   // Use data from context
   const {
@@ -368,17 +381,22 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     ccus,
     wbHistory,
     hangarItems,
+    importItems,
+    exchangeRates,
     edgeService,
     importExportService,
     handlePathCompletionChange,
     showAlert,
     getServiceData,
-    setSelectedPathEdgeIds
+    setSelectedPathEdgeIds,
+    priceHistoryMap,
+    selectedPathEdgeIds
   } = useCcuPlanner();
 
   // Get upgrade items from Redux
   const upgrades = useSelector(selectUsersHangarItems);
   const { user } = useSelector((state: RootState) => state.user);
+  const { currency } = useSelector((state: RootState) => state.upgrades);
   const isAdmin = user.role === UserRole.Admin;
 
   const getNextRouteName = useCallback((existingTabs: PlannerTabState[]): string => {
@@ -1266,6 +1284,167 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     }
   }, [importExportService, ships, hangarItems, wbHistory, ccus, clearAutoSaveTimer, withCurrentTabSnapshot, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, intl, showAlert]);
 
+  const importFlowObject = useCallback((flowData: FlowData) => {
+    try {
+      const importedData = importExportService.importFromFlowData(flowData, ships, { hangarItems, wbHistory, ccus });
+
+      if (!importedData) {
+        throw new Error('Import failed');
+      }
+
+      const importedAt = Date.now();
+      clearAutoSaveTimer();
+      setPlannerTabs(prevTabs => {
+        const syncedTabs = withCurrentTabSnapshot(prevTabs);
+        const newTabId = createRouteTabId();
+        ensureCompletedPathsStorageInitialized(newTabId);
+
+        const newTab: PlannerTabState = {
+          id: newTabId,
+          name: getNextRouteName(syncedTabs),
+          flowData: importedData,
+          autoSaveStatus: 'saved',
+          lastAutoSavedAt: importedAt
+        };
+
+        const nextTabs = [...syncedTabs, newTab];
+        setActiveTabId(newTab.id);
+        loadTabIntoCanvas(newTab);
+        persistWorkspace(nextTabs, newTab.id);
+        return nextTabs;
+      });
+
+      showAlert(
+        intl.formatMessage({
+          id: 'ccuPlanner.success.imported',
+          defaultMessage: 'CCU upgrade path imported successfully!'
+        })
+      );
+
+      reportBi<{
+        success: boolean,
+      }>({
+        slot: BiSlots.IMPORT_ROUTE,
+        data: { success: true }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error importing route object:', error);
+      showAlert(
+        intl.formatMessage(
+          { id: 'ccuPlanner.error.importFailed', defaultMessage: 'Import failed: {errorMessage}' },
+          { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: 'Invalid JSON format' }) }
+        ),
+        'error'
+      );
+
+      reportBi<{
+        success: boolean,
+        error: string
+      }>({
+        slot: BiSlots.IMPORT_ROUTE,
+        data: { success: false, error: (error as Error).message }
+      });
+
+      return false;
+    }
+  }, [importExportService, ships, hangarItems, wbHistory, ccus, clearAutoSaveTimer, withCurrentTabSnapshot, createRouteTabId, ensureCompletedPathsStorageInitialized, getNextRouteName, loadTabIntoCanvas, persistWorkspace, intl, showAlert]);
+
+  const decodeFlowDataFromPng = useCallback(async (file: File) => {
+    setImageTaskProgress({
+      kind: 'import',
+      stage: 'decoding',
+      progress: 10,
+      message: intl.formatMessage({
+        id: 'ccuPlanner.importProgress.decoding',
+        defaultMessage: 'Decoding image...'
+      })
+    });
+
+    const worker = new Worker(new URL('../workers/canvasImageImport.worker.ts', import.meta.url), {
+      type: 'module'
+    });
+
+    try {
+      const payloadBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        worker.onmessage = (event: MessageEvent<{
+          type: 'progress' | 'success' | 'error';
+          stage?: ImageImportStage;
+          progress?: number;
+          payloadBuffer?: ArrayBuffer;
+          decodeMethod?: 'robust' | 'lsb';
+          error?: string;
+        }>) => {
+          const message = event.data;
+          if (message.type === 'progress') {
+            const nextStage = message.stage || 'decoding';
+            const defaultMessage = nextStage === 'extracting'
+              ? intl.formatMessage({
+                id: 'ccuPlanner.importProgress.extracting',
+                defaultMessage: 'Extracting route data...'
+              })
+              : intl.formatMessage({
+                id: 'ccuPlanner.importProgress.decoding',
+                defaultMessage: 'Decoding image...'
+              });
+
+            setImageTaskProgress({
+              kind: 'import',
+              stage: nextStage,
+              progress: message.progress ?? 0,
+              message: defaultMessage
+            });
+            return;
+          }
+
+          if (message.type === 'error') {
+            reject(new Error(message.error || 'Image import failed.'));
+            return;
+          }
+
+          if (!message.payloadBuffer) {
+            reject(new Error('Embedded route payload is missing.'));
+            return;
+          }
+
+          resolve(message.payloadBuffer);
+        };
+
+        worker.onerror = (error) => {
+          reject(new Error(error.message || 'Image import worker crashed.'));
+        };
+
+        file.arrayBuffer()
+          .then((imageBuffer) => {
+            worker.postMessage({
+              type: 'decode',
+              imageBuffer,
+              mimeType: file.type || 'image/png'
+            }, [imageBuffer]);
+          })
+          .catch(reject);
+      });
+
+      setImageTaskProgress({
+        kind: 'import',
+        stage: 'importing',
+        progress: 88,
+        message: intl.formatMessage({
+          id: 'ccuPlanner.importProgress.importing',
+          defaultMessage: 'Importing route...'
+        })
+      });
+
+      const flowData = await routeImagePayloadService.decodeFlowData(new Uint8Array(payloadBuffer));
+      const success = importFlowObject(flowData);
+      setImageTaskProgress(null);
+      return success;
+    } finally {
+      worker.terminate();
+    }
+  }, [importFlowObject, intl]);
+
   const handleImport = useCallback(() => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -1276,39 +1455,91 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      if (content) {
-        importFlowData(content);
-      }
-    };
-    reader.readAsText(file);
-
     if (event.target) {
       event.target.value = '';
     }
-  }, [importFlowData]);
+
+    const isJsonFile = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
+    const isImageFile = file.type.startsWith('image/') || /\.(png|jpg|jpeg|webp)$/i.test(file.name);
+
+    if (isJsonFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        if (content) {
+          importFlowData(content);
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    if (isImageFile) {
+      void decodeFlowDataFromPng(file).catch((error) => {
+        setImageTaskProgress(null);
+        showAlert(
+          intl.formatMessage(
+            { id: 'ccuPlanner.error.importFailed', defaultMessage: 'Import failed: {errorMessage}' },
+            { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: 'Invalid JSON format' }) }
+          ),
+          'error'
+        );
+      });
+      return;
+    }
+
+    showAlert(
+      intl.formatMessage({
+        id: 'ccuPlanner.error.unsupportedImportFile',
+        defaultMessage: 'Unsupported import file. Please use a JSON export or an image exported from this tool.'
+      }),
+      'error'
+    );
+  }, [decodeFlowDataFromPng, importFlowData, intl, showAlert]);
 
   const onDropFile = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
 
     const items = Array.from(event.dataTransfer.items);
-    const jsonItem = items.find(item =>
-      item.kind === 'file' && item.type === 'application/json'
+    const importItem = items.find(item =>
+      item.kind === 'file' && (
+        item.type === 'application/json'
+        || item.type.startsWith('image/')
+      )
     );
 
-    if (jsonItem) {
-      const file = jsonItem.getAsFile();
+    if (importItem) {
+      const file = importItem.getAsFile();
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          if (content) {
-            importFlowData(content);
-          }
-        };
-        reader.readAsText(file);
+        const isJsonFile = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
+        const isImageFile = file.type.startsWith('image/') || /\.(png|jpg|jpeg|webp)$/i.test(file.name);
+
+        if (isJsonFile) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target?.result as string;
+            if (content) {
+              importFlowData(content);
+            }
+          };
+          reader.readAsText(file);
+          return;
+        }
+
+        if (isImageFile) {
+          void decodeFlowDataFromPng(file).catch((error) => {
+            setImageTaskProgress(null);
+            showAlert(
+              intl.formatMessage(
+                { id: 'ccuPlanner.error.importFailed', defaultMessage: 'Import failed: {errorMessage}' },
+                { errorMessage: (error as Error).message || intl.formatMessage({ id: 'ccuPlanner.error.invalidJson', defaultMessage: 'Invalid JSON format' }) }
+              ),
+              'error'
+            );
+          });
+          return;
+        }
+
         return;
       }
     }
@@ -1344,7 +1575,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, handleOpenShipInfoDialog, openShipContextMenu]);
+  }, [decodeFlowDataFromPng, importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, handleOpenShipInfoDialog, openShipContextMenu, intl, showAlert]);
 
   const onShipDragStart = useCallback((event: React.DragEvent<HTMLDivElement>, ship: Ship) => {
     event.dataTransfer.setData('application/shipId', ship.id.toString());
@@ -1547,8 +1778,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     );
   }, [activeTabId, setNodes, setEdges, setSelectedPathEdgeIds, intl, refreshEdgesOnPathCompletion, showAlert, clearAutoSaveTimer, persistWorkspace]);
 
-  const handleExport = useCallback(() => {
-    if (!reactFlowInstance || !nodes.length) return;
+  const handleExportData = useCallback(() => {
+    if (!nodes.length) return;
 
     getRectOfNodes(nodes);
 
@@ -1565,7 +1796,93 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       slot: BiSlots.EXPORT_ROUTE,
       data: null
     })
-  }, [reactFlowInstance, nodes, edges, startShipPrices, importExportService]);
+  }, [nodes, edges, startShipPrices, importExportService]);
+
+  const activeTabName = plannerTabs.find(tab => tab.id === activeTabId)?.name;
+
+  const handleExportImage = useCallback(async () => {
+    if (!nodes.length) return;
+
+    try {
+      setImageTaskProgress({
+        kind: 'export',
+        stage: 'preparing',
+        progress: 0,
+        message: intl.formatMessage({
+          id: 'ccuPlanner.exportProgress.preparing',
+          defaultMessage: 'Preparing export...'
+        })
+      });
+
+      await exportCanvasImage({
+        nodes,
+        edges,
+        startShipPrices,
+        selectedPathEdgeIds,
+        intl,
+        routeName: activeTabName,
+        currency,
+        exchangeRates,
+        ccus,
+        wbHistory,
+        hangarItems,
+        importItems,
+        priceHistoryMap,
+        onProgress: (progress) => {
+          setImageTaskProgress({
+            kind: 'export',
+            ...progress
+          });
+        }
+      });
+
+      setImageTaskProgress(null);
+
+      showAlert(
+        intl.formatMessage({
+          id: 'ccuPlanner.success.exportedImage',
+          defaultMessage: 'Canvas image exported successfully. Experimental compressed-image import watermark is included.'
+        })
+      );
+
+      reportBi<null>({
+        slot: BiSlots.EXPORT_ROUTE,
+        data: null
+      });
+    } catch (error) {
+      setImageTaskProgress(null);
+      const errorMessage = error instanceof Error ? error.message : intl.formatMessage({
+        id: 'ccuPlanner.error.unknown',
+        defaultMessage: 'Unknown error'
+      });
+
+      showAlert(
+        intl.formatMessage(
+          {
+            id: 'ccuPlanner.error.exportImageFailed',
+            defaultMessage: 'Image export failed: {errorMessage}'
+          },
+          { errorMessage }
+        ),
+        'error'
+      );
+    }
+  }, [
+    nodes,
+    edges,
+    selectedPathEdgeIds,
+    intl,
+    activeTabName,
+    currency,
+    exchangeRates,
+    ccus,
+    wbHistory,
+    hangarItems,
+    importItems,
+    priceHistoryMap,
+    startShipPrices,
+    showAlert
+  ]);
 
   useEffect(() => {
     if (!reactFlowInstance) {
@@ -2469,7 +2786,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
                   saveStatus={autoSaveStatus}
                   lastSavedAt={lastAutoSavedAt}
                   onClear={handleClear}
-                  onExport={handleExport}
+                  onExportImage={handleExportImage}
+                  onExportData={handleExportData}
                   onImport={handleImport}
                   onOpenPathBuilder={handleOpenPathBuilder}
                   onOpenGuide={handleOpenGuide}
@@ -2499,7 +2817,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".json,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
         style={{ display: 'none' }}
         onChange={handleFileSelect}
       />
@@ -2568,6 +2886,47 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
             <FormattedMessage id="common.confirm" defaultMessage="Confirm" />
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(imageTaskProgress)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {imageTaskProgress?.kind === 'import' ? (
+            <FormattedMessage id="toolbar.import" defaultMessage="Import" />
+          ) : (
+            <FormattedMessage id="toolbar.exportImage" defaultMessage="Export Image" />
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <div className="py-2 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <CircularProgress size={18} />
+              <div className="text-sm text-slate-700 dark:text-slate-200">
+                {imageTaskProgress?.message}
+              </div>
+            </div>
+
+            <LinearProgress
+              variant={imageTaskProgress?.indeterminate ? 'indeterminate' : 'determinate'}
+              value={imageTaskProgress?.progress ?? 0}
+              sx={{
+                height: 8,
+                borderRadius: 9999,
+                backgroundColor: 'rgba(148, 163, 184, 0.18)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 9999,
+                },
+              }}
+            />
+
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {imageTaskProgress ? `${Math.max(0, Math.min(100, Math.round(imageTaskProgress.progress)))}%` : ''}
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
