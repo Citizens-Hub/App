@@ -10,6 +10,7 @@ import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
 import { ListingItem, Ship } from "@/types";
 import { getShipThumbLarge, toApiAssetUrl } from "@/utils/shipImage";
+import { resolveStoredCcuShip } from "@/utils/shipDisplay";
 
 interface DisplayEquipmentItem {
   id: string;
@@ -94,8 +95,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       const giftableCCUs = items.ccus
         .filter(ccu => ccu.canGift) // 只保留可赠送的
         .map(ccu => {
-          const from = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.from.toUpperCase().trim())
-          const to = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.to.toUpperCase().trim())
+          const from = resolveStoredCcuShip(ships, ccu.parsed, 'from');
+          const to = resolveStoredCcuShip(ships, ccu.parsed, 'to');
 
           if (!from || !to) {
             return undefined;

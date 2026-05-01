@@ -428,8 +428,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       return {
         from: fromShip.name,
         to: toShip.name,
-        fromShipId: fromShip.id,
-        toShipId: toShip.id,
       };
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
@@ -613,9 +611,14 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
         if (!parsed) return;
 
+        const fromShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(parsed.from));
+        const toShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(parsed.to));
+
+        if (!fromShip || !toShip) return;
+
         dispatch(addCCU({
-          from: { id: parsed.fromShipId, name: parsed.from },
-          to: { id: parsed.toShipId, name: parsed.to },
+          from: { id: fromShip.id, name: parsed.from },
+          to: { id: toShip.id, name: parsed.to },
           name: content.name,
           value: parsedValue,
           parsed,
@@ -825,10 +828,17 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         });
 
         if (parsed) {
+          const fromShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(parsed.from));
+          const toShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(parsed.to));
+
+          if (!fromShip || !toShip) {
+            return;
+          }
+
           dispatch(addBuybackCCU({
             name: ccu.name,
-            from: { id: parsed.fromShipId, name: parsed.from },
-            to: { id: parsed.toShipId, name: parsed.to },
+            from: { id: fromShip.id, name: parsed.from },
+            to: { id: toShip.id, name: parsed.to },
             value: ccu.price / 100,
             parsed,
             isBuyBack: true,

@@ -110,6 +110,14 @@ const normalizeCcuSourceTypePriority = (priority: CcuSourceType[] | undefined): 
   return normalized;
 }
 
+function normalizeShipNameKey(name?: string | null) {
+  return name?.trim().toUpperCase() || '';
+}
+
+function getCcuShipMatchKey(item: Pick<CCUItem, 'parsed'>) {
+  return `name:${normalizeShipNameKey(item.parsed?.from)}->${normalizeShipNameKey(item.parsed?.to)}`;
+}
+
 export interface HangarSyncPreferences {
   hangar: boolean;
 }
@@ -257,14 +265,15 @@ export const upgradesSlice = createSlice({
   initialState: getInitialState(),
   reducers: {
     addCCU: (state, action: PayloadAction<CCUItem>) => {
-      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
+      const ccuShipMatchKey = getCcuShipMatchKey(action.payload);
+      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && getCcuShipMatchKey(item) === ccuShipMatchKey && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
         state.items.ccus.push({
           ...action.payload,
           quantity: 1,
           pageIds: action.payload.pageId ? [action.payload.pageId] : [],
         });
       } else {
-        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
+        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && getCcuShipMatchKey(item) === ccuShipMatchKey && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
         if (item) {
           item.quantity = (item.quantity || 1) + 1;
           item.pageIds = item.pageIds || [];
@@ -287,14 +296,15 @@ export const upgradesSlice = createSlice({
       persistUpgradesState(state);
     },
     addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
-      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
+      const ccuShipMatchKey = getCcuShipMatchKey(action.payload);
+      if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && getCcuShipMatchKey(item) === ccuShipMatchKey && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
         state.items.ccus.push({
           ...action.payload,
           quantity: 1,
           pageIds: action.payload.pageId ? [action.payload.pageId] : [],
         });
       } else {
-        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
+        const item = state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && getCcuShipMatchKey(item) === ccuShipMatchKey && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack);
         if (item) {
           item.quantity = (item.quantity || 1) + 1;
           item.pageIds = item.pageIds || [];

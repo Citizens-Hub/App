@@ -19,6 +19,11 @@ export type ShipLookupTarget = {
   alias?: string | null;
 };
 
+export type StoredCcuParsedShipTarget = {
+  from?: string | null;
+  to?: string | null;
+};
+
 function normalizeShipQueryValue(value?: string | null) {
   return value?.trim().toLowerCase() || '';
 }
@@ -115,4 +120,22 @@ export function findShipByIdOrName(ships: Ship[] | undefined, target?: ShipLooku
     || candidates.includes(normalizeShipMatchValue(ship.localizedName))
     || candidates.includes(normalizeShipMatchValue(ship.alias))
   )) || null;
+}
+
+export function resolveStoredCcuShip(
+  ships: Ship[] | undefined,
+  parsed: StoredCcuParsedShipTarget | null | undefined,
+  direction: 'from' | 'to',
+): Ship | null {
+  if (!ships?.length) {
+    return null;
+  }
+
+  const parsedName = direction === 'from' ? parsed?.from : parsed?.to;
+  const normalizedParsedName = normalizeShipMatchValue(parsedName);
+  if (!normalizedParsedName) {
+    return null;
+  }
+
+  return ships.find((ship) => normalizeShipMatchValue(ship.name) === normalizedParsedName) || null;
 }

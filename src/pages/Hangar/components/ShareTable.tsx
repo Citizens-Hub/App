@@ -8,7 +8,7 @@ import { Typography, TextField, InputAdornment, TableContainer, TableHead, Table
 import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, Upload, Copy, X, Link } from "lucide-react";
 import { Ship } from "@/types";
 import { getShipThumbLarge, toApiAssetUrl } from "@/utils/shipImage";
-import { findShipByIdOrName, getShipDisplayName } from "@/utils/shipDisplay";
+import { findShipByIdOrName, getShipDisplayName, resolveStoredCcuShip } from "@/utils/shipDisplay";
 import HangarToolbar from "./HangarToolbar";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 import { formatMarketCcuResourceName } from "@/pages/Market/marketI18n";
@@ -97,14 +97,8 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
       const giftableCCUs = items.ccus
         .filter(ccu => ccu.canGift) // 只保留可赠送的
         .map(ccu => {
-          const from = findShipByIdOrName(ships, {
-            id: ccu.from?.id,
-            name: ccu.from?.name || ccu.parsed.from,
-          });
-          const to = findShipByIdOrName(ships, {
-            id: ccu.to?.id,
-            name: ccu.to?.name || ccu.parsed.to,
-          });
+          const from = resolveStoredCcuShip(ships, ccu.parsed, 'from');
+          const to = resolveStoredCcuShip(ships, ccu.parsed, 'to');
 
           if (!from || !to) {
             return undefined;

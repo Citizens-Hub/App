@@ -10,7 +10,7 @@ import { Link } from "react-router";
 import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { getShipThumbLarge } from "@/utils/shipImage";
-import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName } from "@/utils/shipDisplay";
+import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName, resolveStoredCcuShip } from "@/utils/shipDisplay";
 import HangarToolbar from "./HangarToolbar";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 import ShipInfoDialog from "@/components/ShipInfoDialog";
@@ -478,14 +478,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     const processStoreData = () => {
       const userCCUs = items.ccus
         .map(ccu => {
-          const from = findShipByIdOrName(ships, {
-            id: ccu.from?.id,
-            name: ccu.from?.name || ccu.parsed.from,
-          });
-          const to = findShipByIdOrName(ships, {
-            id: ccu.to?.id,
-            name: ccu.to?.name || ccu.parsed.to,
-          });
+          const from = resolveStoredCcuShip(ships, ccu.parsed, 'from');
+          const to = resolveStoredCcuShip(ships, ccu.parsed, 'to');
 
           if (!from || !to) {
             return undefined;

@@ -1,6 +1,7 @@
 import { ListingItem, MarketPackageItem, MarketPackageShip, Ship } from '@/types';
 import { BundleItem, CCUItem, ShipItem, UserInfo } from '@/store/upgradesStore';
 import { getShipThumbLarge } from '@/utils/shipImage';
+import { resolveStoredCcuShip } from '@/utils/shipDisplay';
 
 export type StoreInventoryType = 'ccu' | 'standalone_ship' | 'bundle';
 export type StoreListingDisplayType = StoreInventoryType | 'misc' | 'credit';
@@ -49,8 +50,8 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
 
   ccus
     .forEach((item) => {
-      const fromShip = marketShips.find((ship) => normalizeName(ship.name) === normalizeName(item.parsed.from));
-      const toShip = marketShips.find((ship) => normalizeName(ship.name) === normalizeName(item.parsed.to));
+      const fromShip = resolveStoredCcuShip(marketShips, item.parsed, 'from');
+      const toShip = resolveStoredCcuShip(marketShips, item.parsed, 'to');
       if (!fromShip || !toShip) return;
 
       const key = `ccu:${fromShip.id}:${toShip.id}:${item.canGift ? 1 : 0}:${item.isBuyBack ? 1 : 0}`;
