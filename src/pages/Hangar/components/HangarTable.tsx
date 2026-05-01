@@ -926,7 +926,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
               ? getShipTargetManufacturerName({ id: item.id, name: item.name })
               : '';
             const previewImage = isCcu
-              ? getShipThumbLarge(item.from as Ship) || getShipThumbLarge(item.to as Ship)
+              ? getShipThumbLarge(item.to as Ship) || getShipThumbLarge(item.from as Ship)
               : isBundle
                 ? getBundlePreviewImage(item, ships)
                 : getEquipmentImageSrc(item);
@@ -1066,7 +1066,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
                   <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
                     <Button size="small" variant="text" onClick={() => openMobileDetail(item)}>
-                      <FormattedMessage id="hangar.mobileViewDetails" defaultMessage="查看详情" />
+                      <FormattedMessage id="hangar.mobileViewDetails" defaultMessage="VIEW DETAILS" />
                     </Button>
                   </Box>
                 </Box>
@@ -1165,7 +1165,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />
                     </Typography>
                     <Typography variant="h6">
-                      {(detailItem.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                      {((isCcu ? (detailItem.to.msrp - detailItem.from.msrp) : detailItem.from.msrp) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
                     </Typography>
                   </Box>
                   <Box>
@@ -1218,7 +1218,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       fullWidth
                       onClick={() => handleOpenShipDetail({ id: detailItem.id, name: detailItem.name })}
                     >
-                      <FormattedMessage id="hangar.openShipDetail" defaultMessage="打开舰船详情" />
+                      <FormattedMessage id="hangar.openShipDetail" defaultMessage="Ship detail" />
                     </Button>
                   </Box>
                 )}
@@ -1828,8 +1828,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             page={page}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
+            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'total' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: 'items' })}`}
           />
         )}
         {isMobile && hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
