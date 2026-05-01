@@ -8,6 +8,7 @@ import { RootState } from "@/store";
 import { addPredict, removePredict } from "@/store/upgradesStore";
 import { localizeShipDataLabel } from "@/data/shipDetailLabelI18n";
 import { getShipThumbLarge } from "@/utils/shipImage";
+import { getShipDisplayName, getShipManufacturerDisplayName, matchesShipManufacturerQuery, matchesShipNameQuery } from "@/utils/shipDisplay";
 import HangarToolbar from "./HangarToolbar";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 import ShipInfoDialog from "@/components/ShipInfoDialog";
@@ -43,9 +44,8 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
 
   // 过滤和排序数据
   const filteredShips = ships.filter(ship =>
-    ship.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ship.localizedName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (ship.manufacturer && ship.manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    matchesShipNameQuery(ship, searchTerm) ||
+    matchesShipManufacturerQuery(ship, searchTerm)
   );
 
   // 按MSRP排序
@@ -162,10 +162,10 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
               )}
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="subtitle1" fontWeight="bold">
-                  {ship.localizedName || ship.name}
+                  {getShipDisplayName(ship) || ship.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-                  {ship.manufacturer ? ship.manufacturer.name : '-'}
+                  {getShipManufacturerDisplayName(ship) || '-'}
                 </Typography>
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="body1" color="primary" fontWeight={700}>
@@ -266,10 +266,10 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1" fontWeight="bold">
-                        {ship.localizedName || ship.name}
+                        {getShipDisplayName(ship) || ship.name}
                       </Typography>
                     </TableCell>
-                    <TableCell>{ship.manufacturer ? ship.manufacturer.name : '-'}</TableCell>
+                    <TableCell>{getShipManufacturerDisplayName(ship) || '-'}</TableCell>
                     <TableCell>
                       {ship.msrp
                         ? (ship.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })
@@ -343,11 +343,11 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
       {/* Prediction Dialog */}
       <Dialog open={predictDialogOpen} onClose={handleClosePredictDialog}>
         <DialogTitle>
-          <FormattedMessage
-            id="ships.predictDialog.title"
-            defaultMessage="预测 {shipName} 价格"
-            values={{ shipName: selectedShip?.name || '' }}
-          />
+            <FormattedMessage
+              id="ships.predictDialog.title"
+              defaultMessage="预测 {shipName} 价格"
+              values={{ shipName: getShipDisplayName(selectedShip) || selectedShip?.name || '' }}
+            />
         </DialogTitle>
         <DialogContent>
           <TextField

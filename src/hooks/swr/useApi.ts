@@ -2,7 +2,7 @@ import useSWR, { SWRConfiguration } from 'swr';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { fetcher, authFetcher } from './swr-config';
-import { ShipNameTranslationsResponse, ShipsData, UserInfo } from '@/types';
+import { ShipsData, UserInfo } from '@/types';
 import { useLocale } from '@/contexts/LocaleContext';
 import { appendShipLocaleToPath } from './shipLocale';
 
@@ -27,19 +27,27 @@ function isShipsDataResponse(value: unknown): value is ShipsData {
   );
 }
 
-function mergeShipNameTranslations(shipsData: ShipsData, translationsResponse: ShipNameTranslationsResponse) {
-  const translationMap = new Map(
-    translationsResponse.translations.map((translation) => [translation.shipId, translation.shipName]),
+function mergeShipLocalizations(baseShipsData: ShipsData, localizedShipsData: ShipsData) {
+  const localizedShipMap = new Map(
+    localizedShipsData.data.ships.map((ship) => [ship.id, ship]),
   );
 
   return {
-    ...shipsData,
+    ...baseShipsData,
     data: {
-      ...shipsData.data,
-      ships: shipsData.data.ships.map((ship) => ({
+      ...baseShipsData.data,
+      ships: baseShipsData.data.ships.map((ship) => {
+        const localizedShip = localizedShipMap.get(ship.id);
+
+        return {
         ...ship,
-        localizedName: translationMap.get(ship.id),
-      })),
+          localizedName: localizedShip?.name || ship.localizedName,
+          manufacturer: {
+            ...ship.manufacturer,
+            localizedName: localizedShip?.manufacturer?.name || ship.manufacturer.localizedName,
+          },
+        };
+      }),
     },
   };
 }
@@ -53,17 +61,17 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
   const fullUrl = localizedPath ? `${API_BASE_URL}${localizedPath}` : null;
   const requestPathname = localizedPath ? new URL(localizedPath, 'http://localhost').pathname : null;
   const isShipListRequest = requestPathname === '/api/ships';
-  const shouldMergeShipNameTranslations = locale !== 'en' && shipNameTranslationEnabled;
+  const shouldMergeShipLocalizations = locale !== 'en' && shipNameTranslationEnabled;
   const swrKey = fullUrl
     ? (isShipListRequest
-      ? `${fullUrl}#locale=${locale}#ship-name-translation=${shouldMergeShipNameTranslations ? 'on' : 'off'}`
+      ? `${fullUrl}#locale=${locale}#ship-localization=${shouldMergeShipLocalizations ? 'on' : 'off'}`
       : fullUrl)
     : null;
   const swrFetcher = async (url: string) => {
     const [requestUrlString] = url.split('#');
     const data = await fetcher(requestUrlString);
 
-    if (!shouldMergeShipNameTranslations) {
+    if (!shouldMergeShipLocalizations) {
       return data as T;
     }
 
@@ -73,17 +81,17 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
     }
 
     try {
-      const translationsResponse = await fetcher(
-        `${API_BASE_URL}/api/ships/translations?locale=${encodeURIComponent(locale)}`,
-      ) as ShipNameTranslationsResponse;
+      const localizedShipsData = await fetcher(
+        `${API_BASE_URL}/api/ships?locale=${encodeURIComponent(locale)}`,
+      ) as ShipsData;
 
-      if (!translationsResponse.success) {
+      if (!isShipsDataResponse(localizedShipsData)) {
         return data as T;
       }
 
-      return mergeShipNameTranslations(data, translationsResponse) as T;
+      return mergeShipLocalizations(data, localizedShipsData) as T;
     } catch (error) {
-      console.warn('Failed to load ship name translations, falling back to source ship list.', error);
+      console.warn('Failed to load localized ship metadata, falling back to source ship list.', error);
       return data as T;
     }
   };

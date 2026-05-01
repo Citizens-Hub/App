@@ -163,6 +163,7 @@ export interface Ship {
   manufacturer: {
     id: number;
     name: string;
+    localizedName?: string;
   };
   focus: string;
   type: string;

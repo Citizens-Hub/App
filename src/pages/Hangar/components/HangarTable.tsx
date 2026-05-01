@@ -10,9 +10,11 @@ import { Link } from "react-router";
 import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { getShipThumbLarge } from "@/utils/shipImage";
+import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName } from "@/utils/shipDisplay";
 import HangarToolbar from "./HangarToolbar";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 import ShipInfoDialog from "@/components/ShipInfoDialog";
+import { formatMarketCcuResourceName } from "@/pages/Market/marketI18n";
 
 interface DisplayEquipmentItem {
   pageId?: number;
@@ -59,7 +61,6 @@ interface BundleTextItem {
 }
 
 const normalizeShipName = (name: string) => name.toUpperCase().trim();
-const normalizeOptionalShipName = (name?: string | null) => (name || '').toUpperCase().trim();
 const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
@@ -403,46 +404,58 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
   const getCcuUsage = (from: string, to: string) => ccuUsageMap.get(getCcuPairKey(from, to)) || 0;
 
+  const matchesSearchTerm = (...values: Array<string | null | undefined>) => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedSearchTerm) {
+      return true;
+    }
+
+    return values.some((value) => value?.toLowerCase().includes(normalizedSearchTerm));
+  };
+
   const resolveShipInfo = (shipTarget?: {
     id?: number | string | null;
     name?: string | null;
     localizedName?: string | null;
     alias?: string | null;
   } | null) => {
-    if (!shipTarget) {
-      return null;
+    return findShipByIdOrName(ships, shipTarget);
+  };
+
+  const getShipTargetDisplayName = (shipTarget?: {
+    id?: number | string | null;
+    name?: string | null;
+    localizedName?: string | null;
+    alias?: string | null;
+  } | null) => {
+    const shipInfo = resolveShipInfo(shipTarget);
+    return getShipDisplayName(shipInfo || shipTarget) || shipTarget?.name?.trim() || '-';
+  };
+
+  const getShipTargetManufacturerName = (shipTarget?: {
+    id?: number | string | null;
+    name?: string | null;
+    localizedName?: string | null;
+    alias?: string | null;
+  } | null) => {
+    const shipInfo = resolveShipInfo(shipTarget);
+    return getShipManufacturerDisplayName(shipInfo);
+  };
+
+  const getDisplayEquipmentName = (item: DisplayEquipmentItem) => {
+    if (item.type === 'CCU') {
+      return formatMarketCcuResourceName(
+        intl,
+        getShipTargetDisplayName(item.from),
+        getShipTargetDisplayName(item.to),
+      );
     }
 
-    const numericShipId = typeof shipTarget.id === 'number'
-      ? shipTarget.id
-      : typeof shipTarget.id === 'string' && shipTarget.id.trim() !== '' && !Number.isNaN(Number(shipTarget.id))
-        ? Number(shipTarget.id)
-        : null;
-
-    if (typeof numericShipId === 'number') {
-      const matchedById = ships.find((ship) => ship.id === numericShipId);
-      if (matchedById) {
-        return matchedById;
-      }
+    if (item.type === 'Ship') {
+      return getShipTargetDisplayName({ id: item.id, name: item.name });
     }
 
-    const targetNames = [
-      shipTarget.name,
-      shipTarget.localizedName,
-      shipTarget.alias,
-    ]
-      .map(normalizeOptionalShipName)
-      .filter(Boolean);
-
-    if (targetNames.length === 0) {
-      return null;
-    }
-
-    return ships.find((ship) => (
-      targetNames.includes(normalizeOptionalShipName(ship.name))
-      || targetNames.includes(normalizeOptionalShipName(ship.localizedName))
-      || targetNames.includes(normalizeOptionalShipName(ship.alias))
-    )) || null;
+    return item.name;
   };
 
   const handleOpenShipDetail = (shipTarget?: {
@@ -465,8 +478,14 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     const processStoreData = () => {
       const userCCUs = items.ccus
         .map(ccu => {
-          const from = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.from.toUpperCase().trim())
-          const to = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.to.toUpperCase().trim())
+          const from = findShipByIdOrName(ships, {
+            id: ccu.from?.id,
+            name: ccu.from?.name || ccu.parsed.from,
+          });
+          const to = findShipByIdOrName(ships, {
+            id: ccu.to?.id,
+            name: ccu.to?.name || ccu.parsed.to,
+          });
 
           if (!from || !to) {
             return undefined;
@@ -612,15 +631,24 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
   // MARK: 过滤和分页数据
   const filteredEquipment: DisplayEquipmentItem[] = [...(showCcus ? mergedCcus.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.from?.name && item.from.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (item.to?.name && item.to.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    matchesSearchTerm(
+      item.name,
+      getDisplayEquipmentName(item),
+      item.from?.name,
+      getShipTargetDisplayName(item.from),
+      item.to?.name,
+      getShipTargetDisplayName(item.to),
+    )
   ) : []),
   ...(showShips ? hangarShips.filter(ship =>
-    ship.name.toLowerCase().includes(searchTerm.toLowerCase())
+    matchesSearchTerm(
+      ship.name,
+      getShipTargetDisplayName({ id: ship.id, name: ship.name }),
+      getShipTargetManufacturerName({ id: ship.id, name: ship.name }),
+    )
   ).map<DisplayEquipmentItem>(ship => {
     // 查找对应的船只信息
-    const shipInfo = ships.find(s => s.name.toUpperCase().trim() === ship.name.toUpperCase().trim());
+    const shipInfo = findShipByIdOrName(ships, { id: ship.id, name: ship.name });
 
     return {
       id: ship.id.toString(),
@@ -656,14 +684,17 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   }) : []),
   ...(showShips ? hangarBundles.filter(bundle =>
     // 匹配Bundle名称
-    bundle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    matchesSearchTerm(bundle.name) ||
     // 匹配Bundle内部ships的名称
     (bundle.ships || []).some(ship => 
-      ship.name && ship.name.toLowerCase().includes(searchTerm.toLowerCase())
+      matchesSearchTerm(
+        ship.name,
+        getShipTargetDisplayName(ship),
+      )
     ) ||
     // 匹配Bundle内部others的名称
     (bundle.others || []).some(other => 
-      other.name && other.name.toLowerCase().includes(searchTerm.toLowerCase())
+      matchesSearchTerm(other.name)
     )
   ).map<DisplayEquipmentItem>(bundle => {
     // 计算Bundle中所有船只的MSRP总和
@@ -894,6 +925,12 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           {paginatedEquipment.map((item) => {
             const isCcu = item.type === 'CCU';
             const isBundle = item.type === 'Bundle';
+            const displayName = getDisplayEquipmentName(item);
+            const fromDisplayName = getShipTargetDisplayName(item.from);
+            const toDisplayName = getShipTargetDisplayName(item.to);
+            const shipManufacturerName = item.type === 'Ship'
+              ? getShipTargetManufacturerName({ id: item.id, name: item.name })
+              : '';
             const previewImage = isCcu
               ? getShipThumbLarge(item.from as Ship) || getShipThumbLarge(item.to as Ship)
               : isBundle
@@ -999,11 +1036,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                     }}
                     onClick={canOpenShipDetail ? () => handleOpenShipDetail({ id: item.id, name: item.name }) : undefined}
                   >
-                    {item.name}
+                    {displayName}
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-                    {isCcu ? `${item.from.name} -> ${item.to.name}` : ownerLabel}
+                    {isCcu ? `${fromDisplayName} -> ${toDisplayName}` : shipManufacturerName || ownerLabel}
                   </Typography>
 
                   <Box sx={{ mt: 1 }}>
@@ -1064,6 +1101,12 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             const detailItem = mobileDetailItem;
             const isCcu = detailItem.type === 'CCU';
             const isBundle = detailItem.type === 'Bundle';
+            const displayName = getDisplayEquipmentName(detailItem);
+            const fromDisplayName = getShipTargetDisplayName(detailItem.from);
+            const toDisplayName = getShipTargetDisplayName(detailItem.to);
+            const shipManufacturerName = detailItem.type === 'Ship'
+              ? getShipTargetManufacturerName({ id: detailItem.id, name: detailItem.name })
+              : '';
             const previewImage = isCcu
               ? getShipThumbLarge(detailItem.to as Ship) || getShipThumbLarge(detailItem.from as Ship)
               : isBundle
@@ -1081,7 +1124,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                 <Box sx={{ mx: 'auto', mb: 2, height: 6, width: 56, borderRadius: 999, bgcolor: 'divider' }} />
                 <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {detailItem.name}
+                    {displayName}
                   </Typography>
                   <IconButton size="small" onClick={closeMobileDetail}>
                     <X className="w-5 h-5" />
@@ -1099,7 +1142,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   )}
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      {isCcu ? `${detailItem.from.name} -> ${detailItem.to.name}` : ownerName}
+                      {isCcu ? `${fromDisplayName} -> ${toDisplayName}` : shipManufacturerName || ownerName}
                     </Typography>
                     <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -1232,7 +1275,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             )}
                             <Box sx={{ minWidth: 0, flex: 1 }}>
                               <Typography variant="body2" fontWeight={700} noWrap>
-                                {bundleShip.name || '-'}
+                                {getShipTargetDisplayName(bundleShip)}
                               </Typography>
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                                 {shipInfo?.msrp && (
@@ -1389,7 +1432,15 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedEquipment.map((item, index) => (
+              {paginatedEquipment.map((item, index) => {
+                const displayName = getDisplayEquipmentName(item);
+                const fromDisplayName = getShipTargetDisplayName(item.from);
+                const toDisplayName = getShipTargetDisplayName(item.to);
+                const shipManufacturerName = item.type === 'Ship'
+                  ? getShipTargetManufacturerName({ id: item.id, name: item.name })
+                  : '';
+
+                return (
                 <React.Fragment key={getEquipmentRowKey(item, paginatedStart + index)}>
                   <TableRow hover>
                     <TableCell>
@@ -1426,7 +1477,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           />
                           <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
                             <span className='text-white text-sm'>
-                              {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {item.name}
+                              {item.isBuyBack && <FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" />} {displayName}
                             </span>
                           </div>
                           <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
@@ -1450,7 +1501,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             <span className='text-white text-sm flex items-center justify-center gap-2'>
                               {item.insurance === "LTI" && <span className="text-red-500">LTI</span>}
                               {item.isBuyBack && <span className="shrink-0 text-nowrap"><FormattedMessage id="hangar.buyback" defaultMessage="Buyback:" /></span>}
-                              <span>{item.name}</span>
+                              <span>{displayName}</span>
                             </span>
                           </div>
                         </div>
@@ -1460,6 +1511,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       <div className='flex flex-col gap-2'>
                         {item.type === 'CCU' ? (
                           <>
+                            <span className='text-md text-gray-500 dark:text-gray-400'>
+                              {fromDisplayName} -&gt; {toDisplayName}
+                            </span>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
                               <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
@@ -1527,6 +1581,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           </>
                         ) : (
                           <>
+                            {shipManufacturerName && (
+                              <span className='text-md text-gray-500 dark:text-gray-400'>
+                                {shipManufacturerName}
+                              </span>
+                            )}
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
                               <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
@@ -1624,7 +1683,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                     <BundleContentCard
                                       key={`ship-${index}`}
                                       type="Ship"
-                                      name={bundleShip.name}
+                                      name={getShipTargetDisplayName(bundleShip)}
                                       imageUrl={imageUrl}
                                       onClick={() => handleOpenShipDetail(bundleShip)}
                                       meta={
@@ -1651,7 +1710,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                 textItems.push({
                                   key: `ship-${index}`,
                                   type: 'Ship',
-                                  name: bundleShip.name || '-',
+                                  name: getShipTargetDisplayName(bundleShip),
                                   details,
                                 });
                               });
@@ -1761,7 +1820,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                     </TableRow>
                   )}
                 </React.Fragment>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </TableContainer>

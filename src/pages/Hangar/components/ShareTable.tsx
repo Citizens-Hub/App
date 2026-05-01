@@ -8,8 +8,10 @@ import { Typography, TextField, InputAdornment, TableContainer, TableHead, Table
 import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, Upload, Copy, X, Link } from "lucide-react";
 import { Ship } from "@/types";
 import { getShipThumbLarge, toApiAssetUrl } from "@/utils/shipImage";
+import { findShipByIdOrName, getShipDisplayName } from "@/utils/shipDisplay";
 import HangarToolbar from "./HangarToolbar";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
+import { formatMarketCcuResourceName } from "@/pages/Market/marketI18n";
 
 interface DisplayEquipmentItem {
   id: string;
@@ -67,14 +69,42 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
   const savedItems = useSelector((state: RootState) => state.share.selectedItems);
   const allItemPrices = useSelector((state: RootState) => state.share?.allItemPrices || {});
 
+  const matchesSearchTerm = (...values: Array<string | null | undefined>) => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedSearchTerm) {
+      return true;
+    }
+
+    return values.some((value) => value?.toLowerCase().includes(normalizedSearchTerm));
+  };
+
+  const getShipTargetDisplayName = (shipTarget?: { id?: number | string | null; name?: string | null; localizedName?: string | null; alias?: string | null } | null) => {
+    const shipInfo = findShipByIdOrName(ships, shipTarget);
+    return getShipDisplayName(shipInfo || shipTarget) || shipTarget?.name?.trim() || '-';
+  };
+
+  const getDisplayEquipmentName = (item: DisplayEquipmentItem) => (
+    formatMarketCcuResourceName(
+      intl,
+      getShipTargetDisplayName(item.from),
+      getShipTargetDisplayName(item.to),
+    )
+  );
+
   useEffect(() => {
     const processStoreData = () => {
       // 第一步：收集所有可赠送的CCU
       const giftableCCUs = items.ccus
         .filter(ccu => ccu.canGift) // 只保留可赠送的
         .map(ccu => {
-          const from = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.from.toUpperCase().trim())
-          const to = ships.find(ship => ship.name.toUpperCase().trim() === ccu.parsed.to.toUpperCase().trim())
+          const from = findShipByIdOrName(ships, {
+            id: ccu.from?.id,
+            name: ccu.from?.name || ccu.parsed.from,
+          });
+          const to = findShipByIdOrName(ships, {
+            id: ccu.to?.id,
+            name: ccu.to?.name || ccu.parsed.to,
+          });
 
           if (!from || !to) {
             return undefined;
@@ -327,10 +357,15 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
 
   // 过滤和分页数据
   const filteredEquipment = ccus.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.from?.name && item.from.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (item.to?.name && item.to.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    item.owners.some(owner => owner.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    matchesSearchTerm(
+      item.name,
+      getDisplayEquipmentName(item),
+      item.from?.name,
+      getShipTargetDisplayName(item.from),
+      item.to?.name,
+      getShipTargetDisplayName(item.to),
+    ) ||
+    item.owners.some(owner => matchesSearchTerm(owner.name))
   );
 
   const {
@@ -400,7 +435,12 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
       </Box>
     ) : isMobile ? (
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        {paginatedEquipment.map((item) => (
+        {paginatedEquipment.map((item) => {
+          const displayName = getDisplayEquipmentName(item);
+          const fromDisplayName = getShipTargetDisplayName(item.from);
+          const toDisplayName = getShipTargetDisplayName(item.to);
+
+          return (
           <Box
             key={item.id}
             sx={{
@@ -457,12 +497,10 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
 
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="subtitle1" fontWeight="bold">
-                      {item.name}
+                      {displayName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
-                      {item.type === 'CCU'
-                        ? `${item.from.name} -> ${item.to.name}`
-                        : item.type}
+                      {`${fromDisplayName} -> ${toDisplayName}`}
                     </Typography>
 
                     <Typography variant="body1" color="primary" fontWeight={700} sx={{ mt: 1 }}>
@@ -513,7 +551,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
               </Box>
             </Box>
           </Box>
-        ))}
+        )})}
         {hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
       </Box>
     ) : (
@@ -544,7 +582,12 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedEquipment.map((item) => (
+              {paginatedEquipment.map((item) => {
+                const displayName = getDisplayEquipmentName(item);
+                const fromDisplayName = getShipTargetDisplayName(item.from);
+                const toDisplayName = getShipTargetDisplayName(item.to);
+
+                return (
                 <TableRow key={item.id} hover>
                   <TableCell padding="checkbox">
                     <Checkbox
@@ -584,7 +627,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                         />
                         <div className='absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center'>
                           <span className='text-white text-sm'>
-                            {item.name}
+                            {displayName}
                           </span>
                         </div>
                         <div className='absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold'>
@@ -602,6 +645,9 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                   </TableCell>
                   <TableCell>
                     <div className='flex flex-col gap-2'>
+                      <span className='text-md text-gray-500 dark:text-gray-400'>
+                        {fromDisplayName} -&gt; {toDisplayName}
+                      </span>
                       <span className='text-md text-blue-500 font-bold'>
                         <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" /></span>
                         <span>{(item.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
@@ -666,7 +712,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
                     />
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </TableContainer>

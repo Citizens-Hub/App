@@ -412,7 +412,10 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         })
       }
 
-      if (!from || !to || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from)) || !ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to))) {
+      const fromShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from));
+      const toShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to));
+
+      if (!fromShip || !toShip) {
         throw new Error(JSON.stringify({
           reason: "CCU_SHIP_NOT_FOUND",
           fromCandidates,
@@ -421,6 +424,13 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           resolvedTo: to,
         }));
       }
+
+      return {
+        from: fromShip.name,
+        to: toShip.name,
+        fromShipId: fromShip.id,
+        toShipId: toShip.id,
+      };
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
       reportError({
@@ -434,7 +444,6 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       return false;
     }
 
-    return { from, to };
   }, [normalizeShipName, resolveShipName, ships]);
 
   const getBuybackDetailKey = useCallback((name: string) => normalizeWhitespace(name).toLowerCase(), []);
@@ -605,8 +614,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (!parsed) return;
 
         dispatch(addCCU({
-          from: content.match_items[0],
-          to: content.target_items[0],
+          from: { id: parsed.fromShipId, name: parsed.from },
+          to: { id: parsed.toShipId, name: parsed.to },
           name: content.name,
           value: parsedValue,
           parsed,
@@ -818,8 +827,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         if (parsed) {
           dispatch(addBuybackCCU({
             name: ccu.name,
-            from: { id: Number(ccu.from), name: parsed.from },
-            to: { id: Number(ccu.to), name: parsed.to },
+            from: { id: parsed.fromShipId, name: parsed.from },
+            to: { id: parsed.toShipId, name: parsed.to },
             value: ccu.price / 100,
             parsed,
             isBuyBack: true,

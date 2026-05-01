@@ -14,6 +14,7 @@ import RsiIcon from '@/components/RsiIcon';
 import { useApi } from '@/hooks';
 import { getRsiIconPath } from '@/data/rsiIcons';
 import { Ship, ShipResponse } from '@/types';
+import { getShipDisplayName, getShipManufacturerDisplayName } from '@/utils/shipDisplay';
 import ShipInfoContent from './ShipInfoContent';
 
 interface ShipInfoDialogProps {
@@ -37,8 +38,8 @@ export default function ShipInfoDialog({ open, ship, onClose }: ShipInfoDialogPr
   });
   const detailedShip = shipResponseData?.data.ship || ship;
   const isLoading = Boolean(requestPath && !shipResponseData && !shipResponseError);
-  const displayShipName = detailedShip?.name || ship?.name || '-';
-  const displayManufacturerName = detailedShip?.manufacturer?.name || ship?.manufacturer?.name || '';
+  const displayShipName = getShipDisplayName(detailedShip || ship) || ship?.name || '-';
+  const displayManufacturerName = getShipManufacturerDisplayName(detailedShip || ship);
   const externalShipUrl = toAbsoluteRsiUrl(detailedShip?.details?.url || detailedShip?.link);
 
   return (
