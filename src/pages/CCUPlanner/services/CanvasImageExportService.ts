@@ -1,6 +1,7 @@
 import type { Edge, Node } from 'reactflow';
 import { getBezierPath, Position } from 'reactflow';
 import type { IntlShape } from 'react-intl';
+import QRCode from 'qrcode';
 
 import type {
   Ccu,
@@ -13,6 +14,7 @@ import type {
 } from '@/types';
 import { CcuSourceType } from '@/types';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
+import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
@@ -29,9 +31,13 @@ import {
   EXPORT_NODE_WIDTH,
   EXPORT_TARGET_SCALE,
   EXPORT_VERTICAL_PADDING,
+  getExportFooterCardMetrics,
   type PreparedExportEdge,
+  type PreparedExportFooterCard,
   type PreparedExportNode,
   type PreparedExportPayload,
+  type PreparedExportQrCode,
+  type RenderableImage,
   renderPreparedExport
 } from './CanvasImageExportRenderer';
 import type { FlowData } from './ImportExportService';
@@ -64,7 +70,8 @@ const EXPORT_WORKER_SUPPORTED = typeof Worker !== 'undefined'
   && typeof createImageBitmap !== 'undefined';
 const EXPORT_MIME_TYPE = 'image/jpeg';
 const EXPORT_FILE_EXTENSION = 'jpg';
-const EXPORT_JPEG_QUALITY = 0.92;
+const EXPORT_JPEG_QUALITY = 0.90;
+const EXPORT_FOOTER_URL = 'https://citizenshub.app/ccu-planner';
 
 type ExportStage =
   | 'preparing'
@@ -125,8 +132,7 @@ interface WorkerProgressMessage {
 
 interface WorkerSuccessMessage {
   type: 'success';
-  buffer: ArrayBuffer;
-  mimeType: string;
+  blob: Blob;
   robustWatermarkEmbedded: boolean;
 }
 
@@ -137,8 +143,52 @@ interface WorkerErrorMessage {
 
 type WorkerResponseMessage = WorkerProgressMessage | WorkerSuccessMessage | WorkerErrorMessage;
 
+interface QrCodeMatrix {
+  modules: {
+    size: number;
+    data: Uint8Array;
+  };
+}
+
+interface ExportRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 function resolveColor(value: string, fallback: string) {
   return COLOR_CLASS_MAP[value] || fallback;
+}
+
+function createExportQrCode(url: string): PreparedExportQrCode {
+  const qrCode = QRCode.create(url, {
+    errorCorrectionLevel: 'M',
+    margin: 0
+  }) as QrCodeMatrix;
+
+  return {
+    size: qrCode.modules.size,
+    modules: qrCode.modules.data
+  };
+}
+
+function rectsOverlap(left: ExportRect, right: ExportRect) {
+  return !(
+    left.x + left.width <= right.x
+    || right.x + right.width <= left.x
+    || left.y + left.height <= right.y
+    || right.y + right.height <= left.y
+  );
+}
+
+function estimatePreparedEdgeLabelRect(edge: PreparedExportEdge): ExportRect {
+  return {
+    x: edge.labelX - 92,
+    y: edge.labelY - (edge.labelSavingsText ? 50 : 18),
+    width: 184,
+    height: edge.labelSavingsText ? 70 : 38
+  };
 }
 
 function getNodeMetrics(node: Node): NodeRenderMetrics {
@@ -168,7 +218,7 @@ function getProgressMessage(intl: IntlShape, stage: ExportStage) {
     case 'embedding':
       return intl.formatMessage({ id: 'ccuPlanner.exportProgress.embedding', defaultMessage: 'Embedding route data...' });
     case 'encoding':
-      return intl.formatMessage({ id: 'ccuPlanner.exportProgress.encoding', defaultMessage: 'Encoding PNG...' });
+      return intl.formatMessage({ id: 'ccuPlanner.exportProgress.encoding', defaultMessage: 'Encoding image...' });
     case 'downloading':
       return intl.formatMessage({ id: 'ccuPlanner.exportProgress.downloading', defaultMessage: 'Starting download...' });
   }
@@ -222,9 +272,27 @@ function toBlob(canvas: HTMLCanvasElement) {
   });
 }
 
-async function loadImageBitmap(url: string) {
+function isSvgAsset(url: string) {
+  return /\.svg(?:[?#].*)?$/i.test(url);
+}
+
+async function loadSvgImageElement(url: string): Promise<HTMLImageElement | null> {
+  return await new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = url;
+  });
+}
+
+async function loadRenderableImage(url: string) {
   if (!url) {
     return null;
+  }
+
+  if (isSvgAsset(url)) {
+    return await loadSvgImageElement(url);
   }
 
   try {
@@ -244,8 +312,11 @@ async function loadImagesOnMainThread(
   payload: PreparedExportPayload,
   options: ExportCanvasImageOptions
 ) {
-  const imageUrls = Array.from(new Set(payload.nodes.map(node => node.imageUrl).filter(Boolean)));
-  const imageMap = new Map<string, ImageBitmap | null>();
+  const imageUrls = Array.from(new Set(payload.nodes.flatMap((node) => [
+    node.imageUrl,
+    node.manufacturerLogoUrl || ''
+  ]).filter(Boolean)));
+  const imageMap = new Map<string, RenderableImage | null>();
 
   if (!imageUrls.length) {
     return imageMap;
@@ -253,7 +324,7 @@ async function loadImagesOnMainThread(
 
   for (let index = 0; index < imageUrls.length; index += 1) {
     const imageUrl = imageUrls[index];
-    const image = await loadImageBitmap(imageUrl);
+    const image = await loadRenderableImage(imageUrl);
     imageMap.set(imageUrl, image);
 
     const progress = 10 + Math.round(((index + 1) / imageUrls.length) * 45);
@@ -265,6 +336,12 @@ async function loadImagesOnMainThread(
   }
 
   return imageMap;
+}
+
+function releaseRenderableImage(image: RenderableImage | null) {
+  if (image && 'close' in image && typeof image.close === 'function') {
+    image.close();
+  }
 }
 
 function buildPreparedEdge(
@@ -402,18 +479,24 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
   const contentWidth = Math.max(1, nodeBounds.maxX - nodeBounds.minX);
   const contentHeight = Math.max(1, nodeBounds.maxY - nodeBounds.minY);
   const width = Math.max(EXPORT_MIN_WIDTH, Math.ceil(contentWidth + EXPORT_HORIZONTAL_PADDING * 2));
-  const height = Math.max(
+  const footerCardTitle = options.intl.formatMessage({
+    id: 'ccuPlanner.exportFooter.title',
+    defaultMessage: "Generated by Citizens' Hub"
+  });
+  const footerCardDescription = options.intl.formatMessage({
+    id: 'ccuPlanner.exportFooter.description',
+    defaultMessage: 'Import this image in CCU Planner, or scan the QR code to open the planner.'
+  });
+  const footerCardUrl = options.intl.formatMessage({
+    id: 'ccuPlanner.exportFooter.url',
+    defaultMessage: 'citizenshub.app/ccu-planner'
+  });
+  const footerQrCode = createExportQrCode(EXPORT_FOOTER_URL);
+  const baseHeight = Math.max(
     EXPORT_MIN_HEIGHT,
     Math.ceil(contentHeight + EXPORT_HEADER_HEIGHT + EXPORT_VERTICAL_PADDING * 2)
   );
-  const scale = Math.max(
-    Math.min(
-      EXPORT_TARGET_SCALE,
-      EXPORT_MAX_DIMENSION / width,
-      EXPORT_MAX_DIMENSION / height
-    ),
-    1
-  );
+  const footerMetrics = getExportFooterCardMetrics(width, baseHeight);
 
   const offsetX = EXPORT_HORIZONTAL_PADDING - nodeBounds.minX;
   const offsetY = EXPORT_HEADER_HEIGHT + EXPORT_VERTICAL_PADDING - nodeBounds.minY;
@@ -432,6 +515,7 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
       width: metrics.width,
       height: EXPORT_NODE_HEIGHT,
       imageUrl: getShipSlideshowImage(ship) || getShipThumbLarge(ship) || '',
+      manufacturerLogoUrl: getManufacturerLogoPath(ship.manufacturer) || '',
       shipName: getShipDisplayName(ship) || ship.name,
       manufacturerLine: `${ship.manufacturer.name} / ${localizeShipType(options.intl.locale, ship.type)}`,
       showWb: (ship.skus || []).some((sku) => sku.available && sku.price !== ship.msrp),
@@ -444,13 +528,63 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
     .map(edge => buildPreparedEdge(edge, options, nodeMap, strategyFactory, offsetX, offsetY))
     .filter((edge): edge is PreparedExportEdge => edge !== null);
 
+  const maxNodeBottom = preparedNodes.reduce((max, node) => Math.max(max, node.y + node.height), 0);
+  const maxEdgeBottom = preparedEdges.reduce((max, edge) => Math.max(max, edge.labelY + 20), 0);
+  const contentBottom = Math.max(maxNodeBottom, maxEdgeBottom, EXPORT_HEADER_HEIGHT);
+  const footerCardX = width - footerMetrics.pageMarginX - footerMetrics.cardWidth;
+  const footerCardBaseY = baseHeight - footerMetrics.pageMarginY - footerMetrics.cardHeight;
+  const footerCandidateRect: ExportRect = {
+    x: footerCardX,
+    y: footerCardBaseY,
+    width: footerMetrics.cardWidth,
+    height: footerMetrics.cardHeight
+  };
+  const footerIntersectsNode = preparedNodes.some((node) => rectsOverlap(footerCandidateRect, {
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height
+  }));
+  const footerIntersectsEdge = preparedEdges.some((edge) => rectsOverlap(footerCandidateRect, estimatePreparedEdgeLabelRect(edge)));
+  const footerNeedsExtraSpace = footerIntersectsNode || footerIntersectsEdge;
+  const footerTop = footerNeedsExtraSpace
+    ? contentBottom + footerMetrics.contentGap
+    : footerCardBaseY;
+  const height = footerNeedsExtraSpace
+    ? Math.max(baseHeight, Math.ceil(footerTop + footerMetrics.cardHeight + footerMetrics.pageMarginY))
+    : baseHeight;
+  const scale = Math.max(
+    Math.min(
+      EXPORT_TARGET_SCALE,
+      EXPORT_MAX_DIMENSION / width,
+      EXPORT_MAX_DIMENSION / height
+    ),
+    1
+  );
+  const footerCard: PreparedExportFooterCard = {
+    x: footerCardX,
+    y: footerTop,
+    width: footerMetrics.cardWidth,
+    height: footerMetrics.cardHeight,
+    qrSize: footerMetrics.qrSize,
+    padding: footerMetrics.padding,
+    gap: footerMetrics.gap,
+    titleFontSize: footerMetrics.titleFontSize,
+    bodyFontSize: footerMetrics.bodyFontSize,
+    urlFontSize: footerMetrics.urlFontSize,
+    title: footerCardTitle,
+    description: footerCardDescription,
+    url: footerCardUrl,
+    qrCode: footerQrCode
+  };
+
   return {
     width,
     height,
     scale,
     title: options.routeName?.trim()
       || options.intl.formatMessage({ id: 'toolbar.export', defaultMessage: 'Export' }),
-    subtitle: `Citizens' Hub / ${preparedNodes.length} ships / ${preparedEdges.length} routes`,
+    subtitle: `${preparedNodes.length} ships / ${preparedEdges.length} routes`,
     exportedAt: new Date().toLocaleString(options.intl.locale, {
       year: 'numeric',
       month: 'short',
@@ -459,7 +593,8 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
       minute: '2-digit'
     }),
     nodes: preparedNodes,
-    edges: preparedEdges
+    edges: preparedEdges,
+    footerCard
   };
 }
 
@@ -480,8 +615,18 @@ async function runWorkerExport(
     worker.onmessage = (event: MessageEvent<WorkerResponseMessage>) => {
       const message = event.data;
 
-      if (message.type === 'progress') {
-        reportProgress(options, message.stage, message.progress);
+    if (message.type === 'progress') {
+        reportProgress(
+          options,
+          message.stage,
+          message.progress,
+          message.stage === 'encoding'
+            ? {
+              indeterminate: true,
+              progress: Math.max(90, message.progress)
+            }
+            : undefined
+        );
         return;
       }
 
@@ -493,7 +638,7 @@ async function runWorkerExport(
 
       cleanup();
       resolve({
-        blob: new Blob([message.buffer], { type: message.mimeType || EXPORT_MIME_TYPE }),
+        blob: message.blob,
         robustWatermarkEmbedded: message.robustWatermarkEmbedded
       });
     };
@@ -509,7 +654,7 @@ async function runWorkerExport(
       routePayload: routePayload.buffer.slice(
         routePayload.byteOffset,
         routePayload.byteOffset + routePayload.byteLength
-      )
+      ) as ArrayBuffer
     };
 
     worker.postMessage(request, [request.routePayload]);
@@ -547,11 +692,16 @@ async function runMainThreadExport(
   ctx.putImageData(imageData, 0, 0);
 
   await yieldToBrowser();
-  reportProgress(options, 'encoding', 90);
+  reportProgress(options, 'encoding', 90, {
+    indeterminate: true
+  });
   const blob = await toBlob(canvas);
+  reportProgress(options, 'encoding', 98, {
+    indeterminate: true
+  });
 
   imageMap.forEach((image) => {
-    image?.close();
+    releaseRenderableImage(image);
   });
 
   return {
@@ -584,7 +734,8 @@ export async function exportCanvasImage(options: ExportCanvasImageOptions): Prom
   reportProgress(options, 'preparing', 12);
   await yieldToBrowser();
 
-  const result = EXPORT_WORKER_SUPPORTED
+  const containsSvgAssets = payload.nodes.some((node) => isSvgAsset(node.manufacturerLogoUrl || ''));
+  const result = EXPORT_WORKER_SUPPORTED && !containsSvgAssets
     ? await runWorkerExport(payload, routePayload, options)
     : await runMainThreadExport(payload, routePayload, options);
 

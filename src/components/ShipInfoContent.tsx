@@ -206,7 +206,7 @@ function FeaturedShipField({
           src={logoSrc}
           alt=""
           aria-hidden
-          className="pointer-events-none absolute right-0 top-1/2 max-h-[140%] w-auto max-w-[70%] -translate-y-1/2 object-contain opacity-[0.2] dark:invert dark:opacity-[0.2]"
+          className="pointer-events-none absolute right-0 top-1/2 max-h-[140%] w-auto max-w-[70%] -translate-y-1/2 object-contain opacity-[0.2] dark:invert dark:opacity-[0.2] px-10"
         />
       )}
       <div className="relative z-10 flex h-full flex-col justify-between gap-5 py-1">

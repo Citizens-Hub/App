@@ -17,6 +17,7 @@ const MANUFACTURER_LOGO_PATHS: Record<string, string> = {
   'roberts space industries': '/rsi-manufacturers/roberts-space-industries.svg',
   tumbril: '/rsi-manufacturers/tumbril.svg',
   vanduul: '/rsi-manufacturers/vanduul.svg',
+  'greys market': '/rsi-manufacturers/greys-market.svg'
 };
 
 const MANUFACTURER_LOGO_PATHS_BY_ID: Record<number, string> = {
@@ -38,6 +39,7 @@ const MANUFACTURER_LOGO_PATHS_BY_ID: Record<number, string> = {
   83: '/rsi-manufacturers/tumbril.svg',
   93: '/rsi-manufacturers/gatac-manufacture.svg',
   96: '/rsi-manufacturers/mirai.svg',
+  97: '/rsi-manufacturers/greys-market.svg'
 };
 
 function normalizeManufacturerName(name?: string | null) {

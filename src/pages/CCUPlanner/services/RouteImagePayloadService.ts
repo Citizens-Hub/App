@@ -616,6 +616,18 @@ export class RouteImagePayloadService {
     return buildImportableFlowData(compactPayload);
   }
 
+  async inspectPayload(bytes: Uint8Array) {
+    const flowData = await this.decodeFlowData(bytes);
+    return {
+      flowData,
+      summary: {
+        nodeCount: flowData.nodes.length,
+        edgeCount: flowData.edges.length,
+        startShipPriceCount: Object.keys(flowData.startShipPrices).length
+      }
+    };
+  }
+
   attachResolvedValidityWindows(
     flowData: FlowData,
     windowsByEdgeKey: Map<string, CcuValidityWindow[] | undefined>

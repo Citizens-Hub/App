@@ -26,8 +26,7 @@ interface WorkerProgressMessage {
 
 interface WorkerSuccessMessage {
   type: 'success';
-  buffer: ArrayBuffer;
-  mimeType: string;
+  blob: Blob;
   robustWatermarkEmbedded: boolean;
 }
 
@@ -81,7 +80,10 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    const imageUrls = Array.from(new Set(payload.nodes.map(node => node.imageUrl).filter(Boolean)));
+    const imageUrls = Array.from(new Set(payload.nodes.flatMap((node) => [
+      node.imageUrl,
+      node.manufacturerLogoUrl || ''
+    ]).filter(Boolean)));
     const imageMap = new Map<string, ImageBitmap | null>();
 
     for (let index = 0; index < imageUrls.length; index += 1) {
@@ -125,7 +127,13 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
     workerScope.postMessage(encodingProgressMessage);
 
     const blob = await canvas.convertToBlob({ type: EXPORT_MIME_TYPE, quality: EXPORT_JPEG_QUALITY });
-    const buffer = await blob.arrayBuffer();
+
+    const encodedProgressMessage: WorkerProgressMessage = {
+      type: 'progress',
+      stage: 'encoding',
+      progress: 98
+    };
+    workerScope.postMessage(encodedProgressMessage);
 
     imageMap.forEach((image) => {
       image?.close();
@@ -133,12 +141,11 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
 
     const successResponse: WorkerSuccessMessage = {
       type: 'success',
-      buffer,
-      mimeType: EXPORT_MIME_TYPE,
+      blob,
       robustWatermarkEmbedded: true
     };
 
-    workerScope.postMessage(successResponse, [buffer]);
+    workerScope.postMessage(successResponse);
   } catch (error) {
     const errorResponse: WorkerErrorMessage = {
       type: 'error',

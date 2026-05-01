@@ -1,4 +1,4 @@
-export const EXPORT_HEADER_HEIGHT = 88;
+export const EXPORT_HEADER_HEIGHT = 148;
 export const EXPORT_HORIZONTAL_PADDING = 112;
 export const EXPORT_VERTICAL_PADDING = 104;
 export const EXPORT_MIN_WIDTH = 960;
@@ -13,8 +13,12 @@ export const EXPORT_NODE_IMAGE_HEIGHT = 120;
 export const EXPORT_NODE_IMAGE_RADIUS = 3;
 export const EXPORT_NODE_HANDLE_Y = 158;
 export const EXPORT_NODE_HANDLE_RADIUS = 7;
+export const EXPORT_MANUFACTURER_WATERMARK_WIDTH = 128;
+export const EXPORT_MANUFACTURER_WATERMARK_HEIGHT = 86;
+export const EXPORT_MANUFACTURER_WATERMARK_MARGIN = 20;
 
 const FONT_FAMILY = '"Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif';
+const EXPORT_BACKGROUND_DOT_GAP = 32;
 
 export interface PreparedExportNode {
   id: string;
@@ -23,6 +27,7 @@ export interface PreparedExportNode {
   width: number;
   height: number;
   imageUrl: string;
+  manufacturerLogoUrl?: string;
   shipName: string;
   manufacturerLine: string;
   showWb: boolean;
@@ -42,6 +47,43 @@ export interface PreparedExportEdge {
   labelSavingsText: string | null;
 }
 
+export interface PreparedExportQrCode {
+  size: number;
+  modules: Uint8Array;
+}
+
+export interface PreparedExportFooterCard {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  qrSize: number;
+  padding: number;
+  gap: number;
+  titleFontSize: number;
+  bodyFontSize: number;
+  urlFontSize: number;
+  title: string;
+  description: string;
+  url: string;
+  qrCode: PreparedExportQrCode;
+}
+
+export interface ExportFooterCardMetrics {
+  cardWidth: number;
+  cardHeight: number;
+  qrSize: number;
+  padding: number;
+  gap: number;
+  radius: number;
+  pageMarginX: number;
+  pageMarginY: number;
+  contentGap: number;
+  titleFontSize: number;
+  bodyFontSize: number;
+  urlFontSize: number;
+}
+
 export interface PreparedExportPayload {
   width: number;
   height: number;
@@ -51,6 +93,7 @@ export interface PreparedExportPayload {
   exportedAt: string;
   nodes: PreparedExportNode[];
   edges: PreparedExportEdge[];
+  footerCard: PreparedExportFooterCard | null;
 }
 
 export type RenderableImage = CanvasImageSource & {
@@ -59,6 +102,106 @@ export type RenderableImage = CanvasImageSource & {
 };
 
 type ExportCanvasContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+type PatternSurface = OffscreenCanvas | HTMLCanvasElement;
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function getExportFooterCardMetrics(width: number, height: number): ExportFooterCardMetrics {
+  const widthScale = Math.max(1, width / EXPORT_MIN_WIDTH);
+  const heightScale = Math.max(1, height / EXPORT_MIN_HEIGHT);
+  const pageMarginX = Math.round(clampNumber(24 * Math.pow(widthScale, 0.34), 24, 76));
+  const pageMarginY = Math.round(clampNumber(24 * Math.pow(heightScale, 0.34), 24, 76));
+  const contentGap = Math.round(clampNumber(20 * Math.pow(heightScale, 0.32), 20, 68));
+  const padding = Math.round(clampNumber(16 * Math.pow(widthScale, 0.3), 16, 44));
+  const gap = Math.round(clampNumber(18 * Math.pow(widthScale, 0.28), 18, 40));
+  const qrSize = Math.round(clampNumber(Math.min(width * 0.1, height * 0.24), 112, 360));
+  const titleFontSize = Math.round(clampNumber(32 * Math.pow(widthScale, 0.5), 32, 72));
+  const bodyFontSize = Math.round(clampNumber(12 * Math.pow(widthScale, 0.38), 12, 24));
+  const urlFontSize = Math.round(clampNumber(12 * Math.pow(widthScale, 0.34), 12, 22));
+  const textColumnWidth = Math.round(clampNumber(width * 0.28, 320, 640));
+  const cardWidth = Math.round((padding * 2) + qrSize + gap + textColumnWidth);
+  const titleLineHeight = Math.round(titleFontSize * 1.2);
+  const bodyLineHeight = Math.round(bodyFontSize * 1.45);
+  const urlLineHeight = Math.round(urlFontSize * 1.3);
+  const titleGap = Math.round(Math.max(8, bodyFontSize * 0.45));
+  const urlGap = Math.round(Math.max(8, urlFontSize * 0.55));
+  const textBlockHeight = titleLineHeight + titleGap + (bodyLineHeight * 3) + urlGap + urlLineHeight;
+
+  return {
+    cardWidth,
+    cardHeight: Math.round(Math.max(qrSize + padding * 2, textBlockHeight + padding * 2)),
+    qrSize,
+    padding,
+    gap,
+    radius: 18,
+    pageMarginX,
+    pageMarginY,
+    contentGap,
+    titleFontSize,
+    bodyFontSize,
+    urlFontSize
+  };
+}
+
+function createPatternSurface(size: number): PatternSurface {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    return new OffscreenCanvas(size, size);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  return canvas;
+}
+
+function getPatternContext(surface: PatternSurface): ExportCanvasContext | null {
+  return surface.getContext('2d') as ExportCanvasContext | null;
+}
+
+function hashNoise(x: number, y: number) {
+  let value = Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263);
+  value = Math.imul(value ^ (value >>> 13), 1274126177);
+  return ((value ^ (value >>> 16)) >>> 0) / 0xffffffff;
+}
+
+function createTexturePattern(ctx: ExportCanvasContext) {
+  const textureSurface = createPatternSurface(96);
+  const textureCtx = getPatternContext(textureSurface);
+
+  if (!textureCtx) {
+    return null;
+  }
+
+  textureCtx.clearRect(0, 0, textureSurface.width, textureSurface.height);
+
+  for (let y = 0; y < textureSurface.height; y += 2) {
+    for (let x = 0; x < textureSurface.width; x += 2) {
+      const noise = hashNoise(x, y);
+
+      if (noise > 0.78) {
+        textureCtx.fillStyle = `rgba(15, 23, 42, ${0.03 + ((noise - 0.78) * 0.12)})`;
+        textureCtx.fillRect(x, y, 1, 1);
+      } else if (noise < 0.04) {
+        textureCtx.fillStyle = `rgba(255, 255, 255, ${0.02 + ((0.04 - noise) * 0.18)})`;
+        textureCtx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  textureCtx.strokeStyle = 'rgba(15, 23, 42, 0.018)';
+  textureCtx.lineWidth = 1;
+  for (let offset = -textureSurface.height; offset < textureSurface.width; offset += 12) {
+    textureCtx.beginPath();
+    textureCtx.moveTo(offset, 0);
+    textureCtx.lineTo(offset + textureSurface.height, textureSurface.height);
+    textureCtx.stroke();
+  }
+
+  return ctx.createPattern(textureSurface, 'repeat');
+}
 
 function createRoundedRectPath(
   ctx: ExportCanvasContext,
@@ -97,23 +240,69 @@ function drawRoundedRect(
   ctx.fill();
 }
 
-function drawGrid(ctx: ExportCanvasContext, width: number, height: number, step: number) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
-  ctx.lineWidth = 1;
-
-  for (let x = 0; x <= width; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
+function fillRectWithPattern(
+  ctx: ExportCanvasContext,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  pattern: CanvasPattern | null,
+  opacity = 1
+) {
+  if (!pattern || width <= 0 || height <= 0) {
+    return;
   }
 
-  for (let y = 0; y <= height; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = pattern;
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+}
+
+function drawQrCodeModules(
+  ctx: ExportCanvasContext,
+  x: number,
+  y: number,
+  size: number,
+  qrCode: PreparedExportQrCode
+) {
+  const quietZoneModules = 4;
+  const totalModuleCount = qrCode.size + quietZoneModules * 2;
+  const moduleSize = size / totalModuleCount;
+
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = '#0f172a';
+
+  for (let row = 0; row < qrCode.size; row += 1) {
+    for (let column = 0; column < qrCode.size; column += 1) {
+      if (!qrCode.modules[row * qrCode.size + column]) {
+        continue;
+      }
+
+      const left = x + ((column + quietZoneModules) * moduleSize);
+      const top = y + ((row + quietZoneModules) * moduleSize);
+      const right = x + ((column + quietZoneModules + 1) * moduleSize);
+      const bottom = y + ((row + quietZoneModules + 1) * moduleSize);
+      ctx.fillRect(left, top, right - left, bottom - top);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawDotGrid(ctx: ExportCanvasContext, width: number, height: number, gap: number) {
+  ctx.save();
+  ctx.fillStyle = '#333333';
+
+  for (let y = gap / 2; y <= height; y += gap) {
+    for (let x = gap / 2; x <= width; x += gap) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -331,22 +520,128 @@ function drawNodeImage(
   ctx.restore();
 }
 
-function drawHeader(ctx: ExportCanvasContext, payload: PreparedExportPayload) {
+function drawManufacturerLogoWatermark(
+  ctx: ExportCanvasContext,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  image: RenderableImage | null
+) {
+  if (!image) {
+    return;
+  }
+
   ctx.save();
-  ctx.fillStyle = '#0f172a';
-  ctx.font = `700 28px ${FONT_FAMILY}`;
-  ctx.textBaseline = 'alphabetic';
+  const imageAspect = image.width / image.height;
+  const targetAspect = width / height;
+
+  let drawWidth = width;
+  let drawHeight = height;
+  let drawX = x;
+  let drawY = y;
+
+  if (imageAspect > targetAspect) {
+    drawHeight = width / imageAspect;
+    drawY += height - drawHeight;
+  } else {
+    drawWidth = height * imageAspect;
+    drawX += width - drawWidth;
+  }
+
+  ctx.globalAlpha = 0.18;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  ctx.restore();
+}
+
+function drawHeader(ctx: ExportCanvasContext, payload: PreparedExportPayload) {
+  const widthScale = Math.max(1, payload.width / EXPORT_MIN_WIDTH);
+  const marginX = Math.round(Math.max(56, Math.min(132, 56 * Math.pow(widthScale, 0.72))));
+  const titleFontSize = Math.round(Math.max(28, Math.min(56, 28 * Math.pow(widthScale, 0.78))));
+  const subtitleFontSize = Math.round(Math.max(14, Math.min(26, 14 * Math.pow(widthScale, 0.72))));
+  const exportedAtFontSize = Math.round(Math.max(13, Math.min(22, 13 * Math.pow(widthScale, 0.68))));
+  const titleLineHeight = Math.round(titleFontSize * 1.14);
+  const subtitleLineHeight = Math.round(subtitleFontSize * 1.35);
+  const topPadding = Math.round(clampNumber(38 * Math.pow(widthScale, 0.2), 38, 54));
+  const titleGap = Math.round(Math.max(8, titleFontSize * 0.22));
+  const availableLeftWidth = Math.max(240, payload.width - (marginX * 2) - Math.max(240, payload.width * 0.26));
+
+  ctx.save();
   ctx.textAlign = 'left';
-  ctx.fillText(payload.title, 56, 44);
+  ctx.textBaseline = 'top';
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = `700 ${titleFontSize}px ${FONT_FAMILY}`;
+  const titleLines = splitTextIntoLines(ctx, payload.title, availableLeftWidth, 2);
+  drawTextLines(ctx, titleLines, marginX, topPadding, titleLineHeight, '#0f172a');
 
   ctx.fillStyle = '#475569';
-  ctx.font = `500 14px ${FONT_FAMILY}`;
-  ctx.fillText(payload.subtitle, 56, 68);
+  ctx.font = `500 ${subtitleFontSize}px ${FONT_FAMILY}`;
+  const subtitleY = topPadding + (titleLines.length * titleLineHeight) + titleGap;
+  const subtitleLines = splitTextIntoLines(ctx, payload.subtitle, availableLeftWidth, 2);
+  drawTextLines(ctx, subtitleLines, marginX, subtitleY, subtitleLineHeight, '#475569');
 
+  const exportedAtY = topPadding + Math.round(Math.max(2, exportedAtFontSize * 0.12));
   ctx.textAlign = 'right';
   ctx.fillStyle = '#64748b';
-  ctx.font = `500 13px ${FONT_FAMILY}`;
-  ctx.fillText(payload.exportedAt, payload.width - 56, 52);
+  ctx.font = `500 ${exportedAtFontSize}px ${FONT_FAMILY}`;
+  ctx.fillText(payload.exportedAt, payload.width - marginX, exportedAtY);
+  ctx.restore();
+}
+
+function drawExportFooterCard(
+  ctx: ExportCanvasContext,
+  footerCard: PreparedExportFooterCard
+) {
+  const bodyLineHeight = Math.round(footerCard.bodyFontSize * 1.45);
+  const urlLineHeight = Math.round(footerCard.urlFontSize * 1.3);
+  const titleGap = Math.round(Math.max(8, footerCard.bodyFontSize * 0.45));
+  const urlGap = Math.round(Math.max(8, footerCard.urlFontSize * 0.55));
+  const textWidth = footerCard.width - (footerCard.padding * 2) - footerCard.qrSize - footerCard.gap;
+  const qrX = footerCard.x + footerCard.width - footerCard.padding - footerCard.qrSize;
+
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  let titleFontSize = footerCard.titleFontSize;
+  ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  while (titleFontSize > footerCard.bodyFontSize + 8 && ctx.measureText(footerCard.title).width > textWidth) {
+    titleFontSize -= 1;
+    ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  }
+  const titleLineHeight = Math.round(titleFontSize * 1.2);
+  const titleLines = [footerCard.title];
+  const titleWidths = [ctx.measureText(footerCard.title).width];
+  ctx.font = `500 ${footerCard.bodyFontSize}px ${FONT_FAMILY}`;
+  const bodyLines = splitTextIntoLines(ctx, footerCard.description, textWidth, 3);
+  const bodyWidths = bodyLines.map(line => ctx.measureText(line).width);
+  ctx.font = `600 ${footerCard.urlFontSize}px ${FONT_FAMILY}`;
+  const urlWidth = ctx.measureText(footerCard.url).width;
+  const textBlockWidth = Math.max(urlWidth, ...titleWidths, ...bodyWidths);
+  const textBlockHeight = (titleLines.length * titleLineHeight)
+    + titleGap
+    + (bodyLines.length * bodyLineHeight)
+    + urlGap
+    + urlLineHeight;
+  const contentHeight = footerCard.height - (footerCard.padding * 2);
+  const contentTop = footerCard.y + footerCard.padding;
+  const qrY = contentTop + Math.max(0, (contentHeight - footerCard.qrSize) / 2);
+  const textStartY = contentTop + Math.max(0, (contentHeight - textBlockHeight) / 2);
+  const textRight = qrX - footerCard.gap;
+  const textX = Math.max(footerCard.x + footerCard.padding, textRight - textBlockWidth);
+
+  drawQrCodeModules(ctx, qrX, qrY, footerCard.qrSize, footerCard.qrCode);
+  ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, titleLines, textX, textStartY, titleLineHeight, '#0f172a');
+
+  const bodyY = textStartY + (titleLines.length * titleLineHeight) + titleGap;
+  ctx.font = `500 ${footerCard.bodyFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, bodyLines, textX, bodyY, bodyLineHeight, '#475569');
+
+  const urlY = bodyY + (bodyLines.length * bodyLineHeight) + urlGap;
+  ctx.font = `600 ${footerCard.urlFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, [footerCard.url], textX, urlY, urlLineHeight, '#2563eb');
   ctx.restore();
 }
 
@@ -359,9 +654,9 @@ function drawEdgeLabel(
 
   if (edge.labelSavingsText) {
     ctx.font = `700 12px ${FONT_FAMILY}`;
-    const savingsWidth = ctx.measureText(edge.labelSavingsText).width + 24;
-    drawRoundedRect(ctx, edge.labelX - savingsWidth / 2, edge.labelY - 42, savingsWidth, 24, 6, '#fef3c7');
-    ctx.fillStyle = '#92400e';
+    // const savingsWidth = ctx.measureText(edge.labelSavingsText).width + 24;
+    // drawRoundedRect(ctx, edge.labelX - savingsWidth / 2, edge.labelY - 42, savingsWidth, 24, 6, '#fef3c7');
+    ctx.fillStyle = '#ffd35c';
     ctx.textBaseline = 'middle';
     ctx.fillText(edge.labelSavingsText, edge.labelX, edge.labelY - 30);
   }
@@ -383,7 +678,9 @@ function drawEdgeLabel(
 function drawNodeCard(
   ctx: ExportCanvasContext,
   node: PreparedExportNode,
-  image: RenderableImage | null
+  image: RenderableImage | null,
+  manufacturerLogo: RenderableImage | null,
+  texturePattern: CanvasPattern | null
 ) {
   ctx.save();
   ctx.shadowColor = 'rgba(15, 23, 42, 0.10)';
@@ -391,6 +688,12 @@ function drawNodeCard(
   ctx.shadowOffsetY = 8;
   drawRoundedRect(ctx, node.x, node.y, node.width, node.height, EXPORT_NODE_RADIUS, '#ffffff');
   ctx.shadowColor = 'transparent';
+
+  ctx.save();
+  createRoundedRectPath(ctx, node.x, node.y, node.width, node.height, EXPORT_NODE_RADIUS);
+  ctx.clip();
+  fillRectWithPattern(ctx, node.x, node.y, node.width, node.height, texturePattern, 0.82);
+  ctx.restore();
 
   ctx.strokeStyle = '#93c5fd';
   ctx.lineWidth = 2;
@@ -443,6 +746,19 @@ function drawNodeCard(
   ctx.font = `700 18px ${FONT_FAMILY}`;
   ctx.fillText(node.msrpText, node.x + 18, node.y + 244);
 
+  ctx.save();
+  createRoundedRectPath(ctx, node.x, node.y, node.width, node.height, EXPORT_NODE_RADIUS);
+  ctx.clip();
+  drawManufacturerLogoWatermark(
+    ctx,
+    node.x + node.width - EXPORT_MANUFACTURER_WATERMARK_MARGIN - EXPORT_MANUFACTURER_WATERMARK_WIDTH,
+    node.y + node.height - EXPORT_MANUFACTURER_WATERMARK_MARGIN - EXPORT_MANUFACTURER_WATERMARK_HEIGHT,
+    EXPORT_MANUFACTURER_WATERMARK_WIDTH,
+    EXPORT_MANUFACTURER_WATERMARK_HEIGHT,
+    manufacturerLogo
+  );
+  ctx.restore();
+
   ctx.fillStyle = '#2563eb';
   ctx.beginPath();
   ctx.arc(node.x, node.y + EXPORT_NODE_HANDLE_Y, EXPORT_NODE_HANDLE_RADIUS, 0, Math.PI * 2);
@@ -458,13 +774,13 @@ export function renderPreparedExport(
   payload: PreparedExportPayload,
   imageMap: Map<string, RenderableImage | null>
 ) {
-  const background = ctx.createLinearGradient(0, 0, payload.width, payload.height);
-  background.addColorStop(0, '#f8fbff');
-  background.addColorStop(1, '#eef4ff');
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, payload.width, payload.height);
+  const texturePattern = createTexturePattern(ctx);
 
-  drawGrid(ctx, payload.width, payload.height, 40);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, payload.width, payload.height);
+  fillRectWithPattern(ctx, 0, 0, payload.width, payload.height, texturePattern, 0.72);
+
+  drawDotGrid(ctx, payload.width, payload.height, EXPORT_BACKGROUND_DOT_GAP);
   drawHeader(ctx, payload);
 
   payload.edges.forEach((edge) => {
@@ -480,6 +796,16 @@ export function renderPreparedExport(
   });
 
   payload.nodes.forEach((node) => {
-    drawNodeCard(ctx, node, node.imageUrl ? imageMap.get(node.imageUrl) || null : null);
+    drawNodeCard(
+      ctx,
+      node,
+      node.imageUrl ? imageMap.get(node.imageUrl) || null : null,
+      node.manufacturerLogoUrl ? imageMap.get(node.manufacturerLogoUrl) || null : null,
+      texturePattern
+    );
   });
+
+  if (payload.footerCard) {
+    drawExportFooterCard(ctx, payload.footerCard);
+  }
 }
