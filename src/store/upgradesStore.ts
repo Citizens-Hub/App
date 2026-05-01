@@ -1,8 +1,10 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { RootState } from '.';
 import { CcuSourceType } from '../types';
+import { loadHangarState, resolveHangarStateUserId, saveHangarState } from './hangarStorage';
 
 const version = '1.0.0';
+export const HANGAR_SYNC_PAYLOAD_VERSION = 1;
 
 interface HangarItem {
   name: string,
@@ -66,7 +68,7 @@ export interface UserInfo {
   avatar: string,
 }
 
-const getDefaultCurrency = () => {
+export const getDefaultCurrency = () => {
   const locale = navigator.language;
   if (locale.includes('zh')) {
     return 'CNY';
@@ -77,7 +79,7 @@ const getDefaultCurrency = () => {
   return 'USD';
 }
 
-const defaultCcuSourceTypePriority: CcuSourceType[] = [
+export const defaultCcuSourceTypePriority: CcuSourceType[] = [
   CcuSourceType.HANGER,
   CcuSourceType.AVAILABLE_WB,
   CcuSourceType.EXPECTED_WB,
@@ -108,6 +110,72 @@ const normalizeCcuSourceTypePriority = (priority: CcuSourceType[] | undefined): 
   return normalized;
 }
 
+export interface HangarSyncPreferences {
+  hangar: boolean;
+}
+
+export interface HangarSyncMetadata {
+  syncUserId: string | null;
+  syncRevision: number | null;
+  hangarUpdatedAt: string | null;
+  lastSyncedHangarUpdatedAt: string | null;
+  remoteHangarUpdatedAt: string | null;
+  lastSyncedAt: string | null;
+  deviceId: string;
+  syncPreferences: HangarSyncPreferences;
+  syncStatus: 'idle' | 'bootstrapping' | 'syncing' | 'conflict' | 'error';
+  syncError: string | null;
+}
+
+function getNowIsoString(): string {
+  return new Date().toISOString();
+}
+
+function touchHangarContent(state: {
+  hangarUpdatedAt: string | null;
+}) {
+  state.hangarUpdatedAt = getNowIsoString();
+}
+
+function createDefaultSyncPreferences(): HangarSyncPreferences {
+  return {
+    hangar: true,
+  };
+}
+
+function generateHangarSyncDeviceId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `device-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getOrCreateDeviceId() {
+  const rawState = loadHangarState();
+
+  if (rawState) {
+    try {
+      const parsed = JSON.parse(rawState) as { deviceId?: string };
+      if (parsed.deviceId) {
+        return parsed.deviceId;
+      }
+    } catch (error) {
+      console.error('Failed to parse hangar state while resolving device id:', error);
+    }
+  }
+
+  return generateHangarSyncDeviceId();
+}
+
+function persistUpgradesState(state: {
+  syncUserId: string | null;
+  version: string;
+}) {
+  const serializedState = JSON.stringify(state);
+  saveHangarState(serializedState, resolveHangarStateUserId(state));
+}
+
 const getInitialState = (): {
   items: HangarItems,
   imported: Imported,
@@ -115,9 +183,19 @@ const getInitialState = (): {
   version: string,
   selectedUser: number,
   currency: string,
-  ccuSourceTypePriority: CcuSourceType[]
+  ccuSourceTypePriority: CcuSourceType[],
+  syncUserId: string | null,
+  syncRevision: number | null,
+  hangarUpdatedAt: string | null,
+  lastSyncedHangarUpdatedAt: string | null,
+  remoteHangarUpdatedAt: string | null,
+  lastSyncedAt: string | null,
+  deviceId: string,
+  syncPreferences: HangarSyncPreferences,
+  syncStatus: 'idle' | 'bootstrapping' | 'syncing' | 'conflict' | 'error',
+  syncError: string | null
 } => {
-  const localState = localStorage.getItem('state');
+  const localState = loadHangarState();
 
   if (localState && JSON.parse(localState).version === version) {
     const state =  JSON.parse(localState);
@@ -132,6 +210,19 @@ const getInitialState = (): {
       },
       imported: state.imported || {},
       ccuSourceTypePriority: normalizeCcuSourceTypePriority(state.ccuSourceTypePriority),
+      syncUserId: typeof state.syncUserId === 'string' ? state.syncUserId : null,
+      syncRevision: typeof state.syncRevision === 'number' ? state.syncRevision : null,
+      hangarUpdatedAt: typeof state.hangarUpdatedAt === 'string' ? state.hangarUpdatedAt : null,
+      lastSyncedHangarUpdatedAt: typeof state.lastSyncedHangarUpdatedAt === 'string' ? state.lastSyncedHangarUpdatedAt : null,
+      remoteHangarUpdatedAt: typeof state.remoteHangarUpdatedAt === 'string' ? state.remoteHangarUpdatedAt : null,
+      lastSyncedAt: typeof state.lastSyncedAt === 'string' ? state.lastSyncedAt : null,
+      deviceId: typeof state.deviceId === 'string' && state.deviceId.trim() ? state.deviceId : getOrCreateDeviceId(),
+      syncPreferences: {
+        ...createDefaultSyncPreferences(),
+        ...(state.syncPreferences || {}),
+      },
+      syncStatus: state.syncStatus || 'idle',
+      syncError: typeof state.syncError === 'string' ? state.syncError : null,
     };
   }
 
@@ -148,6 +239,16 @@ const getInitialState = (): {
     currency: getDefaultCurrency(),
     ccuSourceTypePriority: defaultCcuSourceTypePriority,
     version,
+    syncUserId: null,
+    syncRevision: null,
+    hangarUpdatedAt: null,
+    lastSyncedHangarUpdatedAt: null,
+    remoteHangarUpdatedAt: null,
+    lastSyncedAt: null,
+    deviceId: getOrCreateDeviceId(),
+    syncPreferences: createDefaultSyncPreferences(),
+    syncStatus: 'idle',
+    syncError: null,
   };
 };
 
@@ -172,15 +273,18 @@ export const upgradesSlice = createSlice({
           }
         }
       }
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     addShip: (state, action: PayloadAction<ShipItem>) => {
       state.items.ships.push(action.payload);
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     addBundle: (state, action: PayloadAction<BundleItem>) => {
       state.items.bundles.push(action.payload);
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
       if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && item.from.id === action.payload.from.id && item.to.id === action.payload.to.id && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
@@ -199,21 +303,25 @@ export const upgradesSlice = createSlice({
           }
         }
       }
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     addUser: (state, action: PayloadAction<UserInfo>) => {
       if (!state.users.find(user => user.id === action.payload.id)) {
         state.users.push(action.payload);
+        touchHangarContent(state);
       }
-      localStorage.setItem('state', JSON.stringify(state));
+      persistUpgradesState(state);
     },
     addPredict: (state, action: PayloadAction<{ shipId: number, price: number }>) => {
       state.items.predicts[action.payload.shipId] = action.payload.price;
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     removePredict: (state, action: PayloadAction<number>) => {
       delete state.items.predicts[action.payload];
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     clearUpgrades: (state, action: PayloadAction<number>) => {
       const currentUser = action.payload;
@@ -223,19 +331,94 @@ export const upgradesSlice = createSlice({
         bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
         predicts: state.items.predicts,
       };
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     setSelectedUser: (state, action: PayloadAction<number>) => {
       state.selectedUser = action.payload;
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     setCurrency: (state, action: PayloadAction<string>) => {
       state.currency = action.payload;
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
     },
     setCcuSourceTypePriority: (state, action: PayloadAction<CcuSourceType[]>) => {
       state.ccuSourceTypePriority = action.payload;
-      localStorage.setItem('state', JSON.stringify(state));
+      touchHangarContent(state);
+      persistUpgradesState(state);
+    },
+    setHangarSyncUser: (state, action: PayloadAction<string | null>) => {
+      state.syncUserId = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarSyncRevision: (state, action: PayloadAction<number | null>) => {
+      state.syncRevision = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarUpdatedAt: (state, action: PayloadAction<string | null>) => {
+      state.hangarUpdatedAt = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarLastSyncedVersion: (state, action: PayloadAction<string | null>) => {
+      state.lastSyncedHangarUpdatedAt = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarRemoteVersion: (state, action: PayloadAction<string | null>) => {
+      state.remoteHangarUpdatedAt = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarLastSyncedAt: (state, action: PayloadAction<string | null>) => {
+      state.lastSyncedAt = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarSyncPreferences: (state, action: PayloadAction<Partial<HangarSyncPreferences>>) => {
+      state.syncPreferences = {
+        ...state.syncPreferences,
+        ...action.payload,
+      };
+      persistUpgradesState(state);
+    },
+    setHangarSyncStatus: (state, action: PayloadAction<HangarSyncMetadata['syncStatus']>) => {
+      state.syncStatus = action.payload;
+      persistUpgradesState(state);
+    },
+    setHangarSyncError: (state, action: PayloadAction<string | null>) => {
+      state.syncError = action.payload;
+      persistUpgradesState(state);
+    },
+    replaceUpgradesState: (state, action: PayloadAction<{
+      nextState: {
+        items: HangarItems;
+        imported: Imported;
+        users: UserInfo[];
+        selectedUser: number;
+        currency: string;
+        ccuSourceTypePriority: CcuSourceType[];
+      };
+      sync: Partial<HangarSyncMetadata>;
+    }>) => {
+      state.items = action.payload.nextState.items;
+      state.imported = action.payload.nextState.imported;
+      state.users = action.payload.nextState.users;
+      state.selectedUser = action.payload.nextState.selectedUser;
+      state.currency = action.payload.nextState.currency;
+      state.ccuSourceTypePriority = normalizeCcuSourceTypePriority(action.payload.nextState.ccuSourceTypePriority);
+      state.syncUserId = action.payload.sync.syncUserId ?? state.syncUserId;
+      state.syncRevision = action.payload.sync.syncRevision ?? state.syncRevision;
+      state.hangarUpdatedAt = action.payload.sync.hangarUpdatedAt ?? state.hangarUpdatedAt;
+      state.lastSyncedHangarUpdatedAt = action.payload.sync.lastSyncedHangarUpdatedAt ?? state.lastSyncedHangarUpdatedAt;
+      state.remoteHangarUpdatedAt = action.payload.sync.remoteHangarUpdatedAt ?? state.remoteHangarUpdatedAt;
+      state.lastSyncedAt = action.payload.sync.lastSyncedAt ?? state.lastSyncedAt;
+      state.deviceId = action.payload.sync.deviceId ?? state.deviceId;
+      state.syncPreferences = {
+        ...state.syncPreferences,
+        ...(action.payload.sync.syncPreferences || {}),
+      };
+      state.syncStatus = action.payload.sync.syncStatus ?? state.syncStatus;
+      state.syncError = action.payload.sync.syncError ?? state.syncError;
+      persistUpgradesState(state);
     }
   }
 });
@@ -265,7 +448,17 @@ export const {
   setCurrency, 
   addPredict, 
   removePredict,
-  setCcuSourceTypePriority 
+  setCcuSourceTypePriority,
+  setHangarSyncUser,
+  setHangarSyncRevision,
+  setHangarUpdatedAt,
+  setHangarLastSyncedVersion,
+  setHangarRemoteVersion,
+  setHangarLastSyncedAt,
+  setHangarSyncPreferences,
+  setHangarSyncStatus,
+  setHangarSyncError,
+  replaceUpgradesState,
 } = upgradesSlice.actions;
 
 export default upgradesSlice.reducer

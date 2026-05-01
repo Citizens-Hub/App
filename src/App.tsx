@@ -2,13 +2,14 @@ import { Button, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, HashRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from '@/components/Header'
+import HangarSyncConflictDialog from '@/components/HangarSyncConflictDialog'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store'
 import { logout } from '@/store/userStore'
 import { UserRole } from '@/types'
 import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
-import { swrConfig, useUserSession, useSharedHangar } from '@/hooks'
+import { swrConfig, useUserSession, useSharedHangar, useHangarSync } from '@/hooks'
 import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
@@ -126,6 +127,11 @@ function App() {
 
   // 使用SWR获取共享机库更新
   const { isPathUpdated } = useSharedHangar();
+  const {
+    pendingConflict,
+    resolveConflictKeepLocal,
+    resolveConflictUseRemote,
+  } = useHangarSync();
 
   // 当会话无效时登出
   useEffect(() => {
@@ -159,6 +165,12 @@ function App() {
         <Router>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
+          <HangarSyncConflictDialog
+            open={Boolean(pendingConflict)}
+            remoteRecord={pendingConflict?.current ?? null}
+            onUseCloudVersion={resolveConflictUseRemote}
+            onKeepLocalVersion={resolveConflictKeepLocal}
+          />
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/fall-back" element={<LoadingFallback />} />

@@ -1,6 +1,7 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
+import { loadHangarState } from "@/store/hangarStorage";
 import {
   getConcretePricingOptionsForType,
   getExpectedWbPricingOptions,
@@ -278,7 +279,7 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
         });
         
         // 从localStorage中获取CCU总数量
-        const state = JSON.parse(localStorage.getItem('state') || '{}');
+        const state = JSON.parse(loadHangarState() || '{}');
         const ccus = state.items?.ccus || [];
         const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string } }) => {
           const parsed = ccu.parsed || {};
@@ -358,7 +359,7 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
       });
       
       // 从localStorage中获取CCU总数量
-      const state = JSON.parse(localStorage.getItem('state') || '{}');
+      const state = JSON.parse(loadHangarState() || '{}');
       const ccus = state.items?.ccus || [];
       const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string }; quantity?: number }) => {
         const parsed = ccu.parsed || {};

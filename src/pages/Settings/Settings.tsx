@@ -1,6 +1,6 @@
 import { ChangeEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearUpgrades, setCurrency } from '@/store/upgradesStore';
+import { clearUpgrades, setCurrency, setHangarSyncPreferences } from '@/store/upgradesStore';
 import { clearAllImportData } from '@/store/importStore';
 import { login } from '@/store/userStore';
 import { RootState } from '@/store';
@@ -23,6 +23,9 @@ import {
   CircularProgress,
   Divider,
   Slider,
+  Switch,
+  FormControlLabel,
+  Chip,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ProfileData, UserRole } from '@/types';
@@ -204,6 +207,13 @@ export default function Settings() {
 
   const [currentPage, setCurrentPage] = useState<Page>(user.role === UserRole.Guest ? Page.Preferences : Page.Profile);
   const { currency } = useSelector((state: RootState) => state.upgrades);
+  const {
+    syncPreferences,
+    syncStatus,
+    syncError,
+    remoteHangarUpdatedAt,
+    lastSyncedAt,
+  } = useSelector((state: RootState) => state.upgrades);
   const [clearAllDataDialog, setClearAllDataDialog] = useState(false);
   const [clearUserDataDialog, setClearUserDataDialog] = useState(false);
   const [selectedUserToClear, setSelectedUserToClear] = useState<number>(-1);
@@ -342,6 +352,32 @@ export default function Settings() {
     setSnackbarOpen(true);
 
     setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleHangarSyncToggle = (event: ChangeEvent<HTMLInputElement>) => {
+    dispatch(setHangarSyncPreferences({
+      hangar: event.target.checked,
+    }));
+
+    showSuccessMessage(intl.formatMessage({
+      id: event.target.checked ? 'settings.syncHangarEnabled' : 'settings.syncHangarDisabled',
+      defaultMessage: event.target.checked ? 'Hangar sync enabled.' : 'Hangar sync disabled.',
+    }));
+  };
+
+  const getHangarSyncStatusLabel = () => {
+    switch (syncStatus) {
+      case 'bootstrapping':
+        return intl.formatMessage({ id: 'settings.syncStatusBootstrapping', defaultMessage: 'Bootstrapping' });
+      case 'syncing':
+        return intl.formatMessage({ id: 'settings.syncStatusSyncing', defaultMessage: 'Syncing' });
+      case 'conflict':
+        return intl.formatMessage({ id: 'settings.syncStatusConflict', defaultMessage: 'Conflict' });
+      case 'error':
+        return intl.formatMessage({ id: 'settings.syncStatusError', defaultMessage: 'Error' });
+      default:
+        return intl.formatMessage({ id: 'settings.syncStatusIdle', defaultMessage: 'Idle' });
+    }
   };
 
   // 处理Snackbar关闭
@@ -1543,6 +1579,76 @@ export default function Settings() {
                     <FormattedMessage id="settings.ccuPriorityDescription" defaultMessage="Set the priority order of CCUs' sources. Types with higher priority will be considered first for upgrade paths." />
                   </Typography>
                   <CcuPriorityList />
+                </div>
+
+                <Divider sx={{ my: 2 }} />
+
+                <div className='flex flex-col gap-4'>
+                  <div>
+                    <Typography variant="h6">
+                      <FormattedMessage id="settings.syncScopes" defaultMessage="Sync Content" />
+                    </Typography>
+                    <Typography variant="body2" color='text.secondary'>
+                      <FormattedMessage
+                        id="settings.syncScopesDescription"
+                        defaultMessage="Choose which data should sync automatically across your devices. Sync is enabled by default for supported content."
+                      />
+                    </Typography>
+                  </div>
+
+                  <div className='rounded-md border border-gray-200 p-4 dark:border-gray-800'>
+                    <div className='flex flex-row items-start justify-between gap-4'>
+                      <div className='flex flex-col gap-1'>
+                        <Typography variant="subtitle1">
+                          <FormattedMessage id="settings.syncHangar" defaultMessage="Hangar" />
+                        </Typography>
+                        <Typography variant="body2" color='text.secondary'>
+                          <FormattedMessage
+                            id="settings.syncHangarDescription"
+                            defaultMessage="Automatically sync your private hangar snapshot, including ships, CCUs, bundles, and related hangar preferences."
+                          />
+                        </Typography>
+                        <div className='flex flex-wrap items-center gap-2 pt-2'>
+                          <Chip size="small" label={getHangarSyncStatusLabel()} />
+                          {remoteHangarUpdatedAt && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={intl.formatMessage(
+                                { id: 'settings.syncVersion', defaultMessage: 'Hangar version {date}' },
+                                { date: new Date(remoteHangarUpdatedAt).toLocaleString() },
+                              )}
+                            />
+                          )}
+                        </div>
+                        {lastSyncedAt && (
+                          <Typography variant="caption" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.syncLastSyncedAt"
+                              defaultMessage="Last synced: {date}"
+                              values={{ date: new Date(lastSyncedAt).toLocaleString() }}
+                            />
+                          </Typography>
+                        )}
+                        {syncError && (
+                          <Typography variant="caption" color='error'>
+                            {syncError}
+                          </Typography>
+                        )}
+                      </div>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={syncPreferences.hangar}
+                            onChange={handleHangarSyncToggle}
+                            disabled={user.role === UserRole.Guest}
+                          />
+                        }
+                        label=""
+                        sx={{ m: 0 }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </>
             )}

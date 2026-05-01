@@ -24,6 +24,7 @@ export { default as useRelatedOrderData } from './orders/useRelatedOrderData';
 
 // 机库相关钩子
 export { default as useHangarData } from './hangar/useHangarData';
+export { default as useHangarSync } from './hangar/useHangarSync';
 
 // 资源相关钩子
 export { default as useResourceData } from './resources/useResourceData';
