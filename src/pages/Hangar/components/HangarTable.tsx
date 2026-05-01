@@ -1007,7 +1007,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   </Typography>
 
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="h5" sx={{ lineHeight: 1, fontWeight: 500 }}>
+                    <Typography variant="h5" sx={{ lineHeight: 1, fontWeight: 500, color: '#1976d2' }}>
                       {costValue.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, fontWeight: 600 }}>
