@@ -868,7 +868,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         fallbackImageUrl: normalizeImageUrl(li.querySelector("img")?.getAttribute("src")),
       });
     });
-  }, [dispatch, queueBuybackDetailRequest, ships, tryResolveCCU]);
+  }, [dispatch, normalizeShipName, queueBuybackDetailRequest, ships, tryResolveCCU]);
 
   const resetCrawlerState = useCallback(() => {
     setProgress(0);
