@@ -7,19 +7,19 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { addPredict, removePredict } from "@/store/upgradesStore";
 import { localizeShipDataLabel } from "@/data/shipDetailLabelI18n";
-import Crawler from "@/components/Crawler";
-import UserSelector from "@/components/UserSelector";
 import { getShipThumbLarge } from "@/utils/shipImage";
+import HangarToolbar from "./HangarToolbar";
+import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
+import ShipInfoDialog from "@/components/ShipInfoDialog";
 
 export default function ShipsTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
   const dispatch = useDispatch();
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const { locale } = intl;
   const [predictDialogOpen, setPredictDialogOpen] = useState(false);
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
+  const [detailShip, setDetailShip] = useState<Ship | null>(null);
   const [predictPrice, setPredictPrice] = useState('');
 
   // Get predictions from store
@@ -50,12 +50,16 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
 
   // 按MSRP排序
   const sortedShips = [...filteredShips].sort((a, b) => (b.msrp || 0) - (a.msrp || 0));
-
-  // 分页
-  const paginatedShips = sortedShips.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  const {
+    isMobile,
+    page,
+    rowsPerPage,
+    setPage,
+    setRowsPerPage,
+    displayedItems: paginatedShips,
+    sentinelRef,
+    hasMore,
+  } = useMobileInfiniteRows(sortedShips, { resetKey: searchTerm });
 
   // Open prediction dialog
   const handleOpenPredictDialog = (ship: Ship) => {
@@ -69,6 +73,14 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
     setPredictDialogOpen(false);
     setSelectedShip(null);
     setPredictPrice('');
+  };
+
+  const handleOpenShipDetail = (ship: Ship) => {
+    setDetailShip(ship);
+  };
+
+  const handleCloseShipDetail = () => {
+    setDetailShip(null);
   };
 
   // Save prediction
@@ -87,12 +99,7 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
 
   return (
     <>
-      <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
-        <div className='flex flex-col gap-2 items-center justify-center'>
-          <Crawler ships={ships} />
-        </div>
-        <UserSelector />
-      </div>
+      <HangarToolbar ships={ships} />
 
       <TextField
         fullWidth
@@ -125,6 +132,98 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
           <Typography variant="h6">
             <FormattedMessage id="ships.noResults" defaultMessage="没有匹配的舰船" />
           </Typography>
+        </Box>
+      ) : isMobile ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {paginatedShips.map((ship) => (
+            <Box
+              key={ship.id}
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                py: 1.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              {ship.medias?.productThumbMediumAndSmall && (
+                <Box
+                  component="img"
+                  sx={{
+                    width: 104,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                    flexShrink: 0,
+                  }}
+                  src={getShipThumbLarge(ship)}
+                  alt={ship.name}
+                />
+              )}
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  {ship.localizedName || ship.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                  {ship.manufacturer ? ship.manufacturer.name : '-'}
+                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body1" color="primary" fontWeight={700}>
+                    {ship.msrp
+                      ? (ship.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })
+                      : '-'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                    <FormattedMessage id="ships.prediction" defaultMessage="Predicted Price" />: {" "}
+                    {predictions[ship.id]
+                      ? (predictions[ship.id] / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })
+                      : '-'}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => handleOpenShipDetail(ship)}
+                  >
+                    <FormattedMessage id="hangar.mobileViewDetails" defaultMessage="查看详情" />
+                  </Button>
+                  {predictions[ship.id] ? (
+                    <>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleOpenPredictDialog(ship)}
+                        startIcon={<Edit size={16} />}
+                      >
+                        <FormattedMessage id="ships.editPrediction" defaultMessage="编辑预测" />
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleRemovePrediction(ship.id)}
+                        startIcon={<XCircle size={16} />}
+                      >
+                        <FormattedMessage id="ships.removePrediction" defaultMessage="删除预测" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => handleOpenPredictDialog(ship)}
+                      startIcon={<PlusCircle size={16} />}
+                    >
+                      <FormattedMessage id="ships.addPrediction" defaultMessage="添加预测" />
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          ))}
+          {hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
         </Box>
       ) : (
         <Box sx={{ width: '100%', overflow: 'auto' }}>
@@ -217,21 +316,29 @@ export default function ShipsTable({ ships }: { ships: Ship[] }) {
             </Table>
           </TableContainer>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredShips.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-            labelDisplayedRows={({ from, to, count }) =>
-              `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`
-            }
-          />
+          {!isMobile && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredShips.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
+              labelDisplayedRows={({ from, to, count }) =>
+                `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`
+              }
+            />
+          )}
         </Box>
       )}
+
+      <ShipInfoDialog
+        open={Boolean(detailShip)}
+        ship={detailShip}
+        onClose={handleCloseShipDetail}
+      />
 
       {/* Prediction Dialog */}
       <Dialog open={predictDialogOpen} onClose={handleClosePredictDialog}>

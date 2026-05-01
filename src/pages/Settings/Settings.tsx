@@ -32,6 +32,7 @@ import { ProfileData, UserRole } from '@/types';
 import CcuPriorityList from './components/CcuPriorityList';
 import { useProfileData } from '@/hooks';
 import { Camera, Move } from 'lucide-react';
+import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 import {
   clearShipImageCacheEntries,
   clearModelCacheEntries,
@@ -926,8 +927,40 @@ export default function Settings() {
     setNewMcpToken(null);
   };
 
+  const layoutItems: ResponsiveSectionLayoutItem[] = [];
+
+  if (user.role !== UserRole.Guest) {
+    layoutItems.push({
+      id: Page.Profile,
+      title: <FormattedMessage id="settings.profile" defaultMessage="Profile" />,
+      description: <FormattedMessage id="settings.profileDescription" defaultMessage="Manage your profile here." />,
+      ariaLabel: intl.formatMessage({ id: 'settings.profile', defaultMessage: 'Profile' }),
+      active: currentPage === Page.Profile,
+      onSelect: () => setCurrentPage(Page.Profile),
+    });
+  }
+
+  layoutItems.push(
+    {
+      id: Page.Preferences,
+      title: <FormattedMessage id="settings.preferences" defaultMessage="Preferences" />,
+      description: <FormattedMessage id="settings.preferencesDescription" defaultMessage="Manage your preferences and settings here." />,
+      ariaLabel: intl.formatMessage({ id: 'settings.preferences', defaultMessage: 'Preferences' }),
+      active: currentPage === Page.Preferences,
+      onSelect: () => setCurrentPage(Page.Preferences),
+    },
+    {
+      id: Page.LocalData,
+      title: <FormattedMessage id="settings.localData" defaultMessage="Local Data" />,
+      description: <FormattedMessage id="settings.localDataDescription" defaultMessage="Manage your local data here." />,
+      ariaLabel: intl.formatMessage({ id: 'settings.localData', defaultMessage: 'Local Data' }),
+      active: currentPage === Page.LocalData,
+      onSelect: () => setCurrentPage(Page.LocalData),
+    },
+  );
+
   return (
-    <div className='absolute top-[65px] right-0 bottom-0 left-0 flex h-[calc(100vh-65px)] min-h-0 flex-col justify-start overflow-hidden text-left md:flex-row'>
+    <>
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
@@ -1126,30 +1159,12 @@ export default function Settings() {
         </DialogActions>
       </Dialog>
 
-      <div className='shrink-0 border-b border-gray-200 text-left dark:border-gray-800 md:min-w-[300px] md:border-r md:border-b-0'>
-        {
-          user.role !== UserRole.Guest && <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.profile", defaultMessage: "Profile" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Profile ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Profile)}>
-            <FormattedMessage id="settings.profile" defaultMessage="Profile" />
-            <Typography variant='body2' color='text.secondary'>
-              <FormattedMessage id="settings.profileDescription" defaultMessage="Manage your profile here." />
-            </Typography>
-          </div>
-        }
-        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.preferences", defaultMessage: "Preferences" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Preferences ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Preferences)}>
-          <FormattedMessage id="settings.preferences" defaultMessage="Preferences" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="settings.preferencesDescription" defaultMessage="Manage your preferences and settings here." />
-          </Typography>
-        </div>
-        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "settings.localData", defaultMessage: "Local Data" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.LocalData ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.LocalData)}>
-          <FormattedMessage id="settings.localData" defaultMessage="Local Data" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="settings.localDataDescription" defaultMessage="Manage your local data here." />
-          </Typography>
-        </div>
-      </div>
-
-      <div className='min-h-0 flex-1 overflow-y-auto'>
+      <ResponsiveSectionLayout
+        items={layoutItems}
+        mobileMenuLabel={<FormattedMessage id="settings.switchSection" defaultMessage="切换" />}
+        mobileMenuTitle={<FormattedMessage id="settings.sections" defaultMessage="应用设置" />}
+        contentClassName="min-h-0 flex-1 overflow-y-auto"
+      >
         <div className='flex max-w-[700px] flex-col gap-6 px-4 py-4'>
           {
             currentPage === Page.Profile && (<>
@@ -2063,7 +2078,7 @@ export default function Settings() {
               </div>
             )}
         </div>
-      </div>
+      </ResponsiveSectionLayout>
 
       {/* 清除所有数据确认对话框 */}
       <Dialog
@@ -2133,6 +2148,6 @@ export default function Settings() {
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </>
   );
 }

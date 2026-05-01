@@ -1,4 +1,3 @@
-import { Typography } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import ErrorsTable from './components/ErrorsTable';
@@ -10,6 +9,7 @@ import GameShopsManager from './components/GameShopsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
+import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
   Errors = 'errors',
@@ -25,67 +25,79 @@ enum Page {
 
 export default function Admin() {
   const [currentPage, setCurrentPage] = useState<Page>(Page.Errors);
+  const layoutItems: ResponsiveSectionLayoutItem[] = [
+    {
+      id: Page.Errors,
+      title: <FormattedMessage id="admin.errors" defaultMessage="Catched Errors" />,
+      description: <FormattedMessage id="admin.erroesDescription" defaultMessage="View all catched errors" />,
+      active: currentPage === Page.Errors,
+      onSelect: () => setCurrentPage(Page.Errors),
+    },
+    {
+      id: Page.Bi,
+      title: <FormattedMessage id="admin.bi" defaultMessage="BI Reports" />,
+      description: <FormattedMessage id="admin.biDescription" defaultMessage="View BI report data" />,
+      active: currentPage === Page.Bi,
+      onSelect: () => setCurrentPage(Page.Bi),
+    },
+    {
+      id: Page.ShipTranslations,
+      title: <FormattedMessage id="admin.shipTranslations.title" defaultMessage="Ship Translations" />,
+      description: <FormattedMessage id="admin.shipTranslations.description" defaultMessage="Manage ship name and ship detail translations." />,
+      active: currentPage === Page.ShipTranslations,
+      onSelect: () => setCurrentPage(Page.ShipTranslations),
+    },
+    {
+      id: Page.ManufacturerTranslations,
+      title: <FormattedMessage id="admin.manufacturerTranslations.title" defaultMessage="Manufacturer Translations" />,
+      description: <FormattedMessage id="admin.manufacturerTranslations.description" defaultMessage="Manage reusable manufacturer translations separately." />,
+      active: currentPage === Page.ManufacturerTranslations,
+      onSelect: () => setCurrentPage(Page.ManufacturerTranslations),
+    },
+    {
+      id: Page.ShipSogModels,
+      title: <FormattedMessage id="admin.shipSogModels.title" defaultMessage="Ship SOG Models" />,
+      description: <FormattedMessage id="admin.shipSogModels.description" defaultMessage="Upload and configure SOG Gaussian model files." />,
+      active: currentPage === Page.ShipSogModels,
+      onSelect: () => setCurrentPage(Page.ShipSogModels),
+    },
+    {
+      id: Page.ShipImages,
+      title: <FormattedMessage id="admin.shipImages.title" defaultMessage="Ship Images" />,
+      description: <FormattedMessage id="admin.shipImages.description" defaultMessage="Sync RSI ship images into the images R2 bucket." />,
+      active: currentPage === Page.ShipImages,
+      onSelect: () => setCurrentPage(Page.ShipImages),
+    },
+    {
+      id: Page.WatermarkDebug,
+      title: <FormattedMessage id="admin.watermarkDebug.title" defaultMessage="Watermark Debug Tool" />,
+      description: <FormattedMessage id="admin.watermarkDebug.description" defaultMessage="Upload an exported image or a compressed copy to inspect anchor alignment, decode confidence, and recovered route summary." />,
+      active: currentPage === Page.WatermarkDebug,
+      onSelect: () => setCurrentPage(Page.WatermarkDebug),
+    },
+    {
+      id: Page.GameShops,
+      title: <FormattedMessage id="admin.gameShops.title" defaultMessage="Game Shops" />,
+      description: <FormattedMessage id="admin.gameShops.description" defaultMessage="Manage imported in-game shop data independently from RSI ship and CCU data." />,
+      active: currentPage === Page.GameShops,
+      onSelect: () => setCurrentPage(Page.GameShops),
+    },
+    {
+      id: Page.Withdrawals,
+      title: <FormattedMessage id="admin.withdrawals.title" defaultMessage="Withdrawal Requests" />,
+      description: <FormattedMessage id="admin.withdrawals.description" defaultMessage="Review reseller withdrawal requests, confirm payouts, or reject invalid requests." />,
+      active: currentPage === Page.Withdrawals,
+      onSelect: () => setCurrentPage(Page.Withdrawals),
+    },
+  ];
 
   return (
-    <div className='absolute top-[65px] h-[calc(100vh-65px)] left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
-      <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Errors ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Errors)}>
-          <FormattedMessage id="admin.errors" defaultMessage="Catched Errors" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.erroesDescription" defaultMessage="View all catched errors" />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Bi ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Bi)}>
-          <FormattedMessage id="admin.bi" defaultMessage="BI Reports" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.biDescription" defaultMessage="View BI report data" />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ShipTranslations ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ShipTranslations)}>
-          <FormattedMessage id="admin.shipTranslations.title" defaultMessage="Ship Translations" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.shipTranslations.description" defaultMessage="Manage ship name and ship detail translations." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ManufacturerTranslations ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ManufacturerTranslations)}>
-          <FormattedMessage id="admin.manufacturerTranslations.title" defaultMessage="Manufacturer Translations" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.manufacturerTranslations.description" defaultMessage="Manage reusable manufacturer translations separately." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ShipSogModels ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ShipSogModels)}>
-          <FormattedMessage id="admin.shipSogModels.title" defaultMessage="Ship SOG Models" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.shipSogModels.description" defaultMessage="Upload and configure SOG Gaussian model files." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.ShipImages ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.ShipImages)}>
-          <FormattedMessage id="admin.shipImages.title" defaultMessage="Ship Images" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.shipImages.description" defaultMessage="Sync RSI ship images into the images R2 bucket." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.WatermarkDebug ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.WatermarkDebug)}>
-          <FormattedMessage id="admin.watermarkDebug.title" defaultMessage="Watermark Debug Tool" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.watermarkDebug.description" defaultMessage="Upload an exported image or a compressed copy to inspect anchor alignment, decode confidence, and recovered route summary." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.GameShops ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.GameShops)}>
-          <FormattedMessage id="admin.gameShops.title" defaultMessage="Game Shops" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.gameShops.description" defaultMessage="Manage imported in-game shop data independently from RSI ship and CCU data." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Withdrawals ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.Withdrawals)}>
-          <FormattedMessage id="admin.withdrawals.title" defaultMessage="Withdrawal Requests" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="admin.withdrawals.description" defaultMessage="Review reseller withdrawal requests, confirm payouts, or reject invalid requests." />
-          </Typography>
-        </div>
-      </div>
-
-      <div className='p-4 w-full h-[calc(100vh-65px)] overflow-y-auto'>
+    <ResponsiveSectionLayout
+      items={layoutItems}
+      mobileMenuLabel={<FormattedMessage id="admin.switchSection" defaultMessage="切换" />}
+      mobileMenuTitle={<FormattedMessage id="admin.sections" defaultMessage="管理后台" />}
+      contentClassName="min-h-0 flex-1 overflow-y-auto p-4"
+    >
         {currentPage === Page.Errors && <ErrorsTable />}
         {currentPage === Page.Bi && <BiTable />}
         {currentPage === Page.ShipTranslations && <ShipTranslationsManager />}
@@ -95,7 +107,6 @@ export default function Admin() {
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
-      </div>
-    </div>
+    </ResponsiveSectionLayout>
   );
 }

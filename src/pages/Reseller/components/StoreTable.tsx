@@ -47,6 +47,7 @@ import {
   StoreInventoryItem,
   StoreListingDisplayType,
 } from "./storeListingUtils";
+import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
 const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
@@ -373,6 +374,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
+  const {
+    isMobile,
+    displayedItems: mobileDisplayedListings,
+    sentinelRef,
+    hasMore,
+  } = useMobileInfiniteRows(filteredListings);
+  const displayedListings = isMobile ? mobileDisplayedListings : paginatedListings;
 
   const filteredInventoryItems = useMemo(() => {
     const search = prefillSearchTerm.trim().toLowerCase();
@@ -805,7 +813,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedListings.map((item) => {
+                {displayedListings.map((item) => {
                   const visual = getMarketItemVisual(item, ships);
                   const displayType = getListingDisplayType(item);
                   const availableStock = Math.max(item.stock - item.lockedStock, 0);
@@ -973,20 +981,23 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             </Table>
           </TableContainer>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredListings.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            onRowsPerPageChange={(event) => {
-              setRowsPerPage(parseInt(event.target.value, 10));
-              setPage(0);
-            }}
-            labelRowsPerPage={intl.formatMessage({ id: "pagination.rowsPerPage", defaultMessage: "Rows per page:" })}
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: "pagination.total", defaultMessage: "Total" })} ${count}`}
-          />
+          {!isMobile && (
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredListings.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(event) => {
+                setRowsPerPage(parseInt(event.target.value, 10));
+                setPage(0);
+              }}
+              labelRowsPerPage={intl.formatMessage({ id: "pagination.rowsPerPage", defaultMessage: "Rows per page:" })}
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: "pagination.total", defaultMessage: "Total" })} ${count}`}
+            />
+          )}
+          {isMobile && hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
         </Box>
       )}
 

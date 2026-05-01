@@ -10,6 +10,7 @@ import { Button } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { useHangarData } from '@/hooks';
 import { UserRole } from '@/types';
+import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
   Hangar = 'hangar',
@@ -37,61 +38,58 @@ export default function Hangar() {
     setCurrentPage(page);
   };
 
+  const layoutItems: ResponsiveSectionLayoutItem[] = [
+    {
+      id: Page.Hangar,
+      title: <FormattedMessage id="hangar.hangar" defaultMessage="Hangar" />,
+      description: <FormattedMessage id="hangar.hangarDescription" defaultMessage="View items in your hangar here" />,
+      ariaLabel: intl.formatMessage({ id: "hangar.hangar", defaultMessage: "Hangar" }),
+      active: currentPage === Page.Hangar,
+      onSelect: () => handlePageChange(Page.Hangar),
+    },
+  ];
+
+  if (isAuthenticated) {
+    layoutItems.push({
+      id: Page.Shared,
+      title: <FormattedMessage id="hangar.shared" defaultMessage="Shared" />,
+      description: <FormattedMessage id="hangar.sharedDescription" defaultMessage="View shared content here" />,
+      ariaLabel: intl.formatMessage({ id: "hangar.shared", defaultMessage: "Shared" }),
+      active: currentPage === Page.Shared,
+      onSelect: () => handlePageChange(Page.Shared),
+    });
+  }
+
   return (
-    <div className='absolute top-[65px] h-[calc(100vh-65px)] left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
-      <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
-
-        <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.hangar", defaultMessage: "Hangar" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Hangar ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Hangar)}>
-          <FormattedMessage id="hangar.hangar" defaultMessage="Hangar" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.hangarDescription" defaultMessage="View items in your hangar here" />
-          </Typography>
-        </div>
-        {/* <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.ships", defaultMessage: "Ships" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Ships ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Ships)}>
-          <FormattedMessage id="hangar.ships" defaultMessage="Ships" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.shipsDescription" defaultMessage="View ships and set predictions here" />
-          </Typography>
-        </div> */}
-        {isAuthenticated && <div role="button" tabIndex={0} aria-label={intl.formatMessage({ id: "hangar.shared", defaultMessage: "Shared" })} className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.Shared ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.Shared)}>
-          <FormattedMessage id="hangar.shared" defaultMessage="Shared" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.sharedDescription" defaultMessage="View shared content here" />
-          </Typography>
-        </div>}
-        {/* {isReseller && <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyStore ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => handlePageChange(Page.MyStore)}>
-          <FormattedMessage id="hangar.myStore" defaultMessage="My Store" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />
-          </Typography>
-        </div>} */}
-      </div>
-
-      <div className='p-4 w-full h-[calc(100vh-128px-65px)] overflow-y-auto sm:mt-28'>
-        {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
-          {currentPage === Page.Hangar && <HangarTable ships={ships} />}
-          {currentPage === Page.Ships && <ShipsTable ships={ships} />}
-          {/* {currentPage === Page.MyStore && <StoreTable ships={ships} />} */}
-          {currentPage === Page.Shared && isAuthenticated ? (
-            <ShareTable ships={ships} exchangeRates={exchangeRates} />
-          ) : currentPage === Page.Shared && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <Typography variant="h6" align="center" gutterBottom>
-                <FormattedMessage id="hangar.loginToAccess" defaultMessage="Please login to access shared content" />
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => navigate('/login')}
-                sx={{ mt: 2 }}
-                aria-label={intl.formatMessage({ id: "hangar.login", defaultMessage: "Login" })}
-              >
-                <FormattedMessage id="hangar.login" defaultMessage="Login" />
-              </Button>
-            </div>
-          )}
-        </>)}
-      </div>
-    </div>
+    <ResponsiveSectionLayout
+      items={layoutItems}
+      mobileMenuLabel={<FormattedMessage id="hangar.switchSection" defaultMessage="切换" />}
+      mobileMenuTitle={<FormattedMessage id="hangar.sections" defaultMessage="机库分组" />}
+      contentClassName="min-h-0 flex-1 overflow-y-auto p-4"
+    >
+      {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
+        {currentPage === Page.Hangar && <HangarTable ships={ships} />}
+        {currentPage === Page.Ships && <ShipsTable ships={ships} />}
+        {/* {currentPage === Page.MyStore && <StoreTable ships={ships} />} */}
+        {currentPage === Page.Shared && isAuthenticated ? (
+          <ShareTable ships={ships} exchangeRates={exchangeRates} />
+        ) : currentPage === Page.Shared && (
+          <div className="flex h-full flex-col items-center justify-center">
+            <Typography variant="h6" align="center" gutterBottom>
+              <FormattedMessage id="hangar.loginToAccess" defaultMessage="Please login to access shared content" />
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate('/login')}
+              sx={{ mt: 2 }}
+              aria-label={intl.formatMessage({ id: "hangar.login", defaultMessage: "Login" })}
+            >
+              <FormattedMessage id="hangar.login" defaultMessage="Login" />
+            </Button>
+          </div>
+        )}
+      </>)}
+    </ResponsiveSectionLayout>
   );
 }

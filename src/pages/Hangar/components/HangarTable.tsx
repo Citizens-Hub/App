@@ -3,15 +3,16 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { BundleItem, OtherItem, selectUsersHangarItems, ShipItem } from "@/store/upgradesStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormGroup, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button, Tooltip } from "@mui/material";
-import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight, Archive } from "lucide-react";
-import Crawler from "@/components/Crawler";
-import UserSelector from "@/components/UserSelector";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, FormControlLabel, Checkbox, Divider, IconButton, Collapse, Button, Tooltip, SwipeableDrawer } from "@mui/material";
+import { Search, ChevronsRight, BadgePercent, CircleUser, Gift, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, SquareArrowOutUpRight, Archive, X } from "lucide-react";
 import { Ship } from "@/types";
 import { Link } from "react-router";
 import { StoredCompletedPath } from "../../CCUPlanner/services/PathFinderService";
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { getShipThumbLarge } from "@/utils/shipImage";
+import HangarToolbar from "./HangarToolbar";
+import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
+import ShipInfoDialog from "@/components/ShipInfoDialog";
 
 interface DisplayEquipmentItem {
   pageId?: number;
@@ -58,6 +59,7 @@ interface BundleTextItem {
 }
 
 const normalizeShipName = (name: string) => name.toUpperCase().trim();
+const normalizeOptionalShipName = (name?: string | null) => (name || '').toUpperCase().trim();
 const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
@@ -79,6 +81,24 @@ const getHangarDetailUrl = (item: Pick<DisplayEquipmentItem, 'isBuyBack' | 'page
   }
 
   return `https://robertsspaceindustries.com/en/account/pledges?page=${Math.ceil(item.pageId / 10)}`;
+};
+
+const getBundlePreviewImage = (item: Pick<DisplayEquipmentItem, 'ships' | 'others'>, ships: Ship[]) => {
+  const bundleShip = item.ships?.find((bundleShip) => bundleShip.name);
+  if (bundleShip?.name) {
+    const shipInfo = ships.find((ship) => ship.name.toUpperCase().trim() === bundleShip.name?.toUpperCase().trim());
+    const image = getShipThumbLarge(shipInfo);
+    if (image) {
+      return image;
+    }
+  }
+
+  const otherWithImage = item.others?.find((other) => other.image);
+  if (otherWithImage?.image) {
+    return otherWithImage.image.replace('subscribers_vault_thumbnail', 'product_thumb_large');
+  }
+
+  return '';
 };
 
 // MARK: Bundle中船只图片的轮播组件
@@ -216,20 +236,26 @@ function BundleContentCard({
   name,
   imageUrl,
   meta,
+  onClick,
 }: {
   type?: string;
   name?: string;
   imageUrl?: string;
   meta?: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
-    <Box sx={{
-      width: 220,
-      border: '1px solid',
-      borderColor: 'divider',
-      borderRadius: 1,
-      overflow: 'hidden'
-    }}>
+    <Box
+      onClick={onClick}
+      sx={{
+        width: 220,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+    >
       <Box
         component="img"
         sx={{ width: '100%', height: 120, objectFit: 'cover' }}
@@ -342,6 +368,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   const [expandedCcuGroups, setExpandedCcuGroups] = useState<{ [key: string]: boolean }>({});
   const [completedPaths] = useState<StoredCompletedPath[]>(JSON.parse(localStorage.getItem('completedPaths') || '[]'));
   const [hangarMarkdown, setHangarMarkdown] = useState<string>('');
+  const [mobileDetailItem, setMobileDetailItem] = useState<DisplayEquipmentItem | null>(null);
+  const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
 
   const { locale } = intl;
   const { users } = useSelector((state: RootState) => state.upgrades);
@@ -374,6 +402,64 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
   }, [completedPaths, ships]);
 
   const getCcuUsage = (from: string, to: string) => ccuUsageMap.get(getCcuPairKey(from, to)) || 0;
+
+  const resolveShipInfo = (shipTarget?: {
+    id?: number | string | null;
+    name?: string | null;
+    localizedName?: string | null;
+    alias?: string | null;
+  } | null) => {
+    if (!shipTarget) {
+      return null;
+    }
+
+    const numericShipId = typeof shipTarget.id === 'number'
+      ? shipTarget.id
+      : typeof shipTarget.id === 'string' && shipTarget.id.trim() !== '' && !Number.isNaN(Number(shipTarget.id))
+        ? Number(shipTarget.id)
+        : null;
+
+    if (typeof numericShipId === 'number') {
+      const matchedById = ships.find((ship) => ship.id === numericShipId);
+      if (matchedById) {
+        return matchedById;
+      }
+    }
+
+    const targetNames = [
+      shipTarget.name,
+      shipTarget.localizedName,
+      shipTarget.alias,
+    ]
+      .map(normalizeOptionalShipName)
+      .filter(Boolean);
+
+    if (targetNames.length === 0) {
+      return null;
+    }
+
+    return ships.find((ship) => (
+      targetNames.includes(normalizeOptionalShipName(ship.name))
+      || targetNames.includes(normalizeOptionalShipName(ship.localizedName))
+      || targetNames.includes(normalizeOptionalShipName(ship.alias))
+    )) || null;
+  };
+
+  const handleOpenShipDetail = (shipTarget?: {
+    id?: number | string | null;
+    name?: string | null;
+    localizedName?: string | null;
+    alias?: string | null;
+  } | null) => {
+    const shipInfo = resolveShipInfo(shipTarget);
+    if (shipInfo) {
+      setSelectedShip(shipInfo);
+    }
+  };
+
+  const handleCloseShipDetail = () => {
+    setSelectedShip(null);
+  };
 
   useEffect(() => {
     const processStoreData = () => {
@@ -480,6 +566,14 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       ...prev,
       [groupId]: !prev[groupId]
     }));
+  };
+
+  const openMobileDetail = (item: DisplayEquipmentItem) => {
+    setMobileDetailItem(item);
+  };
+
+  const closeMobileDetail = () => {
+    setMobileDetailItem(null);
   };
 
   const mergedCcus = useMemo<DisplayEquipmentItem[]>(() => {
@@ -643,22 +737,27 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
     return b.value - a.value;
   });
 
+  const {
+    isMobile,
+    displayedItems: mobileDisplayedEquipment,
+    sentinelRef,
+    hasMore,
+  } = useMobileInfiniteRows(sortedEquipment, {
+    resetKey: `${searchTerm}-${showCcus}-${showShips}-${showHangarItems}-${showBuybacks}`,
+  });
   const paginatedStart = page * rowsPerPage;
-  const paginatedEquipment = sortedEquipment.slice(
-    paginatedStart,
-    paginatedStart + rowsPerPage
-  );
+  const paginatedEquipment = isMobile
+    ? mobileDisplayedEquipment
+    : sortedEquipment.slice(
+        paginatedStart,
+        paginatedStart + rowsPerPage
+      );
 
   // Check if hangar is empty (based on original data, not filtered)
   const isHangarEmpty = hangarShips.length === 0 && ccus.length === 0 && hangarBundles.length === 0;
 
   return (<>
-    <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
-      <div className='flex flex-col gap-2 items-center justify-center'>
-        <Crawler ships={ships} />
-      </div>
-      <UserSelector />
-    </div>
+    <HangarToolbar ships={ships} />
 
     {!isHangarEmpty && (
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
@@ -685,9 +784,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           />
         </Box>
         <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', md: '40%' } }}>
-          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1, display: 'flex', alignItems: 'center' }}>
-            <FormGroup row sx={{ width: '100%', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1 }}>
+            <Box sx={{ display: 'flex', width: '100%', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -713,8 +812,8 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   sx={{ minWidth: 'auto', mr: 0 }}
                 />
               </Box>
-              <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Divider orientation={isMobile ? "horizontal" : "vertical"} flexItem sx={{ mx: { sm: 2 }, my: { xs: 0.5, sm: 0 } }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -740,7 +839,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   sx={{ minWidth: 'auto' }}
                 />
               </Box>
-            </FormGroup>
+            </Box>
           </Box>
         </Box>
       </Box>
@@ -760,6 +859,482 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             />
           </div>
         )}
+      </Box>
+    ) : isMobile ? (
+      <Box sx={{ width: '100%' }}>
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'baseline' }}>
+          <Typography variant="body1" color="primary" sx={{ fontWeight: 700 }}>
+            <FormattedMessage
+              id={isBuybackOnlyView ? "hangar.buybackValue" : "hangar.totalValue"}
+              defaultMessage={isBuybackOnlyView ? "Buyback value:" : "Hangar value:"}
+            />
+            {" "}
+            {summaryItems.reduce((sum, item) => sum + item.value * (item.quantity || 1), 0).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+            <FormattedMessage
+              id={isBuybackOnlyView ? "hangar.buybackMsrp" : "hangar.totalMsrp"}
+              defaultMessage={isBuybackOnlyView ? "Buyback MSRP:" : "MSRP:"}
+            />
+            {" "}
+            {(summaryItems.reduce((sum, item) => {
+              const upgradeValue = item.to?.msrp && item.from?.msrp ? item.to.msrp - item.from.msrp : 0;
+              const shipsValue = item.ships?.reduce((shipSum, ship) => {
+                if (!ship?.name) return shipSum;
+                const matchingShip = ships.find(s => s.name.toUpperCase().trim() === ship.name?.toUpperCase().trim());
+                return shipSum + (matchingShip?.msrp || 0);
+              }, 0) || 0;
+
+              return sum + upgradeValue * (item.quantity || 1) + shipsValue;
+            }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {paginatedEquipment.map((item) => {
+            const isCcu = item.type === 'CCU';
+            const isBundle = item.type === 'Bundle';
+            const previewImage = isCcu
+              ? getShipThumbLarge(item.from as Ship) || getShipThumbLarge(item.to as Ship)
+              : isBundle
+                ? getBundlePreviewImage(item, ships)
+                : getEquipmentImageSrc(item);
+            const usedCount = isCcu ? getCcuUsage(item.from.name, item.to.name) : 0;
+            const totalCount = item.quantity || 1;
+            const remainingCount = Math.max(totalCount - usedCount, 0);
+            const ownerLabel = item.type === 'CCU' && item.ownerCount && item.ownerCount > 1
+              ? intl.formatMessage({ id: 'hangar.multipleOwners', defaultMessage: '{count} owners' }, { count: item.ownerCount })
+              : users.find(user => user.id === item.belongsTo)?.nickname || '-';
+            const currentValue = isCcu
+              ? ((item.to.msrp - item.from.msrp) / 100)
+              : (item.from.msrp / 100);
+            const costValue = isCcu && item.groupedItems && item.groupedItems.length > 1
+              ? (item.totalCost || 0)
+              : item.value;
+            const discountText = isCcu && item.to.msrp - item.from.msrp !== 0
+              ? `${(((costValue - ((item.to.msrp - item.from.msrp) / 100)) / ((item.to.msrp - item.from.msrp) / 100)) * 100).toFixed(2)}%`
+              : null;
+            const canOpenShipDetail = item.type === 'Ship' && Boolean(resolveShipInfo({ id: item.id, name: item.name }));
+
+            return (
+              <Box
+                key={item.id}
+                sx={{
+                  display: 'flex',
+                  gap: 1.5,
+                  py: 1.5,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'relative',
+                    width: 104,
+                    height: 104,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                  }}
+                >
+                  {previewImage && (
+                    <Box
+                      component="img"
+                      src={previewImage}
+                      alt={item.name}
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  )}
+                  {!!item.quantity && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        right: 6,
+                        bottom: 6,
+                        px: 0.9,
+                        py: 0.15,
+                        borderRadius: 999,
+                        bgcolor: 'rgba(0,0,0,0.68)',
+                        color: '#fff',
+                        fontSize: 14,
+                        fontWeight: 700,
+                      }}
+                    >
+                      x{item.quantity}
+                    </Box>
+                  )}
+                  {item.insurance === "LTI" && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        right: 6,
+                        top: 6,
+                        px: 0.8,
+                        py: 0.15,
+                        borderRadius: 1,
+                        bgcolor: '#ef4444',
+                        color: '#fff',
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      LTI
+                    </Box>
+                  )}
+                </Box>
+
+                <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight={800}
+                    sx={{
+                      lineHeight: 1.25,
+                      pr: 1,
+                      cursor: canOpenShipDetail ? 'pointer' : 'default',
+                    }}
+                    onClick={canOpenShipDetail ? () => handleOpenShipDetail({ id: item.id, name: item.name }) : undefined}
+                  >
+                    {item.name}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                    {isCcu ? `${item.from.name} -> ${item.to.name}` : ownerLabel}
+                  </Typography>
+
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="h5" sx={{ lineHeight: 1, fontWeight: 500 }}>
+                      {costValue.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, fontWeight: 600 }}>
+                      MSRP {currentValue.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                      {discountText ? ` (${discountText})` : ''}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.isBuyBack ? `Buyback ${item.type}` : item.type}
+                    </Typography>
+                    {!item.isBuyBack && <Gift className={`${item.canGift ? 'text-green-500' : 'text-red-400'} w-4 h-4`} />}
+                    {item.insurance === "LTI" && (
+                      <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
+                        LTI
+                      </Typography>
+                    )}
+                    {isCcu && (
+                      <Typography variant="caption" color="text.secondary">
+                        Used {usedCount} / Left {remainingCount}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button size="small" variant="text" onClick={() => openMobileDetail(item)}>
+                      <FormattedMessage id="hangar.mobileViewDetails" defaultMessage="查看详情" />
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            );
+          })}
+          {hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
+        </Box>
+
+        <SwipeableDrawer
+          anchor="bottom"
+          open={Boolean(mobileDetailItem)}
+          onClose={closeMobileDetail}
+          onOpen={() => undefined}
+          disableDiscovery={false}
+          disableSwipeToOpen
+          sx={{
+            '& .MuiDrawer-paper': {
+              maxHeight: '88vh',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+            },
+          }}
+        >
+          {mobileDetailItem && (() => {
+            const detailItem = mobileDetailItem;
+            const isCcu = detailItem.type === 'CCU';
+            const isBundle = detailItem.type === 'Bundle';
+            const previewImage = isCcu
+              ? getShipThumbLarge(detailItem.to as Ship) || getShipThumbLarge(detailItem.from as Ship)
+              : isBundle
+                ? getBundlePreviewImage(detailItem, ships)
+                : getEquipmentImageSrc(detailItem);
+            const usedCount = isCcu ? getCcuUsage(detailItem.from.name, detailItem.to.name) : 0;
+            const totalCount = detailItem.quantity || 1;
+            const remainingCount = Math.max(totalCount - usedCount, 0);
+            const ownerName = detailItem.type === 'CCU' && detailItem.ownerCount && detailItem.ownerCount > 1
+              ? intl.formatMessage({ id: 'hangar.multipleOwners', defaultMessage: '{count} owners' }, { count: detailItem.ownerCount })
+              : users.find(user => user.id === detailItem.belongsTo)?.nickname || '-';
+
+            return (
+              <Box sx={{ px: 2, pb: 3, pt: 1.5, overflowY: 'auto' }}>
+                <Box sx={{ mx: 'auto', mb: 2, height: 6, width: 56, borderRadius: 999, bgcolor: 'divider' }} />
+                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    {detailItem.name}
+                  </Typography>
+                  <IconButton size="small" onClick={closeMobileDetail}>
+                    <X className="w-5 h-5" />
+                  </IconButton>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                  {previewImage && (
+                    <Box
+                      component="img"
+                      src={previewImage}
+                      alt={detailItem.name}
+                      sx={{ width: 132, height: 96, objectFit: 'cover', borderRadius: 1, flexShrink: 0 }}
+                    />
+                  )}
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {isCcu ? `${detailItem.from.name} -> ${detailItem.to.name}` : ownerName}
+                    </Typography>
+                    <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {detailItem.isBuyBack ? `Buyback ${detailItem.type}` : detailItem.type}
+                      </Typography>
+                      {detailItem.insurance === "LTI" && (
+                        <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
+                          LTI
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      <FormattedMessage id="hangar.cost" defaultMessage="Cost" />
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      {(isCcu && detailItem.groupedItems && detailItem.groupedItems.length > 1 ? (detailItem.totalCost || 0) : detailItem.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />
+                    </Typography>
+                    <Typography variant="h6">
+                      {(detailItem.from.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      <FormattedMessage id="hangar.owner" defaultMessage="Owner" />
+                    </Typography>
+                    <Typography variant="body1">{ownerName}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />
+                    </Typography>
+                    <Typography variant="body1">{totalCount}</Typography>
+                  </Box>
+                  {isCcu && (
+                    <Box sx={{ gridColumn: '1 / -1' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        <FormattedMessage id="hangar.usage" defaultMessage="Usage:" />
+                      </Typography>
+                      <Typography variant="body1">
+                        <FormattedMessage
+                          id="hangar.ccuUsage"
+                          defaultMessage="Used: {used}, Remaining: {remaining}"
+                          values={{ used: usedCount, remaining: remainingCount }}
+                        />
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+
+                {!!detailItem.pageId && (
+                  <Box sx={{ mt: 3 }}>
+                    <Button
+                      component={Link}
+                      to={getHangarDetailUrl(detailItem)}
+                      target="_blank"
+                      variant="outlined"
+                      startIcon={<SquareArrowOutUpRight className='w-4 h-4' />}
+                      fullWidth
+                    >
+                      <FormattedMessage id="hangar.viewInHangar" defaultMessage="RSI Hangar" />
+                    </Button>
+                  </Box>
+                )}
+
+                {detailItem.type === 'Ship' && (
+                  <Box sx={{ mt: 3 }}>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={() => handleOpenShipDetail({ id: detailItem.id, name: detailItem.name })}
+                    >
+                      <FormattedMessage id="hangar.openShipDetail" defaultMessage="打开舰船详情" />
+                    </Button>
+                  </Box>
+                )}
+
+                {isBundle && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
+                      <FormattedMessage id="hangar.expand" defaultMessage="Items" />
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {detailItem.ships?.map((bundleShip, index) => {
+                        const shipInfo = resolveShipInfo(bundleShip);
+                        const imageUrl = getShipThumbLarge(shipInfo || undefined);
+
+                        return (
+                          <Box
+                            key={`drawer-ship-${index}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleOpenShipDetail(bundleShip)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                handleOpenShipDetail(bundleShip);
+                              }
+                            }}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1.5,
+                              py: 0.75,
+                              px: 1,
+                              mx: -1,
+                              borderRadius: 1,
+                              cursor: shipInfo ? 'pointer' : 'default',
+                              '&:hover': shipInfo ? {
+                                backgroundColor: 'action.hover',
+                              } : undefined,
+                            }}
+                          >
+                            {imageUrl && (
+                              <Box
+                                component="img"
+                                src={imageUrl}
+                                alt={bundleShip.name || ''}
+                                sx={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 1, flexShrink: 0 }}
+                              />
+                            )}
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography variant="body2" fontWeight={700} noWrap>
+                                {bundleShip.name || '-'}
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {shipInfo?.msrp && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    <FormattedMessage id="hangar.msrp" defaultMessage="MSRP:" />{" "}
+                                    {(shipInfo.msrp / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                                  </Typography>
+                                )}
+                                {bundleShip.insurance && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    <FormattedMessage id="hangar.insurance" defaultMessage="Insurance:" />{" "}
+                                    {bundleShip.insurance}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                      {detailItem.others?.map((bundleOther, index) => {
+                        const imageUrl = bundleOther.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large');
+
+                        if (imageUrl) {
+                          return (
+                            <Box
+                              key={`drawer-other-${index}`}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                py: 0.75,
+                              }}
+                            >
+                              <Box
+                                component="img"
+                                src={imageUrl}
+                                alt={bundleOther.name || ''}
+                                sx={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 1, flexShrink: 0 }}
+                              />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2">{bundleOther.name || '-'}</Typography>
+                                {bundleOther.type && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {bundleOther.type}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                          );
+                        }
+
+                        return (
+                          <Typography key={`drawer-other-${index}`} variant="body2" color="text.secondary">
+                            {bundleOther.name || '-'}
+                          </Typography>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                )}
+
+                {isCcu && detailItem.groupedItems && detailItem.groupedItems.length > 1 && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
+                      <FormattedMessage
+                        id="hangar.mergedCcuDetails"
+                        defaultMessage="Merged CCU details ({count} records)"
+                        values={{ count: detailItem.groupedItems.length }}
+                      />
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {detailItem.groupedItems.map((groupedItem, index) => {
+                        const groupedOwnerName = users.find(user => user.id === groupedItem.belongsTo)?.nickname || '-';
+                        const quantity = groupedItem.quantity || 1;
+                        const lineTotal = groupedItem.value * quantity;
+
+                        return (
+                          <Box
+                            key={`drawer-grouped-${index}`}
+                            sx={{
+                              borderBottom: '1px solid',
+                              borderColor: 'divider',
+                              px: 0,
+                              py: 1.25,
+                            }}
+                          >
+                            <Typography variant="body2" fontWeight={700}>
+                              {groupedOwnerName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              x{quantity} · {groupedItem.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })} /ea · {lineTotal.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            );
+          })()}
+        </SwipeableDrawer>
       </Box>
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>
@@ -1051,6 +1626,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                                       type="Ship"
                                       name={bundleShip.name}
                                       imageUrl={imageUrl}
+                                      onClick={() => handleOpenShipDetail(bundleShip)}
                                       meta={
                                         <>
                                           {shipInfo?.msrp && (
@@ -1190,18 +1766,26 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           </Table>
         </TableContainer>
 
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredEquipment.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
-        />
+        {!isMobile && (
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredEquipment.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
+          />
+        )}
+        {isMobile && hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
       </Box>
     )}
+    <ShipInfoDialog
+      open={Boolean(selectedShip)}
+      ship={selectedShip}
+      onClose={handleCloseShipDetail}
+    />
   </>)
 }

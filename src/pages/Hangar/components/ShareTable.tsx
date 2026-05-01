@@ -6,10 +6,10 @@ import { selectUsersHangarItems } from "@/store/upgradesStore";
 import { setItemSelected, updateItemPrice, generateItemKey } from "@/store/shareStore";
 import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Button, Checkbox, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Alert } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, Upload, Copy, X, Link } from "lucide-react";
-import Crawler from "@/components/Crawler";
-import UserSelector from "@/components/UserSelector";
 import { Ship } from "@/types";
 import { getShipThumbLarge, toApiAssetUrl } from "@/utils/shipImage";
+import HangarToolbar from "./HangarToolbar";
+import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 
 interface DisplayEquipmentItem {
   id: string;
@@ -53,8 +53,6 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
   const [ccus, setCcus] = useState<DisplayEquipmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [uploading, setUploading] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
@@ -335,28 +333,28 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
     item.owners.some(owner => owner.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const paginatedEquipment = filteredEquipment.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  const {
+    isMobile,
+    page,
+    rowsPerPage,
+    setPage,
+    setRowsPerPage,
+    displayedItems: paginatedEquipment,
+    sentinelRef,
+    hasMore,
+  } = useMobileInfiniteRows(filteredEquipment, { resetKey: `${searchTerm}-${currency}` });
 
   // 计算选中的物品数量
   const selectedCount = ccus.filter(item => item.selectedForShare).length;
 
   return (<>
-    <div className='absolute top-0 right-0 m-[15px] gap-2 hidden sm:flex'>
-      <div className='flex flex-col gap-2 items-center justify-center'>
-        <Crawler ships={ships} />
-      </div>
-      <UserSelector />
-    </div>
+    <HangarToolbar ships={ships} />
 
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 2 }}>
       <TextField
         sx={{
           '& .MuiOutlinedInput-root': { borderRadius: 0 },
-          flexGrow: 1, 
-          mr: 2
+          flexGrow: 1,
         }}
         variant="outlined"
         placeholder={intl.formatMessage({ id: 'search.placeholder', defaultMessage: 'Search equipment...' })}
@@ -380,6 +378,7 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         startIcon={<Upload />}
         onClick={handleUpload}
         disabled={uploading || selectedCount === 0}
+        sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
       >
         <span>
           {uploading ?
@@ -398,6 +397,124 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
         <Typography variant="h6">
           <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
         </Typography>
+      </Box>
+    ) : isMobile ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        {paginatedEquipment.map((item) => (
+          <Box
+            key={item.id}
+            sx={{
+              py: 1.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+              <Checkbox
+                checked={item.selectedForShare}
+                onChange={() => handleSelectItem(item.id)}
+                sx={{ mt: -0.5, ml: -1 }}
+              />
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                  {item.type === 'CCU' && item.from && item.to ? (
+                    <Box sx={{ position: 'relative', width: 104, height: 80, overflow: 'hidden', borderRadius: 1, flexShrink: 0 }}>
+                      <Box
+                        component="img"
+                        sx={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          width: '35%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                        src={getShipThumbLarge(item.from as Ship)}
+                        alt={item.from.name}
+                      />
+                      <Box
+                        component="img"
+                        sx={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 0,
+                          width: '65%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                        src={getShipThumbLarge(item.to as Ship)}
+                        alt={item.to.name}
+                      />
+                    </Box>
+                  ) : (
+                    <Box
+                      component="img"
+                      sx={{ width: 104, height: 80, objectFit: 'cover', borderRadius: 1, flexShrink: 0 }}
+                      src={toApiAssetUrl(item.imageUrl)}
+                      alt={item.name}
+                    />
+                  )}
+
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {item.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                      {item.type === 'CCU'
+                        ? `${item.from.name} -> ${item.to.name}`
+                        : item.type}
+                    </Typography>
+
+                    <Typography variant="body1" color="primary" fontWeight={700} sx={{ mt: 1 }}>
+                      {(item.customPrice || 0).toLocaleString(locale, { style: 'currency', currency })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+                      <FormattedMessage id="hangar.cost" defaultMessage="Cost" />: {" "}
+                      {item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {item.owners.map((owner) => (
+                    <Chip
+                      key={owner.id}
+                      label={`${owner.name} (${owner.quantity})`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                  <Chip
+                    icon={<Inbox className='w-4 h-4' />}
+                    label={`${item.quantity ?? 0}`}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Box>
+
+                <TextField
+                  type="number"
+                  size="small"
+                  disabled={!item.selectedForShare}
+                  value={item.customPrice}
+                  onChange={(e) => handleSetCustomPrice(item.id, parseFloat(e.target.value) || 0)}
+                  sx={{
+                    mt: 1.5,
+                    '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: <InputAdornment position="start">{(0).toLocaleString(locale, { style: 'currency', currency }).replace('0.00', '')}</InputAdornment>
+                    }
+                  }}
+                  fullWidth
+                />
+              </Box>
+            </Box>
+          </Box>
+        ))}
+        {hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
       </Box>
     ) : (
       <Box sx={{ width: '100%', overflow: 'auto' }}>
@@ -554,17 +671,19 @@ export default function ShareTable({ ships, exchangeRates }: { ships: Ship[], ex
           </Table>
         </TableContainer>
 
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredEquipment.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
-        />
+        {!isMobile && (
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredEquipment.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: '每页行数:' })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: '共' })}${count}${intl.formatMessage({ id: 'pagination.items', defaultMessage: '项' })}`}
+          />
+        )}
       </Box>
     )}
 

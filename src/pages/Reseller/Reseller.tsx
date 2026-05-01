@@ -7,6 +7,7 @@ import SalesBalancePanel from './components/SalesBalancePanel';
 import { useHangarData } from '@/hooks';
 import OrdersTable from './components/OrdersTable';
 import { useNavigate } from 'react-router';
+import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
   MyStore = 'myStore',
@@ -18,40 +19,49 @@ export default function Reseller() {
   const [currentPage, setCurrentPage] = useState<Page>(Page.MyStore);
   const { ships, loading } = useHangarData();
   const navigate = useNavigate();
+  const layoutItems: ResponsiveSectionLayoutItem[] = [
+    {
+      id: Page.MyStore,
+      title: <FormattedMessage id="hangar.myStore" defaultMessage="My Store" />,
+      description: <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />,
+      active: currentPage === Page.MyStore,
+      onSelect: () => setCurrentPage(Page.MyStore),
+    },
+    {
+      id: Page.SalesBalance,
+      title: <FormattedMessage id="reseller.balance.navTitle" defaultMessage="Sales Balance" />,
+      description: <FormattedMessage id="reseller.balance.navDescription" defaultMessage="Review available and pending balance from sold items." />,
+      active: currentPage === Page.SalesBalance,
+      onSelect: () => setCurrentPage(Page.SalesBalance),
+    },
+    {
+      id: Page.MyOrders,
+      title: <FormattedMessage id="hangar.myOrders" defaultMessage="My Orders" />,
+      description: <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />,
+      active: currentPage === Page.MyOrders,
+      onSelect: () => setCurrentPage(Page.MyOrders),
+    },
+    {
+      id: 'graphql-export',
+      kind: 'action',
+      title: <FormattedMessage id="reseller.graphqlExport.title" defaultMessage="GraphQL Export" />,
+      description: (
+        <FormattedMessage
+          id="reseller.graphqlExport.description"
+          defaultMessage="Request RSI GraphQL through the browser extension and download the JSON payload."
+        />
+      ),
+      onSelect: () => navigate('/graphql-export'),
+    },
+  ];
 
   return (
-    <div className='absolute top-[65px] h-[calc(100vh-65px)] left-0 right-0 bottom-0 flex text-left flex-col md:flex-row justify-start'>
-      <div className='flex flex-col text-left min-w-[300px] border-r border-b border-gray-200 dark:border-gray-800'>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyStore ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.MyStore)}>
-          <FormattedMessage id="hangar.myStore" defaultMessage="My Store" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.SalesBalance ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.SalesBalance)}>
-          <FormattedMessage id="reseller.balance.navTitle" defaultMessage="Sales Balance" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="reseller.balance.navDescription" defaultMessage="Review available and pending balance from sold items." />
-          </Typography>
-        </div>
-        <div className={`text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 ${currentPage === Page.MyOrders ? 'bg-gray-100 dark:bg-gray-800' : ''}`} onClick={() => setCurrentPage(Page.MyOrders)}>
-          <FormattedMessage id="hangar.myOrders" defaultMessage="My Orders" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />
-          </Typography>
-        </div>
-        <div className="text-lg flex flex-col gap-2 justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2" onClick={() => navigate('/graphql-export')}>
-          <FormattedMessage id="reseller.graphqlExport.title" defaultMessage="GraphQL Export" />
-          <Typography variant='body2' color='text.secondary'>
-            <FormattedMessage
-              id="reseller.graphqlExport.description"
-              defaultMessage="Request RSI GraphQL through the browser extension and download the JSON payload."
-            />
-          </Typography>
-        </div>
-      </div>
-
-      <div className='p-4 w-full h-[calc(100vh-65px)] overflow-y-auto'>
+    <ResponsiveSectionLayout
+      items={layoutItems}
+      mobileMenuLabel={<FormattedMessage id="reseller.switchSection" defaultMessage="切换" />}
+      mobileMenuTitle={<FormattedMessage id="reseller.sections" defaultMessage="商家中心" />}
+      contentClassName="min-h-0 flex-1 overflow-y-auto p-4"
+    >
         {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
           {currentPage === Page.MyStore && (
             <div className='flex flex-col'>
@@ -62,7 +72,6 @@ export default function Reseller() {
           {currentPage === Page.MyOrders && <OrdersTable />}
           {currentPage === Page.SalesBalance && <SalesBalancePanel />}
         </>)}
-      </div>
-    </div>
+    </ResponsiveSectionLayout>
   );
 }
