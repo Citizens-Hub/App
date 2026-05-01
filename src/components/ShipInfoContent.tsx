@@ -130,7 +130,7 @@ function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): 
   ].filter(Boolean) as string[];
 
   const detailImages = [
-    ...(detailedShip?.details?.imageComposer || []),
+    ...(detailedShip?.details?.imageComposer?.filter(entry => entry.slot === "media_list" && entry.name === "1440") || []),
   ].map((entry, index) => getShipDetailImageUrl(imageOwnerShip, entry, index)).filter(Boolean) as string[];
 
   const fallbackLargeImages = [
