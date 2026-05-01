@@ -335,14 +335,6 @@ function isImageLikeRequest(request, requestUrl) {
   return /\.(avif|bmp|gif|ico|jpe?g|jfif|png|svg|webp)$/i.test(requestUrl.pathname);
 }
 
-function isCitizensHubOwnedHostname(hostname) {
-  return hostname === self.location.hostname
-    || hostname === 'citizenshub.app'
-    || hostname.endsWith('.citizenshub.app')
-    || hostname === 'localhost'
-    || hostname === '127.0.0.1';
-}
-
 function isShipImagePath(pathname) {
   return pathname.startsWith('/ship-images/')
     || pathname.startsWith('/api/ship-images/');
@@ -350,7 +342,7 @@ function isShipImagePath(pathname) {
 
 function isOwnedImageRequest(request, requestUrl) {
   return isImageLikeRequest(request, requestUrl)
-    && isCitizensHubOwnedHostname(requestUrl.hostname);
+    && requestUrl.hostname === 'images.citizenshub.app';
 }
 
 function getImageCacheSource(requestUrl) {
@@ -597,10 +589,12 @@ async function clearImageCacheEntries(options = {}) {
 }
 
 self.addEventListener('install', (event) => {
+  console.log('[SW] Install');
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activate');
   event.waitUntil((async () => {
     const cacheNames = await caches.keys();
     await Promise.all(
