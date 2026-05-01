@@ -122,6 +122,10 @@ interface ResolvedShipImages {
   blurredImageUrls: string[];
 }
 
+function unique (arr: string[]) {
+  return Array.from(new Set(arr))
+}
+
 function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): ResolvedShipImages {
   const imageOwnerShip = detailedShip || listShip;
   const previewImages = [
@@ -129,9 +133,9 @@ function resolveShipImages(detailedShip?: Ship | null, listShip?: Ship | null): 
     getShipThumbSmall(detailedShip),
   ].filter(Boolean) as string[];
 
-  const detailImages = [
-    ...(detailedShip?.details?.imageComposer?.filter(entry => entry.slot === "media_list" && entry.name === "1440") || []),
-  ].map((entry, index) => getShipDetailImageUrl(imageOwnerShip, entry, index)).filter(Boolean) as string[];
+  const detailImages = unique([
+    ...(detailedShip?.details?.imageComposer?.filter(entry => entry.name === "1440") || []),
+  ].map((entry, index) => getShipDetailImageUrl(imageOwnerShip, entry, index)).filter(Boolean) as string[]);
 
   const fallbackLargeImages = [
     getShipSlideshowImage(detailedShip),
