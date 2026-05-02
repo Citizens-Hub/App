@@ -29,6 +29,7 @@ import {
   ROBUST_WATERMARK_BLOCK_FLAG_HEADER,
   ROBUST_WATERMARK_BLOCK_FLAG_VALID,
 } from '@/pages/CCUPlanner/services/RobustImageWatermarkService';
+import { readImageBlobPixels } from '@/utils/readImageBitmapPixels';
 
 type InspectionResult = {
   fileName: string;
@@ -193,23 +194,17 @@ export default function WatermarkDebugTool() {
     try {
       const imageBuffer = await file.arrayBuffer();
       const blob = new Blob([imageBuffer], { type: file.type || 'image/jpeg' });
-      const imageBitmap = await createImageBitmap(blob);
-      const canvas = document.createElement('canvas');
-      canvas.width = imageBitmap.width;
-      canvas.height = imageBitmap.height;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        imageBitmap.close();
-        throw new Error('Unable to initialize debug canvas context.');
-      }
-
-      ctx.drawImage(imageBitmap, 0, 0);
-      imageBitmap.close();
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const analysis = analyzeRobustWatermarkFrequency(imageData.data, canvas.width, canvas.height);
-      const debugReport = debugRobustWatermark(imageData.data, canvas.width, canvas.height);
+      const decodedImage = await readImageBlobPixels(blob);
+      const analysis = analyzeRobustWatermarkFrequency(
+        decodedImage.data,
+        decodedImage.width,
+        decodedImage.height
+      );
+      const debugReport = debugRobustWatermark(
+        decodedImage.data,
+        decodedImage.width,
+        decodedImage.height
+      );
 
       previewUrl = URL.createObjectURL(file);
 
@@ -219,7 +214,11 @@ export default function WatermarkDebugTool() {
       let decodeError: string | null = null;
 
       try {
-        const extracted = extractRobustWatermarkWithDiagnostics(imageData.data, canvas.width, canvas.height);
+        const extracted = extractRobustWatermarkWithDiagnostics(
+          decodedImage.data,
+          decodedImage.width,
+          decodedImage.height
+        );
         payloadByteLength = extracted.payload.byteLength;
         diagnostics = extracted.diagnostics;
         const inspection = await routeImagePayloadService.inspectPayload(extracted.payload);
@@ -236,8 +235,8 @@ export default function WatermarkDebugTool() {
 
       const nextResult: InspectionResult = {
         fileName: file.name,
-        imageWidth: canvas.width,
-        imageHeight: canvas.height,
+        imageWidth: decodedImage.width,
+        imageHeight: decodedImage.height,
         previewUrl,
         signalMapUrl: createFrequencyHeatmapUrl(analysis, 'signal'),
         confidenceMapUrl: createFrequencyHeatmapUrl(analysis, 'confidence'),

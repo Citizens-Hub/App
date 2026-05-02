@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { extractRobustWatermark } from '../services/RobustImageWatermarkService';
+import { readImageBlobPixels } from '@/utils/readImageBitmapPixels';
 
 type ImportStage =
   | 'decoding'
@@ -54,17 +55,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequestMessage>) => {
     workerScope.postMessage(decodingProgressMessage);
 
     const blob = new Blob([message.imageBuffer], { type: message.mimeType || 'image/png' });
-    const imageBitmap = await createImageBitmap(blob);
-    const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      imageBitmap.close();
-      throw new Error('Unable to initialize image import canvas context.');
-    }
-
-    ctx.drawImage(imageBitmap, 0, 0);
-    imageBitmap.close();
+    const decodedImage = await readImageBlobPixels(blob);
 
     const extractingProgressMessage: WorkerProgressMessage = {
       type: 'progress',
@@ -73,13 +64,16 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequestMessage>) => {
     };
     workerScope.postMessage(extractingProgressMessage);
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const payload = extractRobustWatermark(imageData.data, canvas.width, canvas.height);
+    const payload = extractRobustWatermark(
+      decodedImage.data,
+      decodedImage.width,
+      decodedImage.height
+    );
 
     const payloadBuffer = payload.buffer.slice(
       payload.byteOffset,
       payload.byteOffset + payload.byteLength
-    );
+    ) as ArrayBuffer;
 
     const successResponse: WorkerSuccessMessage = {
       type: 'success',
