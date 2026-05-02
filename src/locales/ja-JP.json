@@ -539,7 +539,7 @@
   "ccuPlanner.exportProgress.encoding": "画像をエンコード中...",
   "ccuPlanner.exportProgress.downloading": "ダウンロードを開始中...",
   "ccuPlanner.exportFooter.title": "Citizens' Hub で生成",
-  "ccuPlanner.exportFooter.description": "この画像を CCU Planner にインポートするか、QR コードをスキャンしてプランナーを開いてください。",
+  "ccuPlanner.exportFooter.description": "この画像を CCU Planner にインポートするか、下のリンクからプランナーを開いてください。",
   "ccuPlanner.exportFooter.url": "citizenshub.app/ccu-planner",
   "ccuPlanner.tab.add": "ルートタブを追加",
   "ccuPlanner.tab.close": "ルートタブを閉じる",

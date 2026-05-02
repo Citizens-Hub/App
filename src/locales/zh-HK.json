@@ -539,7 +539,7 @@
   "ccuPlanner.exportProgress.encoding": "正在編碼圖片...",
   "ccuPlanner.exportProgress.downloading": "正在開始下載...",
   "ccuPlanner.exportFooter.title": "由 Citizens' Hub 生成",
-  "ccuPlanner.exportFooter.description": "可在 CCU Planner 中匯入此圖片，掃描二維碼打開規劃器",
+  "ccuPlanner.exportFooter.description": "可在 CCU Planner 中匯入此圖片，或透過下方連結打開規劃器",
   "ccuPlanner.exportFooter.url": "citizenshub.app/ccu-planner",
   "ccuPlanner.tab.add": "新增路線標籤",
   "ccuPlanner.tab.close": "關閉路線標籤",

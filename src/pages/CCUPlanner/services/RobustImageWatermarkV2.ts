@@ -11,6 +11,7 @@ import {
   HAMMING_CODE_BITS,
   assertImageSupportsWatermark,
   bitsToBytes,
+  buildBitPermutation,
   buildBlockOrder,
   bytesToBits,
   clampUnit,
@@ -65,9 +66,17 @@ const V2_DECODE_CONFIDENCE_CLAMP = 20;
 const V2_HEADER_SCORE_EMBED_THRESHOLD = 0.18;
 const V2_SCORE_EMBED_THRESHOLD = 0.26;
 const V2_PAYLOAD_DECODE_SCORE_THRESHOLD = 0.12;
+const V2_PAYLOAD_WRITE_SCORE_THRESHOLD = 0.045;
 const V2_PAYLOAD_MACRO_EMBED_THRESHOLD = 0.18;
 const V2_PAYLOAD_MACRO_CAPACITY_THRESHOLD = 0.2;
 const V2_PAYLOAD_BLOCK_MIN_DECODE_CONFIDENCE = 0.35;
+const V2_PAYLOAD_MIN_BLOCKS_PER_MACRO = 2;
+const V2_PAYLOAD_SYMBOL_AGREEMENT_THRESHOLD = 0.66;
+const V2_ECC_DATA_BYTES_PER_BLOCK = 183;
+const V2_ECC_PARITY_BYTES_PER_BLOCK = 24;
+const V2_ECC_HEADER_MAGIC = 'CHE2';
+const V2_ECC_HEADER_VERSION = 1;
+const V2_ECC_HEADER_SIZE = 16;
 const V2_HEADER_MIN_BRIGHTNESS = 0.8;
 const V2_HEADER_MAX_BRIGHTNESS = 0.992;
 const V2_HEADER_MAX_ACTIVITY = 0.2;
@@ -111,6 +120,7 @@ interface WatermarkV2Geometry {
 
 interface DecodedBitsDiagnostics {
   bits: Bit[];
+  confidences: number[];
   averageConfidence: number;
   minimumConfidence: number;
   payloadDebug?: RobustWatermarkPayloadDebug;
@@ -146,6 +156,20 @@ interface DecodedPayloadMacroSymbol {
   agreement: number;
 }
 
+interface DecodedHammingBits {
+  bits: Bit[];
+  confidences: number[];
+  correctedBitCount: number;
+}
+
+interface PayloadRecoveryResult {
+  payload: Uint8Array;
+  transportLength: number;
+  eccParityBytes: number;
+  erasedByteCount: number;
+  correctedByteCount: number;
+}
+
 const V2_PAYLOAD_BIT0_COEFFICIENT_PAIRS = [
   { basisA: COEFFICIENT_LOW_A, basisB: COEFFICIENT_LOW_B, strengthBias: 1.1 },
   { basisA: COEFFICIENT_A, basisB: COEFFICIENT_B, strengthBias: 0 }
@@ -170,6 +194,29 @@ const V2_BIT0_SUB_BLOCKS = new Set([0, 3]);
 const V2_PAYLOAD_BLOCK_OFFSETS = [0, 1, 2, 3] as const;
 const V2_PAYLOAD_BLOCK_MASKS = [0b00, 0b01, 0b11, 0b10] as const;
 const V2_PAYLOAD_REQUIRED_BLOCKS_PER_MACRO = V2_PAYLOAD_BLOCK_OFFSETS.length;
+function calculateEccTransportLength(payloadByteLength: number) {
+  const blockCount = Math.ceil(payloadByteLength / V2_ECC_DATA_BYTES_PER_BLOCK);
+  return V2_ECC_HEADER_SIZE
+    + payloadByteLength
+    + (blockCount * V2_ECC_PARITY_BYTES_PER_BLOCK);
+}
+
+function calculateMaxPayloadLengthFromTransportCapacity(transportCapacityBytes: number) {
+  let low = 0;
+  let high = Math.max(0, transportCapacityBytes);
+
+  while (low < high) {
+    const midpoint = Math.ceil((low + high + 1) / 2);
+    if (calculateEccTransportLength(midpoint) <= transportCapacityBytes) {
+      low = midpoint;
+    } else {
+      high = midpoint - 1;
+    }
+  }
+
+  return low;
+}
+
 function calculateCapacityFromPayloadMacroCount(payloadMacroCount: number, repetitionFactor: number) {
   const usableEncodedBits = Math.floor(payloadMacroCount / repetitionFactor) * V2_PAYLOAD_SYMBOL_BITS;
   const usableCodewords = Math.floor(usableEncodedBits / HAMMING_CODE_BITS);
@@ -203,6 +250,55 @@ function getPayloadMacroOrderIndex(
     Math.floor(((sequenceIndex + 0.5) * payloadMacroCount) / requiredMacros)
   );
 }
+
+// function canUsePayloadMacroForEmbedding(macroIndex: number, payloadMacroScores: Float32Array) {
+//   return payloadMacroScores[macroIndex] >= V2_PAYLOAD_MACRO_EMBED_THRESHOLD;
+// }
+
+// function getRequiredPayloadSymbolCount(payloadByteLength: number) {
+//   return Math.ceil(getRequiredEncodedBitsForByteLength(payloadByteLength) / V2_PAYLOAD_SYMBOL_BITS);
+// }
+
+// function getMinimumSymbolEmbeddingVotes(repetitionFactor: number) {
+//   return Math.min(3, repetitionFactor);
+// }
+
+// function measurePayloadPlacementCoverage(
+//   payloadByteLength: number,
+//   payloadMacros: Uint32Array,
+//   payloadMacroScores: Float32Array,
+//   repetitionFactor: number
+// ) {
+//   const symbolCount = getRequiredPayloadSymbolCount(payloadByteLength);
+//   let minimumVotes = Number.POSITIVE_INFINITY;
+//   let voteSum = 0;
+
+//   for (let symbolIndex = 0; symbolIndex < symbolCount; symbolIndex += 1) {
+//     let votes = 0;
+
+//     for (let repetitionIndex = 0; repetitionIndex < repetitionFactor; repetitionIndex += 1) {
+//       const macroIndex = payloadMacros[getPayloadMacroOrderIndex(
+//         symbolIndex,
+//         repetitionIndex,
+//         symbolCount,
+//         repetitionFactor,
+//         payloadMacros.length
+//       )];
+//       if (canUsePayloadMacroForEmbedding(macroIndex, payloadMacroScores)) {
+//         votes += 1;
+//       }
+//     }
+
+//     minimumVotes = Math.min(minimumVotes, votes);
+//     voteSum += votes;
+//   }
+
+//   return {
+//     symbolCount,
+//     minimumVotes: Number.isFinite(minimumVotes) ? minimumVotes : 0,
+//     averageVotes: symbolCount ? voteSum / symbolCount : 0
+//   };
+// }
 
 function choosePayloadRepetitionFactor(
   payloadByteLength: number,
@@ -284,6 +380,463 @@ function countMagicByteMatches(bytes: Uint8Array, magic: string) {
   return matches;
 }
 
+function gf256Multiply(left: number, right: number) {
+  let a = left & 0xff;
+  let b = right & 0xff;
+  let result = 0;
+
+  while (b) {
+    if (b & 1) {
+      result ^= a;
+    }
+    const highBit = a & 0x80;
+    a = (a << 1) & 0xff;
+    if (highBit) {
+      a ^= 0x1d;
+    }
+    b >>>= 1;
+  }
+
+  return result;
+}
+
+function gf256Pow(base: number, exponent: number) {
+  let result = 1;
+
+  for (let index = 0; index < exponent; index += 1) {
+    result = gf256Multiply(result, base);
+  }
+
+  return result;
+}
+
+function gf256Inverse(value: number) {
+  if (!value) {
+    throw new Error('Cannot invert zero in GF(256).');
+  }
+
+  return gf256Pow(value, 254);
+}
+
+// function gf256Divide(left: number, right: number) {
+//   return gf256Multiply(left, gf256Inverse(right));
+// }
+
+function getEccCoefficient(byteIndex: number, parityIndex: number) {
+  return gf256Pow(2, ((byteIndex + 1) * (parityIndex + 1)) % 255);
+}
+
+function xorRows(target: Uint8Array, source: Uint8Array, startColumn: number) {
+  for (let column = startColumn; column < target.length; column += 1) {
+    target[column] ^= source[column];
+  }
+}
+
+function scaleRow(row: Uint8Array, scalar: number, startColumn: number) {
+  if (scalar === 1) {
+    return;
+  }
+
+  for (let column = startColumn; column < row.length; column += 1) {
+    row[column] = gf256Multiply(row[column], scalar);
+  }
+}
+
+function solveGf256LinearSystem(matrix: Uint8Array[], values: Uint8Array) {
+  const size = values.length;
+  const rows = matrix.map((row, rowIndex) => {
+    const augmented = new Uint8Array(size + 1);
+    augmented.set(row.slice(0, size), 0);
+    augmented[size] = values[rowIndex];
+    return augmented;
+  });
+
+  for (let column = 0; column < size; column += 1) {
+    let pivotRow = column;
+    while (pivotRow < size && rows[pivotRow][column] === 0) {
+      pivotRow += 1;
+    }
+    if (pivotRow >= size) {
+      return null;
+    }
+
+    if (pivotRow !== column) {
+      const temp = rows[column];
+      rows[column] = rows[pivotRow];
+      rows[pivotRow] = temp;
+    }
+
+    scaleRow(rows[column], gf256Inverse(rows[column][column]), column);
+
+    for (let rowIndex = 0; rowIndex < size; rowIndex += 1) {
+      if (rowIndex === column || rows[rowIndex][column] === 0) {
+        continue;
+      }
+
+      const factor = rows[rowIndex][column];
+      const scaledPivot = new Uint8Array(size + 1);
+      for (let pivotColumn = column; pivotColumn <= size; pivotColumn += 1) {
+        scaledPivot[pivotColumn] = gf256Multiply(rows[column][pivotColumn], factor);
+      }
+      xorRows(rows[rowIndex], scaledPivot, column);
+    }
+  }
+
+  const output = new Uint8Array(size);
+  for (let rowIndex = 0; rowIndex < size; rowIndex += 1) {
+    output[rowIndex] = rows[rowIndex][size];
+  }
+  return output;
+}
+
+function calculateEccParity(data: Uint8Array, parityBytes: number) {
+  const parity = new Uint8Array(parityBytes);
+
+  for (let byteIndex = 0; byteIndex < data.length; byteIndex += 1) {
+    const value = data[byteIndex];
+    if (!value) {
+      continue;
+    }
+
+    for (let parityIndex = 0; parityIndex < parityBytes; parityIndex += 1) {
+      parity[parityIndex] ^= gf256Multiply(value, getEccCoefficient(byteIndex, parityIndex));
+    }
+  }
+
+  return parity;
+}
+
+function recoverEccBlock(data: Uint8Array, parity: Uint8Array, erasedByteIndices: number[]) {
+  const uniqueErasedByteIndices = Array.from(new Set(erasedByteIndices))
+    .filter((byteIndex) => byteIndex >= 0 && byteIndex < data.length);
+
+  if (!uniqueErasedByteIndices.length) {
+    const currentParity = calculateEccParity(data, parity.length);
+    for (let parityIndex = 0; parityIndex < parity.length; parityIndex += 1) {
+      if (currentParity[parityIndex] !== parity[parityIndex]) {
+        return null;
+      }
+    }
+
+    return {
+      data,
+      correctedByteCount: 0
+    };
+  }
+
+  if (uniqueErasedByteIndices.length > parity.length) {
+    return null;
+  }
+
+  const currentParity = calculateEccParity(data, parity.length);
+  const matrix: Uint8Array[] = [];
+  const values = new Uint8Array(uniqueErasedByteIndices.length);
+
+  for (let parityIndex = 0; parityIndex < uniqueErasedByteIndices.length; parityIndex += 1) {
+    const row = new Uint8Array(uniqueErasedByteIndices.length);
+    uniqueErasedByteIndices.forEach((byteIndex, columnIndex) => {
+      row[columnIndex] = getEccCoefficient(byteIndex, parityIndex);
+    });
+    matrix.push(row);
+    values[parityIndex] = parity[parityIndex] ^ currentParity[parityIndex];
+  }
+
+  const recoveredValues = solveGf256LinearSystem(matrix, values);
+  if (!recoveredValues) {
+    return null;
+  }
+
+  const recoveredData = new Uint8Array(data);
+  uniqueErasedByteIndices.forEach((byteIndex, valueIndex) => {
+    recoveredData[byteIndex] ^= recoveredValues[valueIndex];
+  });
+
+  const recoveredParity = calculateEccParity(recoveredData, parity.length);
+  for (let parityIndex = 0; parityIndex < parity.length; parityIndex += 1) {
+    if (recoveredParity[parityIndex] !== parity[parityIndex]) {
+      return null;
+    }
+  }
+
+  return {
+    data: recoveredData,
+    correctedByteCount: uniqueErasedByteIndices.length
+  };
+}
+
+function buildEccTransport(payload: Uint8Array) {
+  const blockCount = Math.ceil(payload.byteLength / V2_ECC_DATA_BYTES_PER_BLOCK);
+  const transportLength = V2_ECC_HEADER_SIZE
+    + payload.byteLength
+    + (blockCount * V2_ECC_PARITY_BYTES_PER_BLOCK);
+  const transport = new Uint8Array(transportLength);
+  let offset = 0;
+
+  transport[offset++] = V2_ECC_HEADER_MAGIC.charCodeAt(0);
+  transport[offset++] = V2_ECC_HEADER_MAGIC.charCodeAt(1);
+  transport[offset++] = V2_ECC_HEADER_MAGIC.charCodeAt(2);
+  transport[offset++] = V2_ECC_HEADER_MAGIC.charCodeAt(3);
+  transport[offset++] = V2_ECC_HEADER_VERSION;
+  transport[offset++] = V2_ECC_DATA_BYTES_PER_BLOCK;
+  transport[offset++] = V2_ECC_PARITY_BYTES_PER_BLOCK;
+  transport[offset++] = blockCount;
+  transport[offset++] = payload.byteLength & 0xff;
+  transport[offset++] = (payload.byteLength >>> 8) & 0xff;
+  transport[offset++] = (payload.byteLength >>> 16) & 0xff;
+  transport[offset++] = (payload.byteLength >>> 24) & 0xff;
+  const payloadChecksum = crc32(payload);
+  transport[offset++] = payloadChecksum & 0xff;
+  transport[offset++] = (payloadChecksum >>> 8) & 0xff;
+  transport[offset++] = (payloadChecksum >>> 16) & 0xff;
+  transport[offset++] = (payloadChecksum >>> 24) & 0xff;
+  transport.set(payload, offset);
+  offset += payload.byteLength;
+
+  for (let blockIndex = 0; blockIndex < blockCount; blockIndex += 1) {
+    const blockStart = blockIndex * V2_ECC_DATA_BYTES_PER_BLOCK;
+    const blockEnd = Math.min(payload.byteLength, blockStart + V2_ECC_DATA_BYTES_PER_BLOCK);
+    const block = new Uint8Array(V2_ECC_DATA_BYTES_PER_BLOCK);
+    block.set(payload.slice(blockStart, blockEnd));
+    transport.set(calculateEccParity(block, V2_ECC_PARITY_BYTES_PER_BLOCK), offset);
+    offset += V2_ECC_PARITY_BYTES_PER_BLOCK;
+  }
+
+  return transport;
+}
+
+function parseEccTransportHeader(transport: Uint8Array) {
+  if (transport.byteLength < V2_ECC_HEADER_SIZE) {
+    return null;
+  }
+
+  const magic = String.fromCharCode(transport[0], transport[1], transport[2], transport[3]);
+  if (magic !== V2_ECC_HEADER_MAGIC || transport[4] !== V2_ECC_HEADER_VERSION) {
+    return null;
+  }
+
+  const dataBytesPerBlock = transport[5];
+  const parityBytesPerBlock = transport[6];
+  const blockCount = transport[7];
+  const payloadLength = (
+    transport[8]
+    | (transport[9] << 8)
+    | (transport[10] << 16)
+    | (transport[11] << 24)
+  ) >>> 0;
+  const payloadChecksum = (
+    transport[12]
+    | (transport[13] << 8)
+    | (transport[14] << 16)
+    | (transport[15] << 24)
+  ) >>> 0;
+
+  if (
+    dataBytesPerBlock !== V2_ECC_DATA_BYTES_PER_BLOCK
+    || parityBytesPerBlock !== V2_ECC_PARITY_BYTES_PER_BLOCK
+    || blockCount !== Math.ceil(payloadLength / V2_ECC_DATA_BYTES_PER_BLOCK)
+  ) {
+    return null;
+  }
+
+  const expectedTransportLength = V2_ECC_HEADER_SIZE
+    + payloadLength
+    + (blockCount * parityBytesPerBlock);
+  if (expectedTransportLength > transport.byteLength) {
+    return null;
+  }
+
+  return {
+    blockCount,
+    payloadLength,
+    payloadChecksum,
+    expectedTransportLength
+  };
+}
+
+function getLowConfidenceTransportBytes(
+  bitConfidences: number[],
+  transportLength: number,
+  threshold: number
+) {
+  const erasedByteIndices: number[] = [];
+
+  for (let byteIndex = 0; byteIndex < transportLength; byteIndex += 1) {
+    let minimumConfidence = Number.POSITIVE_INFINITY;
+
+    for (let bitOffset = 0; bitOffset < 8; bitOffset += 1) {
+      const confidence = bitConfidences[(byteIndex * 8) + bitOffset] ?? 0;
+      minimumConfidence = Math.min(minimumConfidence, confidence);
+    }
+
+    if (!Number.isFinite(minimumConfidence) || minimumConfidence <= threshold) {
+      erasedByteIndices.push(byteIndex);
+    }
+  }
+
+  return erasedByteIndices;
+}
+
+function recoverPayloadFromEccTransport(
+  transport: Uint8Array,
+  bitConfidences: number[]
+): PayloadRecoveryResult | null {
+  const header = parseEccTransportHeader(transport);
+  if (!header) {
+    return null;
+  }
+
+  const payloadStart = V2_ECC_HEADER_SIZE;
+  const parityStart = payloadStart + header.payloadLength;
+  const payload = new Uint8Array(transport.slice(payloadStart, parityStart));
+  const lowConfidenceTransportBytes = getLowConfidenceTransportBytes(
+    bitConfidences,
+    header.expectedTransportLength,
+    0.08
+  );
+  let correctedByteCount = 0;
+  let erasedByteCount = 0;
+
+  for (let blockIndex = 0; blockIndex < header.blockCount; blockIndex += 1) {
+    const blockPayloadStart = blockIndex * V2_ECC_DATA_BYTES_PER_BLOCK;
+    const blockPayloadEnd = Math.min(header.payloadLength, blockPayloadStart + V2_ECC_DATA_BYTES_PER_BLOCK);
+    const block = new Uint8Array(V2_ECC_DATA_BYTES_PER_BLOCK);
+    block.set(payload.slice(blockPayloadStart, blockPayloadEnd));
+
+    const erasedByteIndices = lowConfidenceTransportBytes
+      .filter((byteIndex) => byteIndex >= payloadStart + blockPayloadStart && byteIndex < payloadStart + blockPayloadStart + V2_ECC_DATA_BYTES_PER_BLOCK)
+      .map((byteIndex) => byteIndex - payloadStart - blockPayloadStart);
+    erasedByteCount += erasedByteIndices.length;
+
+    const parityOffset = parityStart + (blockIndex * V2_ECC_PARITY_BYTES_PER_BLOCK);
+    const parity = transport.slice(parityOffset, parityOffset + V2_ECC_PARITY_BYTES_PER_BLOCK);
+    const recovered = recoverEccBlock(block, parity, erasedByteIndices);
+    if (!recovered) {
+      return null;
+    }
+
+    payload.set(
+      recovered.data.slice(0, blockPayloadEnd - blockPayloadStart),
+      blockPayloadStart
+    );
+    correctedByteCount += recovered.correctedByteCount;
+  }
+
+  if (crc32(payload) !== header.payloadChecksum || !hasRoutePayloadSignature(payload)) {
+    return null;
+  }
+
+  return {
+    payload,
+    transportLength: header.expectedTransportLength,
+    eccParityBytes: header.blockCount * V2_ECC_PARITY_BYTES_PER_BLOCK,
+    erasedByteCount,
+    correctedByteCount
+  };
+}
+
+function decodePayloadTransport(
+  header: ParsedV2Header,
+  payloadDiagnostics: DecodedBitsDiagnostics
+): PayloadRecoveryResult {
+  const rawPayloadBits = unpermuteBits(payloadDiagnostics.bits, V2_PRNG_SEED ^ header.payloadLength);
+  const rawPayloadConfidences = unpermuteConfidences(payloadDiagnostics.confidences, V2_PRNG_SEED ^ header.payloadLength);
+  const decodedTransportBits = decodeHamming15_11WithConfidence(
+    rawPayloadBits,
+    rawPayloadConfidences,
+    header.payloadLength * 8
+  );
+  const transport = bitsToBytes(decodedTransportBits.bits, header.payloadLength);
+
+  const eccRecovered = recoverPayloadFromEccTransport(
+    transport,
+    decodedTransportBits.confidences
+  );
+  if (eccRecovered) {
+    return eccRecovered;
+  }
+
+  if (crc32(transport) !== header.payloadCrc32) {
+    throw new Error('Route payload checksum mismatch.');
+  }
+
+  if (!hasRoutePayloadSignature(transport)) {
+    throw new Error('Route payload signature mismatch.');
+  }
+
+  return {
+    payload: transport,
+    transportLength: transport.byteLength,
+    eccParityBytes: 0,
+    erasedByteCount: 0,
+    correctedByteCount: decodedTransportBits.correctedBitCount ? 0 : 0
+  };
+}
+
+function decodeHamming15_11WithConfidence(
+  encodedBits: Bit[],
+  encodedConfidences: number[],
+  expectedPlainBitLength: number
+): DecodedHammingBits {
+  const outputBits: Bit[] = [];
+  const outputConfidences: number[] = [];
+  const dataPositions = [3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15];
+  const parityPositions = [1, 2, 4, 8];
+  const requiredCodewords = Math.ceil(expectedPlainBitLength / 11);
+  let correctedBitCount = 0;
+
+  for (let codewordIndex = 0; codewordIndex < requiredCodewords; codewordIndex += 1) {
+    const offset = codewordIndex * HAMMING_CODE_BITS;
+    const codeword = new Uint8Array(HAMMING_CODE_BITS + 1);
+    const confidences = new Float32Array(HAMMING_CODE_BITS + 1);
+
+    for (let bitIndex = 0; bitIndex < HAMMING_CODE_BITS; bitIndex += 1) {
+      codeword[bitIndex + 1] = encodedBits[offset + bitIndex] ?? 0;
+      confidences[bitIndex + 1] = encodedConfidences[offset + bitIndex] ?? 0;
+    }
+
+    let syndrome = 0;
+    parityPositions.forEach((parityPosition) => {
+      let parity = 0;
+      for (let position = 1; position <= HAMMING_CODE_BITS; position += 1) {
+        if (position & parityPosition) {
+          parity ^= codeword[position];
+        }
+      }
+      if (parity) {
+        syndrome |= parityPosition;
+      }
+    });
+
+    if (syndrome >= 1 && syndrome <= HAMMING_CODE_BITS) {
+      codeword[syndrome] ^= 1;
+      confidences[syndrome] = Math.min(confidences[syndrome], 0);
+      correctedBitCount += 1;
+    }
+
+    dataPositions.forEach((position) => {
+      outputBits.push(codeword[position] as Bit);
+      outputConfidences.push(confidences[position]);
+    });
+  }
+
+  return {
+    bits: outputBits.slice(0, expectedPlainBitLength),
+    confidences: outputConfidences.slice(0, expectedPlainBitLength),
+    correctedBitCount
+  };
+}
+
+function unpermuteConfidences(confidences: number[], seed: number) {
+  const permutation = buildBitPermutation(confidences.length, seed);
+  const output = new Array<number>(confidences.length);
+
+  for (let index = 0; index < confidences.length; index += 1) {
+    output[index] = confidences[permutation[index]] ?? 0;
+  }
+
+  return output;
+}
+
 function getPayloadMarkerSymbol(macroIndex: number) {
   return ((macroIndex ^ (macroIndex >>> 5) ^ (macroIndex >>> 11) ^ V2_PROTOCOL_ID) & 0b11);
 }
@@ -298,6 +851,15 @@ function getPayloadSymbolFromBlockCodeword(macroIndex: number, blockOffsetIndex:
 
 function formatCrc32Hex(value: number) {
   return `0x${(value >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function headerPayloadCrc32FromHex(value: string | null) {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Number.parseInt(value.replace(/^0x/i, ''), 16);
+  return Number.isFinite(parsed) ? parsed >>> 0 : 0;
 }
 
 function getMacroBlockIndices(macroIndex: number, blocksWide: number, macroWide: number) {
@@ -1152,7 +1714,7 @@ function getPayloadMacroBlockInfo(layout: WatermarkV2Layout, macroIndex: number)
 
   blockIndices.forEach((blockIndex) => {
     const score = layout.blockScores[blockIndex];
-    if (score < V2_PAYLOAD_DECODE_SCORE_THRESHOLD) {
+    if (score < V2_PAYLOAD_WRITE_SCORE_THRESHOLD) {
       return;
     }
 
@@ -1178,7 +1740,10 @@ function embedPayloadSymbolIntoMacro(
   const writableBlocksByIndex = new Map(
     getPayloadMacroBlockInfo(layout, macroIndex).map((block) => [block.blockIndex, block])
   );
-  const macroStrengthScale = getPayloadMacroStrengthScale(layout.payloadMacroScores[macroIndex]);
+  const macroStrengthScale = Math.max(
+    0.22,
+    getPayloadMacroStrengthScale(layout.payloadMacroScores[macroIndex])
+  );
   if (macroStrengthScale <= 0.001 || writableBlocksByIndex.size === 0) {
     return;
   }
@@ -1408,7 +1973,7 @@ function decodePayloadSymbolFromMacro(
     validBlockCount += 1;
   });
 
-  if (validBlockCount < V2_PAYLOAD_REQUIRED_BLOCKS_PER_MACRO) {
+  if (validBlockCount < V2_PAYLOAD_MIN_BLOCKS_PER_MACRO) {
     return {
       bits: [0, 0] as Bit[],
       confidences: [0, 0],
@@ -1432,7 +1997,7 @@ function decodePayloadSymbolFromMacro(
   }
 
   const agreement = totalConfidence ? winningConfidence / totalConfidence : 0;
-  const accepted = winningConfidence > 0.0001 && agreement >= 0.72;
+  const accepted = winningConfidence > 0.0001 && agreement >= V2_PAYLOAD_SYMBOL_AGREEMENT_THRESHOLD;
   const bits = [
     ((symbol >>> 1) & 1) as Bit,
     (symbol & 1) as Bit
@@ -1469,6 +2034,7 @@ function decodeEncodedPayloadBitsAcrossMacros(
   }
 
   const outputBits: Bit[] = [];
+  const outputConfidences: number[] = [];
   let confidenceSum = 0;
   let minimumConfidence = Number.POSITIVE_INFINITY;
   let acceptedMacroCount = 0;
@@ -1543,6 +2109,7 @@ function decodeEncodedPayloadBitsAcrossMacros(
         ? weightedConfidenceSums[bitIndex] / weightSums[bitIndex]
         : 0;
       outputBits.push((weightedVotes[bitIndex] >= 0 ? 1 : 0) as Bit);
+      outputConfidences.push(confidence);
       confidenceSum += confidence;
       minimumConfidence = Math.min(minimumConfidence, confidence);
     }
@@ -1550,6 +2117,7 @@ function decodeEncodedPayloadBitsAcrossMacros(
 
   return {
     bits: outputBits,
+    confidences: outputConfidences,
     averageConfidence: outputBits.length ? confidenceSum / outputBits.length : 0,
     minimumConfidence: Number.isFinite(minimumConfidence) ? minimumConfidence : 0,
     payloadDebug: {
@@ -1585,6 +2153,7 @@ function decodeEncodedHeaderBitsAcrossMacros(
   }
 
   const outputBits: Bit[] = [];
+  const outputConfidences: number[] = [];
   let confidenceSum = 0;
   let minimumConfidence = Number.POSITIVE_INFINITY;
 
@@ -1657,6 +2226,7 @@ function decodeEncodedHeaderBitsAcrossMacros(
         ? weightedConfidenceSums[bitIndex] / weightSums[bitIndex]
         : 0;
       outputBits.push((weightedVotes[bitIndex] >= 0 ? 1 : 0) as Bit);
+      outputConfidences.push(confidence);
       confidenceSum += confidence;
       minimumConfidence = Math.min(minimumConfidence, confidence);
     }
@@ -1664,6 +2234,7 @@ function decodeEncodedHeaderBitsAcrossMacros(
 
   return {
     bits: outputBits,
+    confidences: outputConfidences,
     averageConfidence: outputBits.length ? confidenceSum / outputBits.length : 0,
     minimumConfidence: Number.isFinite(minimumConfidence) ? minimumConfidence : 0
   };
@@ -1772,7 +2343,7 @@ function calculatePayloadCapacityForLayout(layout: WatermarkV2Layout, repetition
   );
 }
 
-function calculateEffectivePayloadCapacityForLayout(layout: WatermarkV2Layout, repetitionFactor: number) {
+function calculateEffectiveTransportCapacityForLayout(layout: WatermarkV2Layout, repetitionFactor: number) {
   return calculateCapacityFromPayloadMacroCount(
     Math.max(
       countEligiblePayloadMacros(layout.payloadMacros, layout.payloadMacroScores),
@@ -1807,7 +2378,9 @@ function buildV2GeometryDebug(
   for (let repetition = V2_MIN_PAYLOAD_REPETITION_FACTOR; repetition <= V2_MAX_PAYLOAD_REPETITION_FACTOR; repetition += 1) {
     capacitiesByRepetition.push({
       repetition,
-      capacityBytes: calculateCapacityFromPayloadMacroCount(capacitySourceMacroCount, repetition)
+      capacityBytes: calculateMaxPayloadLengthFromTransportCapacity(
+        calculateCapacityFromPayloadMacroCount(capacitySourceMacroCount, repetition)
+      )
     });
   }
 
@@ -1817,7 +2390,9 @@ function buildV2GeometryDebug(
     totalBlocks,
     headerBlockCount,
     payloadBlockCount,
-    capacityBytes: calculateCapacityFromPayloadMacroCount(capacitySourceMacroCount, V2_MIN_PAYLOAD_REPETITION_FACTOR),
+    capacityBytes: calculateMaxPayloadLengthFromTransportCapacity(
+      calculateCapacityFromPayloadMacroCount(capacitySourceMacroCount, V2_MIN_PAYLOAD_REPETITION_FACTOR)
+    ),
     capacitiesByRepetition
   };
 }
@@ -1933,7 +2508,27 @@ function buildV2PayloadDebug(
     headerDebug.payloadRepetition
   );
 
-  return payloadDiagnostics.payloadDebug ?? null;
+  const payloadDebug = payloadDiagnostics.payloadDebug;
+  if (!payloadDebug) {
+    return null;
+  }
+
+  try {
+    const recoveredPayload = decodePayloadTransport({
+      payloadLength: headerDebug.payloadLength,
+      payloadCrc32: headerPayloadCrc32FromHex(headerDebug.payloadCrc32Hex),
+      payloadRepetition: headerDebug.payloadRepetition
+    }, payloadDiagnostics);
+    payloadDebug.transportLength = recoveredPayload.transportLength;
+    payloadDebug.eccParityBytes = recoveredPayload.eccParityBytes;
+    payloadDebug.eccErasedByteCount = recoveredPayload.erasedByteCount;
+    payloadDebug.eccCorrectedByteCount = recoveredPayload.correctedByteCount;
+  } catch {
+    payloadDebug.transportLength = headerDebug.payloadLength;
+    payloadDebug.eccParityBytes = null;
+  }
+
+  return payloadDebug;
 }
 
 function tryExtractRobustWatermarkV2Candidate(
@@ -1967,22 +2562,10 @@ function tryExtractRobustWatermarkV2Candidate(
     payloadEncodedBitLength,
     header.payloadRepetition
   );
-  const rawPayloadBits = unpermuteBits(payloadDiagnostics.bits, V2_PRNG_SEED ^ header.payloadLength);
-  const payload = bitsToBytes(
-    decodeHamming15_11(rawPayloadBits, header.payloadLength * 8),
-    header.payloadLength
-  );
-
-  if (!hasRoutePayloadSignature(payload)) {
-    throw new Error('Route payload signature mismatch.');
-  }
-
-  if (crc32(payload) !== header.payloadCrc32) {
-    throw new Error('Route payload checksum mismatch.');
-  }
+  const recoveredPayload = decodePayloadTransport(header, payloadDiagnostics);
 
   return {
-    payload,
+    payload: recoveredPayload.payload,
     score: (headerDiagnostics.averageConfidence * 1.8)
       + payloadDiagnostics.averageConfidence
       + (headerDiagnostics.minimumConfidence * 1.3)
@@ -1997,7 +2580,7 @@ function tryExtractRobustWatermarkV2Candidate(
       headerMinimumConfidence: headerDiagnostics.minimumConfidence,
       payloadAverageConfidence: payloadDiagnostics.averageConfidence,
       payloadMinimumConfidence: payloadDiagnostics.minimumConfidence,
-      payloadLength: header.payloadLength,
+      payloadLength: recoveredPayload.payload.byteLength,
       payloadAcceptedMacroCount: payloadDiagnostics.payloadDebug?.acceptedMacroCount,
       payloadRejectedMacroCount: payloadDiagnostics.payloadDebug?.rejectedMacroCount,
       payloadSkippedMacroCount: payloadDiagnostics.payloadDebug?.skippedMacroCount,
@@ -2006,7 +2589,11 @@ function tryExtractRobustWatermarkV2Candidate(
       payloadAverageSymbolAgreement: payloadDiagnostics.payloadDebug?.averageSymbolAgreement,
       payloadMinimumSymbolAgreement: payloadDiagnostics.payloadDebug?.minimumSymbolAgreement,
       payloadAverageMacroAgreement: payloadDiagnostics.payloadDebug?.averageMacroAgreement,
-      payloadMinimumMacroAgreement: payloadDiagnostics.payloadDebug?.minimumMacroAgreement
+      payloadMinimumMacroAgreement: payloadDiagnostics.payloadDebug?.minimumMacroAgreement,
+      payloadTransportLength: recoveredPayload.transportLength,
+      payloadEccParityBytes: recoveredPayload.eccParityBytes,
+      payloadEccErasedByteCount: recoveredPayload.erasedByteCount,
+      payloadEccCorrectedByteCount: recoveredPayload.correctedByteCount
     }
   };
 }
@@ -2020,7 +2607,9 @@ export function calculateRobustWatermarkCapacityV2(
 
   if (!pixelBytes) {
     const geometry = buildV2Geometry(imageWidth, imageHeight);
-    return calculateCapacityFromPayloadMacroCount(geometry.payloadMacros.length, V2_MIN_PAYLOAD_REPETITION_FACTOR);
+    return calculateMaxPayloadLengthFromTransportCapacity(
+      calculateCapacityFromPayloadMacroCount(geometry.payloadMacros.length, V2_MIN_PAYLOAD_REPETITION_FACTOR)
+    );
   }
 
   const layout = buildV2Layout(pixelBytes, imageWidth, imageHeight);
@@ -2028,7 +2617,9 @@ export function calculateRobustWatermarkCapacityV2(
     countEligiblePayloadMacros(layout.payloadMacros, layout.payloadMacroScores),
     Math.min(layout.payloadMacros.length, 1)
   );
-  return calculateCapacityFromPayloadMacroCount(eligibleMacroCount, V2_MIN_PAYLOAD_REPETITION_FACTOR);
+  return calculateMaxPayloadLengthFromTransportCapacity(
+    calculateCapacityFromPayloadMacroCount(eligibleMacroCount, V2_MIN_PAYLOAD_REPETITION_FACTOR)
+  );
 }
 
 export function embedRobustWatermarkV2(
@@ -2048,34 +2639,36 @@ export function embedRobustWatermarkV2(
     options?.backgroundPixelBytes ?? pixelBytes,
     options?.excludedRects
   );
-  const payloadRepetition = choosePayloadRepetitionFactor(payload.byteLength, layout.payloadMacros, layout.payloadMacroScores);
+  const transportPayload = buildEccTransport(payload);
+  const payloadRepetition = choosePayloadRepetitionFactor(transportPayload.byteLength, layout.payloadMacros, layout.payloadMacroScores);
   if (!payloadRepetition) {
     const theoreticalCapacity = calculatePayloadCapacityForLayout(
       layout,
       V2_MIN_PAYLOAD_REPETITION_FACTOR
     );
-    const effectiveCapacity = calculateEffectivePayloadCapacityForLayout(
+    const effectiveTransportCapacity = calculateEffectiveTransportCapacityForLayout(
       layout,
       V2_MIN_PAYLOAD_REPETITION_FACTOR
     );
+    const effectivePayloadCapacity = calculateMaxPayloadLengthFromTransportCapacity(effectiveTransportCapacity);
 
-    if (payload.byteLength > theoreticalCapacity) {
-      throw new Error(`Export image cannot fit robust route watermark (${payload.byteLength} bytes > ${theoreticalCapacity} bytes).`);
+    if (transportPayload.byteLength > theoreticalCapacity) {
+      throw new Error(`Export image cannot fit robust route watermark (${transportPayload.byteLength} bytes > ${theoreticalCapacity} bytes).`);
     }
 
     throw new Error(
-      `Export image cannot find enough robust watermark carrier slots for ${payload.byteLength} bytes (usable capacity ${effectiveCapacity} bytes, theoretical capacity ${theoreticalCapacity} bytes).`
+      `Export image cannot find enough robust watermark carrier slots for ${payload.byteLength} bytes (usable capacity ${effectivePayloadCapacity} bytes, theoretical transport capacity ${theoreticalCapacity} bytes).`
     );
   }
 
-  const headerBytes = buildV2Header(payload.byteLength, crc32(payload), payloadRepetition);
+  const headerBytes = buildV2Header(transportPayload.byteLength, crc32(transportPayload), payloadRepetition);
   const headerBits = permuteBits(
     encodeHamming15_11(bytesToBits(headerBytes)),
     V2_PRNG_SEED ^ 0x01
   );
   const payloadBits = permuteBits(
-    encodeHamming15_11(bytesToBits(payload)),
-    V2_PRNG_SEED ^ payload.byteLength
+    encodeHamming15_11(bytesToBits(transportPayload)),
+    V2_PRNG_SEED ^ transportPayload.byteLength
   );
 
   embedHeaderSymbolsAcrossMacros(

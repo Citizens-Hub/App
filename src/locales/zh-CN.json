@@ -555,7 +555,7 @@
   "ccuPlanner.exportProgress.encoding": "正在编码图片...",
   "ccuPlanner.exportProgress.downloading": "正在开始下载...",
   "ccuPlanner.exportFooter.title": "由 Citizens' Hub 生成",
-  "ccuPlanner.exportFooter.description": "可在 CCU Planner 中导入此图片，扫描二维码打开规划器",
+  "ccuPlanner.exportFooter.description": "可在 CCU Planner 中导入此图片，或通过下方链接打开规划器",
   "ccuPlanner.exportFooter.url": "citizenshub.app/ccu-planner",
   "ccuPlanner.tab.add": "新增路线标签",
   "ccuPlanner.tab.close": "关闭路线标签",

@@ -22,6 +22,10 @@ export interface RobustWatermarkDiagnostics {
   payloadMinimumSymbolAgreement?: number;
   payloadAverageMacroAgreement?: number;
   payloadMinimumMacroAgreement?: number;
+  payloadTransportLength?: number;
+  payloadEccParityBytes?: number;
+  payloadEccErasedByteCount?: number;
+  payloadEccCorrectedByteCount?: number;
 }
 
 export interface RobustWatermarkExtractionResult {
@@ -98,6 +102,10 @@ export interface RobustWatermarkPayloadDebug {
   minimumMacroAgreement: number;
   averageConfidence: number;
   minimumConfidence: number;
+  transportLength?: number;
+  eccParityBytes?: number | null;
+  eccErasedByteCount?: number;
+  eccCorrectedByteCount?: number;
 }
 
 export interface RobustWatermarkDebugAttempt {

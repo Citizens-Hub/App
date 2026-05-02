@@ -1,7 +1,6 @@
 import type { Edge, Node } from 'reactflow';
 import { getBezierPath, Position } from 'reactflow';
 import type { IntlShape } from 'react-intl';
-import QRCode from 'qrcode';
 
 import type {
   Ccu,
@@ -37,7 +36,6 @@ import {
   type PreparedExportFooterCard,
   type PreparedExportNode,
   type PreparedExportPayload,
-  type PreparedExportQrCode,
   type RenderableImage,
   renderPreparedExportBackground,
   renderPreparedExportContent
@@ -73,7 +71,8 @@ const EXPORT_WORKER_SUPPORTED = typeof Worker !== 'undefined'
 const EXPORT_MIME_TYPE = 'image/jpeg';
 const EXPORT_FILE_EXTENSION = 'jpg';
 const EXPORT_JPEG_QUALITY = 0.96;
-const EXPORT_FOOTER_URL = 'https://citizenshub.app/ccu-planner';
+const EXPORT_FOOTER_LOGO_URL = `${import.meta.env.BASE_URL || '/'}logo.png`;
+const EXPORT_FOOTER_MEDIA_MODE = 'logo' as const;
 
 type ExportStage =
   | 'preparing'
@@ -144,13 +143,6 @@ interface WorkerErrorMessage {
 }
 
 type WorkerResponseMessage = WorkerProgressMessage | WorkerSuccessMessage | WorkerErrorMessage;
-
-interface QrCodeMatrix {
-  modules: {
-    size: number;
-    data: Uint8Array;
-  };
-}
 
 interface ExportRect {
   x: number;
@@ -223,18 +215,6 @@ function resolveExportCanvasLimits() {
     maxPixels: EXPORT_FALLBACK_MAX_PIXELS
   };
   return cachedExportCanvasLimits;
-}
-
-function createExportQrCode(url: string): PreparedExportQrCode {
-  const qrCode = QRCode.create(url, {
-    errorCorrectionLevel: 'M',
-    margin: 0
-  }) as QrCodeMatrix;
-
-  return {
-    size: qrCode.modules.size,
-    modules: qrCode.modules.data
-  };
 }
 
 function rectsOverlap(left: ExportRect, right: ExportRect) {
@@ -423,10 +403,13 @@ async function loadImagesOnMainThread(
   payload: PreparedExportPayload,
   options: ExportCanvasImageOptions
 ) {
-  const imageUrls = Array.from(new Set(payload.nodes.flatMap((node) => [
-    node.imageUrl,
-    node.manufacturerLogoUrl || ''
-  ]).filter(Boolean)));
+  const imageUrls = Array.from(new Set([
+    ...payload.nodes.flatMap((node) => [
+      node.imageUrl,
+      node.manufacturerLogoUrl || ''
+    ]),
+    payload.footerCard?.mediaUrl || ''
+  ].filter(Boolean)));
   const imageMap = new Map<string, RenderableImage | null>();
 
   if (!imageUrls.length) {
@@ -596,13 +579,12 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
   });
   const footerCardDescription = options.intl.formatMessage({
     id: 'ccuPlanner.exportFooter.description',
-    defaultMessage: 'Import this image in CCU Planner, or scan the QR code to open the planner.'
+    defaultMessage: 'Import this image in CCU Planner, or open the planner with the link below.'
   });
   const footerCardUrl = options.intl.formatMessage({
     id: 'ccuPlanner.exportFooter.url',
     defaultMessage: 'citizenshub.app/ccu-planner'
   });
-  const footerQrCode = createExportQrCode(EXPORT_FOOTER_URL);
   const baseHeight = Math.max(
     EXPORT_MIN_HEIGHT,
     Math.ceil(contentHeight + EXPORT_HEADER_HEIGHT + EXPORT_VERTICAL_PADDING * 2)
@@ -669,7 +651,7 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
     y: footerTop,
     width: footerMetrics.cardWidth,
     height: footerMetrics.cardHeight,
-    qrSize: footerMetrics.qrSize,
+    mediaSize: footerMetrics.mediaSize,
     padding: footerMetrics.padding,
     gap: footerMetrics.gap,
     titleFontSize: footerMetrics.titleFontSize,
@@ -678,7 +660,8 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
     title: footerCardTitle,
     description: footerCardDescription,
     url: footerCardUrl,
-    qrCode: footerQrCode
+    mediaMode: EXPORT_FOOTER_MEDIA_MODE,
+    mediaUrl: EXPORT_FOOTER_MEDIA_MODE === 'logo' ? EXPORT_FOOTER_LOGO_URL : null
   };
   const exportLimits = resolveExportCanvasLimits();
   const requiredPixelCount = width * height;

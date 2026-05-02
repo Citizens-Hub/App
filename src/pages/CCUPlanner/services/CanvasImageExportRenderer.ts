@@ -47,17 +47,14 @@ export interface PreparedExportEdge {
   labelSavingsText: string | null;
 }
 
-export interface PreparedExportQrCode {
-  size: number;
-  modules: Uint8Array;
-}
+export type ExportFooterMediaMode = 'logo' | 'none';
 
 export interface PreparedExportFooterCard {
   x: number;
   y: number;
   width: number;
   height: number;
-  qrSize: number;
+  mediaSize: number;
   padding: number;
   gap: number;
   titleFontSize: number;
@@ -66,7 +63,8 @@ export interface PreparedExportFooterCard {
   title: string;
   description: string;
   url: string;
-  qrCode: PreparedExportQrCode;
+  mediaMode: ExportFooterMediaMode;
+  mediaUrl: string | null;
 }
 
 export interface PreparedExportExcludedRect {
@@ -79,7 +77,7 @@ export interface PreparedExportExcludedRect {
 export interface ExportFooterCardMetrics {
   cardWidth: number;
   cardHeight: number;
-  qrSize: number;
+  mediaSize: number;
   padding: number;
   gap: number;
   radius: number;
@@ -125,12 +123,12 @@ export function getExportFooterCardMetrics(width: number, height: number): Expor
   const contentGap = Math.round(clampNumber(20 * Math.pow(heightScale, 0.32), 20, 68));
   const padding = Math.round(clampNumber(16 * Math.pow(widthScale, 0.3), 16, 44));
   const gap = Math.round(clampNumber(18 * Math.pow(widthScale, 0.28), 18, 40));
-  const qrSize = Math.round(clampNumber(Math.min(width * 0.1, height * 0.24), 112, 360));
+  const mediaSize = Math.round(clampNumber(Math.min(width * 0.1, height * 0.24), 112, 360));
   const titleFontSize = Math.round(clampNumber(32 * Math.pow(widthScale, 0.5), 32, 72));
   const bodyFontSize = Math.round(clampNumber(12 * Math.pow(widthScale, 0.38), 12, 24));
   const urlFontSize = Math.round(clampNumber(12 * Math.pow(widthScale, 0.34), 12, 22));
   const textColumnWidth = Math.round(clampNumber(width * 0.28, 320, 640));
-  const cardWidth = Math.round((padding * 2) + qrSize + gap + textColumnWidth);
+  const cardWidth = Math.round((padding * 2) + mediaSize + gap + textColumnWidth);
   const titleLineHeight = Math.round(titleFontSize * 1.2);
   const bodyLineHeight = Math.round(bodyFontSize * 1.45);
   const urlLineHeight = Math.round(urlFontSize * 1.3);
@@ -140,8 +138,8 @@ export function getExportFooterCardMetrics(width: number, height: number): Expor
 
   return {
     cardWidth,
-    cardHeight: Math.round(Math.max(qrSize + padding * 2, textBlockHeight + padding * 2)),
-    qrSize,
+    cardHeight: Math.round(Math.max(mediaSize + padding * 2, textBlockHeight + padding * 2)),
+    mediaSize,
     padding,
     gap,
     radius: 18,
@@ -265,39 +263,6 @@ function fillRectWithPattern(
   ctx.globalAlpha = opacity;
   ctx.fillStyle = pattern;
   ctx.fillRect(x, y, width, height);
-  ctx.restore();
-}
-
-function drawQrCodeModules(
-  ctx: ExportCanvasContext,
-  x: number,
-  y: number,
-  size: number,
-  qrCode: PreparedExportQrCode
-) {
-  const quietZoneModules = 4;
-  const totalModuleCount = qrCode.size + quietZoneModules * 2;
-  const moduleSize = size / totalModuleCount;
-
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = '#0f172a';
-
-  for (let row = 0; row < qrCode.size; row += 1) {
-    for (let column = 0; column < qrCode.size; column += 1) {
-      if (!qrCode.modules[row * qrCode.size + column]) {
-        continue;
-      }
-
-      const left = x + ((column + quietZoneModules) * moduleSize);
-      const top = y + ((row + quietZoneModules) * moduleSize);
-      const right = x + ((column + quietZoneModules + 1) * moduleSize);
-      const bottom = y + ((row + quietZoneModules + 1) * moduleSize);
-      ctx.fillRect(left, top, right - left, bottom - top);
-    }
-  }
-
   ctx.restore();
 }
 
@@ -562,6 +527,120 @@ function drawManufacturerLogoWatermark(
   ctx.restore();
 }
 
+function drawFooterMedia(
+  ctx: ExportCanvasContext,
+  x: number,
+  y: number,
+  size: number,
+  image: RenderableImage | null
+) {
+  if (!image || size <= 0) {
+    return;
+  }
+
+  const inset = Math.round(size * 0.08);
+  const targetX = x + inset;
+  const targetY = y + inset;
+  const targetWidth = Math.max(1, size - (inset * 2));
+  const targetHeight = Math.max(1, size - (inset * 2));
+  const imageAspect = image.width / image.height;
+  const targetAspect = targetWidth / targetHeight;
+
+  let drawWidth = targetWidth;
+  let drawHeight = targetHeight;
+  let drawX = targetX;
+  let drawY = targetY;
+
+  if (imageAspect > targetAspect) {
+    drawHeight = targetWidth / imageAspect;
+    drawY += (targetHeight - drawHeight) / 2;
+  } else {
+    drawWidth = targetHeight * imageAspect;
+    drawX += (targetWidth - drawWidth) / 2;
+  }
+
+  ctx.save();
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  ctx.restore();
+}
+
+interface FooterCardLayout {
+  titleFontSize: number;
+  bodyFontSize: number;
+  urlFontSize: number;
+  titleLineHeight: number;
+  bodyLineHeight: number;
+  urlLineHeight: number;
+  titleGap: number;
+  urlGap: number;
+  mediaSize: number;
+  mediaGap: number;
+  titleLines: string[];
+  bodyLines: string[];
+  textBlockWidth: number;
+  textBlockHeight: number;
+}
+
+function measureFooterCardLayout(
+  ctx: ExportCanvasContext,
+  footerCard: PreparedExportFooterCard,
+  scale: number,
+  availableContentWidth: number,
+  showMedia: boolean
+): FooterCardLayout {
+  const bodyFontSize = Math.max(12, Math.round(footerCard.bodyFontSize * scale));
+  const urlFontSize = Math.max(12, Math.round(footerCard.urlFontSize * scale));
+  const mediaSize = showMedia ? Math.max(48, Math.round(footerCard.mediaSize * scale)) : 0;
+  const mediaGap = showMedia ? Math.max(12, Math.round(footerCard.gap * scale)) : 0;
+  const maxTextWidth = Math.max(120, availableContentWidth - mediaSize - mediaGap);
+  const minimumTitleFontSize = Math.max(bodyFontSize + 8, Math.round(bodyFontSize * 1.45));
+
+  let titleFontSize = Math.max(minimumTitleFontSize, Math.round(footerCard.titleFontSize * scale));
+  ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  while (titleFontSize > minimumTitleFontSize && ctx.measureText(footerCard.title).width > maxTextWidth) {
+    titleFontSize -= 1;
+    ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  }
+
+  const titleLineHeight = Math.round(titleFontSize * 1.2);
+  const titleLines = [footerCard.title];
+  const titleWidths = [ctx.measureText(footerCard.title).width];
+
+  ctx.font = `500 ${bodyFontSize}px ${FONT_FAMILY}`;
+  const bodyLines = splitTextIntoLines(ctx, footerCard.description, maxTextWidth, 3);
+  const bodyWidths = bodyLines.map(line => ctx.measureText(line).width);
+
+  ctx.font = `600 ${urlFontSize}px ${FONT_FAMILY}`;
+  const urlWidth = ctx.measureText(footerCard.url).width;
+  const textBlockWidth = Math.max(urlWidth, ...titleWidths, ...bodyWidths);
+  const titleGap = Math.round(Math.max(8, bodyFontSize * 0.45));
+  const bodyLineHeight = Math.round(bodyFontSize * 1.45);
+  const urlGap = Math.round(Math.max(8, urlFontSize * 0.55));
+  const urlLineHeight = Math.round(urlFontSize * 1.3);
+  const textBlockHeight = (titleLines.length * titleLineHeight)
+    + titleGap
+    + (bodyLines.length * bodyLineHeight)
+    + urlGap
+    + urlLineHeight;
+
+  return {
+    titleFontSize,
+    bodyFontSize,
+    urlFontSize,
+    titleLineHeight,
+    bodyLineHeight,
+    urlLineHeight,
+    titleGap,
+    urlGap,
+    mediaSize,
+    mediaGap,
+    titleLines,
+    bodyLines,
+    textBlockWidth,
+    textBlockHeight
+  };
+}
+
 function drawHeader(ctx: ExportCanvasContext, payload: PreparedExportPayload) {
   const widthScale = Math.max(1, payload.width / EXPORT_MIN_WIDTH);
   const marginX = Math.round(Math.max(56, Math.min(132, 56 * Math.pow(widthScale, 0.72))));
@@ -599,57 +678,60 @@ function drawHeader(ctx: ExportCanvasContext, payload: PreparedExportPayload) {
 
 function drawExportFooterCard(
   ctx: ExportCanvasContext,
-  footerCard: PreparedExportFooterCard
+  footerCard: PreparedExportFooterCard,
+  mediaImage: RenderableImage | null
 ) {
-  const bodyLineHeight = Math.round(footerCard.bodyFontSize * 1.45);
-  const urlLineHeight = Math.round(footerCard.urlFontSize * 1.3);
-  const titleGap = Math.round(Math.max(8, footerCard.bodyFontSize * 0.45));
-  const urlGap = Math.round(Math.max(8, footerCard.urlFontSize * 0.55));
-  const textWidth = footerCard.width - (footerCard.padding * 2) - footerCard.qrSize - footerCard.gap;
-  const qrX = footerCard.x + footerCard.width - footerCard.padding - footerCard.qrSize;
+  const availableContentWidth = footerCard.width - (footerCard.padding * 2);
+  const contentHeight = footerCard.height - (footerCard.padding * 2);
+  const contentTop = footerCard.y + footerCard.padding;
+  const showMedia = footerCard.mediaMode === 'logo' && mediaImage !== null;
 
   ctx.save();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  let titleFontSize = footerCard.titleFontSize;
-  ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
-  while (titleFontSize > footerCard.bodyFontSize + 8 && ctx.measureText(footerCard.title).width > textWidth) {
-    titleFontSize -= 1;
-    ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
+  let layoutScale = 1;
+  let layout = measureFooterCardLayout(ctx, footerCard, layoutScale, availableContentWidth, showMedia);
+
+  if (showMedia) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const totalWidth = layout.textBlockWidth + layout.mediaGap + layout.mediaSize;
+      if (totalWidth <= availableContentWidth) {
+        break;
+      }
+
+      const nextScale = Math.max(0.64, layoutScale * (availableContentWidth / totalWidth));
+      if (nextScale >= layoutScale - 0.01) {
+        break;
+      }
+
+      layoutScale = nextScale;
+      layout = measureFooterCardLayout(ctx, footerCard, layoutScale, availableContentWidth, showMedia);
+    }
   }
-  const titleLineHeight = Math.round(titleFontSize * 1.2);
-  const titleLines = [footerCard.title];
-  const titleWidths = [ctx.measureText(footerCard.title).width];
-  ctx.font = `500 ${footerCard.bodyFontSize}px ${FONT_FAMILY}`;
-  const bodyLines = splitTextIntoLines(ctx, footerCard.description, textWidth, 3);
-  const bodyWidths = bodyLines.map(line => ctx.measureText(line).width);
-  ctx.font = `600 ${footerCard.urlFontSize}px ${FONT_FAMILY}`;
-  const urlWidth = ctx.measureText(footerCard.url).width;
-  const textBlockWidth = Math.max(urlWidth, ...titleWidths, ...bodyWidths);
-  const textBlockHeight = (titleLines.length * titleLineHeight)
-    + titleGap
-    + (bodyLines.length * bodyLineHeight)
-    + urlGap
-    + urlLineHeight;
-  const contentHeight = footerCard.height - (footerCard.padding * 2);
-  const contentTop = footerCard.y + footerCard.padding;
-  const qrY = contentTop + Math.max(0, (contentHeight - footerCard.qrSize) / 2);
-  const textStartY = contentTop + Math.max(0, (contentHeight - textBlockHeight) / 2);
-  const textRight = qrX - footerCard.gap;
-  const textX = Math.max(footerCard.x + footerCard.padding, textRight - textBlockWidth);
 
-  drawQrCodeModules(ctx, qrX, qrY, footerCard.qrSize, footerCard.qrCode);
-  ctx.font = `800 ${titleFontSize}px ${FONT_FAMILY}`;
-  drawTextLines(ctx, titleLines, textX, textStartY, titleLineHeight, '#0f172a');
+  const textStartY = contentTop + Math.max(0, (contentHeight - layout.textBlockHeight) / 2);
+  const mediaX = footerCard.x + footerCard.width - footerCard.padding - layout.mediaSize;
+  const mediaY = contentTop + Math.max(0, (contentHeight - layout.mediaSize) / 2);
+  const textRight = showMedia
+    ? mediaX - layout.mediaGap
+    : footerCard.x + footerCard.width - footerCard.padding;
+  const textX = Math.max(footerCard.x + footerCard.padding, textRight - layout.textBlockWidth);
 
-  const bodyY = textStartY + (titleLines.length * titleLineHeight) + titleGap;
-  ctx.font = `500 ${footerCard.bodyFontSize}px ${FONT_FAMILY}`;
-  drawTextLines(ctx, bodyLines, textX, bodyY, bodyLineHeight, '#475569');
+  if (showMedia) {
+    drawFooterMedia(ctx, mediaX, mediaY, layout.mediaSize, mediaImage);
+  }
 
-  const urlY = bodyY + (bodyLines.length * bodyLineHeight) + urlGap;
-  ctx.font = `600 ${footerCard.urlFontSize}px ${FONT_FAMILY}`;
-  drawTextLines(ctx, [footerCard.url], textX, urlY, urlLineHeight, '#2563eb');
+  ctx.font = `800 ${layout.titleFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, layout.titleLines, textX, textStartY, layout.titleLineHeight, '#0f172a');
+
+  const bodyY = textStartY + (layout.titleLines.length * layout.titleLineHeight) + layout.titleGap;
+  ctx.font = `500 ${layout.bodyFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, layout.bodyLines, textX, bodyY, layout.bodyLineHeight, '#475569');
+
+  const urlY = bodyY + (layout.bodyLines.length * layout.bodyLineHeight) + layout.urlGap;
+  ctx.font = `600 ${layout.urlFontSize}px ${FONT_FAMILY}`;
+  drawTextLines(ctx, [footerCard.url], textX, urlY, layout.urlLineHeight, '#2563eb');
   ctx.restore();
 }
 
@@ -819,7 +901,11 @@ export function renderPreparedExportContent(
   });
 
   if (payload.footerCard) {
-    drawExportFooterCard(ctx, payload.footerCard);
+    drawExportFooterCard(
+      ctx,
+      payload.footerCard,
+      payload.footerCard.mediaUrl ? imageMap.get(payload.footerCard.mediaUrl) || null : null
+    );
   }
 }
 

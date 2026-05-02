@@ -83,10 +83,13 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    const imageUrls = Array.from(new Set(payload.nodes.flatMap((node) => [
-      node.imageUrl,
-      node.manufacturerLogoUrl || ''
-    ]).filter(Boolean)));
+    const imageUrls = Array.from(new Set([
+      ...payload.nodes.flatMap((node) => [
+        node.imageUrl,
+        node.manufacturerLogoUrl || ''
+      ]),
+      payload.footerCard?.mediaUrl || ''
+    ].filter(Boolean)));
     const imageMap = new Map<string, ImageBitmap | null>();
 
     for (let index = 0; index < imageUrls.length; index += 1) {
