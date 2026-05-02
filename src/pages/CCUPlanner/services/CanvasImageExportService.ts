@@ -72,7 +72,7 @@ const EXPORT_MIME_TYPE = 'image/jpeg';
 const EXPORT_FILE_EXTENSION = 'jpg';
 const EXPORT_JPEG_QUALITY = 0.96;
 const EXPORT_FOOTER_LOGO_URL = `${import.meta.env.BASE_URL || '/'}logo.png`;
-const EXPORT_FOOTER_MEDIA_MODE = 'logo' as const;
+const EXPORT_FOOTER_MEDIA_MODE = 'none' as "logo" | "none";
 
 type ExportStage =
   | 'preparing'
