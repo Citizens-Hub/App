@@ -16,7 +16,7 @@ import { CcuSourceType } from '@/types';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import { getShipDisplayName } from '@/utils/shipDisplay';
-import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
+import { getShipThumbLarge } from '@/utils/shipImage';
 
 import { CcuSourceTypeStrategyFactory } from './CcuSourceTypeFactory';
 import pathFinderService from './PathFinderService';
@@ -33,16 +33,18 @@ import {
   EXPORT_VERTICAL_PADDING,
   getExportFooterCardMetrics,
   type PreparedExportEdge,
+  type PreparedExportExcludedRect,
   type PreparedExportFooterCard,
   type PreparedExportNode,
   type PreparedExportPayload,
   type PreparedExportQrCode,
   type RenderableImage,
-  renderPreparedExport
+  renderPreparedExportBackground,
+  renderPreparedExportContent
 } from './CanvasImageExportRenderer';
 import type { FlowData } from './ImportExportService';
 import routeImagePayloadService from './RouteImagePayloadService';
-import { calculateRobustWatermarkCapacity, embedRobustWatermark } from './RobustImageWatermarkService';
+import { embedRobustWatermark } from './RobustImageWatermarkService';
 
 const COLOR_CLASS_MAP: Record<string, string> = {
   'bg-blue-700': '#1d4ed8',
@@ -70,7 +72,7 @@ const EXPORT_WORKER_SUPPORTED = typeof Worker !== 'undefined'
   && typeof createImageBitmap !== 'undefined';
 const EXPORT_MIME_TYPE = 'image/jpeg';
 const EXPORT_FILE_EXTENSION = 'jpg';
-const EXPORT_JPEG_QUALITY = 0.90;
+const EXPORT_JPEG_QUALITY = 0.96;
 const EXPORT_FOOTER_URL = 'https://citizenshub.app/ccu-planner';
 
 type ExportStage =
@@ -157,8 +159,70 @@ interface ExportRect {
   height: number;
 }
 
+interface ExportCanvasLimits {
+  maxDimension: number;
+  maxPixels: number;
+}
+
+const EXPORT_FALLBACK_MAX_PIXELS = 48_000_000;
+const EXPORT_DESKTOP_MAX_DIMENSION = 16_384;
+const EXPORT_DESKTOP_MAX_PIXELS = 96_000_000;
+const EXPORT_HIGH_END_MAX_DIMENSION = 18_432;
+const EXPORT_HIGH_END_MAX_PIXELS = 128_000_000;
+
+let cachedExportCanvasLimits: ExportCanvasLimits | null = null;
+
 function resolveColor(value: string, fallback: string) {
   return COLOR_CLASS_MAP[value] || fallback;
+}
+
+function isLikelyMobileDevice() {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+}
+
+function getNavigatorDeviceMemory() {
+  if (typeof navigator === 'undefined') {
+    return undefined;
+  }
+
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  return typeof memory === 'number' && Number.isFinite(memory) ? memory : undefined;
+}
+
+function resolveExportCanvasLimits() {
+  if (cachedExportCanvasLimits) {
+    return cachedExportCanvasLimits;
+  }
+
+  const deviceMemory = getNavigatorDeviceMemory();
+  const isMobile = isLikelyMobileDevice();
+
+  if (!isMobile && deviceMemory !== undefined && deviceMemory >= 8) {
+    cachedExportCanvasLimits = {
+      maxDimension: EXPORT_HIGH_END_MAX_DIMENSION,
+      maxPixels: EXPORT_HIGH_END_MAX_PIXELS
+    };
+    return cachedExportCanvasLimits;
+  }
+
+  if (!isMobile && (deviceMemory === undefined || deviceMemory >= 4)) {
+    cachedExportCanvasLimits = {
+      maxDimension: Math.max(EXPORT_MAX_DIMENSION, EXPORT_DESKTOP_MAX_DIMENSION),
+      maxPixels: EXPORT_DESKTOP_MAX_PIXELS
+    };
+    return cachedExportCanvasLimits;
+  }
+
+  cachedExportCanvasLimits = {
+    maxDimension: EXPORT_MAX_DIMENSION,
+    maxPixels: EXPORT_FALLBACK_MAX_PIXELS
+  };
+  return cachedExportCanvasLimits;
 }
 
 function createExportQrCode(url: string): PreparedExportQrCode {
@@ -189,6 +253,53 @@ function estimatePreparedEdgeLabelRect(edge: PreparedExportEdge): ExportRect {
     width: 184,
     height: edge.labelSavingsText ? 70 : 38
   };
+}
+
+function scaleExportRect(rect: ExportRect, scale: number): PreparedExportExcludedRect {
+  return {
+    x: Math.round(rect.x * scale),
+    y: Math.round(rect.y * scale),
+    width: Math.round(rect.width * scale),
+    height: Math.round(rect.height * scale)
+  };
+}
+
+function buildWatermarkExcludedRects(payload: Omit<PreparedExportPayload, 'watermarkExcludedRects'>): PreparedExportExcludedRect[] {
+  const margin = 18;
+  const rects: ExportRect[] = [
+    {
+      x: 0,
+      y: 0,
+      width: payload.width,
+      height: EXPORT_HEADER_HEIGHT
+    },
+    ...payload.nodes.map((node) => ({
+      x: node.x - margin,
+      y: node.y - margin,
+      width: node.width + margin * 2,
+      height: node.height + margin * 2
+    })),
+    ...payload.edges.map((edge) => {
+      const rect = estimatePreparedEdgeLabelRect(edge);
+      return {
+        x: rect.x - margin,
+        y: rect.y - margin,
+        width: rect.width + margin * 2,
+        height: rect.height + margin * 2
+      };
+    })
+  ];
+
+  if (payload.footerCard) {
+    rects.push({
+      x: payload.footerCard.x - margin,
+      y: payload.footerCard.y - margin,
+      width: payload.footerCard.width + margin * 2,
+      height: payload.footerCard.height + margin * 2
+    });
+  }
+
+  return rects.map((rect) => scaleExportRect(rect, payload.scale));
 }
 
 function getNodeMetrics(node: Node): NodeRenderMetrics {
@@ -514,7 +625,7 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
       y: node.position.y + offsetY,
       width: metrics.width,
       height: EXPORT_NODE_HEIGHT,
-      imageUrl: getShipSlideshowImage(ship) || getShipThumbLarge(ship) || '',
+      imageUrl: getShipThumbLarge(ship) || '',
       manufacturerLogoUrl: getManufacturerLogoPath(ship.manufacturer) || '',
       shipName: getShipDisplayName(ship) || ship.name,
       manufacturerLine: `${ship.manufacturer.name} / ${localizeShipType(options.intl.locale, ship.type)}`,
@@ -553,14 +664,6 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
   const height = footerNeedsExtraSpace
     ? Math.max(baseHeight, Math.ceil(footerTop + footerMetrics.cardHeight + footerMetrics.pageMarginY))
     : baseHeight;
-  const scale = Math.max(
-    Math.min(
-      EXPORT_TARGET_SCALE,
-      EXPORT_MAX_DIMENSION / width,
-      EXPORT_MAX_DIMENSION / height
-    ),
-    1
-  );
   const footerCard: PreparedExportFooterCard = {
     x: footerCardX,
     y: footerTop,
@@ -577,11 +680,24 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
     url: footerCardUrl,
     qrCode: footerQrCode
   };
+  const exportLimits = resolveExportCanvasLimits();
+  const requiredPixelCount = width * height;
+  const maxPixelScale = Math.sqrt(exportLimits.maxPixels / Math.max(requiredPixelCount, 1));
+  const scaleLimit = Math.min(
+    EXPORT_TARGET_SCALE,
+    exportLimits.maxDimension / width,
+    exportLimits.maxDimension / height,
+    maxPixelScale
+  );
 
-  return {
+  if (scaleLimit < 1) {
+    throw new Error('Route export is too large for this device. Reduce the route size or export JSON instead.');
+  }
+
+  const preparedPayloadWithoutExclusions: Omit<PreparedExportPayload, 'watermarkExcludedRects'> = {
     width,
     height,
-    scale,
+    scale: scaleLimit,
     title: options.routeName?.trim()
       || options.intl.formatMessage({ id: 'toolbar.export', defaultMessage: 'Export' }),
     subtitle: `${preparedNodes.length} ships / ${preparedEdges.length} routes`,
@@ -595,6 +711,11 @@ function buildPreparedPayload(options: ExportCanvasImageOptions): PreparedExport
     nodes: preparedNodes,
     edges: preparedEdges,
     footerCard
+  };
+
+  return {
+    ...preparedPayloadWithoutExclusions,
+    watermarkExcludedRects: buildWatermarkExcludedRects(preparedPayloadWithoutExclusions)
   };
 }
 
@@ -683,13 +804,28 @@ async function runMainThreadExport(
   ctx.scale(payload.scale, payload.scale);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  renderPreparedExport(ctx, payload, imageMap);
+
+  renderPreparedExportBackground(ctx, payload);
+  renderPreparedExportContent(ctx, payload, imageMap);
+  const referenceImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.scale(payload.scale, payload.scale);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  renderPreparedExportBackground(ctx, payload);
 
   await yieldToBrowser();
   reportProgress(options, 'embedding', 82);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  embedRobustWatermark(imageData.data, canvas.width, canvas.height, routePayload);
+  embedRobustWatermark(imageData.data, canvas.width, canvas.height, routePayload, {
+    referencePixelBytes: referenceImageData.data,
+    backgroundPixelBytes: imageData.data,
+    excludedRects: payload.watermarkExcludedRects
+  });
   ctx.putImageData(imageData, 0, 0);
+  renderPreparedExportContent(ctx, payload, imageMap);
 
   await yieldToBrowser();
   reportProgress(options, 'encoding', 90, {
@@ -724,13 +860,7 @@ export async function exportCanvasImage(options: ExportCanvasImageOptions): Prom
     startShipPrices: options.startShipPrices
   };
   const routePayload = await routeImagePayloadService.encodeFlowData(flowData);
-  const robustCapacity = calculateRobustWatermarkCapacity(
-    Math.round(payload.width * payload.scale),
-    Math.round(payload.height * payload.scale)
-  );
-  if (routePayload.byteLength > robustCapacity) {
-    throw new Error(`Export image cannot fit robust route payload (${routePayload.byteLength} bytes > ${robustCapacity} bytes).`);
-  }
+
   reportProgress(options, 'preparing', 12);
   await yieldToBrowser();
 

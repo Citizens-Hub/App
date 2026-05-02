@@ -3,6 +3,17 @@ const DB_VERSION = 1;
 const MODEL_STORE = 'models';
 const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v1';
 const IMAGE_CACHE_NAME_PREFIX = 'citizens-hub-image-cache-';
+const FONT_CACHE_NAME = 'citizens-hub-font-cache-v1';
+const FONT_CACHE_NAME_PREFIX = 'citizens-hub-font-cache-';
+const FONT_FILE_PATHS = [
+  '/fonts/Quantico-Regular.ttf',
+  '/fonts/Quantico-Bold.ttf',
+  '/fonts/Quantico-Italic.ttf',
+  '/fonts/Quantico-BoldItalic.ttf',
+  '/fonts/NotoSansSC-VariableFont_wght.ttf',
+  '/fonts/NotoSansJP-Regular.ttf',
+  '/fonts/ZhuoJianGanLanJianTi-Regular.ttf',
+];
 
 const MODEL_CACHE_PARAMS = {
   enabled: 'ch_model_cache',
@@ -588,9 +599,72 @@ async function clearImageCacheEntries(options = {}) {
   return { deletedCount };
 }
 
+function isFontRequest(request, requestUrl) {
+  if (request.destination === 'font') {
+    return requestUrl.origin === self.location.origin;
+  }
+
+  return requestUrl.origin === self.location.origin
+    && requestUrl.pathname.startsWith('/fonts/')
+    && /\.(ttf|otf|woff2?)$/i.test(requestUrl.pathname);
+}
+
+async function precacheFontAssets() {
+  if (typeof caches === 'undefined') {
+    return;
+  }
+
+  const cache = await caches.open(FONT_CACHE_NAME);
+
+  await Promise.all(
+    FONT_FILE_PATHS.map(async (fontPath) => {
+      const request = new Request(fontPath, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+
+      try {
+        const existingResponse = await cache.match(request);
+        if (existingResponse) {
+          return;
+        }
+
+        const networkResponse = await fetch(request);
+        if (!networkResponse.ok) {
+          throw new Error(`Unexpected font response status: ${networkResponse.status}`);
+        }
+
+        await cache.put(request, networkResponse.clone());
+      } catch (error) {
+        console.warn('[FontCache] Failed to precache font asset.', fontPath, error);
+      }
+    }),
+  );
+}
+
+async function handleFontRequest(request) {
+  const cache = await caches.open(FONT_CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const networkResponse = await fetch(request);
+
+  if (networkResponse.ok) {
+    await cache.put(request, networkResponse.clone());
+  }
+
+  return networkResponse;
+}
+
 self.addEventListener('install', (event) => {
   console.log('[SW] Install');
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil((async () => {
+    await precacheFontAssets();
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -598,9 +672,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const cacheNames = await caches.keys();
     await Promise.all(
-      cacheNames
-        .filter((cacheName) => cacheName.startsWith(IMAGE_CACHE_NAME_PREFIX) && cacheName !== IMAGE_CACHE_NAME)
-        .map((cacheName) => caches.delete(cacheName)),
+      cacheNames.filter((cacheName) => (
+        (cacheName.startsWith(IMAGE_CACHE_NAME_PREFIX) && cacheName !== IMAGE_CACHE_NAME)
+        || (cacheName.startsWith(FONT_CACHE_NAME_PREFIX) && cacheName !== FONT_CACHE_NAME)
+      )).map((cacheName) => caches.delete(cacheName)),
     );
 
     await self.clients.claim();
@@ -619,6 +694,11 @@ self.addEventListener('fetch', (event) => {
 
   if (modelMetadata) {
     event.respondWith(handleModelRequest(event, request, requestUrl, modelMetadata));
+    return;
+  }
+
+  if (isFontRequest(request, requestUrl)) {
+    event.respondWith(handleFontRequest(request));
     return;
   }
 

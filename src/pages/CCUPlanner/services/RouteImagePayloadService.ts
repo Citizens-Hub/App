@@ -198,7 +198,7 @@ async function compressPayloadBody(bytes: Uint8Array) {
     const compressionStream = new CompressionStream('deflate');
     const writer = compressionStream.writable.getWriter();
     const compressedBytesPromise = readStreamToUint8Array(compressionStream.readable);
-    await writer.write(bytes);
+    await writer.write(bytes as BufferSource);
     await writer.close();
 
     const compressedBytes = await compressedBytesPromise;
@@ -230,7 +230,7 @@ async function decompressPayloadBody(bytes: Uint8Array) {
     const decompressionStream = new DecompressionStream('deflate');
     const writer = decompressionStream.writable.getWriter();
     const decodedBytesPromise = readStreamToUint8Array(decompressionStream.readable);
-    await writer.write(bytes);
+    await writer.write(bytes as BufferSource);
     await writer.close();
     return await decodedBytesPromise;
   } catch {

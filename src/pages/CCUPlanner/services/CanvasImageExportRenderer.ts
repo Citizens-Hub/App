@@ -18,7 +18,7 @@ export const EXPORT_MANUFACTURER_WATERMARK_HEIGHT = 86;
 export const EXPORT_MANUFACTURER_WATERMARK_MARGIN = 20;
 
 const FONT_FAMILY = '"Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif';
-const EXPORT_BACKGROUND_DOT_GAP = 32;
+export const EXPORT_BACKGROUND_DOT_GAP = 48;
 
 export interface PreparedExportNode {
   id: string;
@@ -69,6 +69,13 @@ export interface PreparedExportFooterCard {
   qrCode: PreparedExportQrCode;
 }
 
+export interface PreparedExportExcludedRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ExportFooterCardMetrics {
   cardWidth: number;
   cardHeight: number;
@@ -94,6 +101,7 @@ export interface PreparedExportPayload {
   nodes: PreparedExportNode[];
   edges: PreparedExportEdge[];
   footerCard: PreparedExportFooterCard | null;
+  watermarkExcludedRects: PreparedExportExcludedRect[];
 }
 
 export type RenderableImage = CanvasImageSource & {
@@ -295,7 +303,7 @@ function drawQrCodeModules(
 
 function drawDotGrid(ctx: ExportCanvasContext, width: number, height: number, gap: number) {
   ctx.save();
-  ctx.fillStyle = '#333333';
+  ctx.fillStyle = '#a3a3a3';
 
   for (let y = gap / 2; y <= height; y += gap) {
     for (let x = gap / 2; x <= width; x += gap) {
@@ -679,8 +687,7 @@ function drawNodeCard(
   ctx: ExportCanvasContext,
   node: PreparedExportNode,
   image: RenderableImage | null,
-  manufacturerLogo: RenderableImage | null,
-  texturePattern: CanvasPattern | null
+  manufacturerLogo: RenderableImage | null
 ) {
   ctx.save();
   ctx.shadowColor = 'rgba(15, 23, 42, 0.10)';
@@ -692,7 +699,8 @@ function drawNodeCard(
   ctx.save();
   createRoundedRectPath(ctx, node.x, node.y, node.width, node.height, EXPORT_NODE_RADIUS);
   ctx.clip();
-  fillRectWithPattern(ctx, node.x, node.y, node.width, node.height, texturePattern, 0.82);
+  ctx.fillStyle = '#f9fafb';
+  ctx.fillRect(node.x, node.y, node.width, node.height);
   ctx.restore();
 
   ctx.strokeStyle = '#93c5fd';
@@ -769,18 +777,24 @@ function drawNodeCard(
   ctx.restore();
 }
 
-export function renderPreparedExport(
+export function renderPreparedExportBackground(
   ctx: ExportCanvasContext,
-  payload: PreparedExportPayload,
-  imageMap: Map<string, RenderableImage | null>
+  payload: PreparedExportPayload
 ) {
   const texturePattern = createTexturePattern(ctx);
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, payload.width, payload.height);
-  fillRectWithPattern(ctx, 0, 0, payload.width, payload.height, texturePattern, 0.72);
+  fillRectWithPattern(ctx, 0, 0, payload.width, payload.height, texturePattern, 0.5);
 
   drawDotGrid(ctx, payload.width, payload.height, EXPORT_BACKGROUND_DOT_GAP);
+}
+
+export function renderPreparedExportContent(
+  ctx: ExportCanvasContext,
+  payload: PreparedExportPayload,
+  imageMap: Map<string, RenderableImage | null>
+) {
   drawHeader(ctx, payload);
 
   payload.edges.forEach((edge) => {
@@ -800,12 +814,20 @@ export function renderPreparedExport(
       ctx,
       node,
       node.imageUrl ? imageMap.get(node.imageUrl) || null : null,
-      node.manufacturerLogoUrl ? imageMap.get(node.manufacturerLogoUrl) || null : null,
-      texturePattern
+      node.manufacturerLogoUrl ? imageMap.get(node.manufacturerLogoUrl) || null : null
     );
   });
 
   if (payload.footerCard) {
     drawExportFooterCard(ctx, payload.footerCard);
   }
+}
+
+export function renderPreparedExport(
+  ctx: ExportCanvasContext,
+  payload: PreparedExportPayload,
+  imageMap: Map<string, RenderableImage | null>
+) {
+  renderPreparedExportBackground(ctx, payload);
+  renderPreparedExportContent(ctx, payload, imageMap);
 }

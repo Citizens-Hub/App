@@ -142,7 +142,10 @@ function Toolbar({
           onClose={handleCloseExportMenu}
         >
           <MenuItem onClick={handleExportImage}>
-            <FormattedMessage id="toolbar.exportImage" defaultMessage="Export Image" />
+            <FormattedMessage
+              id="toolbar.exportImage"
+              defaultMessage="Export Image"
+            />
           </MenuItem>
           <MenuItem onClick={handleExportData}>
             <FormattedMessage id="toolbar.exportData" defaultMessage="Export Data (JSON)" />

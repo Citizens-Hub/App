@@ -17,11 +17,13 @@ import {
 
 import routeImagePayloadService from '@/pages/CCUPlanner/services/RouteImagePayloadService';
 import type {
+  RobustWatermarkDebugReport,
   RobustWatermarkDiagnostics,
   RobustWatermarkFrequencyAnalysis,
 } from '@/pages/CCUPlanner/services/RobustImageWatermarkService';
 import {
   analyzeRobustWatermarkFrequency,
+  debugRobustWatermark,
   extractRobustWatermarkWithDiagnostics,
   ROBUST_WATERMARK_BLOCK_FLAG_ANCHOR,
   ROBUST_WATERMARK_BLOCK_FLAG_HEADER,
@@ -55,10 +57,37 @@ type InspectionResult = {
     startShipPriceCount: number;
   } | null;
   decodeError: string | null;
+  debugReport: RobustWatermarkDebugReport;
 };
 
 function formatMetric(value: number) {
   return Number.isFinite(value) ? value.toFixed(2) : '-';
+}
+
+function formatNullableMetric(value: number | null | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toString() : '-';
+}
+
+function formatHexByte(value: number | null | undefined) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? `0x${value.toString(16).padStart(2, '0')}`
+    : '-';
+}
+
+function buildCopyableDebugReport(result: InspectionResult) {
+  return JSON.stringify({
+    fileName: result.fileName,
+    image: {
+      width: result.imageWidth,
+      height: result.imageHeight
+    },
+    frequency: result.frequency,
+    payloadByteLength: result.payloadByteLength,
+    diagnostics: result.diagnostics,
+    decodedSummary: result.decodedSummary,
+    decodeError: result.decodeError,
+    debugReport: result.debugReport
+  }, null, 2);
 }
 
 function revokePreviewUrl(url: string | null | undefined) {
@@ -180,6 +209,7 @@ export default function WatermarkDebugTool() {
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const analysis = analyzeRobustWatermarkFrequency(imageData.data, canvas.width, canvas.height);
+      const debugReport = debugRobustWatermark(imageData.data, canvas.width, canvas.height);
 
       previewUrl = URL.createObjectURL(file);
 
@@ -226,7 +256,8 @@ export default function WatermarkDebugTool() {
         payloadByteLength,
         diagnostics,
         decodedSummary,
-        decodeError
+        decodeError,
+        debugReport
       };
 
       setResult((previous) => {
@@ -301,6 +332,101 @@ export default function WatermarkDebugTool() {
 
       {result && (
         <Stack spacing={3}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+                <Typography variant="subtitle1">
+                  {intl.formatMessage({
+                    id: 'admin.watermarkDebug.debugReport',
+                    defaultMessage: 'Decode debug report'
+                  })}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(buildCopyableDebugReport(result));
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: 'admin.watermarkDebug.copyDebugJson',
+                    defaultMessage: 'Copy debug JSON'
+                  })}
+                </Button>
+              </Stack>
+              {result.debugReport.notes.length > 0 && (
+                <Alert severity="info">
+                  {result.debugReport.notes.join(' ')}
+                </Alert>
+              )}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    md: 'repeat(2, minmax(0, 1fr))'
+                  }
+                }}
+              >
+                {result.debugReport.attempts.map((attempt) => (
+                  <Paper key={attempt.version} variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle2">
+                        V{attempt.version} {attempt.ok ? 'OK' : 'FAILED'}
+                      </Typography>
+                      {attempt.error && (
+                        <Typography variant="body2" color="warning.main">
+                          {attempt.error}
+                        </Typography>
+                      )}
+                      {attempt.geometry && (
+                        <Typography variant="body2" color="text.secondary">
+                          {`grid ${attempt.geometry.blocksWide} x ${attempt.geometry.blocksHigh}, header blocks ${attempt.geometry.headerBlockCount}, payload blocks ${attempt.geometry.payloadBlockCount}, capacity ${attempt.geometry.capacityBytes} bytes`}
+                        </Typography>
+                      )}
+                      {attempt.geometry && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', wordBreak: 'break-word' }}>
+                          {attempt.geometry.capacitiesByRepetition
+                            .map((entry) => `r${entry.repetition}:${entry.capacityBytes}`)
+                            .join('  ')}
+                        </Typography>
+                      )}
+                      {attempt.header && (
+                        <Box sx={{ pt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {`header confidence ${formatMetric(attempt.header.averageConfidence)} / ${formatMetric(attempt.header.minimumConfidence)}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {`magic ${attempt.header.magic || '-'} (${attempt.header.magicByteMatches}/${attempt.header.expectedMagic.length}), version ${formatNullableMetric(attempt.header.version)}, protocol ${formatHexByte(attempt.header.protocolId)}, rep ${formatNullableMetric(attempt.header.payloadRepetition)}/${formatNullableMetric(attempt.header.headerRepetition)}, payload ${formatNullableMetric(attempt.header.payloadLength)}`}
+                          </Typography>
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }} display="block">
+                            {attempt.header.recoveredBytesHex || '-'}
+                          </Typography>
+                          {attempt.header.parseError && (
+                            <Typography variant="caption" color="warning.main" display="block">
+                              {attempt.header.parseError}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                      {attempt.invertedHeader && (
+                        <Box sx={{ pt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {`inverted magic ${attempt.invertedHeader.magic || '-'} (${attempt.invertedHeader.magicByteMatches}/${attempt.invertedHeader.expectedMagic.length})`}
+                          </Typography>
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }} display="block">
+                            {attempt.invertedHeader.recoveredBytesHex || '-'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+                  </Paper>
+                ))}
+              </Box>
+            </Stack>
+          </Paper>
+
           <Box
             sx={{
               display: 'grid',
@@ -345,12 +471,6 @@ export default function WatermarkDebugTool() {
                       defaultMessage: 'Frequency watermark signal map'
                     })}
                   </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {intl.formatMessage({
-                        id: 'admin.watermarkDebug.signalMapDescription',
-                        defaultMessage: 'Each cell is one logical 16x16 watermark block made from 2x2 frequency cells. Cyan means coefficient A dominates, red means coefficient B dominates. Brighter blocks carry a stronger embedded signal.'
-                      })}
-                    </Typography>
                   <Box
                     component="img"
                     src={result.signalMapUrl}
@@ -378,12 +498,6 @@ export default function WatermarkDebugTool() {
                     {intl.formatMessage({
                       id: 'admin.watermarkDebug.confidenceMap',
                       defaultMessage: 'Confidence map'
-                    })}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {intl.formatMessage({
-                      id: 'admin.watermarkDebug.confidenceMapDescription',
-                      defaultMessage: 'Brighter cells are easier to decode. Amber outlines mark anchor blocks and white top strokes mark header blocks.'
                     })}
                   </Typography>
                   <Box

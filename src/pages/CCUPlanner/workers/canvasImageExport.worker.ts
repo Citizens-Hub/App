@@ -1,10 +1,13 @@
 /// <reference lib="webworker" />
 
 import type { PreparedExportPayload } from '../services/CanvasImageExportRenderer';
-import { renderPreparedExport } from '../services/CanvasImageExportRenderer';
+import {
+  renderPreparedExportBackground,
+  renderPreparedExportContent
+} from '../services/CanvasImageExportRenderer';
 import { embedRobustWatermark } from '../services/RobustImageWatermarkService';
 const EXPORT_MIME_TYPE = 'image/jpeg';
-const EXPORT_JPEG_QUALITY = 0.92;
+const EXPORT_JPEG_QUALITY = 0.96;
 
 type ExportStage =
   | 'loading_images'
@@ -106,8 +109,6 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
     };
     workerScope.postMessage(renderProgressMessage);
 
-    renderPreparedExport(ctx, payload, imageMap);
-
     const embeddingProgressMessage: WorkerProgressMessage = {
       type: 'progress',
       stage: 'embedding',
@@ -115,9 +116,25 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRenderRequest>) => {
     };
     workerScope.postMessage(embeddingProgressMessage);
 
+    renderPreparedExportBackground(ctx, payload);
+    renderPreparedExportContent(ctx, payload, imageMap);
+    const referenceImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(payload.scale, payload.scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    renderPreparedExportBackground(ctx, payload);
+
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    embedRobustWatermark(imageData.data, canvas.width, canvas.height, routePayload);
+    embedRobustWatermark(imageData.data, canvas.width, canvas.height, routePayload, {
+      referencePixelBytes: referenceImageData.data,
+      backgroundPixelBytes: imageData.data,
+      excludedRects: payload.watermarkExcludedRects
+    });
     ctx.putImageData(imageData, 0, 0);
+    renderPreparedExportContent(ctx, payload, imageMap);
 
     const encodingProgressMessage: WorkerProgressMessage = {
       type: 'progress',
