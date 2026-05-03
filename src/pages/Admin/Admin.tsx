@@ -9,6 +9,7 @@ import GameShopsManager from './components/GameShopsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
+import ConciergePaintsManager from './components/ConciergePaintsManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -19,6 +20,7 @@ enum Page {
   ShipSogModels = 'shipSogModels',
   ShipImages = 'shipImages',
   WatermarkDebug = 'watermarkDebug',
+  ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
   Withdrawals = 'withdrawals',
 }
@@ -76,6 +78,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.WatermarkDebug),
     },
     {
+      id: Page.ConciergePaints,
+      title: <FormattedMessage id="admin.conciergePaints.title" defaultMessage="Concierge Paints" />,
+      description: <FormattedMessage id="admin.conciergePaints.description" defaultMessage="Use the browser extension to read RSI paint listings, filter concierge items by isVip, then batch list, update, or delist the managed paint catalog." />,
+      active: currentPage === Page.ConciergePaints,
+      onSelect: () => setCurrentPage(Page.ConciergePaints),
+    },
+    {
       id: Page.GameShops,
       title: <FormattedMessage id="admin.gameShops.title" defaultMessage="Game Shops" />,
       description: <FormattedMessage id="admin.gameShops.description" defaultMessage="Manage imported in-game shop data independently from RSI ship and CCU data." />,
@@ -105,6 +114,7 @@ export default function Admin() {
         {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
         {currentPage === Page.ShipImages && <ShipImagesManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
+        {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
     </ResponsiveSectionLayout>

@@ -69,7 +69,7 @@ export default function ResponsiveSectionLayout({
           containerClassName ?? '',
         ].join(' ').trim()}
       >
-        <div className="hidden min-w-[300px] shrink-0 flex-col border-r border-b border-gray-200 text-left dark:border-gray-800 md:flex">
+        <div className="hidden min-w-[300px] max-w-[400px] shrink-0 flex-col border-r border-b border-gray-200 text-left dark:border-gray-800 md:flex">
           {sectionItems.map((item) => (
             <div
               key={item.id}

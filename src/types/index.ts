@@ -387,6 +387,69 @@ export interface ShipImageSyncCreateResponse {
   };
 }
 
+export interface ConciergePaintSourceItem {
+  officialSkuId: number;
+  slug: string;
+  name: string;
+  title: string;
+  officialProductId?: string | null;
+  subtitle?: string | null;
+  body?: string | null;
+  url: string;
+  excerpt?: string | null;
+  imageUrl?: string | null;
+  isPackage: boolean;
+  isVip: boolean;
+  isWarbond: boolean;
+  isDirectCheckout: boolean;
+  priceAmount?: number | null;
+  priceDiscounted?: number | null;
+  packageShips?: Array<{
+    shipId?: number | null;
+    shipName: string;
+  }>;
+  packageItems?: Array<{
+    itemName: string;
+    itemKind?: string | null;
+    imageUrl?: string | null;
+  }>;
+}
+
+export interface AdminConciergePaintListingItem {
+  officialSkuId: number | null;
+  sourceUrl: string | null;
+  listing: ListingItem;
+}
+
+export interface AdminConciergePaintListResponse {
+  success: boolean;
+  data: {
+    sourceKind: string;
+    defaultStock: number;
+    activeCount: number;
+    inactiveCount: number;
+    items: AdminConciergePaintListingItem[];
+  };
+}
+
+export interface AdminConciergePaintSyncResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    markupPercent: number;
+    sourceCount: number;
+    vipCount: number;
+    createdCount: number;
+    updatedCount: number;
+    restoredCount: number;
+    unchangedCount: number;
+    removedCount: number;
+    activeCount: number;
+    inactiveCount: number;
+    items: AdminConciergePaintListingItem[];
+  };
+}
+
 export type ShipTranslationLocale = 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE' | 'en';
 export type ShipTranslationField = 'shipName' | 'title' | 'excerpt' | 'body';
 
@@ -704,6 +767,7 @@ export interface ListingItem {
   belongsTo: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface MarketListPagination {

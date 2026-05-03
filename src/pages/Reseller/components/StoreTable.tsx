@@ -106,6 +106,10 @@ function getSourceKindLabel(sourceKind: string | null | undefined, intl: IntlSha
     return intl.formatMessage({ id: "market.sourceKind.manual", defaultMessage: "Manual" });
   }
 
+  if (sourceKind === "rsi-concierge-paint-sync") {
+    return intl.formatMessage({ id: "market.sourceKind.conciergePaintSync", defaultMessage: "Concierge paint sync" });
+  }
+
   return sourceKind || "";
 }
 

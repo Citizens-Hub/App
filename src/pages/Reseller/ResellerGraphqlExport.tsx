@@ -3,14 +3,10 @@ import { Alert, Button, CircularProgress, Paper, Typography } from '@mui/materia
 import { useState } from 'react';
 import { type IntlShape, useIntl } from 'react-intl';
 
+import { requestViaExtension } from '@/utils/extensionHttpRequest';
+
 const RSI_GRAPHQL_URL = 'https://robertsspaceindustries.com/graphql';
 const RESPONSE_TIMEOUT_MS = 20000;
-
-type ExtensionResponseMessage = {
-  requestId?: string;
-  value?: unknown;
-  error?: unknown;
-};
 
 type ExportStatus = 'idle' | 'requesting' | 'success' | 'failure';
 
@@ -26,87 +22,6 @@ function formatError(intl: IntlShape, error: unknown): string {
   return intl.formatMessage({
     id: 'reseller.graphqlExport.error.generic',
     defaultMessage: 'Browser extension request failed',
-  });
-}
-
-function requestGraphqlViaExtension(timeoutMessage: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const requestId = `reseller-graphql-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const cleanup = (timeoutId: number, listener: (event: MessageEvent) => void) => {
-      window.clearTimeout(timeoutId);
-      window.removeEventListener('message', listener);
-    };
-
-    const listener = (event: MessageEvent) => {
-      if (event.source !== window) return;
-      if (event.data?.type !== 'ccuPlannerAppIntegrationResponse') return;
-
-      const message = event.data?.message as ExtensionResponseMessage | undefined;
-      if (!message || message.requestId !== requestId) return;
-
-      cleanup(timeoutId, listener);
-
-      if (message.error) {
-        reject(new Error(
-          message.error instanceof Error
-            ? message.error.message
-            : typeof message.error === 'string'
-              ? message.error
-              : String(message.error),
-        ));
-        return;
-      }
-
-      resolve(message.value ?? null);
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      cleanup(timeoutId, listener);
-      reject(new Error(timeoutMessage));
-    }, RESPONSE_TIMEOUT_MS);
-
-    window.addEventListener('message', listener);
-
-    window.postMessage({
-      type: 'ccuPlannerAppIntegrationRequest',
-      message: {
-        type: 'httpRequest',
-        request: {
-          url: RSI_GRAPHQL_URL,
-          responseType: 'json',
-          method: 'post',
-          data: [
-            {
-              "operationName": "GetBrowseSkusByFilter",
-              "variables": {
-                "query": {
-                  "page": 1,
-                  "limit": 99999,
-                  "skus": {
-                    "filtersFromTags": {
-                      "tagIdentifiers": [],
-                      "facetIdentifiers": [
-                        "extras-subscribers-store"
-                      ]
-                    },
-                    "products": [
-                      65
-                    ]
-                  },
-                  "sort": {
-                    "field": "weight",
-                    "direction": "desc"
-                  }
-                }
-              },
-              "query": "query GetBrowseSkusByFilter($query: SearchQuery) {\n  store(browse: true) {\n    listing: search(query: $query) {\n      resources {\n        ...TyItemBrowseFragment\n        __typename\n      }\n      count\n      totalCount\n      heapTagFiltersOptions {\n        ...StoreListingHeapTagFiltersOptionsFragment\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment TyItemBrowseFragment on TyItem {\n  id\n  slug\n  name\n  title\n  subtitle\n  url\n  body\n  excerpt\n  type\n  media {\n    thumbnail {\n      slideshow\n      storeSmall\n      __typename\n    }\n    list {\n      slideshow\n      __typename\n    }\n    __typename\n  }\n  nativePrice {\n    amount\n    discounted\n    discountDescription\n    __typename\n  }\n  price {\n    amount\n    discounted\n    taxDescription\n    discountDescription\n    __typename\n  }\n  stock {\n    ...TyStockFragment\n    __typename\n  }\n  tags {\n    ...TyHeapTagFragment\n    __typename\n  }\n  ... on TySku {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TySkuBrowseFragment\n    __typename\n  }\n  ... on TyProduct {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TyProductBrowseFragment\n    __typename\n  }\n  __typename\n}\n\nfragment TySkuBrowseFragment on TySku {\n  label\n  customizable\n  isWarbond\n  isPackage\n  isVip\n  isDirectCheckout\n  __typename\n}\n\nfragment TyProductBrowseFragment on TyProduct {\n  skus {\n    id\n    title\n    isDirectCheckout\n    __typename\n  }\n  isVip\n  __typename\n}\n\nfragment TyStockFragment on TyStock {\n  unlimited\n  show\n  available\n  backOrder\n  qty\n  backOrderQty\n  level\n  __typename\n}\n\nfragment TyHeapTagFragment on HeapTag {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment StoreListingHeapTagFiltersOptionsFragment on HeapTagGroup {\n  groupIdentifier\n  facets {\n    facet\n    tagIdentifiers {\n      identifier\n      name\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
-            }
-          ],
-        },
-        requestId,
-      },
-    }, '*');
   });
 }
 
@@ -166,12 +81,45 @@ export default function ResellerGraphqlExport() {
     setStatus('requesting');
 
     try {
-      const response = await requestGraphqlViaExtension(
-        intl.formatMessage({
+      const response = await requestViaExtension({
+        url: RSI_GRAPHQL_URL,
+        responseType: 'json',
+        method: 'post',
+        data: [
+          {
+            operationName: 'GetBrowseSkusByFilter',
+            variables: {
+              query: {
+                page: 1,
+                limit: 99999,
+                skus: {
+                  filtersFromTags: {
+                    tagIdentifiers: [],
+                    facetIdentifiers: [
+                      'extras-subscribers-store',
+                    ],
+                  },
+                  products: [
+                    65,
+                  ],
+                },
+                sort: {
+                  field: 'weight',
+                  direction: 'desc',
+                },
+              },
+            },
+            query: 'query GetBrowseSkusByFilter($query: SearchQuery) {\n  store(browse: true) {\n    listing: search(query: $query) {\n      resources {\n        ...TyItemBrowseFragment\n        __typename\n      }\n      count\n      totalCount\n      heapTagFiltersOptions {\n        ...StoreListingHeapTagFiltersOptionsFragment\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment TyItemBrowseFragment on TyItem {\n  id\n  slug\n  name\n  title\n  subtitle\n  url\n  body\n  excerpt\n  type\n  media {\n    thumbnail {\n      slideshow\n      storeSmall\n      __typename\n    }\n    list {\n      slideshow\n      __typename\n    }\n    __typename\n  }\n  nativePrice {\n    amount\n    discounted\n    discountDescription\n    __typename\n  }\n  price {\n    amount\n    discounted\n    taxDescription\n    discountDescription\n    __typename\n  }\n  stock {\n    ...TyStockFragment\n    __typename\n  }\n  tags {\n    ...TyHeapTagFragment\n    __typename\n  }\n  ... on TySku {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TySkuBrowseFragment\n    __typename\n  }\n  ... on TyProduct {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TyProductBrowseFragment\n    __typename\n  }\n  __typename\n}\n\nfragment TySkuBrowseFragment on TySku {\n  label\n  customizable\n  isWarbond\n  isPackage\n  isVip\n  isDirectCheckout\n  __typename\n}\n\nfragment TyProductBrowseFragment on TyProduct {\n  skus {\n    id\n    title\n    isDirectCheckout\n    __typename\n  }\n  isVip\n  __typename\n}\n\nfragment TyStockFragment on TyStock {\n  unlimited\n  show\n  available\n  backOrder\n  qty\n  backOrderQty\n  level\n  __typename\n}\n\nfragment TyHeapTagFragment on HeapTag {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment StoreListingHeapTagFiltersOptionsFragment on HeapTagGroup {\n  groupIdentifier\n  facets {\n    facet\n    tagIdentifiers {\n      identifier\n      name\n      __typename\n    }\n    __typename\n  }\n  __typename\n}',
+          },
+        ],
+      }, {
+        timeoutMs: RESPONSE_TIMEOUT_MS,
+        timeoutMessage: intl.formatMessage({
           id: 'reseller.graphqlExport.error.timeout',
           defaultMessage: 'The extension request timed out. Make sure the Citizens Hub browser extension is installed and enabled.',
         }),
-      );
+        requestIdPrefix: 'reseller-graphql-export',
+      });
       downloadJson(response);
       setStatus('success');
     } catch (error) {
