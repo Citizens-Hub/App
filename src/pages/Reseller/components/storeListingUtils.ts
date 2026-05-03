@@ -10,6 +10,8 @@ export interface StoreInventoryItem {
   sourceKey: string;
   itemType: 'ccu' | 'package';
   displayType: StoreInventoryType;
+  browseCategory?: 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+  tags?: Array<'oc'>;
   name: string;
   price: number;
   cost?: number;
