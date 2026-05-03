@@ -1,6 +1,6 @@
 import type { IntlShape } from 'react-intl';
 
-import type { MarketItemType } from '@/types';
+import type { MarketBrowseCategory, MarketItemType, MarketSkuTagCode } from '@/types';
 
 const USD_CURRENCY_OPTIONS = {
   style: 'currency',
@@ -37,6 +37,30 @@ export function getMarketPackageKindLabel(intl: IntlShape, packageKind?: string 
       return intl.formatMessage({ id: 'market.filter.bundle', defaultMessage: 'Bundle' });
     default:
       return packageKind || '';
+  }
+}
+
+export function getMarketBrowseCategoryLabel(intl: IntlShape, browseCategory?: MarketBrowseCategory | string | null) {
+  switch (browseCategory) {
+    case 'standalone_ship':
+      return intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' });
+    case 'ship_package':
+      return intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' });
+    case 'paint':
+      return intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' });
+    case 'other':
+      return intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' });
+    default:
+      return browseCategory || '';
+  }
+}
+
+export function getMarketTagLabel(intl: IntlShape, tag?: MarketSkuTagCode | string | null) {
+  switch (tag) {
+    case 'oc':
+      return intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' });
+    default:
+      return tag ? tag.toUpperCase() : '';
   }
 }
 

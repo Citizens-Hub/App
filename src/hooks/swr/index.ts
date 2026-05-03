@@ -21,6 +21,9 @@ export { default as useOrdersData } from './orders/useOrdersData';
 export { default as useOrderData } from './orders/useOrderData';
 export { default as useRelatedOrdersData } from './orders/useRelatedOrdersData';
 export { default as useRelatedOrderData } from './orders/useRelatedOrderData';
+export { default as useTicketsData } from './tickets/useTicketsData';
+export { default as useTicketData } from './tickets/useTicketData';
+export { default as useTicketOrderOptions } from './tickets/useTicketOrderOptions';
 
 // 机库相关钩子
 export { default as useHangarData } from './hangar/useHangarData';

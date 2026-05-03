@@ -330,6 +330,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 <MenuItem onClick={() => navigate('/app-settings')} aria-label={intl.formatMessage({ id: "user.profile", defaultMessage: "Profile" })}>
                   <FormattedMessage id="user.profile" defaultMessage="Profile" />
                 </MenuItem>
+                <MenuItem onClick={() => navigate('/tickets')} aria-label={intl.formatMessage({ id: "navigation.tickets", defaultMessage: "Tickets" })}>
+                  <FormattedMessage id="navigation.tickets" defaultMessage="Tickets" />
+                </MenuItem>
                 <MenuItem onClick={() => dispatch(logout())} aria-label={intl.formatMessage({ id: "user.logout", defaultMessage: "Logout" })}>
                   <FormattedMessage id="user.logout" defaultMessage="Logout" />
                 </MenuItem>

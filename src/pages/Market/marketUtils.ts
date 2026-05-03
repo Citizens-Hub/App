@@ -18,11 +18,19 @@ export function findShip(ships: Ship[], shipId?: number, shipName?: string) {
 }
 
 export function isStandaloneShipPackage(item: ListingItem) {
-  return item.itemType === 'package' && item.packageKind === 'standalone_ship';
+  return item.browseCategory === 'standalone_ship';
 }
 
 export function isBundlePackage(item: ListingItem) {
-  return item.itemType === 'package' && item.packageKind === 'bundle';
+  return item.browseCategory === 'ship_package';
+}
+
+export function isPaintListing(item: ListingItem) {
+  return item.browseCategory === 'paint';
+}
+
+export function isOtherListing(item: ListingItem) {
+  return item.browseCategory === 'other';
 }
 
 export function getPackageMsrp(item: ListingItem, ships: Ship[]) {

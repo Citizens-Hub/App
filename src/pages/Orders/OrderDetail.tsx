@@ -195,7 +195,7 @@ export default function OrderDetail() {
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto'>
       <div className='w-full max-w-[1280px] mx-auto flex flex-col gap-4 pt-4'>
         {/* Header Section with Navigation and Action Buttons */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 } }} className="app-header">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, md: { mt: 0 }, gap: 2, flexWrap: 'wrap' }} className="app-header">
           <div className='flex flex-row items-center gap-4'>
             <Button
               startIcon={<ArrowBackIcon />}
@@ -210,14 +210,22 @@ export default function OrderDetail() {
             </Typography> */}
           </div>
 
-          <Button
-            variant="text"
-            startIcon={<ReceiptLongIcon />}
-            onClick={handleViewReceipt}
-            disabled={order.status !== OrderStatus.Paid}
-          >
-            <FormattedMessage id="orderDetail.viewInvoice" defaultMessage="View Invoice" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="text"
+              onClick={() => navigate(`/tickets/create?orderId=${encodeURIComponent(order.id)}`)}
+            >
+              <FormattedMessage id="orderDetail.createTicket" defaultMessage="Open Support Ticket" />
+            </Button>
+            <Button
+              variant="text"
+              startIcon={<ReceiptLongIcon />}
+              onClick={handleViewReceipt}
+              disabled={order.status !== OrderStatus.Paid && order.status !== OrderStatus.Finished}
+            >
+              <FormattedMessage id="orderDetail.viewInvoice" defaultMessage="View Invoice" />
+            </Button>
+          </div>
         </Box>
 
         {/* Order Progress Indicator */}

@@ -10,6 +10,7 @@ import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
 import ConciergePaintsManager from './components/ConciergePaintsManager';
+import TicketsManager from './components/TicketsManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -23,6 +24,7 @@ enum Page {
   ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
   Withdrawals = 'withdrawals',
+  Tickets = 'tickets',
 }
 
 export default function Admin() {
@@ -92,6 +94,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.GameShops),
     },
     {
+      id: Page.Tickets,
+      title: <FormattedMessage id="admin.tickets.title" defaultMessage="Support Tickets" />,
+      description: <FormattedMessage id="admin.tickets.description" defaultMessage="Review user support tickets, reply to messages, and close resolved requests." />,
+      active: currentPage === Page.Tickets,
+      onSelect: () => setCurrentPage(Page.Tickets),
+    },
+    {
       id: Page.Withdrawals,
       title: <FormattedMessage id="admin.withdrawals.title" defaultMessage="Withdrawal Requests" />,
       description: <FormattedMessage id="admin.withdrawals.description" defaultMessage="Review reseller withdrawal requests, confirm payouts, or reject invalid requests." />,
@@ -116,6 +125,7 @@ export default function Admin() {
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
+        {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
     </ResponsiveSectionLayout>
   );

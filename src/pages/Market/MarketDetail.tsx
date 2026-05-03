@@ -557,12 +557,18 @@ function TextOnlyPackageItemRow({
   );
 }
 
-export default function MarketDetail() {
+interface MarketDetailProps {
+  skuId?: string;
+  embedded?: boolean;
+}
+
+export default function MarketDetail({ skuId: skuIdProp, embedded = false }: MarketDetailProps) {
   const intl = useIntl();
   const { locale } = useLocale();
   const navigate = useNavigate();
-  const { skuId } = useParams();
-  const decodedSkuId = decodeURIComponent(skuId || '');
+  const { skuId: routeSkuId } = useParams();
+  const resolvedSkuId = skuIdProp ?? routeSkuId ?? '';
+  const decodedSkuId = decodeURIComponent(resolvedSkuId);
   const { item, ships, loading, error, notFound } = useMarketItemData(decodedSkuId);
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -659,10 +665,8 @@ export default function MarketDetail() {
     return sellers
       .map((sellerId) => {
         const profile = ccuSellerProfiles[sellerId];
-        const fallbackEmail = ccuVariants.find((variant) => variant.belongsTo === sellerId)?.seller?.email || '';
         const label = profile?.name?.trim()
           || profile?.email?.trim()
-          || fallbackEmail
           || intl.formatMessage({ id: 'market.sellerUnknown', defaultMessage: 'Seller' });
 
         return { sellerId, label };
@@ -913,7 +917,7 @@ export default function MarketDetail() {
 
   if (loading && !item && !notFound) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" height={embedded ? '100%' : '100vh'}>
         <CircularProgress />
       </Box>
     );
@@ -921,7 +925,7 @@ export default function MarketDetail() {
 
   if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" height={embedded ? '100%' : '100vh'}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
@@ -929,11 +933,16 @@ export default function MarketDetail() {
 
   if (notFound || !item) {
     return (
-      <div className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'>
+      <div className={embedded
+        ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
+        : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
+      >
         <div className='mx-auto flex max-w-[1120px] flex-col gap-4'>
-          <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start' }}>
-            <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
-          </Button>
+          {!embedded && (
+            <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start' }}>
+              <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
+            </Button>
+          )}
           <Alert severity="warning">
             <FormattedMessage id="market.itemNotFound" defaultMessage="This listing does not exist or has been removed." />
           </Alert>
@@ -1078,37 +1087,55 @@ export default function MarketDetail() {
   // const formattedCreatedAt = new Date(item.createdAt).toLocaleString(intl.locale);
 
   return (
-    <div className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'>
-      <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-          <div className='flex flex-col gap-2'>
-            <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start', px: 0 }}>
-              <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
-            </Button>
-            <Typography variant="h5">
+    <div className={embedded
+      ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
+      : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
+    >
+      <div className={`mx-auto flex w-full flex-col gap-4 ${embedded ? 'max-w-[1120px]' : 'max-w-[1280px]'}`}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', md: 'flex-start' },
+            gap: 2,
+          }}
+        >
+          <div className='flex min-w-0 flex-1 flex-col gap-2'>
+            {!embedded && (
+              <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start', px: 0 }}>
+                <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
+              </Button>
+            )}
+            <Typography variant="h5" className='break-words'>
               {displayTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" className='break-words'>
               {displaySummary}
             </Typography>
           </div>
 
-          <div className='flex items-center gap-3'>
-            <Link to="/orders" className='rounded '>
-              <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
-            </Link>
-            <IconButton
-              onClick={openCart}
-              sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
-            >
-              <Badge badgeContent={cart.length} color="secondary" overlap="circular">
-                <ShoppingCart className='h-6 w-6' />
-              </Badge>
-            </IconButton>
-          </div>
+          {!embedded && (
+            <div className='flex shrink-0 flex-wrap items-center gap-3 self-start md:justify-end'>
+              <Link to="/orders" className='rounded '>
+                <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+              </Link>
+              <Link to="/tickets" className='rounded '>
+                <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
+              </Link>
+              <IconButton
+                onClick={openCart}
+                sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
+              >
+                <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                  <ShoppingCart className='h-6 w-6' />
+                </Badge>
+              </IconButton>
+            </div>
+          )}
         </Box>
 
-        <div className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,_1fr)_360px]'>
+        <div className={`grid grid-cols-1 gap-6 ${embedded ? 'xl:grid-cols-1' : 'xl:grid-cols-[minmax(0,_1fr)_360px]'}`}>
           <div className='flex flex-col gap-6'>
             <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
               {heroVisual.isCCU ? (
@@ -1406,7 +1433,7 @@ export default function MarketDetail() {
             </div>
           </div>
 
-          <div className='flex flex-col gap-6 xl:sticky xl:top-4 xl:self-start'>
+          <div className={`flex flex-col gap-6 ${embedded ? '' : 'xl:sticky xl:top-4 xl:self-start'}`}>
             <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
               <div className='flex flex-col gap-3'>
                 <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
@@ -1632,14 +1659,16 @@ export default function MarketDetail() {
         </div>
       </div>
 
-      <CartDrawer
-        open={cartOpen}
-        cart={cart}
-        onClose={closeCart}
-        onRemoveFromCart={removeFromCart}
-        onUpdateQuantity={updateItemQuantity}
-        getAvailableStock={getAvailableStockByResourceId}
-      />
+      {!embedded && (
+        <CartDrawer
+          open={cartOpen}
+          cart={cart}
+          onClose={closeCart}
+          onRemoveFromCart={removeFromCart}
+          onUpdateQuantity={updateItemQuantity}
+          getAvailableStock={getAvailableStockByResourceId}
+        />
+      )}
 
       <Snackbar
         open={snackbarOpen}

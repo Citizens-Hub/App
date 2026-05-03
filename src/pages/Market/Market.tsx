@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -22,12 +22,13 @@ import {
 import { Search } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import CartDrawer from './components/CartDrawer';
+import MarketDetailDrawer, { type MarketDetailDrawerTab } from './components/MarketDetailDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
 import {
   ListingItem,
   CartItem as CartItemType,
+  MarketBrowseCategory,
   MarketItemType,
-  MarketPackageKind,
   MarketSortMode,
   Resource,
 } from '@/types';
@@ -46,13 +47,15 @@ import {
   formatMarketPriceFrom,
   formatPackageContentsSummary,
   formatUsdPrice,
+  getMarketBrowseCategoryLabel,
   getMarketItemTypeLabel,
-  getMarketPackageKindLabel,
+  getMarketTagLabel,
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 
 const Market: React.FC = () => {
   const intl = useIntl();
+  const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -61,31 +64,36 @@ const Market: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
   const [showCcus, setShowCcus] = useState(false);
-  const [showPackages, setShowPackages] = useState(false);
-  const [showMisc, setShowMisc] = useState(false);
   const [showCredit, setShowCredit] = useState(false);
   const [showStandaloneShips, setShowStandaloneShips] = useState(false);
-  const [showBundles, setShowBundles] = useState(false);
+  const [showShipPackages, setShowShipPackages] = useState(false);
+  const [showPaints, setShowPaints] = useState(false);
+  const [showOthers, setShowOthers] = useState(false);
+  const [showOcOnly, setShowOcOnly] = useState(false);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
+  const [detailTabs, setDetailTabs] = useState<MarketDetailDrawerTab[]>([]);
+  const [activeDetailSkuId, setActiveDetailSkuId] = useState<string | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [detailDrawerCollapsed, setDetailDrawerCollapsed] = useState(false);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
-    const packageKinds: MarketPackageKind[] = [];
-    const hasSelectedPackageKind = showStandaloneShips || showBundles;
+    const browseCategories: MarketBrowseCategory[] = [];
 
     if (showCcus) itemTypes.push('ccu');
-    if (showPackages || hasSelectedPackageKind) itemTypes.push('package');
-    if (showMisc) itemTypes.push('misc');
     if (showCredit) itemTypes.push('credit');
-    if (showStandaloneShips) packageKinds.push('standalone_ship');
-    if (showBundles) packageKinds.push('bundle');
+    if (showStandaloneShips) browseCategories.push('standalone_ship');
+    if (showShipPackages) browseCategories.push('ship_package');
+    if (showPaints) browseCategories.push('paint');
+    if (showOthers) browseCategories.push('other');
 
     return {
       search: deferredSearchTerm,
       itemTypes,
-      packageKinds,
+      browseCategories,
+      tags: showOcOnly ? ['oc'] : [],
       sortBy,
       page,
       limit: rowsPerPage,
@@ -94,15 +102,20 @@ const Market: React.FC = () => {
     deferredSearchTerm,
     page,
     rowsPerPage,
-    showBundles,
     showCcus,
     showCredit,
-    showMisc,
-    showPackages,
+    showOcOnly,
+    showOthers,
+    showPaints,
+    showShipPackages,
     showStandaloneShips,
     sortBy,
   ]);
-  const { ships, listingItems, pagination, loading, error } = useMarketData(marketQuery);
+  const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
+
+  useEffect(() => {
+    pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [marketQuery]);
 
   const handleAddToCart = (item: ListingItem) => {
     if (item.itemType === 'ccu') {
@@ -142,6 +155,67 @@ const Market: React.FC = () => {
     return cart.find((cartItem) => cartItem.resource.id === resourceId)?.resource.marketAvailableStock ?? 0;
   };
 
+  const handleOpenDetails = (item: ListingItem) => {
+    const label = getMarketItemDisplayName(intl, item, ships);
+
+    setDetailTabs((prevTabs) => {
+      const existingTabIndex = prevTabs.findIndex((tab) => tab.skuId === item.skuId);
+
+      if (existingTabIndex >= 0) {
+        const nextTabs = [...prevTabs];
+        nextTabs[existingTabIndex] = { ...nextTabs[existingTabIndex], label };
+        return nextTabs;
+      }
+
+      return [...prevTabs, { skuId: item.skuId, label }];
+    });
+    setActiveDetailSkuId(item.skuId);
+    setDetailDrawerOpen(true);
+    setDetailDrawerCollapsed(false);
+  };
+
+  const handleCloseAllDetailTabs = () => {
+    setDetailTabs([]);
+    setActiveDetailSkuId(null);
+    setDetailDrawerOpen(false);
+    setDetailDrawerCollapsed(false);
+  };
+
+  const handleCloseDetailTab = (skuId: string) => {
+    setDetailTabs((prevTabs) => {
+      const closingIndex = prevTabs.findIndex((tab) => tab.skuId === skuId);
+      if (closingIndex === -1) return prevTabs;
+
+      const nextTabs = prevTabs.filter((tab) => tab.skuId !== skuId);
+
+      setActiveDetailSkuId((currentActiveSkuId) => {
+        if (currentActiveSkuId !== skuId) return currentActiveSkuId;
+
+        const fallbackTab = nextTabs[Math.max(0, closingIndex - 1)] || nextTabs[0] || null;
+        return fallbackTab?.skuId || null;
+      });
+
+      if (nextTabs.length === 0) {
+        setDetailDrawerOpen(false);
+        setDetailDrawerCollapsed(false);
+      }
+
+      return nextTabs;
+    });
+  };
+
+  const handleCollapseDetailDrawer = () => {
+    setDetailDrawerOpen(false);
+    setDetailDrawerCollapsed(detailTabs.length > 0);
+  };
+
+  const handleExpandDetailDrawer = () => {
+    if (!detailTabs.length) return;
+
+    setDetailDrawerOpen(true);
+    setDetailDrawerCollapsed(false);
+  };
+
   if (loading && listingItems.length === 0 && pagination.total === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -159,7 +233,10 @@ const Market: React.FC = () => {
   }
 
   return (
-    <div className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'>
+    <div
+      ref={pageContainerRef}
+      className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'
+    >
       {showAlert && (
         <Alert
           severity="warning"
@@ -182,6 +259,9 @@ const Market: React.FC = () => {
           <div className='flex items-center gap-3'>
             <Link to="/orders" className='text-slate-700 transition dark:text-slate-200'>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+            </Link>
+            <Link to="/tickets" className='text-slate-700 transition dark:text-slate-200'>
+              <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
             </Link>
             <IconButton
               onClick={openCart}
@@ -217,28 +297,54 @@ const Market: React.FC = () => {
                 <FormControlLabel
                   control={(
                     <Checkbox
-                      checked={showPackages}
+                      checked={showStandaloneShips}
                       onChange={(event) => {
-                        setShowPackages(event.target.checked);
+                        setShowStandaloneShips(event.target.checked);
                         setPage(0);
                       }}
                       size="small"
                     />
                   )}
-                  label={intl.formatMessage({ id: 'market.filter.package', defaultMessage: 'Package' })}
+                  label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
                 />
                 <FormControlLabel
                   control={(
                     <Checkbox
-                      checked={showMisc}
+                      checked={showShipPackages}
                       onChange={(event) => {
-                        setShowMisc(event.target.checked);
+                        setShowShipPackages(event.target.checked);
                         setPage(0);
                       }}
                       size="small"
                     />
                   )}
-                  label={intl.formatMessage({ id: 'market.filter.misc', defaultMessage: 'Misc' })}
+                  label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })}
+                />
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={showPaints}
+                      onChange={(event) => {
+                        setShowPaints(event.target.checked);
+                        setPage(0);
+                      }}
+                      size="small"
+                    />
+                  )}
+                  label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })}
+                />
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={showOthers}
+                      onChange={(event) => {
+                        setShowOthers(event.target.checked);
+                        setPage(0);
+                      }}
+                      size="small"
+                    />
+                  )}
+                  label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })}
                 />
                 <FormControlLabel
                   control={(
@@ -258,34 +364,21 @@ const Market: React.FC = () => {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                <FormattedMessage id="market.filter.packageKindSection" defaultMessage="Package Kind" />
+                <FormattedMessage id="market.filter.tags" defaultMessage="Special Tags" />
               </Typography>
               <FormGroup>
                 <FormControlLabel
                   control={(
                     <Checkbox
-                      checked={showStandaloneShips}
+                      checked={showOcOnly}
                       onChange={(event) => {
-                        setShowStandaloneShips(event.target.checked);
+                        setShowOcOnly(event.target.checked);
                         setPage(0);
                       }}
                       size="small"
                     />
                   )}
-                  label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Checkbox
-                      checked={showBundles}
-                      onChange={(event) => {
-                        setShowBundles(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
-                  )}
-                  label={intl.formatMessage({ id: 'market.filter.bundle', defaultMessage: 'Bundle' })}
+                  label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
                 />
               </FormGroup>
             </Box>
@@ -358,6 +451,40 @@ const Market: React.FC = () => {
               </TextField>
             </Box>
 
+            <Box sx={{ position: 'relative' }}>
+              {refreshing && (
+                <Box
+                  sx={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    mb: 2,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.75,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      backgroundColor: 'background.paper',
+                      boxShadow: 2,
+                    }}
+                  >
+                    <CircularProgress size={16} />
+                    <Typography variant="body2" color="text.secondary">
+                      <FormattedMessage id="market.loading" defaultMessage="Loading..." />
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
             {listingItems.length === 0 ? (
               <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
                 <Typography variant="h6">
@@ -385,27 +512,37 @@ const Market: React.FC = () => {
                         key={`${item.skuId}-${item.belongsTo}`}
                         className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                       >
-                        <Link to={`/market/${encodeURIComponent(item.skuId)}`} className='block'>
+                        <div
+                          className='block w-full cursor-pointer text-left'
+                          onClick={() => handleOpenDetails(item)}
+                        >
                           <MarketItemMedia
                             item={item}
                             ships={ships}
                             height={240}
                             badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
                           />
-                        </Link>
+                        </div>
 
                         <div className='flex flex-1 flex-col gap-4 p-5'>
                           <div className='flex flex-wrap gap-2'>
-                            {item.itemType !== 'package' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                            {item.packageKind && <Chip size="small" variant="outlined" label={getMarketPackageKindLabel(intl, item.packageKind)} />}
+                            {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
+                            {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                            {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                            {(item.tags || []).map((tag) => (
+                              <Chip key={`${item.skuId}-${tag}`} size="small" color="warning" label={getMarketTagLabel(intl, tag)} />
+                            ))}
                           </div>
 
                           <div className='flex flex-1 flex-col gap-2'>
-                            <Link to={`/market/${encodeURIComponent(item.skuId)}`} className='text-inherit no-underline'>
+                            <div
+                              className='w-full cursor-pointer text-left text-inherit no-underline'
+                              onClick={() => handleOpenDetails(item)}
+                            >
                               <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
                                 {displayName}
                               </Typography>
-                            </Link>
+                            </div>
                             <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
                               {getMarketItemSummary(intl, item, ships)}
                             </Typography>
@@ -454,7 +591,7 @@ const Market: React.FC = () => {
                                     : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
                                 </div>
                                 <div className='font-semibold text-[#1d4ed8]'>
-                                  {isCredit ? (item.creditOptions?.length || 0) : availableStock}
+                                  {isCredit ? (item.creditOptions?.length || 0) : availableStock > 10 ? "A lot" : availableStock}
                                 </div>
                               </div>
                             </div>
@@ -479,8 +616,7 @@ const Market: React.FC = () => {
                               {isCredit ? (
                                 <Button
                                   variant="outlined"
-                                  component={Link}
-                                  to={`/market/${encodeURIComponent(item.skuId)}`}
+                                  onClick={() => handleOpenDetails(item)}
                                   size="small"
                                 >
                                   <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
@@ -488,8 +624,7 @@ const Market: React.FC = () => {
                               ) : isCcu ? (
                                 <Button
                                   variant="outlined"
-                                  component={Link}
-                                  to={`/market/${encodeURIComponent(item.skuId)}`}
+                                  onClick={() => handleOpenDetails(item)}
                                   size="small"
                                 >
                                   <FormattedMessage
@@ -565,6 +700,7 @@ const Market: React.FC = () => {
                 </Box>
               </>
             )}
+            </Box>
           </div>
         </div>
       </div>
@@ -576,6 +712,18 @@ const Market: React.FC = () => {
         onRemoveFromCart={removeFromCart}
         onUpdateQuantity={updateItemQuantity}
         getAvailableStock={getAvailableStockByResourceId}
+      />
+
+      <MarketDetailDrawer
+        open={detailDrawerOpen}
+        collapsed={detailDrawerCollapsed}
+        tabs={detailTabs}
+        activeSkuId={activeDetailSkuId}
+        onChangeTab={setActiveDetailSkuId}
+        onCloseAll={handleCloseAllDetailTabs}
+        onCloseTab={handleCloseDetailTab}
+        onCollapse={handleCollapseDetailDrawer}
+        onExpand={handleExpandDetailDrawer}
       />
 
       <Snackbar

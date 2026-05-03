@@ -34,6 +34,13 @@ const Market = lazy(() => import('./pages/Market/Market'));
 const MarketDetail = lazy(() => import('./pages/Market/MarketDetail'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
+const Tickets = lazy(() => import('./pages/Tickets/Tickets'));
+const TicketCreate = lazy(() => import('./pages/Tickets/TicketCreate'));
+const TicketDetail = lazy(() => import('./pages/Tickets/TicketDetail'));
+const TicketReply = lazy(() => import('./pages/Tickets/TicketReply'));
+const AdminTicketsPage = lazy(() => import('./pages/Admin/TicketsPage'));
+const AdminTicketDetailPage = lazy(() => import('./pages/Admin/TicketDetailPage'));
+const AdminTicketReplyPage = lazy(() => import('./pages/Admin/TicketReplyPage'));
 const Reseller = lazy(() => import('./pages/Reseller/Reseller'));
 const ResellerOrderDetail = lazy(() => import('./pages/Reseller/OrderDetail'));
 const ResellerGraphqlExport = lazy(() => import('./pages/Reseller/ResellerGraphqlExport'));
@@ -191,6 +198,10 @@ function App() {
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:orderId" element={<OrderDetail />} />
+              <Route path="/tickets" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><Tickets /></RequireAuth>} />
+              <Route path="/tickets/create" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><TicketCreate /></RequireAuth>} />
+              <Route path="/tickets/:ticketId" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><TicketDetail /></RequireAuth>} />
+              <Route path="/tickets/:ticketId/reply" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><TicketReply /></RequireAuth>} />
 
               <Route path="/reseller" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Reseller /></RequireAuth>} />
               <Route path="/reseller/orders/:orderId" element={<RequireAuth allowedRoles={[UserRole.Reseller, UserRole.Admin]}><Suspense fallback={<LoadingFallback />}><ResellerOrderDetail /></Suspense></RequireAuth>} />
@@ -214,6 +225,9 @@ function App() {
               <Route path="/blog/create" element={<RequireAuth allowedRoles={[UserRole.Admin]}><BlogPostForm mode="create" /></RequireAuth>} />
 
               <Route path="/admin" element={<RequireAuth allowedRoles={[UserRole.Admin]}><Admin /></RequireAuth>} />
+              <Route path="/admin/tickets" element={<RequireAuth allowedRoles={[UserRole.Admin]}><AdminTicketsPage /></RequireAuth>} />
+              <Route path="/admin/tickets/:ticketId" element={<RequireAuth allowedRoles={[UserRole.Admin]}><AdminTicketDetailPage /></RequireAuth>} />
+              <Route path="/admin/tickets/:ticketId/reply" element={<RequireAuth allowedRoles={[UserRole.Admin]}><AdminTicketReplyPage /></RequireAuth>} />
               <Route path="/login" element={<Auth action="login" />} />
               <Route path="/register" element={<Auth action="register" />} />
               <Route path="/verify/:token" element={<Verify />} />

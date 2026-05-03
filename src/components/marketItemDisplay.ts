@@ -5,6 +5,8 @@ type MarketDisplayItem = {
   skuId?: string;
   name: string;
   itemType: MarketItemType;
+  browseCategory?: 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+  tags?: Array<'oc'>;
   fromShipId?: number;
   toShipId?: number;
   shipId?: number;
@@ -48,6 +50,20 @@ function normalizeShipName(value?: string) {
   return value?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
 }
 
+function parseCcuPairFromDisplayName(value?: string) {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) return null;
+
+  const match = normalizedValue.match(/^\s*Upgrade\s*-\s*(.+?)\s+to\s+(.+?)\s*$/i);
+  if (!match) return null;
+
+  const fromShipName = match[1]?.trim();
+  const toShipName = match[2]?.trim();
+  if (!fromShipName || !toShipName) return null;
+
+  return { fromShipName, toShipName };
+}
+
 export function getShipById(ships: Ship[] | undefined, shipId?: number, shipName?: string) {
   if (!ships?.length) return undefined;
 
@@ -69,12 +85,15 @@ export function getShipById(ships: Ship[] | undefined, shipId?: number, shipName
 }
 
 export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
-  const fromShip = getShipById(ships, item.fromShipId, item.fromShipName);
-  const toShip = getShipById(ships, item.toShipId, item.toShipName);
+  const parsedCcuPair = item.itemType === 'ccu' ? parseCcuPairFromDisplayName(item.name) : null;
+  const resolvedFromShipName = item.fromShipName || parsedCcuPair?.fromShipName;
+  const resolvedToShipName = item.toShipName || parsedCcuPair?.toShipName;
+  const fromShip = getShipById(ships, item.fromShipId, resolvedFromShipName);
+  const toShip = getShipById(ships, item.toShipId, resolvedToShipName);
   const ship = getShipById(ships, item.shipId, item.shipName);
 
-  const fromShipName = item.fromShipName || fromShip?.name || '';
-  const toShipName = item.toShipName || toShip?.name || '';
+  const fromShipName = resolvedFromShipName || fromShip?.name || '';
+  const toShipName = resolvedToShipName || toShip?.name || '';
   const shipName = item.shipName || ship?.name || '';
 
   const fromImage = getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
@@ -113,6 +132,8 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
     excerpt: item.description || '',
     type: item.itemType,
     itemType: item.itemType,
+    browseCategory: item.browseCategory,
+    tags: item.tags,
     fromShipId: item.fromShipId,
     toShipId: item.toShipId,
     shipId: item.shipId,
@@ -169,6 +190,8 @@ export function buildMarketCartItem(
     skuId: item.skuId || item.name,
     quantity,
     itemType: item.itemType,
+    browseCategory: item.browseCategory,
+    tags: item.tags,
     fromShipId: item.fromShipId,
     toShipId: item.toShipId,
     shipId: item.shipId,
@@ -215,6 +238,8 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     skuId: resource.id,
     quantity,
     itemType,
+    browseCategory: resource.browseCategory,
+    tags: resource.tags,
     fromShipId: resource.fromShipId,
     toShipId: resource.toShipId,
     shipId: resource.shipId,

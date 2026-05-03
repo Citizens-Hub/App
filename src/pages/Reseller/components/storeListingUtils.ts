@@ -4,7 +4,7 @@ import { getShipThumbLarge } from '@/utils/shipImage';
 import { resolveStoredCcuShip } from '@/utils/shipDisplay';
 
 export type StoreInventoryType = 'ccu' | 'standalone_ship' | 'bundle';
-export type StoreListingDisplayType = StoreInventoryType | 'misc' | 'credit';
+export type StoreListingDisplayType = StoreInventoryType | 'ship_package' | 'paint' | 'other' | 'credit';
 
 export interface StoreInventoryItem {
   sourceKey: string;
@@ -233,11 +233,23 @@ export function getListingDisplayType(item: ListingItem): StoreListingDisplayTyp
     return 'ccu';
   }
 
-  if (item.itemType === 'package') {
-    return item.packageKind === 'bundle' ? 'bundle' : 'standalone_ship';
+  if (item.itemType === 'credit') {
+    return 'credit';
   }
 
-  return item.itemType;
+  if (item.browseCategory === 'standalone_ship') {
+    return 'standalone_ship';
+  }
+
+  if (item.browseCategory === 'ship_package') {
+    return 'ship_package';
+  }
+
+  if (item.browseCategory === 'paint') {
+    return 'paint';
+  }
+
+  return 'other';
 }
 
 export function getListingSearchText(item: ListingItem) {

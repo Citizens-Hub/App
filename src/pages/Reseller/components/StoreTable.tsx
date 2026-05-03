@@ -35,6 +35,7 @@ import UserSelector from "@/components/UserSelector";
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from "@/components/marketItemDisplay";
 import {
   ListingItem,
+  MarketBrowseCategory,
   MarketItemType,
   MarketPackageKind,
   Ship,
@@ -48,6 +49,7 @@ import {
   StoreListingDisplayType,
 } from "./storeListingUtils";
 import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
+import { getMarketBrowseCategoryLabel, getMarketTagLabel } from "@/pages/Market/marketI18n";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
 const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
@@ -88,6 +90,18 @@ function getDisplayTypeLabel(type: StoreListingDisplayType, intl: IntlShape) {
 
   if (type === "bundle") {
     return intl.formatMessage({ id: "market.filter.bundle", defaultMessage: "Bundle" });
+  }
+
+  if (type === "ship_package") {
+    return intl.formatMessage({ id: "market.filter.shipPackage", defaultMessage: "Ship Package" });
+  }
+
+  if (type === "paint") {
+    return intl.formatMessage({ id: "market.filter.paint", defaultMessage: "Paint" });
+  }
+
+  if (type === "other") {
+    return intl.formatMessage({ id: "market.filter.other", defaultMessage: "Other" });
   }
 
   if (type === "credit") {
@@ -212,8 +226,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showCcus, setShowCcus] = useState(true);
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
-  const [showBundles, setShowBundles] = useState(true);
-  const [showMisc, setShowMisc] = useState(true);
+  const [showShipPackages, setShowShipPackages] = useState(true);
+  const [showPaints, setShowPaints] = useState(true);
+  const [showOthers, setShowOthers] = useState(true);
+  const [showCredits, setShowCredits] = useState(true);
   const [isAdjustStockDialogOpen, setIsAdjustStockDialogOpen] = useState(false);
   const [adjustStockTarget, setAdjustStockTarget] = useState<ListingItem | null>(null);
   const [adjustStockDeltaInput, setAdjustStockDeltaInput] = useState("0");
@@ -235,6 +251,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualItemCostTouched, setManualItemCostTouched] = useState(false);
   const [manualItemQuantity, setManualItemQuantity] = useState(1);
   const [manualInsuranceType, setManualInsuranceType] = useState("");
+  const [manualOcTag, setManualOcTag] = useState(false);
   const [manualPackageItems, setManualPackageItems] = useState<ManualPackageItemDraft[]>([]);
   const [manualDescription, setManualDescription] = useState("");
   const [manualImageUrl, setManualImageUrl] = useState("");
@@ -259,13 +276,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setIsListingLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/list`);
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/search?belongsTo=${encodeURIComponent(id)}&page=0&limit=200`);
       if (!response.ok) {
         throw new Error(`Unexpected response: ${response.status}`);
       }
 
       const data = await response.json();
-      setListingItems(data.filter((item: ListingItem) => item.belongsTo === id));
+      setListingItems((data.items || []) as ListingItem[]);
       setListingFetchError(null);
     } catch (error) {
       console.error("Failed to fetch listings:", error);
@@ -313,6 +330,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCostTouched(false);
     setManualItemQuantity(1);
     setManualInsuranceType("");
+    setManualOcTag(false);
     setManualPackageItems([]);
     setManualDescription("");
     setManualImageUrl("");
@@ -341,6 +359,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCostTouched(false);
     setManualItemQuantity(Math.max(item.stock, 1));
     setManualInsuranceType(item.insuranceType || "");
+    setManualOcTag(Boolean(item.tags?.includes('oc')));
     setManualPackageItems((item.packageItems || []).map((entry) => createManualPackageItemDraft({
       itemName: entry.itemName,
       itemKind: entry.itemKind || "",
@@ -359,13 +378,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
       if (!showCcus && displayType === "ccu") return false;
       if (!showStandaloneShips && displayType === "standalone_ship") return false;
-      if (!showBundles && displayType === "bundle") return false;
-      if (!showMisc && (displayType === "misc" || displayType === "credit")) return false;
+      if (!showShipPackages && displayType === "ship_package") return false;
+      if (!showPaints && displayType === "paint") return false;
+      if (!showOthers && displayType === "other") return false;
+      if (!showCredits && displayType === "credit") return false;
       if (!search) return true;
 
       return getListingSearchText(item).includes(search);
     });
-  }, [listingItems, searchTerm, showBundles, showCcus, showMisc, showStandaloneShips]);
+  }, [listingItems, searchTerm, showCcus, showCredits, showOthers, showPaints, showShipPackages, showStandaloneShips]);
 
   useEffect(() => {
     const maxPage = Math.max(Math.ceil(filteredListings.length / rowsPerPage) - 1, 0);
@@ -423,6 +444,22 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       })
       .filter((entry) => entry !== null);
   }, [manualPackageItems]);
+
+  const canAssignOcTag = useMemo(() => {
+    if (manualItemType !== 'package') {
+      return false;
+    }
+
+    const browseCategory: MarketBrowseCategory | null = manualPackageKind === 'standalone_ship'
+      ? 'standalone_ship'
+      : selectedPackageShips.length > 0
+        ? 'ship_package'
+        : manualPackageItems.length > 0
+          ? null
+          : 'ship_package';
+
+    return browseCategory === 'standalone_ship' || browseCategory === 'ship_package';
+  }, [manualItemType, manualPackageItems.length, manualPackageKind, selectedPackageShips.length]);
 
   const handleAddManualPackageItem = useCallback(() => {
     setManualPackageItems((current) => [...current, createManualPackageItemDraft()]);
@@ -603,6 +640,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       cost: manualItemCostTouched || selectedSourceItem ? manualItemCost : manualItemPrice,
       stock: manualItemQuantity,
       sourceKind: selectedSourceItem ? "hangar" : "manual",
+      tags: canAssignOcTag && manualOcTag ? ['oc'] : [],
     };
 
     try {
@@ -759,12 +797,20 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             label={intl.formatMessage({ id: "market.filter.standaloneShip", defaultMessage: "Standalone Ship" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showBundles} onChange={(event) => setShowBundles(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: "market.filter.bundle", defaultMessage: "Bundle" })}
+            control={<Checkbox checked={showShipPackages} onChange={(event) => setShowShipPackages(event.target.checked)} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.shipPackage", defaultMessage: "Ship Package" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showMisc} onChange={(event) => setShowMisc(event.target.checked)} size="small" />}
-            label={intl.formatMessage({ id: "market.filter.misc", defaultMessage: "Misc" })}
+            control={<Checkbox checked={showPaints} onChange={(event) => setShowPaints(event.target.checked)} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.paint", defaultMessage: "Paint" })}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={showOthers} onChange={(event) => setShowOthers(event.target.checked)} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.other", defaultMessage: "Other" })}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={showCredits} onChange={(event) => setShowCredits(event.target.checked)} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.credit", defaultMessage: "Credit" })}
           />
         </FormGroup>
       </Box>
@@ -924,6 +970,12 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             {item.sourceKind && (
                               <Chip size="small" variant="outlined" label={getSourceKindLabel(item.sourceKind, intl)} />
                             )}
+                            {item.browseCategory && (
+                              <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />
+                            )}
+                            {(item.tags || []).map((tag) => (
+                              <Chip key={`${item.skuId}-${tag}`} size="small" color="warning" label={getMarketTagLabel(intl, tag)} />
+                            ))}
                           </Box>
                         </div>
                       </TableCell>
@@ -1359,6 +1411,22 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 value={manualInsuranceType}
                 onChange={(event) => setManualInsuranceType(event.target.value)}
               />
+            )}
+
+            {manualItemType === "package" && (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={manualOcTag}
+                      disabled={!canAssignOcTag}
+                      onChange={(event) => setManualOcTag(event.target.checked)}
+                      size="small"
+                    />
+                  )}
+                  label={intl.formatMessage({ id: "market.tag.oc", defaultMessage: "OC" })}
+                />
+              </Box>
             )}
 
             {(manualItemType === "package" || manualItemType === "misc") && (

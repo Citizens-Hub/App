@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
 import {
+  MarketBrowseCategory,
   ListingItem,
   MarketListResponse,
   MarketPackageKind,
@@ -15,6 +16,8 @@ export interface UseMarketDataParams {
   inStockOnly?: boolean;
   itemTypes?: MarketItemType[];
   packageKinds?: MarketPackageKind[];
+  browseCategories?: MarketBrowseCategory[];
+  tags?: string[];
   sortBy?: MarketSortMode;
   page?: number;
   limit?: number;
@@ -40,6 +43,14 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
     searchParams.append('packageKind', packageKind);
   });
 
+  (params.browseCategories || []).forEach((browseCategory) => {
+    searchParams.append('browseCategory', browseCategory);
+  });
+
+  (params.tags || []).forEach((tag) => {
+    searchParams.append('tag', tag);
+  });
+
   if (params.sortBy) {
     searchParams.set('sortBy', params.sortBy);
   }
@@ -59,7 +70,10 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
 export default function useMarketData(params: UseMarketDataParams = {}) {
   const itemTypesKey = (params.itemTypes || []).join(',');
   const packageKindsKey = (params.packageKinds || []).join(',');
+  const browseCategoriesKey = (params.browseCategories || []).join(',');
+  const tagsKey = (params.tags || []).join(',');
   const marketPath = useMemo(() => buildMarketSearchPath(params), [
+    browseCategoriesKey,
     itemTypesKey,
     packageKindsKey,
     params.inStockOnly,
@@ -67,18 +81,21 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     params.page,
     params.search,
     params.sortBy,
+    tagsKey,
   ]);
 
   const {
     data: shipsData,
     error: shipsError,
     isLoading: shipsLoading,
+    isValidating: shipsValidating,
   } = useApi<ShipsData>('/api/ships');
 
   const {
     data: marketResponse,
     error: marketError,
     isLoading: marketLoading,
+    isValidating: marketValidating,
   } = useApi<MarketListResponse>(marketPath, {
     keepPreviousData: true,
   });
@@ -88,7 +105,9 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     return [...shipsData.data.ships].sort((a: Ship, b: Ship) => a.msrp - b.msrp);
   }, [shipsData]);
 
-  const loading = shipsLoading || marketLoading;
+  const hasInitialData = Boolean(shipsData) && Boolean(marketResponse);
+  const loading = !hasInitialData && (shipsLoading || marketLoading);
+  const refreshing = hasInitialData && (shipsValidating || marketValidating);
   const error = shipsError || marketError ? 'Failed to load data' : null;
 
   return {
@@ -101,6 +120,7 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
       totalPages: 0,
     },
     loading,
+    refreshing,
     error,
   };
 }

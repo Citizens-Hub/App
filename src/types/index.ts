@@ -6,6 +6,8 @@ export interface Resource {
   excerpt: string;
   type: string;
   itemType?: MarketItemType;
+  browseCategory?: MarketBrowseCategory;
+  tags?: MarketSkuTagCode[];
   fromShipId?: number;
   toShipId?: number;
   shipId?: number;
@@ -677,6 +679,8 @@ export interface ImportItem {
 
 export type MarketItemType = 'ccu' | 'package' | 'misc' | 'credit';
 export type MarketPackageKind = 'standalone_ship' | 'bundle';
+export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+export type MarketSkuTagCode = 'oc';
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
 
 export interface MarketPackageShip {
@@ -700,7 +704,6 @@ export enum ListingType {
 
 export interface MarketSellerSummary {
   id: string;
-  email: string;
 }
 
 export interface MarketItemVariant {
@@ -733,6 +736,8 @@ export interface ListingItem {
   price: number;
   cost?: number;
   itemType: MarketItemType;
+  browseCategory?: MarketBrowseCategory;
+  tags?: MarketSkuTagCode[];
   fromShipId?: number;
   toShipId?: number;
   shipId?: number;
@@ -809,6 +814,8 @@ export interface MarketCartItem {
   skuId: string;
   quantity: number;
   itemType: MarketItemType;
+  browseCategory?: MarketBrowseCategory;
+  tags?: MarketSkuTagCode[];
   fromShipId?: number;
   toShipId?: number;
   shipId?: number;
@@ -858,6 +865,8 @@ export interface OrderItem {
     name: string;
     skuId: string;
     itemType: MarketItemType;
+    browseCategory?: MarketBrowseCategory;
+    tags?: MarketSkuTagCode[];
     fromShipId?: number;
     toShipId?: number;
     shipId?: number;
@@ -908,6 +917,8 @@ export interface DetailedOrderItem extends OrderItem {
     name: string;
     skuId: string;
     itemType: MarketItemType;
+    browseCategory?: MarketBrowseCategory;
+    tags?: MarketSkuTagCode[];
     fromShipId?: number;
     toShipId?: number;
     shipId?: number;
@@ -940,6 +951,89 @@ export interface DetailedOrder extends Order {
   updatedAt: string;
   invoiceId: string | null;
   items: DetailedOrderItem[];
+}
+
+export interface TicketOrderOption {
+  id: string;
+  status: OrderStatus;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketMessageAuthor {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatar?: string | null;
+  role?: number;
+}
+
+export interface TicketMessage {
+  id: number;
+  content: string;
+  isAdmin: boolean;
+  createdAt: string;
+  updatedAt: string;
+  author: TicketMessageAuthor;
+}
+
+export interface TicketOrderSummary {
+  id: string | null;
+  status: OrderStatus | string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+  invoiceId?: string | null;
+}
+
+export interface TicketUserSummary {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatar?: string | null;
+}
+
+export type TicketStatus = 'open' | 'closed';
+
+export interface TicketSummaryItem {
+  id: string;
+  subject: string;
+  status: TicketStatus | string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+  user?: TicketUserSummary;
+  closer?: TicketUserSummary | null;
+  relatedOrder?: TicketOrderSummary | null;
+  lastMessage?: TicketMessage | null;
+  messageCount: number;
+}
+
+export interface TicketDetailItem extends TicketSummaryItem {
+  messages: TicketMessage[];
+  relatedOrderDetail?: DetailedOrder | null;
+}
+
+export interface TicketOrderOptionsResponse {
+  orders: TicketOrderOption[];
+}
+
+export interface TicketListResponse {
+  tickets: TicketSummaryItem[];
+}
+
+export interface AdminTicketListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  tickets: TicketSummaryItem[];
+}
+
+export interface AdminTicketDetailResponse {
+  success: boolean;
+  ticket: TicketDetailItem;
 }
 
 export interface OrderPaymentInfo {

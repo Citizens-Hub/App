@@ -45,6 +45,26 @@ export const navigation = [
     hidden: true,
   },
   {
+    name: "navigation.tickets",
+    path: "/tickets",
+    hidden: import.meta.env.VITE_PUBLIC_ENV !== "development",
+  },
+  {
+    name: "navigation.ticketsCreate",
+    path: "/tickets/create",
+    hidden: true,
+  },
+  {
+    name: "navigation.ticketsReply",
+    path: "/tickets/:ticketId/reply",
+    hidden: true,
+  },
+  {
+    name: "navigation.tickets",
+    path: "/tickets/:ticketId",
+    hidden: true,
+  },
+  {
     name: "navigation.storePreview",
     path: "/store-preview",
   },
@@ -130,6 +150,24 @@ export const navigation = [
   {
     name: "navigation.admin",
     path: "/admin",
+    requireAdmin: true,
+  },
+  {
+    name: "navigation.adminTickets",
+    path: "/admin/tickets",
+    hidden: true,
+    requireAdmin: true,
+  },
+  {
+    name: "navigation.adminTicketDetail",
+    path: "/admin/tickets/:ticketId",
+    hidden: true,
+    requireAdmin: true,
+  },
+  {
+    name: "navigation.adminTicketReply",
+    path: "/admin/tickets/:ticketId/reply",
+    hidden: true,
     requireAdmin: true,
   },
 ];
