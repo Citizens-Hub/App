@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { FormattedMessage, IntlShape, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -36,6 +36,8 @@ import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from "@/components/marke
 import {
   ListingItem,
   MarketBrowseCategory,
+  MarketListPagination,
+  MarketListResponse,
   MarketItemType,
   MarketPackageKind,
   Ship,
@@ -44,15 +46,22 @@ import {
   buildInventoryItems,
   getInventorySearchText,
   getListingDisplayType,
-  getListingSearchText,
   StoreInventoryItem,
   StoreListingDisplayType,
 } from "./storeListingUtils";
-import useMobileInfiniteRows from "@/hooks/useMobileInfiniteRows";
 import { getMarketBrowseCategoryLabel, getMarketTagLabel } from "@/pages/Market/marketI18n";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
 const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
+
+function createEmptyListingPagination(limit: number): MarketListPagination {
+  return {
+    total: 0,
+    page: 0,
+    limit,
+    totalPages: 0,
+  };
+}
 
 type ManualPackageItemDraft = {
   id: string;
@@ -219,6 +228,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const allItemPrices = useSelector((state: RootState) => state.share?.allItemPrices || {});
 
   const [listingItems, setListingItems] = useState<ListingItem[]>([]);
+  const [listingPagination, setListingPagination] = useState<MarketListPagination>(() => createEmptyListingPagination(10));
   const [listingFetchError, setListingFetchError] = useState<string | null>(null);
   const [isListingLoading, setIsListingLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -256,6 +266,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualDescription, setManualDescription] = useState("");
   const [manualImageUrl, setManualImageUrl] = useState("");
   const [manualExternalRef, setManualExternalRef] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const inventoryItems = useMemo(() => buildInventoryItems({
     ccus: items.ccus,
@@ -266,38 +277,120 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     allItemPrices,
   }), [allItemPrices, items.bundles, items.ccus, items.ships, ships, users]);
 
-  const fetchListingItems = useCallback(async () => {
-    if (!id) {
+  const listingFilters = useMemo(() => {
+    const itemTypes: MarketItemType[] = [];
+    const browseCategories: MarketBrowseCategory[] = [];
+
+    if (showCcus) {
+      itemTypes.push("ccu");
+    }
+
+    if (showCredits) {
+      itemTypes.push("credit");
+    }
+
+    if (showStandaloneShips) {
+      browseCategories.push("standalone_ship");
+    }
+
+    if (showShipPackages) {
+      browseCategories.push("ship_package");
+    }
+
+    if (showPaints) {
+      browseCategories.push("paint");
+    }
+
+    if (showOthers) {
+      browseCategories.push("other");
+    }
+
+    return {
+      itemTypes,
+      browseCategories,
+      hasSelectedFilters: itemTypes.length > 0 || browseCategories.length > 0,
+      shouldCombineTypeFiltersWithOr: itemTypes.length > 0 && browseCategories.length > 0,
+    };
+  }, [showCcus, showCredits, showOthers, showPaints, showShipPackages, showStandaloneShips]);
+
+  const fetchListingItems = useCallback(async (signal?: AbortSignal) => {
+    if (!id || !listingFilters.hasSelectedFilters) {
       setListingItems([]);
+      setListingPagination(createEmptyListingPagination(rowsPerPage));
       setListingFetchError(null);
+      setIsListingLoading(false);
       return;
     }
 
     setIsListingLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/search?belongsTo=${encodeURIComponent(id)}&page=0&limit=200`);
+      const searchParams = new URLSearchParams({
+        belongsTo: id,
+        page: String(page),
+        limit: String(rowsPerPage),
+      });
+      const trimmedSearch = deferredSearchTerm.trim();
+
+      if (trimmedSearch) {
+        searchParams.set("search", trimmedSearch);
+      }
+
+      listingFilters.itemTypes.forEach((itemType) => {
+        searchParams.append("itemType", itemType);
+      });
+      listingFilters.browseCategories.forEach((browseCategory) => {
+        searchParams.append("browseCategory", browseCategory);
+      });
+
+      if (listingFilters.shouldCombineTypeFiltersWithOr) {
+        searchParams.set("combineTypeFiltersWithOr", "true");
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/search?${searchParams.toString()}`, {
+        signal,
+      });
       if (!response.ok) {
         throw new Error(`Unexpected response: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as MarketListResponse;
+      if (signal?.aborted) {
+        return;
+      }
+
       setListingItems((data.items || []) as ListingItem[]);
+      setListingPagination(data.pagination || createEmptyListingPagination(rowsPerPage));
       setListingFetchError(null);
     } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+        return;
+      }
+
       console.error("Failed to fetch listings:", error);
       setListingFetchError(intl.formatMessage({
         id: "hangar.fetchListingsFailed",
         defaultMessage: "Failed to fetch current listings",
       }));
     } finally {
-      setIsListingLoading(false);
+      if (!signal?.aborted) {
+        setIsListingLoading(false);
+      }
     }
-  }, [id, intl]);
+  }, [deferredSearchTerm, id, intl, listingFilters, page, rowsPerPage]);
 
   useEffect(() => {
-    void fetchListingItems();
+    const controller = new AbortController();
+    void fetchListingItems(controller.signal);
+
+    return () => controller.abort();
   }, [fetchListingItems]);
+
+  useEffect(() => {
+    if (listingPagination.totalPages > 0 && page > listingPagination.totalPages - 1) {
+      setPage(listingPagination.totalPages - 1);
+    }
+  }, [listingPagination.totalPages, page]);
 
   const resolveShip = useCallback((shipId?: number, shipName?: string) => {
     if (typeof shipId === "number") {
@@ -369,43 +462,6 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualImageUrl(item.imageUrl || "");
     setManualExternalRef("");
   }, [resolveShip]);
-
-  const filteredListings = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-
-    return listingItems.filter((item) => {
-      const displayType = getListingDisplayType(item);
-
-      if (!showCcus && displayType === "ccu") return false;
-      if (!showStandaloneShips && displayType === "standalone_ship") return false;
-      if (!showShipPackages && displayType === "ship_package") return false;
-      if (!showPaints && displayType === "paint") return false;
-      if (!showOthers && displayType === "other") return false;
-      if (!showCredits && displayType === "credit") return false;
-      if (!search) return true;
-
-      return getListingSearchText(item).includes(search);
-    });
-  }, [listingItems, searchTerm, showCcus, showCredits, showOthers, showPaints, showShipPackages, showStandaloneShips]);
-
-  useEffect(() => {
-    const maxPage = Math.max(Math.ceil(filteredListings.length / rowsPerPage) - 1, 0);
-    if (page > maxPage) {
-      setPage(maxPage);
-    }
-  }, [filteredListings.length, page, rowsPerPage]);
-
-  const paginatedListings = filteredListings.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-  const {
-    isMobile,
-    displayedItems: mobileDisplayedListings,
-    sentinelRef,
-    hasMore,
-  } = useMobileInfiniteRows(filteredListings);
-  const displayedListings = isMobile ? mobileDisplayedListings : paginatedListings;
 
   const filteredInventoryItems = useMemo(() => {
     const search = prefillSearchTerm.trim().toLowerCase();
@@ -789,27 +845,45 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, px: 2, py: 1, mb: 2 }}>
         <FormGroup row sx={{ gap: 2 }}>
           <FormControlLabel
-            control={<Checkbox checked={showCcus} onChange={(event) => setShowCcus(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showCcus} onChange={(event) => {
+              setShowCcus(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.ccu", defaultMessage: "CCU" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showStandaloneShips} onChange={(event) => setShowStandaloneShips(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showStandaloneShips} onChange={(event) => {
+              setShowStandaloneShips(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.standaloneShip", defaultMessage: "Standalone Ship" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showShipPackages} onChange={(event) => setShowShipPackages(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showShipPackages} onChange={(event) => {
+              setShowShipPackages(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.shipPackage", defaultMessage: "Ship Package" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showPaints} onChange={(event) => setShowPaints(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showPaints} onChange={(event) => {
+              setShowPaints(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.paint", defaultMessage: "Paint" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showOthers} onChange={(event) => setShowOthers(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showOthers} onChange={(event) => {
+              setShowOthers(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.other", defaultMessage: "Other" })}
           />
           <FormControlLabel
-            control={<Checkbox checked={showCredits} onChange={(event) => setShowCredits(event.target.checked)} size="small" />}
+            control={<Checkbox checked={showCredits} onChange={(event) => {
+              setShowCredits(event.target.checked);
+              setPage(0);
+            }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.credit", defaultMessage: "Credit" })}
           />
         </FormGroup>
@@ -827,7 +901,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             <FormattedMessage id="loading" defaultMessage="Loading..." />
           </Typography>
         </Box>
-      ) : filteredListings.length === 0 ? (
+      ) : listingItems.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography variant="h6">
             <FormattedMessage id="hangar.noListings" defaultMessage="No items currently listed" />
@@ -863,7 +937,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {displayedListings.map((item) => {
+                {listingItems.map((item) => {
                   const visual = getMarketItemVisual(item, ships);
                   const displayType = getListingDisplayType(item);
                   const availableStock = Math.max(item.stock - item.lockedStock, 0);
@@ -1037,23 +1111,20 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             </Table>
           </TableContainer>
 
-          {!isMobile && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredListings.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              onRowsPerPageChange={(event) => {
-                setRowsPerPage(parseInt(event.target.value, 10));
-                setPage(0);
-              }}
-              labelRowsPerPage={intl.formatMessage({ id: "pagination.rowsPerPage", defaultMessage: "Rows per page:" })}
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: "pagination.total", defaultMessage: "Total" })} ${count}`}
-            />
-          )}
-          {isMobile && hasMore && <div ref={sentinelRef} className="h-8 w-full" aria-hidden="true" />}
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={listingPagination.total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            labelRowsPerPage={intl.formatMessage({ id: "pagination.rowsPerPage", defaultMessage: "Rows per page:" })}
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: "pagination.total", defaultMessage: "Total" })} ${count}`}
+          />
         </Box>
       )}
 
