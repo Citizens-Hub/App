@@ -1,4 +1,5 @@
-import { Button, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
+import { Alert, Button, CssBaseline, IconButton, Snackbar, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, HashRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from '@/components/Header'
@@ -13,6 +14,7 @@ import { swrConfig, useUserSession, useSharedHangar, useHangarSync } from '@/hoo
 import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
+import { useIntl } from 'react-intl'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -48,6 +50,79 @@ const BlogList = lazy(() => import('./pages/Blog/BlogList'));
 const BlogPostDetail = lazy(() => import('./pages/Blog/BlogPostDetail'));
 const BlogPostForm = lazy(() => import('./pages/Blog/BlogPostForm'));
 const Router = import.meta.env.VITE_PUBLIC_CN_MIRROR === 'true' ? HashRouter : BrowserRouter;
+const CN_MIRROR_HOST = 'citizenshub.oxdl.cn';
+const CN_LOCATION_CACHE_KEY = 'citizenshub-cn-location-cache';
+const CN_MIRROR_PROMPT_DISMISSED_KEY = 'citizenshub-cn-mirror-prompt-dismissed';
+const CN_LOCATION_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+
+type CnLocationCache = {
+  checkedAt: number;
+  isInChina: boolean;
+}
+
+type IpIpLocationResponse = {
+  data?: {
+    location?: string;
+  }
+}
+
+function readCnLocationCache(): boolean | null {
+  try {
+    const raw = localStorage.getItem(CN_LOCATION_CACHE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<CnLocationCache>;
+
+    if (typeof parsed.checkedAt !== 'number' || typeof parsed.isInChina !== 'boolean') {
+      localStorage.removeItem(CN_LOCATION_CACHE_KEY);
+      return null;
+    }
+
+    if (Date.now() - parsed.checkedAt > CN_LOCATION_CACHE_TTL) {
+      localStorage.removeItem(CN_LOCATION_CACHE_KEY);
+      return null;
+    }
+
+    return parsed.isInChina;
+  } catch {
+    localStorage.removeItem(CN_LOCATION_CACHE_KEY);
+    return null;
+  }
+}
+
+function writeCnLocationCache(isInChina: boolean) {
+  try {
+    localStorage.setItem(CN_LOCATION_CACHE_KEY, JSON.stringify({
+      checkedAt: Date.now(),
+      isInChina,
+    }));
+  } catch {
+    // Ignore storage failures and try again next time.
+  }
+}
+
+function isCnMirrorPromptDismissed() {
+  try {
+    return localStorage.getItem(CN_MIRROR_PROMPT_DISMISSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function dismissCnMirrorPrompt() {
+  try {
+    localStorage.setItem(CN_MIRROR_PROMPT_DISMISSED_KEY, 'true');
+  } catch {
+    // Ignore storage failures and only close for the current session.
+  }
+}
+
+function getCnMirrorUrl() {
+  return `https://${CN_MIRROR_HOST}/#${window.location.pathname}${window.location.search}`;
+}
 
 // Loading 组件
 const LoadingFallback = () => (
@@ -86,6 +161,8 @@ function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, al
 
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
+  const [showCnMirrorPrompt, setShowCnMirrorPrompt] = useState(false);
+  const intl = useIntl();
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem('darkMode');
@@ -108,6 +185,58 @@ function App() {
     if (!host.includes("citizenshub.app") && !host.includes("citizenshub.pages.dev") &&!host.includes("citizenshub.oxdl.cn")) {
       window.location.hostname = "citizenshub.app";
     }
+  }, [])
+
+  useEffect(() => {
+    const host = window.location.hostname;
+
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168') || host === CN_MIRROR_HOST) {
+      return;
+    }
+
+    if (isCnMirrorPromptDismissed()) {
+      return;
+    }
+
+    const cachedIsInChina = readCnLocationCache();
+
+    if (cachedIsInChina !== null) {
+      if (cachedIsInChina) {
+        setShowCnMirrorPrompt(true);
+      }
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    fetch("https://myip.ipip.net/json", { signal: controller.signal })
+      .then((resp) => {
+        if (!resp.ok) {
+          throw new Error(`Failed to detect user region: ${resp.status}`);
+        }
+
+        return resp.json();
+      })
+      .then((data: IpIpLocationResponse) => {
+        const isInChina = data?.data?.location?.includes("中国") ?? false;
+        writeCnLocationCache(isInChina);
+
+        if (isInChina) {
+          setShowCnMirrorPrompt(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+
+        console.warn('[CN Mirror] Failed to detect user region.', error);
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [])
 
   useEffect(() => {
@@ -165,6 +294,14 @@ function App() {
     setDarkMode(!darkMode);
   };
 
+  const closeCnMirrorPrompt = (persistDismissal: boolean) => {
+    if (persistDismissal) {
+      dismissCnMirrorPrompt();
+    }
+
+    setShowCnMirrorPrompt(false);
+  };
+
   return (
     <SWRConfig value={swrConfig}>
       <ThemeProvider theme={theme}>
@@ -172,6 +309,56 @@ function App() {
         <Router>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
+          <Snackbar
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            autoHideDuration={12000}
+            onClose={(_, reason) => {
+              if (reason === 'clickaway') {
+                return;
+              }
+
+              closeCnMirrorPrompt(false);
+            }}
+            open={showCnMirrorPrompt}
+          >
+            <Alert
+              action={
+                <>
+                  <Button
+                    color="inherit"
+                    onClick={() => {
+                      window.location.assign(getCnMirrorUrl());
+                    }}
+                    size="small"
+                  >
+                    {intl.formatMessage({
+                      id: 'app.cnMirror.action',
+                      defaultMessage: 'Use mirror',
+                    })}
+                  </Button>
+                  <IconButton
+                    aria-label={intl.formatMessage({
+                      id: 'app.cnMirror.dismiss',
+                      defaultMessage: 'Dismiss permanently',
+                    })}
+                    color="inherit"
+                    onClick={() => closeCnMirrorPrompt(true)}
+                    size="small"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </>
+              }
+              severity="info"
+              sx={{ alignItems: 'center', width: '100%' }}
+              variant="filled"
+            >
+              {intl.formatMessage({
+                id: 'app.cnMirror.message',
+                defaultMessage: 'A mainland China mirror is available at citizenshub.oxdl.cn for faster access.',
+              })}
+            </Alert>
+          </Snackbar>
           <HangarSyncConflictDialog
             open={Boolean(pendingConflict)}
             remoteRecord={pendingConflict?.current ?? null}
