@@ -11,6 +11,8 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
+  Radio,
+  RadioGroup,
   Badge,
   ButtonGroup,
   Chip,
@@ -53,6 +55,8 @@ import {
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 
+type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
+
 const Market: React.FC = () => {
   const intl = useIntl();
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
@@ -63,12 +67,7 @@ const Market: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
-  const [showCcus, setShowCcus] = useState(false);
-  const [showCredit, setShowCredit] = useState(false);
-  const [showStandaloneShips, setShowStandaloneShips] = useState(false);
-  const [showShipPackages, setShowShipPackages] = useState(false);
-  const [showPaints, setShowPaints] = useState(false);
-  const [showOthers, setShowOthers] = useState(false);
+  const [selectedItemFilter, setSelectedItemFilter] = useState<MarketItemFilterOption>('all');
   const [showOcOnly, setShowOcOnly] = useState(false);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
   const [detailTabs, setDetailTabs] = useState<MarketDetailDrawerTab[]>([]);
@@ -82,12 +81,20 @@ const Market: React.FC = () => {
     const itemTypes: MarketItemType[] = [];
     const browseCategories: MarketBrowseCategory[] = [];
 
-    if (showCcus) itemTypes.push('ccu');
-    if (showCredit) itemTypes.push('credit');
-    if (showStandaloneShips) browseCategories.push('standalone_ship');
-    if (showShipPackages) browseCategories.push('ship_package');
-    if (showPaints) browseCategories.push('paint');
-    if (showOthers) browseCategories.push('other');
+    switch (selectedItemFilter) {
+      case 'ccu':
+      case 'credit':
+        itemTypes.push(selectedItemFilter);
+        break;
+      case 'standalone_ship':
+      case 'ship_package':
+      case 'paint':
+      case 'other':
+        browseCategories.push(selectedItemFilter);
+        break;
+      default:
+        break;
+    }
 
     return {
       search: deferredSearchTerm,
@@ -102,13 +109,8 @@ const Market: React.FC = () => {
     deferredSearchTerm,
     page,
     rowsPerPage,
-    showCcus,
-    showCredit,
     showOcOnly,
-    showOthers,
-    showPaints,
-    showShipPackages,
-    showStandaloneShips,
+    selectedItemFilter,
     sortBy,
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
@@ -280,86 +282,63 @@ const Market: React.FC = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                 <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
               </Typography>
-              <FormGroup>
+              <RadioGroup
+                value={selectedItemFilter}
+                onChange={(event) => {
+                  setSelectedItemFilter(event.target.value as MarketItemFilterOption);
+                  setPage(0);
+                }}
+              >
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showCcus}
-                      onChange={(event) => {
-                        setShowCcus(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="all"
+                  label={intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
+                />
+                <FormControlLabel
+                  control={(
+                    <Radio size="small" />
+                  )}
+                  value="ccu"
                   label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })}
                 />
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showStandaloneShips}
-                      onChange={(event) => {
-                        setShowStandaloneShips(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="standalone_ship"
                   label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
                 />
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showShipPackages}
-                      onChange={(event) => {
-                        setShowShipPackages(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="ship_package"
                   label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })}
                 />
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showPaints}
-                      onChange={(event) => {
-                        setShowPaints(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="paint"
                   label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })}
                 />
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showOthers}
-                      onChange={(event) => {
-                        setShowOthers(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="other"
                   label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })}
                 />
                 <FormControlLabel
                   control={(
-                    <Checkbox
-                      checked={showCredit}
-                      onChange={(event) => {
-                        setShowCredit(event.target.checked);
-                        setPage(0);
-                      }}
-                      size="small"
-                    />
+                    <Radio size="small" />
                   )}
+                  value="credit"
                   label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })}
                 />
-              </FormGroup>
+              </RadioGroup>
 
               <Divider sx={{ my: 2 }} />
 

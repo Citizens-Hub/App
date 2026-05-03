@@ -752,6 +752,7 @@ export interface ListingItem {
   imageUrl?: string;
   fromImageUrl?: string;
   toImageUrl?: string;
+  sourceUrl?: string;
   sourceKind?: string | null;
   description?: string;
   externalRef?: string;
@@ -881,6 +882,8 @@ export interface OrderItem {
     packageShips?: MarketPackageShip[];
     packageItems?: MarketPackageItem[];
     description?: string;
+    sourceUrl?: string;
+    sourceKind?: string | null;
     externalRef?: string;
     creditAmount?: number;
     discountRateBps?: number;
@@ -933,6 +936,8 @@ export interface DetailedOrderItem extends OrderItem {
     packageShips?: MarketPackageShip[];
     packageItems?: MarketPackageItem[];
     description?: string;
+    sourceUrl?: string;
+    sourceKind?: string | null;
     externalRef?: string;
     creditAmount?: number;
     discountRateBps?: number;

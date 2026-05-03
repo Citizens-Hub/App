@@ -107,6 +107,38 @@ interface CCUToOpen {
   url: string;
 }
 
+function normalizeAbsoluteUrl(value?: string | null) {
+  const raw = value?.trim();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const url = new URL(raw);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'robertsspaceindustries.com' || hostname.endsWith('.robertsspaceindustries.com')) {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function parseRsiUrlFromExternalRef(value?: string | null) {
+  const raw = value?.split('|')[1]?.trim();
+  return normalizeAbsoluteUrl(raw);
+}
+
+function getConciergePaintStoreUrl(item?: DetailedOrderItem['marketItem'] | null) {
+  if (!item || item.sourceKind !== 'rsi-concierge-paint-sync') {
+    return null;
+  }
+
+  return normalizeAbsoluteUrl(item.sourceUrl) || parseRsiUrlFromExternalRef(item.externalRef);
+}
+
 function formatMoney(locale: string, value?: number | null, currency?: string | null) {
   if (typeof value !== 'number') {
     return '—';
@@ -931,6 +963,7 @@ const OrderDetail = () => {
                     const packageSummary = formatOrderPackageSummary(intl, marketItem);
                     const isFullyCancelled = item.quantity === itemCancelledQty;
                     const canShip = !item.shipped && activeQty > 0;
+                    const conciergePaintStoreUrl = getConciergePaintStoreUrl(marketItem);
 
                     return (
                       <TableRow
@@ -1042,22 +1075,35 @@ const OrderDetail = () => {
                           )}
                         </TableCell>
                         <TableCell align="center">
-                          <Button
-                            size="small"
-                            variant={canShip ? 'contained' : 'outlined'}
-                            color={item.shipped ? 'success' : 'primary'}
-                            disabled={!canShip || isLoading}
-                            onClick={() => handleOpenShippingDialog(item)}
-                            sx={canShip ? { boxShadow: 'none' } : undefined}
-                          >
-                            {isFullyCancelled ? (
-                              <FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />
-                            ) : item.shipped ? (
-                              <FormattedMessage id="orders.shipped" defaultMessage="Shipped" />
-                            ) : (
-                              <FormattedMessage id="orders.ship" defaultMessage="Ship" />
+                          <Stack spacing={1} alignItems="center">
+                            {conciergePaintStoreUrl && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                color="inherit"
+                                endIcon={<OpenInNew fontSize="small" />}
+                                onClick={() => window.open(conciergePaintStoreUrl, '_blank', 'noopener,noreferrer')}
+                              >
+                                <FormattedMessage id="reseller.order.openRsiStore" defaultMessage="Open RSI Store" />
+                              </Button>
                             )}
-                          </Button>
+                            <Button
+                              size="small"
+                              variant={canShip ? 'contained' : 'outlined'}
+                              color={item.shipped ? 'success' : 'primary'}
+                              disabled={!canShip || isLoading}
+                              onClick={() => handleOpenShippingDialog(item)}
+                              sx={canShip ? { boxShadow: 'none' } : undefined}
+                            >
+                              {isFullyCancelled ? (
+                                <FormattedMessage id="orderDetail.cancelled" defaultMessage="Cancelled" />
+                              ) : item.shipped ? (
+                                <FormattedMessage id="orders.shipped" defaultMessage="Shipped" />
+                              ) : (
+                                <FormattedMessage id="orders.ship" defaultMessage="Ship" />
+                              )}
+                            </Button>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     );
