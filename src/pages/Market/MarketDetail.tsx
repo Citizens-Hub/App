@@ -672,7 +672,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         return { sellerId, label };
       })
       .sort((left, right) => left.label.localeCompare(right.label, intl.locale));
-  }, [ccuSellerProfiles, ccuVariants, intl, variantsMatchingSelectedCost]);
+  }, [ccuSellerProfiles, intl, variantsMatchingSelectedCost]);
   const matchingCcuVariants = useMemo(
     () => ccuVariants.filter((variant) => (
       (typeof selectedCcuCost !== 'number' || variant.cost === selectedCcuCost)
@@ -1453,7 +1453,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                     </span>
                     <span>:</span>
                   </span>
-                  <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock}</span>
+                  <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock > 10 ? "A lot" : availableStock}</span>
                 </div>
                 {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && (
                   <div className='text-sm text-slate-500 dark:text-slate-400'>
