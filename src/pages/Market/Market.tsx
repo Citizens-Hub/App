@@ -554,7 +554,7 @@ const Market: React.FC = () => {
                                     {formatUsdPrice(intl.locale, basePrice)}
                                   </div>
                                 )}
-                                {typeof item.cost === 'number' && (
+                                {typeof item.cost === 'number' && item.cost > 0 && (
                                   <div className='text-sm text-slate-500 dark:text-slate-400'>
                                     {intl.formatMessage(
                                       { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
