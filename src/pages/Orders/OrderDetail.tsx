@@ -298,7 +298,7 @@ export default function OrderDetail() {
                 </div>
                 
                 {order.invoiceId && (
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-2 text-left">
                     <Typography variant="caption" color="text.secondary">
                       <FormattedMessage id="orderDetail.invoiceId" defaultMessage="Invoice ID" />
                     </Typography>

@@ -747,6 +747,8 @@ export interface ListingItem {
   toSkuId?: number;
   packageKind?: string;
   insuranceType?: string;
+  packageShipCount?: number;
+  packageItemCount?: number;
   packageShips?: MarketPackageShip[];
   packageItems?: MarketPackageItem[];
   imageUrl?: string;
@@ -856,6 +858,7 @@ export interface MarketCartItem {
 export interface OrderItem {
   id?: number;
   skuId?: string;
+  sellerId?: string;
   quantity: number;
   price: number;
   cancelledQuantity?: number | null;
@@ -876,6 +879,8 @@ export interface OrderItem {
     shipName?: string;
     packageKind?: string;
     insuranceType?: string;
+    packageShipCount?: number;
+    packageItemCount?: number;
     imageUrl?: string;
     fromImageUrl?: string;
     toImageUrl?: string;
@@ -930,6 +935,8 @@ export interface DetailedOrderItem extends OrderItem {
     shipName?: string;
     packageKind?: string;
     insuranceType?: string;
+    packageShipCount?: number;
+    packageItemCount?: number;
     imageUrl?: string;
     fromImageUrl?: string;
     toImageUrl?: string;
