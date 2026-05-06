@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { OrderStatus } from '@/types';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
@@ -20,6 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronsRight } from 'lucide-react';
 import { useOrdersData } from '@/hooks';
+import { useCartStore } from '@/hooks/useCartStore';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 import { formatOrderPublicId } from '@/utils/orderId';
@@ -35,6 +36,8 @@ import {
 export default function Orders() {
   const { ships, orders, loading, error, mutate } = useOrdersData();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { emptyCart } = useCartStore();
   const intl = useIntl();
   const isMobile = window.innerWidth < 768;
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,6 +92,23 @@ export default function Orders() {
   useEffect(() => {
     setPage(0);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const checkoutStatus = searchParams.get('checkout');
+    if (!checkoutStatus) {
+      return;
+    }
+
+    if (checkoutStatus === 'success') {
+      emptyCart();
+      void mutate();
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('checkout');
+    nextSearchParams.delete('session_id');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [emptyCart, mutate, searchParams, setSearchParams]);
 
   useEffect(() => {
     const maxPage = Math.max(0, Math.ceil(filteredOrders.length / rowsPerPage) - 1);

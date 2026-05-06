@@ -193,6 +193,7 @@ export default function Checkout() {
   const { data: userSession } = useUserSession();
   const { ships: localizedShips } = useShipsData();
   const effectiveShips = stateShips?.length ? stateShips : localizedShips;
+  const accountEmail = userSession?.user?.email?.trim() || user?.email?.trim() || '';
   
   // 登录和邮箱验证对话框状态
   const [openLoginDialog, setOpenLoginDialog] = useState(false);
@@ -718,6 +719,25 @@ export default function Checkout() {
                 </Typography>
               </Box>
             </Box>
+
+            <Alert severity="warning" sx={{ mt: 2, textAlign: 'left' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <FormattedMessage
+                  id="checkout.rsiGiftEmailNotice"
+                  defaultMessage="Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox."
+                />
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <FormattedMessage
+                  id="checkout.currentAccountEmailLabel"
+                  defaultMessage="Current account email:"
+                />
+                {' '}
+                <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                  {accountEmail || intl.formatMessage({ id: 'common.notAvailable', defaultMessage: 'Not available' })}
+                </Box>
+              </Typography>
+            </Alert>
             
             <Button
               variant="contained"
@@ -766,7 +786,14 @@ export default function Checkout() {
         <DialogContent>
           <div className="flex flex-col gap-2 text-[#555] dark:text-white">
             {
-              intl.formatMessage({ id: 'checkout.agreementText', defaultMessage: 'By proceeding with this purchase, you agree to our Terms of Service and Privacy Policy. All sales are final and non-refundable unless otherwise stated in our Refund Policy;In case of special reasons such as insufficient stock, we may contact you and you can choose to partially or fully refund the order;The gift will be sent to the account email you reserved' }).split(';').map((line, index) => (<div key={index}>{line}.</div>))
+              intl.formatMessage({
+                id: 'checkout.agreementText',
+                defaultMessage: 'By proceeding with the purchase, you agree to our Terms of Service and Privacy Policy.;All sales are final and non-refundable unless otherwise stated in our refund policy.;In special cases such as stock shortages, we may contact you and you may choose a partial or full refund.;Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox.',
+              })
+                .split(';')
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .map((line, index) => (<div key={index}>{line}</div>))
             }
           </div>
           <FormControlLabel

@@ -3131,7 +3131,7 @@ export default function PathBuilder({ open, onClose, onCreatePath }: PathBuilder
               </div>
 
               {/* MARK: INSTANT UPGRADE SWITCH */}
-              {reviewRequest && reviewStartShip && reviewTargetShip && hasMarketAssistedRoute && marketRoute && import.meta.env.DEV && (
+              {reviewRequest && reviewStartShip && reviewTargetShip && hasMarketAssistedRoute && marketRoute && (
                 <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 flex justify-end sm:inset-x-4 sm:bottom-4">
                   {marketRouteWindowOpen ? (
                     <div className="pointer-events-auto flex max-h-[min(72vh,680px)] w-full max-w-[460px] flex-col overflow-hidden border border-emerald-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] dark:border-emerald-800 dark:bg-[#121212]">

@@ -357,22 +357,22 @@ export default function OrderDetail() {
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell width="320px" sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.image" defaultMessage="Image" />
                     </TableCell>
-                    <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.name" defaultMessage="Name" />
                     </TableCell>
-                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.quantity" defaultMessage="Quantity" />
                     </TableCell>
-                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.unitPrice" defaultMessage="Unit Price" />
                     </TableCell>
-                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell align="right" sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
                     </TableCell>
-                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1 }}>
+                    <TableCell align="center" sx={{ backgroundColor: 'background.paper', zIndex: 1, textWrap: 'nowrap' }}>
                       <FormattedMessage id="orderDetail.status" defaultMessage="Status" />
                     </TableCell>
                   </TableRow>
