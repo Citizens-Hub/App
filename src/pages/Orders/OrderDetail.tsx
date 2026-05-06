@@ -190,6 +190,14 @@ export default function OrderDetail() {
   const totalItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + item.quantity, 0);
   const cancelledItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + (item?.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
+  const deadlineMode = order.status === OrderStatus.Pending
+    ? 'payment'
+    : order.status === OrderStatus.Paid
+      ? 'shipment'
+      : null;
+  const deadlineAt = deadlineMode === 'payment'
+    ? order.expiresAt
+    : order.shipmentDeadlineAt;
 
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto'>
@@ -290,12 +298,15 @@ export default function OrderDetail() {
                   <div className='text-sm text-left'>{updatedDate}</div>
                 </div>
 
-                <div className="w-full text-left">
-                  <OrderPaymentDeadline
-                    status={order.status}
-                    expiresAt={order.expiresAt}
-                  />
-                </div>
+                {deadlineMode && (
+                  <div className="w-full text-left">
+                    <OrderPaymentDeadline
+                      status={order.status}
+                      expiresAt={deadlineAt}
+                      mode={deadlineMode}
+                    />
+                  </div>
+                )}
                 
                 {order.invoiceId && (
                   <div className="md:col-span-2 text-left">
@@ -474,9 +485,6 @@ export default function OrderDetail() {
                               />
                             </Typography>
                           )}
-                          <Typography variant="caption" color="text.secondary">
-                            {marketItem?.belongsTo && `${marketItem.belongsTo}`}
-                          </Typography>
                         </TableCell>
                         <TableCell align="center">
                           <div className="flex justify-center items-center">

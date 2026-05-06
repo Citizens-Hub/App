@@ -14,6 +14,7 @@ import {
 export interface UseMarketDataParams {
   search?: string;
   inStockOnly?: boolean;
+  groupCcus?: boolean;
   itemTypes?: MarketItemType[];
   packageKinds?: MarketPackageKind[];
   browseCategories?: MarketBrowseCategory[];
@@ -33,6 +34,10 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
 
   if (params.inStockOnly) {
     searchParams.set('inStockOnly', 'true');
+  }
+
+  if (params.groupCcus === false) {
+    searchParams.set('groupCcus', 'false');
   }
 
   (params.itemTypes || []).forEach((itemType) => {
@@ -77,6 +82,7 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     itemTypesKey,
     packageKindsKey,
     params.inStockOnly,
+    params.groupCcus,
     params.limit,
     params.page,
     params.search,

@@ -327,6 +327,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     try {
       const searchParams = new URLSearchParams({
         belongsTo: id,
+        groupCcus: "false",
         page: String(page),
         limit: String(rowsPerPage),
       });
@@ -359,7 +360,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         return;
       }
 
-      setListingItems((data.items || []) as ListingItem[]);
+      setListingItems(((data.items || []) as ListingItem[]).map((listingItem) => ({
+        ...listingItem,
+        belongsTo: listingItem.belongsTo || id,
+      })));
       setListingPagination(data.pagination || createEmptyListingPagination(rowsPerPage));
       setListingFetchError(null);
     } catch (error) {

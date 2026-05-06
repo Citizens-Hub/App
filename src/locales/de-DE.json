@@ -1161,6 +1161,8 @@
   "orders.paymentDeadline": "Payment Expires in",
   "orders.paymentExpired": "Payment window expired",
   "orders.paymentRemaining": "{time}",
+  "orders.shipmentDeadline": "Versand in",
+  "orders.shipmentExpired": "24-Stunden-Versandfrist überschritten",
   "orders.price": "Preis",
   "orders.quantityPrice": "Quantity: {quantity} - Price: ${price}",
   "orders.restartPayment": "Bezahlen",

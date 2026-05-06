@@ -8,6 +8,7 @@ interface OrderPaymentDeadlineProps {
   expiresAt?: string | null;
   compact?: boolean;
   onExpired?: () => void;
+  mode?: 'payment' | 'shipment';
 }
 
 function formatRemainingTime(remainingMs: number, locale: string) {
@@ -36,21 +37,30 @@ export default function OrderPaymentDeadline({
   expiresAt,
   compact = false,
   onExpired,
+  mode = 'payment',
 }: OrderPaymentDeadlineProps) {
   const intl = useIntl();
   const [now, setNow] = useState(() => Date.now());
   const hasTriggeredExpiryRef = useRef(false);
   const expiryTimestamp = expiresAt ? new Date(expiresAt).getTime() : Number.NaN;
-  const hasPaymentDeadline =
-    status === OrderStatus.Pending && !Number.isNaN(expiryTimestamp);
-  const remainingMs = hasPaymentDeadline ? expiryTimestamp - now : 0;
-  const isExpired = hasPaymentDeadline && remainingMs <= 0;
-  const remainingText = hasPaymentDeadline
+  const hasDeadline =
+    (mode === 'payment' ? status === OrderStatus.Pending : status === OrderStatus.Paid)
+    && !Number.isNaN(expiryTimestamp);
+  const remainingMs = hasDeadline ? expiryTimestamp - now : 0;
+  const isExpired = hasDeadline && remainingMs <= 0;
+  const remainingText = hasDeadline
     ? formatRemainingTime(remainingMs, intl.locale)
     : '';
+  const deadlineLabel = mode === 'payment'
+    ? { id: 'orders.paymentDeadline', defaultMessage: 'Payment Expires in' }
+    : { id: 'orders.shipmentDeadline', defaultMessage: 'Ships in' };
+  const expiredLabel = mode === 'payment'
+    ? { id: 'orders.paymentExpired', defaultMessage: 'Payment window expired' }
+    : { id: 'orders.shipmentExpired', defaultMessage: 'Shipment promise overdue' };
+  const activeColor = mode === 'payment' ? 'warning.main' : 'info.main';
 
   useEffect(() => {
-    if (!hasPaymentDeadline) {
+    if (!hasDeadline) {
       return;
     }
 
@@ -62,10 +72,10 @@ export default function OrderPaymentDeadline({
     return () => {
       window.clearInterval(timer);
     };
-  }, [expiresAt, hasPaymentDeadline]);
+  }, [expiresAt, hasDeadline]);
 
   useEffect(() => {
-    if (!hasPaymentDeadline) {
+    if (!hasDeadline) {
       hasTriggeredExpiryRef.current = false;
       return;
     }
@@ -81,9 +91,9 @@ export default function OrderPaymentDeadline({
 
     hasTriggeredExpiryRef.current = true;
     onExpired?.();
-  }, [hasPaymentDeadline, isExpired, onExpired]);
+  }, [hasDeadline, isExpired, onExpired]);
 
-  if (!hasPaymentDeadline) {
+  if (!hasDeadline) {
     return null;
   }
 
@@ -100,7 +110,7 @@ export default function OrderPaymentDeadline({
         variant={compact ? 'caption' : 'body2'}
         color="text.secondary"
       >
-        <FormattedMessage id="orders.paymentDeadline" defaultMessage="Payment Expires in" />
+        <FormattedMessage {...deadlineLabel} />
         <span>{': '}</span>
         <Box
           component="span"
@@ -109,11 +119,11 @@ export default function OrderPaymentDeadline({
           <Typography
             component="span"
             variant={compact ? 'caption' : 'body2'}
-            color={isExpired ? 'error.main' : 'warning.main'}
+            color={isExpired ? 'error.main' : activeColor}
             sx={{ fontWeight: compact ? 500 : 600 }}
           >
             {isExpired ? (
-              <FormattedMessage id="orders.paymentExpired" defaultMessage="Payment window expired" />
+              <FormattedMessage {...expiredLabel} />
             ) : (
               <FormattedMessage
                 id="orders.paymentRemaining"

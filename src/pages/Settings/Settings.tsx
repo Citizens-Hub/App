@@ -1260,7 +1260,7 @@ export default function Settings() {
                     </div>
                     <div className="flex flex-col items-end gap-4">
                       <Input
-                        value={profileData?.email}
+                        value={user?.email}
                         disabled
                         sx={{ width: '250px' }}
                         size='small'

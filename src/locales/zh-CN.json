@@ -1221,6 +1221,8 @@
   "orders.paymentDeadline": "付款剩余时间",
   "orders.paymentExpired": "付款窗口已过期",
   "orders.paymentRemaining": "{time}",
+  "orders.shipmentDeadline": "发货剩余时间",
+  "orders.shipmentExpired": "已超过24小时发货时限",
   "orders.price": "价格",
   "orders.quantityPrice": "数量：{quantity} - 价格：${price}",
   "orders.restartPayment": "付款",

@@ -488,7 +488,7 @@ const Market: React.FC = () => {
 
                     return (
                       <div
-                        key={`${item.skuId}-${item.belongsTo}`}
+                        key={item.skuId}
                         className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                       >
                         <div

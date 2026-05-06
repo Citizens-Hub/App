@@ -715,7 +715,7 @@ export interface MarketItemVariant {
   stock: number;
   lockedStock: number;
   sourceKind?: string | null;
-  belongsTo: string;
+  belongsTo?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -772,7 +772,7 @@ export interface ListingItem {
   seller?: MarketSellerSummary | null;
   stock: number;
   lockedStock: number;
-  belongsTo: string;
+  belongsTo?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -909,8 +909,11 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   expiresAt?: string | null;
+  paidAt?: string | null;
+  shipmentDeadlineAt?: string | null;
   updatedAt?: string;
   sessionId?: string | null;
+  invoiceId?: string | null;
 }
 
 export interface DetailedOrderItem extends OrderItem {
@@ -955,7 +958,7 @@ export interface DetailedOrderItem extends OrderItem {
       discountRateBps: number;
       sellerCount: number;
     }>;
-    belongsTo: string;
+    belongsTo?: string;
   }
 }
 

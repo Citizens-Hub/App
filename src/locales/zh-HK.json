@@ -1161,6 +1161,8 @@
   "orders.paymentDeadline": "付款剩餘時間",
   "orders.paymentExpired": "付款時限已過",
   "orders.paymentRemaining": "{time}",
+  "orders.shipmentDeadline": "發貨剩餘時間",
+  "orders.shipmentExpired": "已超過24小時發貨時限",
   "orders.price": "價格",
   "orders.quantityPrice": "數量：{quantity} - 價格：${price}",
   "orders.restartPayment": "付款",

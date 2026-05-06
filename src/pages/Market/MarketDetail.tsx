@@ -28,7 +28,6 @@ import {
   ListingItem,
   MarketItemVariant,
   MarketPackageShip,
-  ProfileData,
   Resource,
   Ship,
   ShipResponse,
@@ -68,10 +67,6 @@ import {
 import { getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
-
-interface UserProfileResponse {
-  user: ProfileData;
-}
 
 function DetailField({ label, value }: { label: string; value?: string | null; }) {
   if (!value) return null;
@@ -575,7 +570,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [selectedCcuCost, setSelectedCcuCost] = useState<number | ''>('');
-  const [selectedCcuSellerId, setSelectedCcuSellerId] = useState('');
   const ccuVariants = useMemo<MarketItemVariant[]>(() => {
     if (!item || item.itemType !== 'ccu') {
       return [];
@@ -594,7 +588,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
       stock: item.stock,
       lockedStock: item.lockedStock,
       sourceKind: item.sourceKind,
-      belongsTo: item.belongsTo,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       deletedAt: null,
@@ -606,79 +599,21 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
       imageUrl: item.imageUrl,
       fromImageUrl: item.fromImageUrl,
       toImageUrl: item.toImageUrl,
-      seller: item.seller || null,
     }];
   }, [item]);
-  const ccuSellerIds = useMemo(
-    () => Array.from(new Set(ccuVariants.map((variant) => variant.belongsTo).filter(Boolean))).sort(),
-    [ccuVariants],
-  );
-  const { data: ccuSellerProfiles = {} } = useSWR<Record<string, ProfileData>>(
-    ccuSellerIds.length ? ['market-ccu-seller-profiles', ccuSellerIds.join(',')] : null,
-    async () => {
-      const results = await Promise.allSettled(
-        ccuSellerIds.map(async (sellerId) => {
-          const response = await fetch(`${API_BASE_URL}/api/user/profile/${sellerId}`);
-
-          if (!response.ok) {
-            throw new Error(`Failed to load seller profile ${sellerId}`);
-          }
-
-          const payload = await response.json() as UserProfileResponse;
-          return [sellerId, payload.user] as const;
-        }),
-      );
-
-      return results.reduce<Record<string, ProfileData>>((acc, result) => {
-        if (result.status === 'fulfilled') {
-          const [sellerId, profile] = result.value;
-          acc[sellerId] = profile;
-        }
-
-        return acc;
-      }, {});
-    },
-  );
-  const variantsMatchingSelectedSeller = useMemo(
-    () => (selectedCcuSellerId
-      ? ccuVariants.filter((variant) => variant.belongsTo === selectedCcuSellerId)
-      : ccuVariants),
-    [ccuVariants, selectedCcuSellerId],
-  );
   const ccuCostOptions = useMemo(
     () => Array.from(new Set(
-      variantsMatchingSelectedSeller
+      ccuVariants
         .map((variant) => variant.cost)
         .filter((cost): cost is number => typeof cost === 'number' && Number.isFinite(cost)),
     )).sort((left, right) => left - right),
-    [variantsMatchingSelectedSeller],
+    [ccuVariants],
   );
-  const variantsMatchingSelectedCost = useMemo(
-    () => (typeof selectedCcuCost === 'number'
-      ? ccuVariants.filter((variant) => variant.cost === selectedCcuCost)
-      : ccuVariants),
-    [ccuVariants, selectedCcuCost],
-  );
-  const ccuSellerOptions = useMemo(() => {
-    const sellers = Array.from(new Set(variantsMatchingSelectedCost.map((variant) => variant.belongsTo).filter(Boolean)));
-
-    return sellers
-      .map((sellerId) => {
-        const profile = ccuSellerProfiles[sellerId];
-        const label = profile?.name?.trim()
-          || profile?.email?.trim()
-          || intl.formatMessage({ id: 'market.sellerUnknown', defaultMessage: 'Seller' });
-
-        return { sellerId, label };
-      })
-      .sort((left, right) => left.label.localeCompare(right.label, intl.locale));
-  }, [ccuSellerProfiles, intl, variantsMatchingSelectedCost]);
   const matchingCcuVariants = useMemo(
     () => ccuVariants.filter((variant) => (
-      (typeof selectedCcuCost !== 'number' || variant.cost === selectedCcuCost)
-      && (!selectedCcuSellerId || variant.belongsTo === selectedCcuSellerId)
+      typeof selectedCcuCost !== 'number' || variant.cost === selectedCcuCost
     )),
-    [ccuVariants, selectedCcuCost, selectedCcuSellerId],
+    [ccuVariants, selectedCcuCost],
   );
   const selectedCcuVariant = useMemo(() => {
     if (!matchingCcuVariants.length) {
@@ -731,12 +666,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     }
   }, [ccuCostOptions, selectedCcuCost]);
 
-  useEffect(() => {
-    if (selectedCcuSellerId && !ccuSellerOptions.some((option) => option.sellerId === selectedCcuSellerId)) {
-      setSelectedCcuSellerId('');
-    }
-  }, [ccuSellerOptions, selectedCcuSellerId]);
-
   const normalizedPackageShips = useMemo<MarketPackageShip[]>(() => {
     if (!item || item.itemType !== 'package') return [];
 
@@ -764,9 +693,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   );
   const { shipDetailsById: packageShipDetailsById, isLoading: packageShipDetailsLoading } = usePackageShipDetails(packageShipDetailIds, locale);
 
-  // const { data: sellerProfileResponse } = useApi<UserProfileResponse>(
-  //   activeItem && activeItem.itemType !== 'credit' ? `/api/user/profile/${activeItem.belongsTo}` : null,
-  // );
   const { data: fromShipResponse } = useApi<ShipResponse>(
     activeItem?.itemType === 'ccu' && activeItem.fromShipId ? `/api/ship?id=${activeItem.fromShipId}` : null,
   );
@@ -774,24 +700,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     activeItem?.itemType === 'ccu' && activeItem.toShipId ? `/api/ship?id=${activeItem.toShipId}` : null,
   );
 
-  // const seller = sellerProfileResponse?.user;
-  // const activeSellerProfile = item?.itemType === 'ccu'
-  //   ? (activeItem ? ccuSellerProfiles[activeItem.belongsTo] || seller || null : null)
-  //   : seller || null;
-  // const activeSellerName = useMemo(() => {
-  //   if (item?.itemType === 'credit') {
-  //     return intl.formatMessage({ id: 'market.credit.poolTitle', defaultMessage: 'Assigned after payment' });
-  //   }
-
-  //   const fallbackEmail = item?.itemType === 'ccu'
-  //     ? ccuVariants.find((variant) => variant.belongsTo === activeItem?.belongsTo)?.seller?.email
-  //     : undefined;
-
-  //   return activeSellerProfile?.name?.trim()
-  //     || activeSellerProfile?.email?.trim()
-  //     || fallbackEmail
-  //     || intl.formatMessage({ id: 'market.sellerUnknown', defaultMessage: 'Seller' });
-  // }, [activeItem?.belongsTo, activeSellerProfile, ccuVariants, intl, item?.itemType]);
   const [selectedCreditAmount, setSelectedCreditAmount] = useState<number | ''>('');
   const resolvedCreditOptions = useMemo(() => {
     if (item?.itemType !== 'credit') {
@@ -1497,25 +1405,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                       </MenuItem>
                     ))}
                   </TextField>
-
-                  {/* <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label={intl.formatMessage({ id: 'market.sellerInfo', defaultMessage: 'Seller' })}
-                    value={selectedCcuSellerId}
-                    onChange={(event) => setSelectedCcuSellerId(event.target.value)}
-                  >
-                    <MenuItem value="">
-                      <FormattedMessage id="market.autoMatch" defaultMessage="Auto match" />
-                    </MenuItem>
-                    {ccuSellerOptions.map((option) => (
-                      <MenuItem key={option.sellerId} value={option.sellerId}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField> */}
-
                 </div>
               )}
 
@@ -1603,58 +1492,6 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                 </div>
               )}
             </div>
-
-            {/* <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                <FormattedMessage
-                  id={item.itemType === 'credit' ? 'market.credit.poolInfo' : 'market.sellerInfo'}
-                  defaultMessage={item.itemType === 'credit' ? 'Credit Pool' : 'Seller'}
-                />
-              </Typography>
-
-              <div className='flex items-center gap-3'>
-                <Avatar
-                  src={item.itemType === 'credit' ? '' : (activeSellerProfile?.avatar || '')}
-                  alt={activeSellerName}
-                  sx={{ width: 56, height: 56 }}
-                />
-                <div className='flex flex-col'>
-                  <div className='text-base font-semibold text-slate-900 dark:text-slate-100'>
-                    {activeSellerName}
-                  </div>
-                </div>
-              </div>
-
-              <div className='mt-4 flex flex-col gap-2'>
-                {item.itemType === 'credit' ? (
-                  <Typography variant="body2" color="text.secondary">
-                    <FormattedMessage
-                      id="market.credit.poolDescription"
-                      defaultMessage="One eligible seller is assigned automatically after payment. The order will not be split across multiple sellers."
-                    />
-                  </Typography>
-                ) : (
-                  <>
-                    {activeSellerProfile?.sharedHangar && (
-                      <Button variant="outlined" onClick={() => navigate(`/share/hangar/${displayItem.belongsTo}`)}>
-                        <FormattedMessage id="market.viewSellerHangar" defaultMessage="View seller hangar" />
-                      </Button>
-                    )}
-                    {activeSellerProfile?.homepage && (
-                      <Button variant="text" component="a" href={activeSellerProfile.homepage} target="_blank" rel="noreferrer">
-                        <FormattedMessage id="market.visitHomepage" defaultMessage="Visit homepage" />
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {item.itemType !== 'credit' && activeSellerProfile?.contacts && (
-                <div className='mt-4 rounded border border-dashed border-black/10 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200'>
-                  {activeSellerProfile.contacts}
-                </div>
-              )}
-            </div> */}
           </div>
         </div>
       </div>

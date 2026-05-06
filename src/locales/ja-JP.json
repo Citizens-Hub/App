@@ -1161,6 +1161,8 @@
   "orders.paymentDeadline": "Payment Expires in",
   "orders.paymentExpired": "Payment window expired",
   "orders.paymentRemaining": "{time}",
+  "orders.shipmentDeadline": "発送まで残り時間",
+  "orders.shipmentExpired": "24時間以内の発送期限を超過",
   "orders.price": "価格",
   "orders.quantityPrice": "Quantity: {quantity} - Price: ${price}",
   "orders.restartPayment": "支払う",

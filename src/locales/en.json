@@ -1221,6 +1221,8 @@
   "orders.paymentDeadline": "Payment Expires in",
   "orders.paymentExpired": "Payment window expired",
   "orders.paymentRemaining": "{time}",
+  "orders.shipmentDeadline": "Ships in",
+  "orders.shipmentExpired": "Shipment promise overdue",
   "orders.price": "Price",
   "orders.quantityPrice": "Quantity: {quantity} - Price: ${price}",
   "orders.restartPayment": "Pay",

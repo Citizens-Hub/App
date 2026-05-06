@@ -295,6 +295,14 @@ export default function Orders() {
               // const activeItemsCount = totalItemsCount - cancelledItemsCount;
               const visibleItems = orderItems.slice(0, 3);
               const hiddenItemsCount = Math.max(orderItems.length - visibleItems.length, 0);
+              const deadlineMode = order.status === OrderStatus.Pending
+                ? 'payment'
+                : order.status === OrderStatus.Paid
+                  ? 'shipment'
+                  : null;
+              const deadlineAt = deadlineMode === 'payment'
+                ? order.expiresAt
+                : order.shipmentDeadlineAt;
 
               return (
                 <Box
@@ -362,7 +370,7 @@ export default function Orders() {
                     </Box>
 
                     <Box>
-                      {order.status === OrderStatus.Pending ? (
+                      {deadlineMode ? (
                         <>
                           <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
                             <FormattedMessage id="orders.lastUpdated" defaultMessage="Last updated" />
@@ -373,11 +381,14 @@ export default function Orders() {
 
                           <OrderPaymentDeadline
                             status={order.status}
-                            expiresAt={order.expiresAt}
+                            expiresAt={deadlineAt}
                             compact
-                            onExpired={() => {
-                              void mutate();
-                            }}
+                            mode={deadlineMode}
+                            onExpired={deadlineMode === 'payment'
+                              ? () => {
+                                  void mutate();
+                                }
+                              : undefined}
                           />
                         </>
                       ) : (
