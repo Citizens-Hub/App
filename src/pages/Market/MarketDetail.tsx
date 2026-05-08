@@ -84,6 +84,21 @@ function DetailField({ label, value }: { label: string; value?: string | null; }
   );
 }
 
+function HighlightDetailField({ label, value }: { label: string; value?: string | null; }) {
+  if (!value) return null;
+
+  return (
+    <div className='flex items-start gap-3 rounded border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:border-amber-700/70 dark:from-amber-950/40 dark:via-neutral-950 dark:to-orange-950/30'>
+      <div className='min-w-0 flex-1'>
+        <div className='text-xs font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
+          {label}
+        </div>
+        <div className='text-sm font-semibold text-amber-950 dark:text-amber-50'>{value}</div>
+      </div>
+    </div>
+  );
+}
+
 function formatCrewRange(minCrew?: number | null, maxCrew?: number | null) {
   if (minCrew == null && maxCrew == null) return '';
   if (minCrew != null && maxCrew != null) {
@@ -175,6 +190,16 @@ function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading:
       ? MARKET_ITEM_PLACEHOLDER
       : resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER),
   };
+}
+
+function isOcShipListing(item?: ListingItem | null) {
+  if (!item?.tags?.includes('oc')) {
+    return false;
+  }
+
+  return item.itemType === 'ccu'
+    || item.browseCategory === 'standalone_ship'
+    || item.browseCategory === 'ship_package';
 }
 
 type ShipComparisonRow = {
@@ -992,6 +1017,159 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     const imageUrl = entry.imageUrl?.trim();
     return !imageUrl || imageUrl === "https://robertsspaceindustries.com/undefined";
   });
+  const showOcShipBadge = isOcShipListing(displayItem);
+  const purchasePanel = (
+    <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+      <div className='flex flex-col gap-3'>
+        <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
+          {formatUsdPrice(intl.locale, displayPrice)}
+        </div>
+        {discount && Number(discount) > 0 && (
+          <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+            {formatUsdPrice(intl.locale, basePrice)}
+          </div>
+        )}
+        <div className='text-sm text-slate-500 dark:text-slate-400'>
+          <span>
+            <span>
+              {item.itemType === 'credit'
+                ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
+                : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
+            </span>
+            <span>:</span>
+          </span>
+          <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock > 10 ? "A lot" : availableStock}</span>
+        </div>
+        {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && (
+          <div className='text-sm text-slate-500 dark:text-slate-400'>
+            <FormattedMessage
+              id="market.detail.meltValueSummary"
+              defaultMessage="Exchange value: {value}"
+              values={{ value: formatUsdPrice(intl.locale, displayItem.cost) }}
+            />
+          </div>
+        )}
+      </div>
+
+      <Divider sx={{ my: 3 }} />
+
+      {item.itemType === 'ccu' && ccuVariants.length > 0 && (
+        <div className='mb-3 flex flex-col gap-3'>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
+            value={selectedCcuCost}
+            InputLabelProps={{ shrink: true }}
+            SelectProps={{
+              displayEmpty: true,
+              renderValue: (value) => value === ''
+                ? intl.formatMessage({ id: 'market.autoMatch', defaultMessage: 'Auto match' })
+                : formatUsdPrice(intl.locale, Number(value)),
+            }}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSelectedCcuCost(value === '' ? '' : Number(value));
+            }}
+          >
+            <MenuItem value="">
+              <FormattedMessage id="market.autoMatch" defaultMessage="Auto match" />
+            </MenuItem>
+            {ccuCostOptions.map((cost) => (
+              <MenuItem key={cost} value={cost}>
+                {formatUsdPrice(intl.locale, cost)}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
+      )}
+
+      {item.itemType === 'credit' && (
+        <TextField
+          select
+          fullWidth
+          size="small"
+          label={intl.formatMessage({ id: 'market.credit.selectAmount', defaultMessage: 'Select amount' })}
+          value={selectedCreditOption?.amount || ''}
+          onChange={(event) => setSelectedCreditAmount(Number(event.target.value))}
+          sx={{ mb: 3 }}
+        >
+          {resolvedCreditOptions.map((option) => (
+            <MenuItem key={option.amount} value={option.amount}>
+              {formatCreditOptionLabel(intl, option.amount, option.price)}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+
+      {item.itemType === 'credit' ? (
+        <div className='flex flex-col gap-3'>
+          <Button
+            variant="outlined"
+            onClick={handleAddToCart}
+            disabled={!selectedCreditOption}
+          >
+            <FormattedMessage id="market.credit.addSelectedAmount" defaultMessage="Add selected amount" />
+          </Button>
+          <Button variant="outlined" onClick={openCart}>
+            <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
+          </Button>
+        </div>
+      ) : inCartItem ? (
+        <div className='flex flex-col gap-3'>
+          <ButtonGroup
+            size="small"
+            aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+          >
+            <IconButton
+              size="small"
+              onClick={() => {
+                if (inCartQuantity > 1) {
+                  updateItemQuantity(selectedMarketSkuId, inCartQuantity - 1);
+                } else {
+                  removeFromCart(selectedMarketSkuId);
+                }
+              }}
+            >
+              <Minus className="h-4 w-4" />
+            </IconButton>
+            <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+              {inCartQuantity}
+            </Typography>
+            <IconButton
+              size="small"
+              disabled={inCartQuantity >= availableStock}
+              onClick={() => {
+                if (inCartQuantity < availableStock) {
+                  updateItemQuantity(selectedMarketSkuId, inCartQuantity + 1);
+                }
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </IconButton>
+          </ButtonGroup>
+
+          <Button variant="outlined" onClick={openCart}>
+            <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
+          </Button>
+        </div>
+      ) : (
+        <div className='flex flex-col gap-3'>
+          <Button
+            variant="outlined"
+            onClick={handleAddToCart}
+            disabled={availableStock <= 0}
+          >
+            <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+          </Button>
+          <Button variant="outlined" onClick={openCart}>
+            <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
   // const formattedCreatedAt = new Date(item.createdAt).toLocaleString(intl.locale);
 
   return (
@@ -1104,6 +1282,8 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
               )}
             </div>
 
+            {embedded && purchasePanel}
+
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
               <DetailField
                 label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
@@ -1113,18 +1293,25 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                 label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
                 value={typeof displayItem.cost === 'number' ? formatUsdPrice(intl.locale, displayItem.cost) : undefined}
               />
-              <DetailField
-                label={item.itemType === 'credit'
-                  ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
-                  : item.itemType === 'package'
-                    ? intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })
-                    : ''}
-                value={item.itemType === 'credit'
-                  ? (selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-')
-                  : item.itemType === 'package'
-                    ? (item.insuranceType || '-')
-                    : undefined}
-              />
+              {showOcShipBadge ? (
+                <HighlightDetailField
+                  label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
+                  value={intl.formatMessage({ id: 'market.detail.ocShipNoticeTitle', defaultMessage: 'Original Concept LTI' })}
+                />
+              ) : (
+                <DetailField
+                  label={item.itemType === 'credit'
+                    ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
+                    : item.itemType === 'package'
+                      ? intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })
+                      : ''}
+                  value={item.itemType === 'credit'
+                    ? (selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-')
+                    : item.itemType === 'package'
+                      ? (item.insuranceType || '-')
+                      : undefined}
+                />
+              )}
             </div>
 
             <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
@@ -1342,156 +1529,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
           </div>
 
           <div className={`flex flex-col gap-6 ${embedded ? '' : 'xl:sticky xl:top-4 xl:self-start'}`}>
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-              <div className='flex flex-col gap-3'>
-                <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
-                  {formatUsdPrice(intl.locale, displayPrice)}
-                </div>
-                {discount && Number(discount) > 0 && (
-                  <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                    {formatUsdPrice(intl.locale, basePrice)}
-                  </div>
-                )}
-                <div className='text-sm text-slate-500 dark:text-slate-400'>
-                  <span>
-                    <span>
-                      {item.itemType === 'credit'
-                        ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
-                        : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
-                    </span>
-                    <span>:</span>
-                  </span>
-                  <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock > 10 ? "A lot" : availableStock}</span>
-                </div>
-                {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && (
-                  <div className='text-sm text-slate-500 dark:text-slate-400'>
-                    <FormattedMessage
-                      id="market.detail.meltValueSummary"
-                      defaultMessage="Exchange value: {value}"
-                      values={{ value: formatUsdPrice(intl.locale, displayItem.cost) }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <Divider sx={{ my: 3 }} />
-
-              {item.itemType === 'ccu' && ccuVariants.length > 0 && (
-                <div className='mb-3 flex flex-col gap-3'>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
-                    value={selectedCcuCost}
-                    InputLabelProps={{ shrink: true }}
-                    SelectProps={{
-                      displayEmpty: true,
-                      renderValue: (value) => value === ''
-                        ? intl.formatMessage({ id: 'market.autoMatch', defaultMessage: 'Auto match' })
-                        : formatUsdPrice(intl.locale, Number(value)),
-                    }}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setSelectedCcuCost(value === '' ? '' : Number(value));
-                    }}
-                  >
-                    <MenuItem value="">
-                      <FormattedMessage id="market.autoMatch" defaultMessage="Auto match" />
-                    </MenuItem>
-                    {ccuCostOptions.map((cost) => (
-                      <MenuItem key={cost} value={cost}>
-                        {formatUsdPrice(intl.locale, cost)}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </div>
-              )}
-
-              {item.itemType === 'credit' && (
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label={intl.formatMessage({ id: 'market.credit.selectAmount', defaultMessage: 'Select amount' })}
-                  value={selectedCreditOption?.amount || ''}
-                  onChange={(event) => setSelectedCreditAmount(Number(event.target.value))}
-                  sx={{ mb: 3 }}
-                >
-                  {resolvedCreditOptions.map((option) => (
-                    <MenuItem key={option.amount} value={option.amount}>
-                      {formatCreditOptionLabel(intl, option.amount, option.price)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-
-              {item.itemType === 'credit' ? (
-                <div className='flex flex-col gap-3'>
-                  <Button
-                    variant="outlined"
-                    onClick={handleAddToCart}
-                    disabled={!selectedCreditOption}
-                  >
-                    <FormattedMessage id="market.credit.addSelectedAmount" defaultMessage="Add selected amount" />
-                  </Button>
-                  <Button variant="outlined" onClick={openCart}>
-                    <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
-                  </Button>
-                </div>
-              ) : inCartItem ? (
-                <div className='flex flex-col gap-3'>
-                  <ButtonGroup
-                    size="small"
-                    aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        if (inCartQuantity > 1) {
-                          updateItemQuantity(selectedMarketSkuId, inCartQuantity - 1);
-                        } else {
-                          removeFromCart(selectedMarketSkuId);
-                        }
-                      }}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </IconButton>
-                    <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
-                      {inCartQuantity}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      disabled={inCartQuantity >= availableStock}
-                      onClick={() => {
-                        if (inCartQuantity < availableStock) {
-                          updateItemQuantity(selectedMarketSkuId, inCartQuantity + 1);
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </IconButton>
-                  </ButtonGroup>
-
-                  <Button variant="outlined" onClick={openCart}>
-                    <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
-                  </Button>
-                </div>
-              ) : (
-                <div className='flex flex-col gap-3'>
-                  <Button
-                    variant="outlined"
-                    onClick={handleAddToCart}
-                    disabled={availableStock <= 0}
-                  >
-                    <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
-                  </Button>
-                  <Button variant="outlined" onClick={openCart}>
-                    <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
-                  </Button>
-                </div>
-              )}
-            </div>
+            {!embedded && purchasePanel}
           </div>
         </div>
       </div>
