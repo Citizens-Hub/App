@@ -179,8 +179,6 @@ export default function Orders() {
     nextSearchParams.delete('session_id');
     setSearchParams(nextSearchParams, { replace: true });
 
-    let cancelled = false;
-
     const finalizeCheckoutLanding = async () => {
       if (checkoutStatus === 'success') {
         dispatch(clearCart());
@@ -204,7 +202,7 @@ export default function Orders() {
             const sessionStatus = await response.json() as OrderCheckoutSessionStatus;
             const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished].includes(sessionStatus.status);
 
-            if (!cancelled && isPaidOrder && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
+            if (isPaidOrder && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
             }
           } catch (checkoutError) {
@@ -217,10 +215,6 @@ export default function Orders() {
     };
 
     void finalizeCheckoutLanding();
-
-    return () => {
-      cancelled = true;
-    };
   }, [checkoutSessionId, checkoutStatus, dispatch, mutate, searchQuery, setSearchParams, token]);
 
   useEffect(() => {
