@@ -35,8 +35,27 @@ import {
   getOrderItemDisplayName,
 } from './orderI18n';
 
-const GOOGLE_ADS_PURCHASE_SEND_TO = import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO || "-";
+const GOOGLE_ADS_PURCHASE_SEND_TO = (
+  import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO
+  || 'AW-17708781265/ydRzCJftvakcENGdmvxB'
+).trim();
 const GOOGLE_ADS_TRACKED_SESSION_PREFIX = 'google-ads:purchase:';
+
+async function waitForGoogleTag(timeoutMs = 3000) {
+  const startedAt = Date.now();
+
+  while ((Date.now() - startedAt) < timeoutMs) {
+    if (typeof window.gtag === 'function') {
+      return true;
+    }
+
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 50);
+    });
+  }
+
+  return typeof window.gtag === 'function';
+}
 
 function getGoogleAdsTrackedSessionKey(sessionId: string) {
   return `${GOOGLE_ADS_TRACKED_SESSION_PREFIX}${sessionId}`;
@@ -50,7 +69,7 @@ function markGoogleAdsPurchaseTracked(sessionId: string) {
   window.sessionStorage.setItem(getGoogleAdsTrackedSessionKey(sessionId), '1');
 }
 
-function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheckoutSessionStatus) {
+async function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheckoutSessionStatus) {
   const amount = checkoutSessionStatus.paymentInfo?.amountTotal ?? checkoutSessionStatus.paymentInfo?.amountCaptured;
   const currency = checkoutSessionStatus.paymentInfo?.currency || 'USD';
 
@@ -58,7 +77,14 @@ function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheckoutSes
     return false;
   }
 
-  if (typeof window.gtag !== 'function') {
+  if (!GOOGLE_ADS_PURCHASE_SEND_TO || GOOGLE_ADS_PURCHASE_SEND_TO === '-') {
+    console.warn('Google Ads conversion send_to is not configured.');
+    return false;
+  }
+
+  const isGoogleTagReady = await waitForGoogleTag();
+  if (!isGoogleTagReady || !window.gtag) {
+    console.warn('Google Ads conversion skipped because gtag is not ready.');
     return false;
   }
 
@@ -178,7 +204,7 @@ export default function Orders() {
             const sessionStatus = await response.json() as OrderCheckoutSessionStatus;
             const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished].includes(sessionStatus.status);
 
-            if (!cancelled && isPaidOrder && sendGoogleAdsPurchaseConversion(sessionStatus)) {
+            if (!cancelled && isPaidOrder && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
             }
           } catch (checkoutError) {
