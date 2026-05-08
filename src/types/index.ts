@@ -1080,6 +1080,13 @@ export interface OrderPaymentInfo {
   postalCodeCheck: string | null;
 }
 
+export interface OrderCheckoutSessionStatus {
+  orderId: string;
+  status: OrderStatus;
+  paidAt: string | null;
+  paymentInfo: OrderPaymentInfo | null;
+}
+
 export interface DetailedRelatedOrder extends DetailedOrder {
   customerEmail: string | null;
 }

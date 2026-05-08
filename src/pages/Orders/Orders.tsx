@@ -11,16 +11,18 @@ import {
   Tooltip,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { OrderStatus } from '@/types';
+import { OrderCheckoutSessionStatus, OrderStatus } from '@/types';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import SearchIcon from '@mui/icons-material/Search';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronsRight } from 'lucide-react';
 import { useOrdersData } from '@/hooks';
-import { useCartStore } from '@/hooks/useCartStore';
+import { clearCart } from '@/store/cartStore';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 import { formatOrderPublicId } from '@/utils/orderId';
@@ -33,16 +35,58 @@ import {
   getOrderItemDisplayName,
 } from './orderI18n';
 
+const GOOGLE_ADS_PURCHASE_SEND_TO = import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO || "-";
+const GOOGLE_ADS_TRACKED_SESSION_PREFIX = 'google-ads:purchase:';
+
+function getGoogleAdsTrackedSessionKey(sessionId: string) {
+  return `${GOOGLE_ADS_TRACKED_SESSION_PREFIX}${sessionId}`;
+}
+
+function hasTrackedGoogleAdsPurchase(sessionId: string) {
+  return window.sessionStorage.getItem(getGoogleAdsTrackedSessionKey(sessionId)) === '1';
+}
+
+function markGoogleAdsPurchaseTracked(sessionId: string) {
+  window.sessionStorage.setItem(getGoogleAdsTrackedSessionKey(sessionId), '1');
+}
+
+function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheckoutSessionStatus) {
+  const amount = checkoutSessionStatus.paymentInfo?.amountTotal ?? checkoutSessionStatus.paymentInfo?.amountCaptured;
+  const currency = checkoutSessionStatus.paymentInfo?.currency || 'USD';
+
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+    return false;
+  }
+
+  if (typeof window.gtag !== 'function') {
+    return false;
+  }
+
+  window.gtag('event', 'conversion', {
+    send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
+    value: amount,
+    currency,
+    transaction_id: checkoutSessionStatus.orderId,
+  });
+
+  return true;
+}
+
 export default function Orders() {
   const { ships, orders, loading, error, mutate } = useOrdersData();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { emptyCart } = useCartStore();
+  const dispatch = useDispatch();
+  const token = useSelector((state: RootState) => state.user.user.token);
   const intl = useIntl();
   const isMobile = window.innerWidth < 768;
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const handledCheckoutKeyRef = useRef<string | null>(null);
+  const searchQuery = searchParams.toString();
+  const checkoutStatus = searchParams.get('checkout');
+  const checkoutSessionId = searchParams.get('session_id');
 
   // const renderItemState = (order: Order, item: OrderItem, index: number) => {
   //   if (item.quantity === item.cancelledQuantity || order.status === OrderStatus.Canceled) {
@@ -94,21 +138,64 @@ export default function Orders() {
   }, [searchTerm]);
 
   useEffect(() => {
-    const checkoutStatus = searchParams.get('checkout');
     if (!checkoutStatus) {
       return;
     }
 
-    if (checkoutStatus === 'success') {
-      emptyCart();
-      void mutate();
+    const checkoutKey = `${checkoutStatus}:${checkoutSessionId || ''}`;
+    if (handledCheckoutKeyRef.current === checkoutKey) {
+      return;
     }
+    handledCheckoutKeyRef.current = checkoutKey;
 
-    const nextSearchParams = new URLSearchParams(searchParams);
+    const nextSearchParams = new URLSearchParams(searchQuery);
     nextSearchParams.delete('checkout');
     nextSearchParams.delete('session_id');
     setSearchParams(nextSearchParams, { replace: true });
-  }, [emptyCart, mutate, searchParams, setSearchParams]);
+
+    let cancelled = false;
+
+    const finalizeCheckoutLanding = async () => {
+      if (checkoutStatus === 'success') {
+        dispatch(clearCart());
+
+        if (checkoutSessionId && !hasTrackedGoogleAdsPurchase(checkoutSessionId)) {
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/checkout-session/${encodeURIComponent(checkoutSessionId)}`,
+              {
+                headers: {
+                  Authorization: token ? `Bearer ${token}` : '',
+                  'Content-Type': 'application/json',
+                },
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error(`Failed to load checkout session status: ${response.status}`);
+            }
+
+            const sessionStatus = await response.json() as OrderCheckoutSessionStatus;
+            const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished].includes(sessionStatus.status);
+
+            if (!cancelled && isPaidOrder && sendGoogleAdsPurchaseConversion(sessionStatus)) {
+              markGoogleAdsPurchaseTracked(checkoutSessionId);
+            }
+          } catch (checkoutError) {
+            console.error('Failed to send Google Ads purchase conversion:', checkoutError);
+          }
+        }
+
+        await mutate();
+      }
+    };
+
+    void finalizeCheckoutLanding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutSessionId, checkoutStatus, dispatch, mutate, searchQuery, setSearchParams, token]);
 
   useEffect(() => {
     const maxPage = Math.max(0, Math.ceil(filteredOrders.length / rowsPerPage) - 1);
