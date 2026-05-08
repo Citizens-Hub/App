@@ -97,12 +97,11 @@ export default function MarketImageBadge({
     const rightLabelPadding = size === 'detail' ? 38 : 30;
     const rightLabelFontSizeBase = size === 'detail' ? 30 : 24;
     const brandFontSize = size === 'detail' ? 16 : 13;
-    // const brandLeftPadding = size === 'detail' ? 18 : 14;
     let rightLabelFontSize = rightLabelFontSizeBase;
 
     ctx.font = `900 ${rightLabelFontSize}px Arial, sans-serif`;
     let labelWidth = ctx.measureText(label).width;
-    const maxLabelWidth = Math.max(width * 0.40, 140);
+    const maxLabelWidth = Math.max(width * 0.60, 140);
     if (labelWidth > maxLabelWidth) {
       rightLabelFontSize = Math.max(Math.floor((rightLabelFontSizeBase * maxLabelWidth) / labelWidth), size === 'detail' ? 18 : 15);
       ctx.font = `900 ${rightLabelFontSize}px Arial, sans-serif`;
@@ -119,10 +118,9 @@ export default function MarketImageBadge({
     const rampPeakMaxForLabelGap = Math.round(labelLeftX - labelRampGap + (1 - rampProgressAtLabelCenter) * rampRun);
     const rampPeakX = Math.max(
       Math.min(width - labelBlockWidth, rampPeakMaxForLabelGap),
-      Math.round(width * 0.50),
+      Math.round(width * 0.20),
     );
-    const rampStart = Math.max(rampPeakX - rampRun, Math.round(width * 0.36));
-    // const baseHeight = bandBottom - baseTop;
+    const rampStart = Math.max(rampPeakX - rampRun, Math.round(width * 0.1));
     const highlightInset = 0;
     const highlightThickness = size === 'detail' ? 28 : 18;
 
@@ -182,7 +180,6 @@ export default function MarketImageBadge({
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillStyle = palette.brandText;
-    // ctx.fillText('CitizensHub', brandLeftPadding, baseTop + baseHeight / 2 + 1);
 
     ctx.font = `800 ${rightLabelFontSize}px Arial, sans-serif`;
     ctx.textAlign = 'right';
