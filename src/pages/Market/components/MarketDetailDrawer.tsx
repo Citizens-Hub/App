@@ -17,8 +17,8 @@ import {
 } from '@mui/icons-material';
 import { useIntl } from 'react-intl';
 import { X } from 'lucide-react';
-import { useHref } from 'react-router';
 import MarketDetail from '../MarketDetail';
+import { getMarketDetailUrl } from '@/utils/marketLinks';
 
 export interface MarketDetailDrawerTab {
   skuId: string;
@@ -57,17 +57,10 @@ export default function MarketDetailDrawer({
   const resolvedActiveSkuId = activeSkuId && tabs.some((tab) => tab.skuId === activeSkuId)
     ? activeSkuId
     : tabs[0]?.skuId || null;
-  const detailHref = useHref(
-    resolvedActiveSkuId
-      ? `/market/${encodeURIComponent(resolvedActiveSkuId)}`
-      : '/market',
-  );
-
   const handleOpenStandalone = () => {
     if (!resolvedActiveSkuId) return;
 
-    const detailUrl = new URL(detailHref, window.location.href).toString();
-    window.open(detailUrl, '_blank', 'noopener,noreferrer');
+    window.open(getMarketDetailUrl(resolvedActiveSkuId), '_blank', 'noopener,noreferrer');
   };
 
   useEffect(() => {

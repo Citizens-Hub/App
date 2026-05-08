@@ -38,6 +38,7 @@ import { useMarketData } from '@/hooks';
 import { Link } from 'react-router';
 import { useCartStore } from '@/hooks/useCartStore';
 import { buildMarketResource } from '@/components/marketItemDisplay';
+import { getMarketDetailUrl } from '@/utils/marketLinks';
 import {
   getAvailableStock,
   getListingBasePrice,
@@ -152,8 +153,7 @@ const Market: React.FC = () => {
   };
 
   const handleOpenDetails = (item: ListingItem) => {
-    const detailUrl = new URL(`/market/${encodeURIComponent(item.skuId)}`, window.location.href).toString();
-    window.open(detailUrl, '_blank', 'noopener,noreferrer');
+    window.open(getMarketDetailUrl(item.skuId), '_blank', 'noopener,noreferrer');
   };
 
   if (loading && listingItems.length === 0 && pagination.total === 0) {
@@ -514,7 +514,7 @@ const Market: React.FC = () => {
 
                             <div className='flex items-center justify-between gap-3'>
                               {/* <Link
-                                to={`/market/${encodeURIComponent(item.skuId)}`}
+                                to={getMarketDetailPath(item.skuId)}
                                 className='text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
                               >
                                 {isCcu ? (
