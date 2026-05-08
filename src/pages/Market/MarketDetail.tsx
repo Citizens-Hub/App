@@ -66,7 +66,7 @@ import {
   getMarketItemDisplayName,
   getMarketItemSummary,
 } from './marketDisplayI18n';
-import { getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
+import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 import MarketImageBadge from './components/MarketImageBadge';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -141,8 +141,9 @@ function getAvailableUnits(stock: number, lockedStock: number) {
 }
 
 function resolveShipImage(ship?: Ship | null, fallbackImage?: string) {
-  return getShipDetailThumbnailUrl(ship)
+  return getShipDetailImageUrl(ship)
     || getShipSlideshowImage(ship)
+    || getShipDetailThumbnailUrl(ship)
     || getShipThumbLarge(ship)
     || fallbackImage
     || MARKET_ITEM_PLACEHOLDER;
@@ -180,8 +181,8 @@ function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading:
       .map((packageShip) => findShip(ships, packageShip.shipId, packageShip.shipName))
       .find(Boolean)
     || undefined;
-  const hasShipReference = Boolean(item.shipId || item.shipName || item.packageShips?.length);
-  const deferPrimaryShipFallback = loading && hasShipReference && !primaryShip;
+  // const hasShipReference = Boolean(item.shipId || item.shipName || item.packageShips?.length);
+  // const deferPrimaryShipFallback = loading && hasShipReference && !primaryShip;
 
   return {
     isCCU: false,
@@ -189,9 +190,7 @@ function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading:
     toImage: '',
     fromAlt: '',
     toAlt: '',
-    thumbnail: deferPrimaryShipFallback
-      ? MARKET_ITEM_PLACEHOLDER
-      : resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER),
+    thumbnail: resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER)
   };
 }
 
