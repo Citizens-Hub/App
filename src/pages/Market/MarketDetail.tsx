@@ -35,7 +35,9 @@ import {
 import {
   buildMarketResource,
   getMarketItemVisual,
+  isOcShipListing,
   MARKET_ITEM_PLACEHOLDER,
+  resolveMarketImageBadgeKind,
   toLargeRsiImage,
 } from '@/components/marketItemDisplay';
 import {
@@ -65,6 +67,7 @@ import {
   getMarketItemSummary,
 } from './marketDisplayI18n';
 import { getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
+import MarketImageBadge from './components/MarketImageBadge';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -190,16 +193,6 @@ function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading:
       ? MARKET_ITEM_PLACEHOLDER
       : resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER),
   };
-}
-
-function isOcShipListing(item?: ListingItem | null) {
-  if (!item?.tags?.includes('oc')) {
-    return false;
-  }
-
-  return item.itemType === 'ccu'
-    || item.browseCategory === 'standalone_ship'
-    || item.browseCategory === 'ship_package';
 }
 
 type ShipComparisonRow = {
@@ -1018,6 +1011,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     return !imageUrl || imageUrl === "https://robertsspaceindustries.com/undefined";
   });
   const showOcShipBadge = isOcShipListing(displayItem);
+  const heroBadgeKind = resolveMarketImageBadgeKind(displayItem);
   const purchasePanel = (
     <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
       <div className='flex flex-col gap-3'>
@@ -1261,6 +1255,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                       {formatMarketDiscount(intl, discount)}
                     </div>
                   )}
+                  {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} raised size="detail" />}
                   <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white'>
                     <div className='line-clamp-2 text-sm font-medium'>{displayItem.name}</div>
                   </div>
@@ -1278,6 +1273,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                       {formatMarketDiscount(intl, discount)}
                     </div>
                   )}
+                  {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} size="detail" />}
                 </Box>
               )}
             </div>
@@ -1295,7 +1291,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
               />
               {showOcShipBadge ? (
                 <HighlightDetailField
-                  label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
+                  label={intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}
                   value={intl.formatMessage({ id: 'market.detail.ocShipNoticeTitle', defaultMessage: 'Original Concept LTI' })}
                 />
               ) : (

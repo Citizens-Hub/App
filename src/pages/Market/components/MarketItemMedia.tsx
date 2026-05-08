@@ -1,7 +1,8 @@
 import { Box } from '@mui/material';
 import { ListingItem, Ship } from '@/types';
 import { ChevronsRight } from 'lucide-react';
-import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
+import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER, resolveMarketImageBadgeKind } from '@/components/marketItemDisplay';
+import MarketImageBadge from './MarketImageBadge';
 
 interface MarketItemMediaProps {
   item: ListingItem;
@@ -17,6 +18,7 @@ export default function MarketItemMedia({
   badgeText,
 }: MarketItemMediaProps) {
   const visual = getMarketItemVisual(item, ships);
+  const imageBadgeKind = resolveMarketImageBadgeKind(item);
 
   if (item.itemType === 'ccu') {
     return (
@@ -56,6 +58,7 @@ export default function MarketItemMedia({
             {badgeText}
           </div>
         )}
+        {imageBadgeKind && <MarketImageBadge kind={imageBadgeKind} raised />}
         <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white'>
           <div className='line-clamp-2 text-sm font-medium'>{item.name}</div>
         </div>
@@ -76,6 +79,7 @@ export default function MarketItemMedia({
           {badgeText}
         </div>
       )}
+      {imageBadgeKind && <MarketImageBadge kind={imageBadgeKind} />}
     </Box>
   );
 }

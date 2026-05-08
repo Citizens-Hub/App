@@ -118,6 +118,41 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
   };
 }
 
+export function isOcShipListing(item?: Pick<MarketDisplayItem, 'itemType' | 'browseCategory' | 'tags'> | null) {
+  if (!item?.tags?.includes('oc')) {
+    return false;
+  }
+
+  return item.itemType === 'ccu'
+    || item.browseCategory === 'standalone_ship'
+    || item.browseCategory === 'ship_package';
+}
+
+export function isLtiShipListing(item?: Pick<MarketDisplayItem, 'itemType' | 'browseCategory' | 'insuranceType'> | null) {
+  const insuranceType = item?.insuranceType?.trim();
+  if (!insuranceType || !/(?:\blti\b|lifetime\s+insurance)/i.test(insuranceType)) {
+    return false;
+  }
+
+  return item?.itemType === 'package'
+    || item?.browseCategory === 'standalone_ship'
+    || item?.browseCategory === 'ship_package';
+}
+
+export function resolveMarketImageBadgeKind(
+  item?: Pick<MarketDisplayItem, 'itemType' | 'browseCategory' | 'tags' | 'insuranceType'> | null,
+): 'oc' | 'lti' | null {
+  if (isOcShipListing(item)) {
+    return 'oc';
+  }
+
+  if (isLtiShipListing(item)) {
+    return 'lti';
+  }
+
+  return null;
+}
+
 export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource {
   const visual = getMarketItemVisual(item, ships);
   const availableStock = item.stock - item.lockedStock;

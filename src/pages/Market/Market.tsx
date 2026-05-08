@@ -24,7 +24,6 @@ import {
 import { Search } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import CartDrawer from './components/CartDrawer';
-import MarketDetailDrawer, { type MarketDetailDrawerTab } from './components/MarketDetailDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
 import {
   ListingItem,
@@ -51,7 +50,6 @@ import {
   formatUsdPrice,
   getMarketBrowseCategoryLabel,
   getMarketItemTypeLabel,
-  getMarketTagLabel,
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 
@@ -70,10 +68,6 @@ const Market: React.FC = () => {
   const [selectedItemFilter, setSelectedItemFilter] = useState<MarketItemFilterOption>('all');
   const [showOcOnly, setShowOcOnly] = useState(false);
   const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
-  const [detailTabs, setDetailTabs] = useState<MarketDetailDrawerTab[]>([]);
-  const [activeDetailSkuId, setActiveDetailSkuId] = useState<string | null>(null);
-  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [detailDrawerCollapsed, setDetailDrawerCollapsed] = useState(false);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -158,64 +152,8 @@ const Market: React.FC = () => {
   };
 
   const handleOpenDetails = (item: ListingItem) => {
-    const label = getMarketItemDisplayName(intl, item, ships);
-
-    setDetailTabs((prevTabs) => {
-      const existingTabIndex = prevTabs.findIndex((tab) => tab.skuId === item.skuId);
-
-      if (existingTabIndex >= 0) {
-        const nextTabs = [...prevTabs];
-        nextTabs[existingTabIndex] = { ...nextTabs[existingTabIndex], label };
-        return nextTabs;
-      }
-
-      return [...prevTabs, { skuId: item.skuId, label }];
-    });
-    setActiveDetailSkuId(item.skuId);
-    setDetailDrawerOpen(true);
-    setDetailDrawerCollapsed(false);
-  };
-
-  const handleCloseAllDetailTabs = () => {
-    setDetailTabs([]);
-    setActiveDetailSkuId(null);
-    setDetailDrawerOpen(false);
-    setDetailDrawerCollapsed(false);
-  };
-
-  const handleCloseDetailTab = (skuId: string) => {
-    setDetailTabs((prevTabs) => {
-      const closingIndex = prevTabs.findIndex((tab) => tab.skuId === skuId);
-      if (closingIndex === -1) return prevTabs;
-
-      const nextTabs = prevTabs.filter((tab) => tab.skuId !== skuId);
-
-      setActiveDetailSkuId((currentActiveSkuId) => {
-        if (currentActiveSkuId !== skuId) return currentActiveSkuId;
-
-        const fallbackTab = nextTabs[Math.max(0, closingIndex - 1)] || nextTabs[0] || null;
-        return fallbackTab?.skuId || null;
-      });
-
-      if (nextTabs.length === 0) {
-        setDetailDrawerOpen(false);
-        setDetailDrawerCollapsed(false);
-      }
-
-      return nextTabs;
-    });
-  };
-
-  const handleCollapseDetailDrawer = () => {
-    setDetailDrawerOpen(false);
-    setDetailDrawerCollapsed(detailTabs.length > 0);
-  };
-
-  const handleExpandDetailDrawer = () => {
-    if (!detailTabs.length) return;
-
-    setDetailDrawerOpen(true);
-    setDetailDrawerCollapsed(false);
+    const detailUrl = new URL(`/market/${encodeURIComponent(item.skuId)}`, window.location.href).toString();
+    window.open(detailUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (loading && listingItems.length === 0 && pagination.total === 0) {
@@ -508,9 +446,6 @@ const Market: React.FC = () => {
                             {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
                             {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
                             {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                            {(item.tags || []).map((tag) => (
-                              <Chip key={`${item.skuId}-${tag}`} size="small" color="warning" label={getMarketTagLabel(intl, tag)} />
-                            ))}
                           </div>
 
                           <div className='flex flex-1 flex-col gap-2'>
@@ -691,18 +626,6 @@ const Market: React.FC = () => {
         onRemoveFromCart={removeFromCart}
         onUpdateQuantity={updateItemQuantity}
         getAvailableStock={getAvailableStockByResourceId}
-      />
-
-      <MarketDetailDrawer
-        open={detailDrawerOpen}
-        collapsed={detailDrawerCollapsed}
-        tabs={detailTabs}
-        activeSkuId={activeDetailSkuId}
-        onChangeTab={setActiveDetailSkuId}
-        onCloseAll={handleCloseAllDetailTabs}
-        onCloseTab={handleCloseDetailTab}
-        onCollapse={handleCollapseDetailDrawer}
-        onExpand={handleExpandDetailDrawer}
       />
 
       <Snackbar
