@@ -1,4 +1,4 @@
-import { ListingItem, MarketPackageItem, MarketPackageShip, Ship } from '@/types';
+import { ListingItem, MarketPackageItem, MarketPackageShip, MarketSkuTagCode, Ship } from '@/types';
 import { BundleItem, CCUItem, ShipItem, UserInfo } from '@/store/upgradesStore';
 import { getShipThumbLarge } from '@/utils/shipImage';
 import { resolveStoredCcuShip } from '@/utils/shipDisplay';
@@ -11,7 +11,7 @@ export interface StoreInventoryItem {
   itemType: 'ccu' | 'package';
   displayType: StoreInventoryType;
   browseCategory?: 'standalone_ship' | 'ship_package' | 'paint' | 'other';
-  tags?: Array<'oc'>;
+  tags?: MarketSkuTagCode[];
   name: string;
   price: number;
   cost?: number;

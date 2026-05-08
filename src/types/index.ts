@@ -680,7 +680,7 @@ export interface ImportItem {
 export type MarketItemType = 'ccu' | 'package' | 'misc' | 'credit';
 export type MarketPackageKind = 'standalone_ship' | 'bundle';
 export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'other';
-export type MarketSkuTagCode = 'oc';
+export type MarketSkuTagCode = 'oc' | 'concierge';
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
 
 export interface MarketPackageShip {

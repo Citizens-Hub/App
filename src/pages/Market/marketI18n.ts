@@ -59,6 +59,8 @@ export function getMarketTagLabel(intl: IntlShape, tag?: MarketSkuTagCode | stri
   switch (tag) {
     case 'oc':
       return intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' });
+    case 'concierge':
+      return intl.formatMessage({ id: 'market.tag.concierge', defaultMessage: 'Concierge' });
     default:
       return tag ? tag.toUpperCase() : '';
   }
