@@ -1,107 +1,145 @@
-## Introduction
+All products sold on this website are digital content delivered electronically.
 
-All products sold through Citizens' Hub marketplace services are digital goods.
+Due to the nature of the Star Citizen Gifting System, which allows an item to be gifted only once (1) before it becomes permanently bound to the recipient’s account, strict conditions apply to cancellations and refunds.
 
-Because Star Citizen items are delivered through one-time gifting or other irreversible digital fulfillment methods, cancellations and refunds are subject to strict conditions.
+## Cooling-Off / Withdrawal Rights (UK & EU Customers)
 
-## Cooling-Off Rights
+If you are located in the United Kingdom or European Union, you may have a statutory right to cancel your purchase within 14 days of purchase.
 
-If mandatory consumer law in your jurisdiction gives you a right to cancel within a statutory cooling-off period, that right will apply only to the extent required by law.
+However, this right does not apply where:
 
-Where you request immediate delivery of digital content and acknowledge that delivery starts right away, your cancellation right may end once delivery has begun.
+- You have expressly requested immediate access to the digital content; and
+- You have acknowledged that you would lose your right to cancel once delivery began.
 
-## When Delivery Is Considered Complete
+Where digital content has been accessed, downloaded, claimed, activated, redeemed, or otherwise delivered following your consent to immediate delivery, the right to cancel no longer applies.
 
-Delivery is considered complete once:
+## Successful Delivery
 
-- the relevant digital access, fulfillment information, or gift link has been made available to you
-- our records show that the delivery step was completed successfully
+Delivery is deemed complete once:
 
-For Star Citizen gift-based delivery, once a gift link has been claimed, the item permanently leaves our deliverable inventory and becomes tied to the recipient account. After that point, we cannot retrieve, reverse, or re-deliver the same item.
+- The digital gift link, key, file, access credentials, or redemption information has been made available to you; and
+- Our system confirms successful delivery.
 
-## No Refunds After Successful Claim or Redemption
+Once a buyer clicks and/or claims a gift link, the item permanently leaves our digital inventory and becomes bound to the buyer’s account. At that point, we no longer have any control over the item.
 
-Once a digital item has been successfully delivered, claimed, redeemed, or otherwise irreversibly transferred, it is not eligible for return or refund except where required by law.
+After successful redemption, the buyer is solely responsible for contacting **Cloud Imperium Games (CIG)** regarding any account, platform, or gifting-related issues.
 
-This includes situations such as:
+We are not responsible for issues arising after successful redemption, including:
 
-- buyer remorse or change of mind
-- mistakes made by the buyer during checkout
-- platform restrictions on the recipient side
-- later developer changes to the game, item, or platform
+- Third-party account actions
+- Platform restrictions
+- Development changes
+
+Content modifications made by the original creator
+
+## No Returns / No Refunds After Claim
+
+Due to the one-time gifting limitation of the Star Citizen platform:
+
+We accept **ABSOLUTELY NO RETURNS OR REFUNDS FOR ANY REASON** once an item has been successfully claimed, unless:
+
+- We are able to confirm a failed delivery on our end; and
+- The gift link can be successfully cancelled before being claimed.
 
 ## Faulty or Misdescribed Digital Content
 
-If the digital content we delivered was materially defective or materially different from what was described at the time of delivery because of our error, you may be entitled to an appropriate remedy under applicable law.
+Under applicable consumer protection laws, digital content must be:
 
-Depending on the circumstances, that remedy may be:
+- As described
+- Of satisfactory quality
+- Fit for purpose
+- Supplied with the legal right to supply
 
-- correction
-- replacement
-- full or partial refund
+If the digital content is defective or not as described **at the time of delivery due to our error**, you may be entitled to a repair, replacement, or refund as required by law.
 
-To review such a claim, we may ask you to provide reasonable evidence and cooperate with troubleshooting steps.
+Claims must:
 
-Issues caused by third-party platform bugs, account limitations, later balancing changes, or game development changes are not treated as product defects caused by Citizens' Hub.
+- Be submitted within a reasonable time;
+- Include sufficient evidence of the alleged issue;
+- Relate to the condition of the content at delivery.
+
+In-game functionality issues caused by platform bugs, development changes, balancing updates, or third-party modifications are **not grounds for refunds**. Customers must engage directly with the game developer to resolve such issues.
 
 ## Failed Delivery
 
-If delivery cannot be completed because of missing information, technical issues, stock problems, or other external circumstances, we may:
+If delivery fails or cannot be completed:
 
-- contact you to verify or update delivery information
-- attempt redelivery where reasonable
-- cancel the order if fulfillment cannot be completed
+- We reserve the right to contact the buyer for updated information.
+- If delivery still cannot be completed due to unforeseen or external circumstances, the transaction will be cancelled.
+- The gift link will be rendered null and void.
+- A refund will be issued only after we have successfully re-obtained the item from the Star Citizen Gifting System.
 
-If the order is canceled before successful final delivery, we will issue the appropriate refund or store credit.
+## Customer Cooperation Requirement
 
-## Buyer-Requested Cancellations
+Customers requesting refunds must cooperate with reasonable instructions to return or re-gift the item through the platform’s gifting system where technically possible.
 
-If you ask to cancel before successful delivery is completed, we may approve or reject the request based on item status, fulfillment progress, payment status, and operational cost.
+Failure to comply may result in denial of the refund request.
 
-If a buyer-requested cancellation is approved before delivery:
+##  Buyer-Requested Cancellations
 
-- we may offer store credit, or
-- we may refund the original payment method
+If cancellation is requested by the buyer:
 
-We may deduct non-recoverable processing costs, payment fees, or reasonable restocking or handling costs where permitted by law and where those costs were already incurred.
+If payment was made via Stripe, Stripe processing fees will not be refunded due to Stripe's non-refundable fee policy.
 
-## Seller-Initiated Cancellations
+Approved cancellations may be refunded:
 
-We reserve the right to cancel an order before delivery for reasons such as:
+- To the original payment method, subject to a **15% restocking fee**, deducted from the refund amount.
 
-- inventory errors
-- pricing errors
-- technical failures
-- fraud or risk concerns
-- upstream platform changes or fulfillment impossibility
+Refunds are not provided for change of mind once digital content has been accessed or delivered, except where required by law.
 
-If we cancel the order before successful delivery, we will issue the applicable refund or store credit.
+## CCU’ed Ships & Melt Value Disclosure
 
-## CCU'ed Items and Melt Value
+Where ships or vehicles are not labeled as "Original Concept", or "OC" this means they were assembled using discounted Warbond upgrades.
 
-Some items may be assembled through discounted CCU paths or other marketplace-specific sourcing methods.
+As a result:
 
-Where an item is sold as a CCU'ed ship or similar product:
+- Their melt value (RSI credit exchange value) will be lower than the current retail price. 
+- This does not affect their upgrade value.
+- Upgrade value always corresponds to the full retail value in the RSI store.
 
-- its melt value may be lower than its retail or upgrade value
-- that difference alone is not a valid reason for a refund
+We will not approve refund requests based on melt value being lower than retail price.
 
-Buyers are responsible for understanding the nature of CCU'ed items before purchase.
+CCU’ed ships and vehicles are intended for retention or further upgrades, not exchange into RSI credits. Any decision to melt or exchange such items is made at the buyer’s own risk.
 
-## Flyable Status and Alpha Development
+## Flyable Status & Development Stage
 
-Not all ships, vehicles, or packages are flyable at the time of sale, and Star Citizen remains in active development.
+Not all ships or vehicles are flyable at the time of sale. Some may be in active development.
 
-Developer-side changes, loaner changes, balancing changes, or future content changes do not create a refund right unless required by law or caused by our own delivery error.
+In such cases:
 
-## Fraud and Abuse
+- A loaner ship or vehicle may be provided by Cloud Imperium Games until the item becomes flyable.
+- Buyers are responsible for checking flyable status before purchasing.
 
-We do not provide refunds for abuse, manipulation, false claims, chargeback misuse, or attempts to retain delivered digital goods while reversing payment.
+## Alpha Development Disclaimer
 
-We may refuse service, suspend accounts, contest chargebacks, and provide delivery records to payment processors or authorities where appropriate.
+Star Citizen is currently in an alpha development stage and may contain bugs, errors, incomplete systems, or balancing changes.
 
-## Contact Us
+Cloud Imperium Games may, at its discretion:
 
-[![discord badge](https://dcbadge.limes.pink/api/server/AEuRtb5Vy8)](https://discord.gg/AEuRtb5Vy8)
+- Change ship or vehicle characteristics
+- Modify loadouts or equipment
+- Adjust game packs or modules
+- Rebalance items without notice
 
-If you have any questions about this Refund Policy, please contact us through the Discord Server.
+We are not responsible for changes made by the developer.
+
+## Order Cancellation Rights (Seller)
+
+We reserve the right to cancel any order at our discretion, including but not limited to:
+
+- Sudden price changes from CIG
+- Inventory errors
+- Technical issues
+- Suspected fraud
+
+## Fraud & Abuse
+
+The Citizens' Hub is not responsible for buyer mistakes during the purchase process.
+
+Any fraudulent activity will result in:
+
+- Reporting of The Citizens' Hub account involved
+- Reporting of the buyer’s RSI account
+- Reporting of associated payment accounts
+- Submission of proof of delivery
+- Reporting to appropriate authorities
