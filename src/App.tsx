@@ -21,6 +21,8 @@ const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'
 const CCUPlanner = lazy(() => import('./pages/CCUPlanner/CCUPlanner'));
 const PriceHistory = lazy(() => import('./pages/PriceHistory/PriceHistory'));
 const Privacy = lazy(() => import('./pages/Privacy/Privacy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService/TermsOfService'));
+const RefundPolicy = lazy(() => import('./pages/RefundPolicy/RefundPolicy'));
 const ChangeLogs = lazy(() => import('./pages/ChangeLogs/ChangeLogs'));
 const Auth = lazy(() => import('./pages/Auth/Auth'));
 const Admin = lazy(() => import('./pages/Admin/Admin'));
@@ -404,6 +406,8 @@ function App() {
                 }
               />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/changelog" element={<ChangeLogs />} />
 
               <Route path="/blog" element={<BlogList />} />

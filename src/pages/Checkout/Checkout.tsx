@@ -1,5 +1,5 @@
 // 导入必要的依赖
-import { useLocation, useNavigate } from "react-router";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { MarketCartItem, Order as MarketOrder, Ship } from "@/types";
 import { useSelector } from "react-redux";
@@ -22,7 +22,8 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Link as MuiLink,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ChevronsRight, LogIn, Mail } from 'lucide-react';
@@ -796,6 +797,35 @@ export default function Checkout() {
                 .map((line, index) => (<div key={index}>{line}</div>))
             }
           </div>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 2 }}>
+            <MuiLink
+              component={RouterLink}
+              to="/terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="hover"
+            >
+              <FormattedMessage id="terms.heading" defaultMessage="Terms of Service" />
+            </MuiLink>
+            <MuiLink
+              component={RouterLink}
+              to="/refund-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="hover"
+            >
+              <FormattedMessage id="refund.heading" defaultMessage="Refund Policy" />
+            </MuiLink>
+            <MuiLink
+              component={RouterLink}
+              to="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="hover"
+            >
+              <FormattedMessage id="privacy.heading" defaultMessage="Privacy Policy" />
+            </MuiLink>
+          </Box>
           <FormControlLabel
             control={
               <Checkbox

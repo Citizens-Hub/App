@@ -617,6 +617,33 @@ const Market: React.FC = () => {
             </Box>
           </div>
         </div>
+
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 1.5,
+            flexWrap: 'wrap',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            pt: 3,
+            mt: 1,
+            color: 'text.secondary',
+          }}
+        >
+          <Link to="/terms-of-service" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
+            <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
+          </Link>
+          <span className='text-slate-400'>|</span>
+          <Link to="/refund-policy" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
+            <FormattedMessage id="navigate.refund" defaultMessage="Refund Policy" />
+          </Link>
+          <span className='text-slate-400'>|</span>
+          <Link to="/privacy" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
+            <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
+          </Link>
+        </Box>
       </div>
 
       <CartDrawer

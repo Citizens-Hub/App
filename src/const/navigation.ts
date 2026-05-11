@@ -110,6 +110,16 @@ export const navigation = [
     hidden: true,
   },
   {
+    name: "navigation.terms",
+    path: "/terms-of-service",
+    hidden: true,
+  },
+  {
+    name: "navigation.refund",
+    path: "/refund-policy",
+    hidden: true,
+  },
+  {
     name: "navigation.changelog",
     path: "/changelog",
     hidden: true,
