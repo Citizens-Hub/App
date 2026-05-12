@@ -1,5 +1,5 @@
 import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, Resource, Ship } from '@/types';
-import { getShipThumbLarge, toApiAssetUrl } from '@/utils/shipImage';
+import { getShipSlideshowImage, getShipThumbLarge, toApiAssetUrl } from '@/utils/shipImage';
 
 type MarketDisplayItem = {
   skuId?: string;
@@ -96,9 +96,9 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
   const toShipName = resolvedToShipName || toShip?.name || '';
   const shipName = item.shipName || ship?.name || '';
 
-  const fromImage = getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
-  const toImage = getShipThumbLarge(toShip) || toLargeRsiImage(item.toImageUrl) || '';
-  const primaryImage = getShipThumbLarge(ship) || toLargeRsiImage(item.imageUrl) || '';
+  const fromImage = getShipSlideshowImage(fromShip) || getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
+  const toImage = getShipSlideshowImage(toShip) || getShipThumbLarge(toShip) || toLargeRsiImage(item.toImageUrl) || '';
+  const primaryImage = getShipSlideshowImage(ship) || getShipThumbLarge(ship) || toLargeRsiImage(item.imageUrl) || '';
   const thumbnail = item.itemType === 'ccu'
     ? toImage || fromImage || primaryImage
     : primaryImage || toImage || fromImage;
