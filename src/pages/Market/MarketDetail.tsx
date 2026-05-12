@@ -1022,18 +1022,18 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
             {formatUsdPrice(intl.locale, basePrice)}
           </div>
         )}
-        <div className='text-sm text-slate-500 dark:text-slate-400'>
-          <span>
+        {item.itemType === 'credit' && (
+          <div className='text-sm text-slate-500 dark:text-slate-400'>
             <span>
-              {item.itemType === 'credit'
-                ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
-                : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
+              <span>
+                <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
+              </span>
+              <span>:</span>
             </span>
-            <span>:</span>
-          </span>
-          <span className='font-semibold text-[#1d4ed8]'> {item.itemType === 'credit' ? resolvedCreditOptions.length : availableStock > 10 ? "A lot" : availableStock}</span>
-        </div>
-        {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && (
+            <span className='font-semibold text-[#1d4ed8]'> {resolvedCreditOptions.length}</span>
+          </div>
+        )}
+        {item.itemType !== 'credit' && typeof displayItem.cost === 'number' && displayItem.cost > 0 && (
           <div className='text-sm text-slate-500 dark:text-slate-400'>
             <FormattedMessage
               id="market.detail.meltValueSummary"
@@ -1284,10 +1284,12 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                 label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
                 value={getMarketItemTypeLabel(intl, item.itemType)}
               />
-              <DetailField
-                label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
-                value={typeof displayItem.cost === 'number' ? formatUsdPrice(intl.locale, displayItem.cost) : undefined}
-              />
+              {typeof displayItem.cost === 'number' && displayItem.cost > 0 && (
+                <DetailField
+                  label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
+                  value={formatUsdPrice(intl.locale, displayItem.cost)}
+                />
+              )}
               {showOcShipBadge ? (
                 <HighlightDetailField
                   label={intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}

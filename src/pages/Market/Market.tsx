@@ -667,37 +667,25 @@ const Market: React.FC = () => {
                           </div>
 
                           <div className='mt-auto flex flex-col gap-4'>
-                            <div className='flex items-end justify-between gap-3'>
-                              <div className='flex flex-col gap-1'>
-                                <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                                  {isCredit || isVariantPriceRange
-                                    ? formatMarketPriceFrom(intl, item.price)
-                                    : formatUsdPrice(intl.locale, item.price)}
-                                </div>
-                                {discount && Number(discount) > 0 && (
-                                  <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                                    {formatUsdPrice(intl.locale, basePrice)}
-                                  </div>
-                                )}
-                                {typeof item.cost === 'number' && item.cost > 0 && (
-                                  <div className='text-sm text-slate-500 dark:text-slate-400'>
-                                    {intl.formatMessage(
-                                      { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
-                                      { value: formatUsdPrice(intl.locale, item.cost) },
-                                    )}
-                                  </div>
-                                )}
+                            <div className='flex flex-col gap-1'>
+                              <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+                                {isCredit || isVariantPriceRange
+                                  ? formatMarketPriceFrom(intl, item.price)
+                                  : formatUsdPrice(intl.locale, item.price)}
                               </div>
-                              <div className='text-right text-sm text-slate-500 dark:text-slate-400'>
-                                <div>
-                                  {isCredit
-                                    ? <FormattedMessage id="market.credit.amountCount" defaultMessage="Available Amounts" />
-                                    : <FormattedMessage id="market.available" defaultMessage="Available Stock" />}
+                              {discount && Number(discount) > 0 && (
+                                <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+                                  {formatUsdPrice(intl.locale, basePrice)}
                                 </div>
-                                <div className='font-semibold text-[#1d4ed8]'>
-                                  {isCredit ? (item.creditOptions?.length || 0) : availableStock > 10 ? "A lot" : availableStock}
+                              )}
+                              {typeof item.cost === 'number' && item.cost > 0 && (
+                                <div className='text-sm text-slate-500 dark:text-slate-400'>
+                                  {intl.formatMessage(
+                                    { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
+                                    { value: formatUsdPrice(intl.locale, item.cost) },
+                                  )}
                                 </div>
-                              </div>
+                              )}
                             </div>
 
                             <Divider />

@@ -326,7 +326,6 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
     try {
       const searchParams = new URLSearchParams({
-        belongsTo: id,
         groupCcus: "false",
         page: String(page),
         limit: String(rowsPerPage),
@@ -348,8 +347,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         searchParams.set("combineTypeFiltersWithOr", "true");
       }
 
-      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/search?${searchParams.toString()}`, {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/my/search?${searchParams.toString()}`, {
         signal,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!response.ok) {
         throw new Error(`Unexpected response: ${response.status}`);
@@ -381,7 +383,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         setIsListingLoading(false);
       }
     }
-  }, [deferredSearchTerm, id, intl, listingFilters, page, rowsPerPage]);
+  }, [deferredSearchTerm, id, intl, listingFilters, page, rowsPerPage, token]);
 
   useEffect(() => {
     const controller = new AbortController();
