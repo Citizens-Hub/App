@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -35,7 +35,7 @@ import {
 } from '@/types';
 import { Plus, ShoppingCart, Minus } from 'lucide-react';
 import { useMarketData } from '@/hooks';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useCartStore } from '@/hooks/useCartStore';
 import { buildMarketResource } from '@/components/marketItemDisplay';
 import { getMarketDetailUrl } from '@/utils/marketLinks';
@@ -56,22 +56,189 @@ import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 
+type MarketPageSearchState = {
+  searchTerm: string;
+  selectedItemFilter: MarketItemFilterOption;
+  showOcOnly: boolean;
+  sortBy: MarketSortMode;
+  page: number;
+  rowsPerPage: number;
+};
+
+const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
+const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
+const MARKET_SEARCH_DEBOUNCE_MS = 300;
+const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'sortBy', 'page', 'limit'] as const;
+const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']);
+const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
+const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
+
+function parseMarketSearchParamList(searchParams: URLSearchParams, key: string): string[] {
+  return searchParams
+    .getAll(key)
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseNonNegativeInteger(value: string | null, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function parseRowsPerPage(value: string | null): number {
+  const parsed = Number.parseInt(value || '', 10);
+  return MARKET_ROWS_PER_PAGE_OPTIONS.includes(parsed as typeof MARKET_ROWS_PER_PAGE_OPTIONS[number])
+    ? parsed
+    : MARKET_DEFAULT_ROWS_PER_PAGE;
+}
+
+function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSearchState {
+  const itemTypeFilter = parseMarketSearchParamList(searchParams, 'itemType')
+    .find((value): value is MarketItemType => VALID_MARKET_ITEM_TYPE_FILTERS.has(value as MarketItemType));
+  const browseCategoryFilter = parseMarketSearchParamList(searchParams, 'browseCategory')
+    .find((value): value is MarketBrowseCategory => VALID_MARKET_BROWSE_CATEGORY_FILTERS.has(value as MarketBrowseCategory));
+  const sortByParam = searchParams.get('sortBy');
+
+  return {
+    searchTerm: searchParams.get('search') || '',
+    selectedItemFilter: itemTypeFilter || browseCategoryFilter || 'all',
+    showOcOnly: parseMarketSearchParamList(searchParams, 'tag').includes('oc'),
+    sortBy: VALID_MARKET_SORT_MODES.has(sortByParam as MarketSortMode)
+      ? sortByParam as MarketSortMode
+      : 'recommended',
+    page: parseNonNegativeInteger(searchParams.get('page'), 0),
+    rowsPerPage: parseRowsPerPage(searchParams.get('limit')),
+  };
+}
+
+function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state: MarketPageSearchState): URLSearchParams {
+  const nextSearchParams = new URLSearchParams(currentSearchParams);
+
+  MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
+    nextSearchParams.delete(key);
+  });
+
+  const trimmedSearch = state.searchTerm.trim();
+  if (trimmedSearch) {
+    nextSearchParams.set('search', trimmedSearch);
+  }
+
+  if (state.selectedItemFilter === 'ccu' || state.selectedItemFilter === 'credit') {
+    nextSearchParams.set('itemType', state.selectedItemFilter);
+  } else if (state.selectedItemFilter !== 'all') {
+    nextSearchParams.set('browseCategory', state.selectedItemFilter);
+  }
+
+  if (state.showOcOnly) {
+    nextSearchParams.set('tag', 'oc');
+  }
+
+  if (state.sortBy !== 'recommended') {
+    nextSearchParams.set('sortBy', state.sortBy);
+  }
+
+  if (state.page > 0) {
+    nextSearchParams.set('page', String(state.page));
+  }
+
+  if (state.rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE) {
+    nextSearchParams.set('limit', String(state.rowsPerPage));
+  }
+
+  return nextSearchParams;
+}
+
 const Market: React.FC = () => {
   const intl = useIntl();
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastCommittedSearchRef = useRef('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
-  const [searchTerm, setSearchTerm] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(12);
-  const [selectedItemFilter, setSelectedItemFilter] = useState<MarketItemFilterOption>('all');
-  const [showOcOnly, setShowOcOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<MarketSortMode>('recommended');
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
-  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const {
+    searchTerm,
+    selectedItemFilter,
+    showOcOnly,
+    sortBy,
+    page,
+    rowsPerPage,
+  } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
+  const [searchInput, setSearchInput] = useState(() => searchTerm);
+  const normalizedSearchParams = useMemo(() => buildMarketPageSearchParams(searchParams, {
+    searchTerm,
+    selectedItemFilter,
+    showOcOnly,
+    sortBy,
+    page,
+    rowsPerPage,
+  }), [
+    page,
+    rowsPerPage,
+    searchParams,
+    searchTerm,
+    selectedItemFilter,
+    showOcOnly,
+    sortBy,
+  ]);
+
+  useEffect(() => {
+    if (normalizedSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(normalizedSearchParams, { replace: true });
+    }
+  }, [normalizedSearchParams, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (searchTerm !== lastCommittedSearchRef.current) {
+      setSearchInput(searchTerm);
+      lastCommittedSearchRef.current = searchTerm;
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (searchInput === searchTerm) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('page');
+
+      if (searchInput.trim()) {
+        nextSearchParams.set('search', searchInput);
+      } else {
+        nextSearchParams.delete('search');
+      }
+
+      lastCommittedSearchRef.current = searchInput;
+
+      if (nextSearchParams.toString() !== searchParams.toString()) {
+        setSearchParams(nextSearchParams, { replace: true });
+      }
+    }, MARKET_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchInput, searchParams, searchTerm, setSearchParams]);
+
+  const updateMarketSearchParams = (updater: (nextSearchParams: URLSearchParams) => void) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    updater(nextSearchParams);
+
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  };
+
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
     const browseCategories: MarketBrowseCategory[] = [];
@@ -92,7 +259,7 @@ const Market: React.FC = () => {
     }
 
     return {
-      search: deferredSearchTerm,
+      search: searchTerm,
       itemTypes,
       browseCategories,
       tags: showOcOnly ? ['oc'] : [],
@@ -101,9 +268,9 @@ const Market: React.FC = () => {
       limit: rowsPerPage,
     };
   }, [
-    deferredSearchTerm,
     page,
     rowsPerPage,
+    searchTerm,
     showOcOnly,
     selectedItemFilter,
     sortBy,
@@ -223,8 +390,18 @@ const Market: React.FC = () => {
               <RadioGroup
                 value={selectedItemFilter}
                 onChange={(event) => {
-                  setSelectedItemFilter(event.target.value as MarketItemFilterOption);
-                  setPage(0);
+                  const nextFilter = event.target.value as MarketItemFilterOption;
+                  updateMarketSearchParams((nextSearchParams) => {
+                    nextSearchParams.delete('itemType');
+                    nextSearchParams.delete('browseCategory');
+                    nextSearchParams.delete('page');
+
+                    if (nextFilter === 'ccu' || nextFilter === 'credit') {
+                      nextSearchParams.set('itemType', nextFilter);
+                    } else if (nextFilter !== 'all') {
+                      nextSearchParams.set('browseCategory', nextFilter);
+                    }
+                  });
                 }}
               >
                 <FormControlLabel
@@ -289,8 +466,14 @@ const Market: React.FC = () => {
                     <Checkbox
                       checked={showOcOnly}
                       onChange={(event) => {
-                        setShowOcOnly(event.target.checked);
-                        setPage(0);
+                        updateMarketSearchParams((nextSearchParams) => {
+                          nextSearchParams.delete('tag');
+                          nextSearchParams.delete('page');
+
+                          if (event.target.checked) {
+                            nextSearchParams.set('tag', 'oc');
+                          }
+                        });
                       }}
                       size="small"
                     />
@@ -319,10 +502,9 @@ const Market: React.FC = () => {
                 fullWidth
                 variant="outlined"
                 placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
-                value={searchTerm}
+                value={searchInput}
                 onChange={(event) => {
-                  setSearchTerm(event.target.value);
-                  setPage(0);
+                  setSearchInput(event.target.value);
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': { borderRadius: 0 }
@@ -349,8 +531,16 @@ const Market: React.FC = () => {
                   '& .MuiOutlinedInput-root': { borderRadius: 0 }
                 }}
                 onChange={(event) => {
-                  setSortBy(event.target.value as MarketSortMode);
-                  setPage(0);
+                  const nextSortBy = event.target.value as MarketSortMode;
+                  updateMarketSearchParams((nextSearchParams) => {
+                    nextSearchParams.delete('page');
+
+                    if (nextSortBy === 'recommended') {
+                      nextSearchParams.delete('sortBy');
+                    } else {
+                      nextSearchParams.set('sortBy', nextSortBy);
+                    }
+                  });
                 }}
               >
                 <MenuItem value="recommended">
@@ -603,10 +793,26 @@ const Market: React.FC = () => {
                     count={pagination.total}
                     rowsPerPage={rowsPerPage}
                     page={page}
-                    onPageChange={(_event, newPage) => setPage(newPage)}
+                    onPageChange={(_event, newPage) => {
+                      updateMarketSearchParams((nextSearchParams) => {
+                        if (newPage > 0) {
+                          nextSearchParams.set('page', String(newPage));
+                        } else {
+                          nextSearchParams.delete('page');
+                        }
+                      });
+                    }}
                     onRowsPerPageChange={(event) => {
-                      setRowsPerPage(parseInt(event.target.value, 10));
-                      setPage(0);
+                      const nextRowsPerPage = parseInt(event.target.value, 10);
+                      updateMarketSearchParams((nextSearchParams) => {
+                        nextSearchParams.delete('page');
+
+                        if (nextRowsPerPage === MARKET_DEFAULT_ROWS_PER_PAGE) {
+                          nextSearchParams.delete('limit');
+                        } else {
+                          nextSearchParams.set('limit', String(nextRowsPerPage));
+                        }
+                      });
                     }}
                     labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
