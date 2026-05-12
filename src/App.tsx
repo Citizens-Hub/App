@@ -385,8 +385,8 @@ function App() {
               <Route path="/market" element={<Market />} />
               <Route path="/market/:skuId" element={<MarketDetail />} />
               <Route path="/checkout" element={<Checkout />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/orders/:orderId" element={<OrderDetail />} />
+              <Route path="/orders" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><Orders /></RequireAuth>} />
+              <Route path="/orders/:orderId" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><OrderDetail /></RequireAuth>} />
               <Route path="/tickets" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><Tickets /></RequireAuth>} />
               <Route path="/tickets/create" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><TicketCreate /></RequireAuth>} />
               <Route path="/tickets/:ticketId" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><TicketDetail /></RequireAuth>} />
