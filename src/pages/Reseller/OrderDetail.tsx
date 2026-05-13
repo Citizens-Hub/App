@@ -64,6 +64,7 @@ const statusColor: Record<OrderStatus, ChipProps['color']> = {
   [OrderStatus.Processing]: 'info',
   [OrderStatus.Canceled]: 'error',
   [OrderStatus.Finished]: 'secondary',
+  [OrderStatus.PaymentReview]: 'warning',
 };
 
 const riskColor: Record<string, ChipProps['color']> = {
@@ -83,6 +84,7 @@ const statusAccentColor: Record<OrderStatus, string> = {
   [OrderStatus.Paid]: '#2e7d32',
   [OrderStatus.Canceled]: '#d32f2f',
   [OrderStatus.Finished]: '#9c27b0',
+  [OrderStatus.PaymentReview]: '#ed6c02',
 };
 
 function getActiveStep(status: OrderStatus) {
@@ -92,6 +94,7 @@ function getActiveStep(status: OrderStatus) {
     case OrderStatus.Processing:
       return 1;
     case OrderStatus.Paid:
+    case OrderStatus.PaymentReview:
       return 2;
     case OrderStatus.Finished:
       return 3;
@@ -507,7 +510,7 @@ const OrderDetail = () => {
       return;
     }
 
-    if (![OrderStatus.Paid, OrderStatus.Finished].includes(order.status)) {
+    if (![OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status)) {
       return;
     }
 
@@ -721,7 +724,7 @@ const OrderDetail = () => {
   const totalItemsCount = orderItems.reduce((acc, item) => acc + item.quantity, 0);
   const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
-  const total = orderItems.reduce((sum, item) => sum + ((item.quantity - (item.cancelledQuantity || 0)) * item.price), 0);
+  const total = orderItems.reduce((sum, item) => sum + (item.sellerNetAmount ?? ((item.quantity - (item.cancelledQuantity || 0)) * item.price)), 0);
   const paymentDocumentAvailable = Boolean(paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || order.invoiceId);
   const chargedLabel = paymentInfo
     ? formatMoney(intl.locale, paymentInfo.amountTotal, paymentInfo.currency)
@@ -782,12 +785,12 @@ const OrderDetail = () => {
                 <FormattedMessage id="orderDetail.status.pending" defaultMessage="Pending" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.processing" defaultMessage="Processing" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.paid" defaultMessage="Paid" />
               </StepLabel>
@@ -817,6 +820,15 @@ const OrderDetail = () => {
                 </Typography>
                 {getStatusChip(order.status)}
               </div>
+
+              {order.status === OrderStatus.PaymentReview && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <FormattedMessage
+                    id="orders.paymentReviewDescription"
+                    defaultMessage="Payment was received, but seller settlement needs manual review before fulfillment."
+                  />
+                </Alert>
+              )}
 
               <Box
                 sx={{
@@ -962,7 +974,7 @@ const OrderDetail = () => {
                     const ccuRoute = formatOrderCcuRoute(intl, marketItem, ships);
                     const packageSummary = formatOrderPackageSummary(intl, marketItem);
                     const isFullyCancelled = item.quantity === itemCancelledQty;
-                    const canShip = !item.shipped && activeQty > 0;
+                    const canShip = order.status === OrderStatus.Paid && order.discountSettlementStatus === 'settled' && !item.shipped && activeQty > 0;
                     const conciergePaintStoreUrl = getConciergePaintStoreUrl(marketItem);
 
                     return (
@@ -1050,8 +1062,17 @@ const OrderDetail = () => {
                         </TableCell>
                         <TableCell align="right">
                           <div className="text-[16px] text-blue-500 font-bold">
-                            {formatOrderUsdPrice(intl.locale, item.price * activeQty)}
+                            {formatOrderUsdPrice(intl.locale, item.sellerNetAmount ?? (item.price * activeQty))}
                           </div>
+                          {(item.sellerDiscountShare || 0) > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              <FormattedMessage
+                                id="reseller.balance.discountShare"
+                                defaultMessage="Discount share: -{amount}"
+                                values={{ amount: formatOrderUsdPrice(intl.locale, item.sellerDiscountShare || 0) }}
+                              />
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="center">
                           {isFullyCancelled ? (
@@ -1161,7 +1182,7 @@ const OrderDetail = () => {
                 <FormattedMessage id="common.loading" defaultMessage="Loading..." />
               </Typography>
             </Box>
-          ) : [OrderStatus.Paid, OrderStatus.Finished].includes(order.status) && !paymentInfoRequested ? (
+          ) : [OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status) && !paymentInfoRequested ? (
             <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
               <CircularProgress />
               <Typography variant="body2" color="text.secondary">

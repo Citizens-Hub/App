@@ -829,6 +829,7 @@ export enum OrderStatus {
   Paid = 'paid',
   Finished = 'finished',
   Canceled = 'canceled',
+  PaymentReview = 'payment_review',
 }
 
 export interface MarketCartItem {
@@ -879,6 +880,8 @@ export interface OrderItem {
   sellerId?: string;
   quantity: number;
   price: number;
+  sellerDiscountShare?: number;
+  sellerNetAmount?: number;
   cancelledQuantity?: number | null;
   shipped?: boolean;
   createdAt?: string;
@@ -924,6 +927,12 @@ export interface Order {
   id: string;
   items: OrderItem[];
   price: number;
+  subtotal?: number;
+  discountAmount?: number;
+  serviceFee?: number;
+  discountSettlementStatus?: 'pending' | 'settled' | 'review';
+  paidFinalizedAt?: string | null;
+  paidFinalizationError?: string | null;
   status: OrderStatus;
   createdAt: string;
   expiresAt?: string | null;
@@ -939,6 +948,8 @@ export interface DetailedOrderItem extends OrderItem {
   skuId: string;
   quantity: number;
   price: number;
+  sellerDiscountShare?: number;
+  sellerNetAmount?: number;
   cancelledQuantity?: number;
   shipped: boolean;
   updatedAt: string;
@@ -1102,6 +1113,9 @@ export interface OrderCheckoutSessionStatus {
   orderId: string;
   status: OrderStatus;
   paidAt: string | null;
+  discountSettlementStatus?: 'pending' | 'settled' | 'review';
+  paidFinalizedAt?: string | null;
+  paidFinalizationError?: string | null;
   paymentInfo: OrderPaymentInfo | null;
 }
 
@@ -1134,6 +1148,8 @@ export interface ResellerBalanceTransaction {
   quantity: number;
   creditAmount?: number | null;
   grossAmount: number;
+  discountShare: number;
+  netAmount: number;
   settlementStatus: 'available' | 'pending';
   shipped: boolean;
   shippedAt: string | null;
@@ -1154,6 +1170,39 @@ export interface ResellerBalanceResponse {
   summary: ResellerBalanceSummary;
   transactions: ResellerBalanceTransaction[];
   pagination: ResellerBalancePagination;
+}
+
+export interface ActiveUserCoupon {
+  id: string;
+  source?: string;
+  amountOff: number;
+  minimumAmount: number;
+  expiresAt: string;
+  claimedAt: string;
+  appliedAt?: string | null;
+  applicableToCurrentCart?: boolean;
+  projectedDiscountAmount?: number;
+}
+
+export interface NewUserCouponPreview {
+  enabled: boolean;
+  currency: string;
+  claimable: boolean;
+  alreadyClaimed: boolean;
+  applicableToCurrentCart?: boolean;
+  projectedDiscountAmount?: number;
+  availableCoupons: ActiveUserCoupon[];
+  activeCoupon: ActiveUserCoupon | null;
+}
+
+export interface NewUserCouponSettings {
+  enabled: boolean;
+  currency: string;
+  tiers: Array<{
+    amountOff: number;
+    minimumAmount: number;
+    probability: number;
+  }>;
 }
 
 export type WithdrawalRequestStatus = 'pending' | 'paid' | 'rejected';

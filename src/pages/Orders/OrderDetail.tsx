@@ -71,6 +71,9 @@ export default function OrderDetail() {
       case OrderStatus.Paid:
         color = "success";
         break;
+      case OrderStatus.PaymentReview:
+        color = "warning";
+        break;
       case OrderStatus.Canceled:
         color = "error";
         break;
@@ -104,6 +107,7 @@ export default function OrderDetail() {
       case OrderStatus.Processing:
         return 1;
       case OrderStatus.Paid:
+      case OrderStatus.PaymentReview:
         return 2;
       case OrderStatus.Finished:
         return 3;
@@ -229,7 +233,7 @@ export default function OrderDetail() {
               variant="text"
               startIcon={<ReceiptLongIcon />}
               onClick={handleViewReceipt}
-              disabled={order.status !== OrderStatus.Paid && order.status !== OrderStatus.Finished}
+              disabled={order.status !== OrderStatus.Paid && order.status !== OrderStatus.Finished && order.status !== OrderStatus.PaymentReview}
             >
               <FormattedMessage id="orderDetail.viewInvoice" defaultMessage="View Invoice" />
             </Button>
@@ -244,12 +248,12 @@ export default function OrderDetail() {
                 <FormattedMessage id="orderDetail.status.pending" defaultMessage="Pending" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.processing" defaultMessage="Processing" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished}>
+            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.paid" defaultMessage="Paid" />
               </StepLabel>
@@ -272,6 +276,7 @@ export default function OrderDetail() {
                     borderLeft: '4px solid',
                     borderLeftColor: order.status === OrderStatus.Paid ? 'success.main' :
                       order.status === OrderStatus.Pending ? 'warning.main' :
+                        order.status === OrderStatus.PaymentReview ? 'warning.main' :
                         order.status === OrderStatus.Canceled ? 'error.main' :
                           order.status === OrderStatus.Finished ? 'secondary.main' :
                             'divider',
@@ -282,6 +287,15 @@ export default function OrderDetail() {
                 </Typography>
                 {getStatusChip(order.status)}
               </div>
+
+              {order.status === OrderStatus.PaymentReview && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <FormattedMessage
+                    id="orders.paymentReviewDescription"
+                    defaultMessage="Payment was received, but seller settlement needs manual review before fulfillment."
+                  />
+                </Alert>
+              )}
               
               <div className="flex flex-col gap-2 items-start">
                 <div>
@@ -325,9 +339,33 @@ export default function OrderDetail() {
               <Typography variant="caption" color="text.secondary">
                 <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
               </Typography>
-              <div className='text-[16px] text-blue-500 font-bold'>
-                {formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order))}
+            <div className='text-[16px] text-blue-500 font-bold'>
+                {order.status === OrderStatus.PaymentReview
+                  ? <FormattedMessage id="orders.paymentReceivedReview" defaultMessage="Payment received, under review" />
+                  : formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order))}
               </div>
+              <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                <FormattedMessage id="orderDetail.subtotal" defaultMessage="Subtotal" />
+              </Typography>
+              <Typography variant="body2">
+                {formatOrderUsdPrice(intl.locale, order.subtotal || order.price)}
+              </Typography>
+              {(order.discountAmount || 0) > 0 && (
+                <>
+                  <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                    <FormattedMessage id="orderDetail.discountAmount" defaultMessage="Discount" />
+                  </Typography>
+                  <Typography variant="body2" color="success.main">
+                    -{formatOrderUsdPrice(intl.locale, order.discountAmount || 0)}
+                  </Typography>
+                </>
+              )}
+              <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                <FormattedMessage id="orderDetail.serviceFee" defaultMessage="Service Fee" />
+              </Typography>
+              <Typography variant="body2">
+                {formatOrderUsdPrice(intl.locale, order.serviceFee || 0)}
+              </Typography>
               
               <Typography variant="caption" color="text.secondary" display="block" mt={1}>
                 <FormattedMessage id="orderDetail.itemsCount" defaultMessage="Items Count" />

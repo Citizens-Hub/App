@@ -230,7 +230,7 @@ export default function Orders() {
             }
 
             const sessionStatus = await response.json() as OrderCheckoutSessionStatus;
-            const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished].includes(sessionStatus.status);
+            const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(sessionStatus.status);
 
             if (isPaidOrder && !hasTrackedGoogleAdsPurchase(checkoutSessionId) && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
@@ -314,6 +314,9 @@ export default function Orders() {
         break;
       case OrderStatus.Paid:
         color = 'success';
+        break;
+      case OrderStatus.PaymentReview:
+        color = 'warning';
         break;
       case OrderStatus.Canceled:
         color = 'error';
@@ -637,6 +640,15 @@ export default function Orders() {
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                         {getStatusChip(order.status)}
                       </Box>
+
+                      {order.status === OrderStatus.PaymentReview && (
+                        <Alert severity="warning" sx={{ py: 0.75 }}>
+                          <FormattedMessage
+                            id="orders.paymentReviewDescription"
+                            defaultMessage="Payment was received, but seller settlement needs manual review before fulfillment."
+                          />
+                        </Alert>
+                      )}
 
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>

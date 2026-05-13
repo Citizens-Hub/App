@@ -65,56 +65,58 @@ export default function ResponsiveSectionLayout({
     <>
       <div
         className={[
-          'absolute top-[65px] right-0 bottom-0 left-0 flex h-[calc(100vh-65px)] flex-col justify-start text-left md:flex-row',
+          'absolute top-[65px] right-0 bottom-0 left-0 flex h-[calc(100vh-65px)] min-h-0 flex-col justify-start text-left md:flex-row',
           containerClassName ?? '',
         ].join(' ').trim()}
       >
-        <div className="hidden min-w-[300px] max-w-[400px] shrink-0 flex-col border-r border-b border-gray-200 text-left dark:border-gray-800 md:flex">
-          {sectionItems.map((item) => (
-            <div
-              key={item.id}
-              role="button"
-              tabIndex={0}
-              aria-current={item.active ? 'page' : undefined}
-              aria-label={item.ariaLabel}
-              className={buildItemClassName(Boolean(item.active))}
-              onClick={() => item.onSelect()}
-              onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
-            >
-              <div className="flex flex-col gap-2">
-                <div className="text-lg">{item.title}</div>
-                {item.description && (
-                  <Typography variant="body2" color="text.secondary">
-                    {item.description}
-                  </Typography>
-                )}
-              </div>
-            </div>
-          ))}
-          {actionItems.length > 0 && (
-            <div className="border-t border-gray-200 dark:border-gray-800">
-              {actionItems.map((item) => (
-                <div
-                  key={item.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={item.ariaLabel}
-                  className={buildItemClassName(false)}
-                  onClick={() => item.onSelect()}
-                  onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="text-lg">{item.title}</div>
-                    {item.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {item.description}
-                      </Typography>
-                    )}
-                  </div>
+        <div className="hidden min-h-0 min-w-[300px] max-w-[400px] shrink-0 border-r border-b border-gray-200 text-left dark:border-gray-800 md:flex md:flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {sectionItems.map((item) => (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                aria-current={item.active ? 'page' : undefined}
+                aria-label={item.ariaLabel}
+                className={buildItemClassName(Boolean(item.active))}
+                onClick={() => item.onSelect()}
+                onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
+              >
+                <div className="flex flex-col gap-2">
+                  <div className="text-lg">{item.title}</div>
+                  {item.description && (
+                    <Typography variant="body2" color="text.secondary">
+                      {item.description}
+                    </Typography>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+            {actionItems.length > 0 && (
+              <div className="border-t border-gray-200 dark:border-gray-800">
+                {actionItems.map((item) => (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={item.ariaLabel}
+                    className={buildItemClassName(false)}
+                    onClick={() => item.onSelect()}
+                    onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
+                  >
+                    <div className="flex flex-col gap-2">
+                      <div className="text-lg">{item.title}</div>
+                      {item.description && (
+                        <Typography variant="body2" color="text.secondary">
+                          {item.description}
+                        </Typography>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {currentItem && (

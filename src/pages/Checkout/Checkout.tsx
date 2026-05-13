@@ -24,11 +24,14 @@ import {
   Checkbox,
   FormControlLabel,
   Link as MuiLink,
+  MenuItem,
+  TextField,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ChevronsRight, LogIn, Mail } from 'lucide-react';
-import { useShipsData, useUserSession } from "@/hooks";
+import { useAuthApi, useShipsData, useUserSession } from "@/hooks";
 import { useCartStore } from "@/hooks/useCartStore";
+import { NewUserCouponPreview } from "@/types";
 import {
   buildMarketCartItem,
   buildMarketCartItemFromResource,
@@ -53,7 +56,7 @@ type PendingCheckoutRequestCache = {
   key: string;
 };
 
-function buildCheckoutFingerprint(items: MarketCartItem[]) {
+function buildCheckoutFingerprint(items: MarketCartItem[], selectedCouponId?: string | null) {
   return JSON.stringify({
     items: items
       .map((item) => ({
@@ -68,6 +71,7 @@ function buildCheckoutFingerprint(items: MarketCartItem[]) {
 
         return left.quantity - right.quantity;
       }),
+    selectedCouponId: typeof selectedCouponId === 'string' ? selectedCouponId.trim() : '',
   });
 }
 
@@ -95,9 +99,9 @@ function buildLegacyCheckoutFingerprint(
   });
 }
 
-function isMatchingCheckoutFingerprint(existingFingerprint: string, items: MarketCartItem[]) {
+function isMatchingCheckoutFingerprint(existingFingerprint: string, items: MarketCartItem[], selectedCouponId?: string | null) {
   return [
-    buildCheckoutFingerprint(items),
+    buildCheckoutFingerprint(items, selectedCouponId),
     buildLegacyCheckoutFingerprint(items, false),
     buildLegacyCheckoutFingerprint(items, true),
   ].includes(existingFingerprint);
@@ -150,13 +154,17 @@ function readPendingCheckoutRequest(userId?: string): PendingCheckoutRequestCach
   }
 }
 
-function getOrCreateCheckoutPendingRequestKey(userId: string | undefined, items: MarketCartItem[]) {
+function getOrCreateCheckoutPendingRequestKey(
+  userId: string | undefined,
+  items: MarketCartItem[],
+  selectedCouponId?: string | null,
+) {
   const existingRequest = readPendingCheckoutRequest(userId);
-  if (existingRequest && isMatchingCheckoutFingerprint(existingRequest.fingerprint, items)) {
+  if (existingRequest && isMatchingCheckoutFingerprint(existingRequest.fingerprint, items, selectedCouponId)) {
     return existingRequest.key;
   }
 
-  const fingerprint = buildCheckoutFingerprint(items);
+  const fingerprint = buildCheckoutFingerprint(items, selectedCouponId);
 
   const nextRequest: PendingCheckoutRequestCache = {
     createdAt: Date.now(),
@@ -191,6 +199,7 @@ export default function Checkout() {
   const [error, setError] = useState<string | null>(null);
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState('');
   const { data: userSession } = useUserSession();
   const { ships: localizedShips } = useShipsData();
   const effectiveShips = stateShips?.length ? stateShips : localizedShips;
@@ -234,10 +243,36 @@ export default function Checkout() {
 
   // 计算总价 - 更新为使用MarketCartItem，考虑数量
   const subtotal = cart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0;
+  const { data: couponPreview } = useAuthApi<NewUserCouponPreview>(
+    user?.token ? `/api/user/new-user-coupon?subtotal=${encodeURIComponent(String(subtotal))}` : null,
+  );
   // 判断是否免除服务费
   const isServiceFeeFree = subtotal >= 20;
   const serviceFee = isServiceFeeFree ? 0 : 0.99;
-  const totalPrice = subtotal + serviceFee;
+  const availableCoupons = couponPreview?.availableCoupons || [];
+  const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) || null;
+  const effectiveCoupon = selectedCoupon || null;
+  const effectiveDiscountAmount = effectiveCoupon?.applicableToCurrentCart
+    ? (effectiveCoupon.projectedDiscountAmount || 0)
+    : 0;
+  const discountedSubtotal = Math.max(subtotal - effectiveDiscountAmount, 0);
+  const totalPrice = discountedSubtotal + serviceFee;
+
+  useEffect(() => {
+    if (!availableCoupons.length) {
+      if (selectedCouponId) {
+        setSelectedCouponId('');
+      }
+      return;
+    }
+
+    if (selectedCouponId && availableCoupons.some((coupon) => coupon.id === selectedCouponId)) {
+      return;
+    }
+
+    const firstApplicableCoupon = availableCoupons.find((coupon) => coupon.applicableToCurrentCart);
+    setSelectedCouponId(firstApplicableCoupon?.id || '');
+  }, [availableCoupons, selectedCouponId]);
 
   // 打开协议确认弹窗
   const handleOpenConfirmDialog = () => {
@@ -335,6 +370,7 @@ export default function Checkout() {
     const idempotencyKey = getOrCreateCheckoutPendingRequestKey(
       user?.id,
       cart,
+      selectedCouponId || null,
     );
 
     // 创建新订单
@@ -347,6 +383,7 @@ export default function Checkout() {
             skuId: item.skuId,
             quantity: item.quantity
           })),
+          selectedCouponId: selectedCouponId || null,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -476,45 +513,45 @@ export default function Checkout() {
   };
 
   return (
-    <Box className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto max-w-[1280px] mx-auto'>
-      <Typography
-        variant="h5"
-        component="h1"
-        align="left"
-        gutterBottom
-        sx={{ mb: 4, fontWeight: 500, mt: 2 }}
-      >
-        {pendingOrder ? (
-          <FormattedMessage id="checkout.resumePayment" defaultMessage="Resume Payment" />
-        ) : (
-          <FormattedMessage id="checkout.title" defaultMessage="Checkout" />
+    <Box className='absolute top-[65px] left-0 right-0 h-[calc(100vh-65px)] overflow-auto'>
+      <Box className='mx-auto w-full max-w-[1280px] px-8 py-4'>
+        <Typography
+          variant="h5"
+          component="h1"
+          align="left"
+          gutterBottom
+          sx={{ mb: 4, fontWeight: 500, mt: 2 }}
+        >
+          {pendingOrder ? (
+            <FormattedMessage id="checkout.resumePayment" defaultMessage="Resume Payment" />
+          ) : (
+            <FormattedMessage id="checkout.title" defaultMessage="Checkout" />
+          )}
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
+            {error}
+          </Alert>
         )}
-      </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
-          {error}
-        </Alert>
-      )}
-
-      {pendingOrder && (
-        <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
-          <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
-            <FormattedMessage
-              id="checkout.pendingOrderNotice"
-              defaultMessage="This order is awaiting payment and will be canceled automatically after the payment window closes."
+        {pendingOrder && (
+          <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
+            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
+              <FormattedMessage
+                id="checkout.pendingOrderNotice"
+                defaultMessage="This order is awaiting payment and will be canceled automatically after the payment window closes."
+              />
+            </Typography>
+            <OrderPaymentDeadline
+              status={pendingOrder.status}
+              expiresAt={pendingOrder.expiresAt}
             />
-          </Typography>
-          <OrderPaymentDeadline
-            status={pendingOrder.status}
-            expiresAt={pendingOrder.expiresAt}
-          />
-        </Alert>
-      )}
+          </Alert>
+        )}
 
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-        {/* 左侧 - 商品列表 */}
-        <Box sx={{ flex: '1 1 65%' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+          <Box sx={{ flex: '1 1 65%' }}>
           <Paper variant="outlined" sx={{ mb: 4, overflow: 'hidden', borderRadius: 0 }}>
             <TableContainer>
               <Table>
@@ -670,6 +707,37 @@ export default function Checkout() {
             <br />
             <FormattedMessage id="checkout.feeWaivedMessage" defaultMessage="Waive software service fee for orders over $20" />
           </Alert>
+          {/* {couponPreview?.activeCoupon && (
+            <Alert severity={couponPreview.applicableToCurrentCart ? 'success' : 'warning'} sx={{ mb: 2, textAlign: 'left', fontSize: '14px' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <FormattedMessage id="checkout.couponTitle" defaultMessage="Available coupon" />
+              </Typography>
+              <Typography variant="body2">
+                <FormattedMessage
+                  id="checkout.couponSummary"
+                  defaultMessage="${amountOff} off, minimum spend ${minimumAmount}, expires at {expiresAt}."
+                  values={{
+                    amountOff: couponPreview.activeCoupon.amountOff.toFixed(2),
+                    minimumAmount: couponPreview.activeCoupon.minimumAmount.toFixed(2),
+                    expiresAt: new Date(couponPreview.activeCoupon.expiresAt).toLocaleString(intl.locale),
+                  }}
+                />
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {couponPreview.applicableToCurrentCart ? (
+                  <FormattedMessage
+                    id="checkout.couponAppliedAuto"
+                    defaultMessage="This coupon will be applied automatically to the items in this order."
+                  />
+                ) : (
+                  <FormattedMessage
+                    id="checkout.couponNotApplicable"
+                    defaultMessage="This cart does not meet the minimum spend requirement yet."
+                  />
+                )}
+              </Typography>
+            </Alert>
+          )} */}
           <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 0 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
@@ -683,6 +751,74 @@ export default function Checkout() {
                 {formatCheckoutPrice(subtotal)}
               </Typography>
             </Box>
+
+            {availableCoupons.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  select
+                  fullWidth
+                  label={intl.formatMessage({ id: 'checkout.couponSelect', defaultMessage: 'Coupon' })}
+                  value={selectedCouponId}
+                  onChange={(event) => setSelectedCouponId(event.target.value)}
+                  helperText={selectedCoupon
+                    ? intl.formatMessage(
+                        {
+                          id: 'checkout.couponSummary',
+                          defaultMessage: '{amountOff} off, minimum spend {minimumAmount}, expires at {expiresAt}.',
+                        },
+                        {
+                          amountOff: formatCheckoutPrice(selectedCoupon.amountOff),
+                          minimumAmount: formatCheckoutPrice(selectedCoupon.minimumAmount),
+                          expiresAt: new Date(selectedCoupon.expiresAt).toLocaleString(intl.locale),
+                        },
+                      )
+                    : intl.formatMessage({
+                        id: 'checkout.couponSelectPlaceholder',
+                        defaultMessage: 'Do not apply a coupon',
+                      })}
+                >
+                  <MenuItem value="">
+                    {intl.formatMessage({
+                      id: 'checkout.noCoupon',
+                      defaultMessage: 'Do not use a coupon',
+                    })}
+                  </MenuItem>
+                  {availableCoupons.map((coupon) => (
+                    <MenuItem key={coupon.id} value={coupon.id}>
+                      {intl.formatMessage(
+                        {
+                          id: 'checkout.couponOption',
+                          defaultMessage: '{amountOff} off · min {minimumAmount}',
+                        },
+                        {
+                          amountOff: formatCheckoutPrice(coupon.amountOff),
+                          minimumAmount: formatCheckoutPrice(coupon.minimumAmount),
+                        },
+                      )}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {selectedCoupon && !selectedCoupon.applicableToCurrentCart && (
+                  <Alert severity="warning" sx={{ mt: 1, textAlign: 'left' }}>
+                    <FormattedMessage
+                      id="checkout.couponNotApplicable"
+                      defaultMessage="This cart does not meet the minimum spend requirement yet."
+                    />
+                  </Alert>
+                )}
+              </Box>
+            )}
+
+            {effectiveDiscountAmount > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="body1">
+                  <FormattedMessage id="checkout.discountAmount" defaultMessage="Discount" />
+                </Typography>
+                <Typography variant="body1" fontWeight="500" color="success.main">
+                  -{formatCheckoutPrice(effectiveDiscountAmount)}
+                </Typography>
+              </Box>
+            )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
@@ -929,6 +1065,7 @@ export default function Checkout() {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   );
 }

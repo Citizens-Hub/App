@@ -33,6 +33,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -126,6 +127,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         body: JSON.stringify({
           email,
           password,
+          referralCode: referralCode.trim() || undefined,
           ...captchaPayload
         }),
       });
@@ -337,6 +339,18 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                 }}
                 error={passwordError}
                 helperText={passwordError ? <FormattedMessage id="login.passwordsNotMatch" defaultMessage="Passwords do not match" /> : ''}
+              />
+            )}
+
+            {action === 'register' && (
+              <TextField
+                margin="normal"
+                fullWidth
+                name="referralCode"
+                label={<FormattedMessage id="register.referralCode" defaultMessage="Referral Code (Optional)" />}
+                id="referralCode"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               />
             )}
 

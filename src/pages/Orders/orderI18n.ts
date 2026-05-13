@@ -18,10 +18,17 @@ export function formatOrderUsdPrice(locale: string, value?: number | null) {
 }
 
 export function getOrderChargedAmount(order: Order) {
-  return order.price - order.items.reduce((acc, item) => acc + item.price * (item.cancelledQuantity || 0), 0);
+  return (order.price || 0) + (order.serviceFee || 0);
 }
 
 export function formatOrderChargedLabel(intl: IntlShape, order: Order) {
+  if (order.status === OrderStatus.PaymentReview) {
+    return intl.formatMessage({
+      id: 'orders.paymentReceivedReview',
+      defaultMessage: 'Payment received, under review',
+    });
+  }
+
   if (order.status === OrderStatus.Paid || order.status === OrderStatus.Finished) {
     return formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order));
   }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -32,11 +32,14 @@ import {
   MarketItemType,
   MarketSortMode,
   Resource,
+  NewUserCouponPreview,
 } from '@/types';
-import { Plus, ShoppingCart, Minus } from 'lucide-react';
-import { useMarketData } from '@/hooks';
+import { Plus, ShoppingCart, Minus, X } from 'lucide-react';
+import { useAuthApi, useMarketData } from '@/hooks';
 import { Link, useSearchParams } from 'react-router';
 import { useCartStore } from '@/hooks/useCartStore';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 import { buildMarketResource } from '@/components/marketItemDisplay';
 import { getMarketDetailUrl } from '@/utils/marketLinks';
 import {
@@ -68,10 +71,20 @@ type MarketPageSearchState = {
 const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
+const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
 const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'sortBy', 'page', 'limit'] as const;
 const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']);
 const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
+
+function formatCouponCountdown(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+}
 
 function parseMarketSearchParamList(searchParams: URLSearchParams, key: string): string[] {
   return searchParams
@@ -155,6 +168,7 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
 
 const Market: React.FC = () => {
   const intl = useIntl();
+  const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const lastCommittedSearchRef = useRef('');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,8 +176,14 @@ const Market: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [couponPopupDismissed, setCouponPopupDismissed] = useState(false);
+  const [couponNow, setCouponNow] = useState(Date.now());
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
+  const autoClaimAttemptedRef = useRef<string | null>(null);
+  const { data: couponPreview, mutate: mutateCouponPreview } = useAuthApi<NewUserCouponPreview>(
+    user.token ? '/api/user/new-user-coupon' : null,
+  );
   const {
     searchTerm,
     selectedItemFilter,
@@ -322,6 +342,106 @@ const Market: React.FC = () => {
   const handleOpenDetails = (item: ListingItem) => {
     window.open(getMarketDetailUrl(item.skuId), '_blank', 'noopener,noreferrer');
   };
+
+  const handleClaimNewUserCoupon = useCallback(async (options?: { silent?: boolean }) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/new-user-coupon/claim`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to claim coupon');
+      }
+
+      await mutateCouponPreview();
+      setCouponPopupDismissed(false);
+      if (!options?.silent) {
+        setSnackbarMessage(intl.formatMessage({
+          id: 'market.newUserCoupon.claimSuccess',
+          defaultMessage: 'Coupon claimed successfully.',
+        }));
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error(error);
+      if (!options?.silent) {
+        setSnackbarMessage(intl.formatMessage({
+          id: 'market.newUserCoupon.claimError',
+          defaultMessage: 'Failed to claim coupon.',
+        }));
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    }
+  }, [intl, mutateCouponPreview, user.token]);
+
+  const activeCoupon = couponPreview?.activeCoupon;
+  const activeCouponExpiresAt = activeCoupon?.expiresAt ? new Date(activeCoupon.expiresAt).getTime() : Number.NaN;
+
+  useEffect(() => {
+    if (
+      !activeCoupon
+      || couponPopupDismissed
+      || !Number.isFinite(activeCouponExpiresAt)
+      || activeCouponExpiresAt <= Date.now()
+    ) {
+      return;
+    }
+
+    const updateCouponNow = () => {
+      setCouponNow(Date.now());
+    };
+
+    updateCouponNow();
+    const intervalId = window.setInterval(updateCouponNow, COUPON_COUNTDOWN_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeCoupon?.id, activeCouponExpiresAt, couponPopupDismissed]);
+
+  useEffect(() => {
+    if (!user.token || !user.id) {
+      autoClaimAttemptedRef.current = null;
+      return;
+    }
+
+    if (!couponPreview?.claimable) {
+      return;
+    }
+
+    const claimAttemptKey = `${user.id}:market-autoclaim`;
+    if (autoClaimAttemptedRef.current === claimAttemptKey) {
+      return;
+    }
+
+    autoClaimAttemptedRef.current = claimAttemptKey;
+    void handleClaimNewUserCoupon({ silent: true });
+  }, [couponPreview?.claimable, handleClaimNewUserCoupon, user.id, user.token]);
+
+  useEffect(() => {
+    if (couponPreview?.activeCoupon?.id) {
+      setCouponPopupDismissed(false);
+    }
+  }, [couponPreview?.activeCoupon?.id]);
+
+  const isCouponPopupVisible = Boolean(
+    activeCoupon
+    && !couponPopupDismissed
+    && Number.isFinite(activeCouponExpiresAt)
+    && activeCouponExpiresAt > couponNow,
+  );
+  const couponAmountOffText = activeCoupon ? formatUsdPrice(intl.locale, activeCoupon.amountOff) : '';
+  const couponMinimumAmountText = activeCoupon ? formatUsdPrice(intl.locale, activeCoupon.minimumAmount) : '';
+  const couponCountdownText = Number.isFinite(activeCouponExpiresAt)
+    ? formatCouponCountdown(activeCouponExpiresAt - couponNow)
+    : '';
 
   if (loading && listingItems.length === 0 && pagination.total === 0) {
     return (
@@ -863,6 +983,119 @@ const Market: React.FC = () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
+
+      {isCouponPopupVisible && activeCoupon && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: { xs: 16, sm: 24 },
+            bottom: { xs: 16, sm: 24 },
+            zIndex: 1300,
+            width: { xs: 'calc(100vw - 32px)', sm: 388 },
+            borderRadius: 0,
+            border: '1px solid',
+            borderColor: 'warning.main',
+            backgroundColor: 'background.paper',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: -1,
+              left: -1,
+              right: -1,
+              height: 4,
+              backgroundColor: 'warning.main',
+            },
+          }}
+        >
+          <Box sx={{ position: 'relative', p: 2.5, pt: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+              <Box sx={{ minWidth: 0, pr: 1 }}>
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    px: 1,
+                    py: 0.375,
+                    borderRadius: 0,
+                    border: '1px solid',
+                    borderColor: 'warning.main',
+                    backgroundColor: 'rgba(237, 108, 2, 0.08)',
+                    color: 'warning.dark',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  <FormattedMessage
+                    id="market.newUserCoupon.popupTitle"
+                    defaultMessage="New user offer"
+                  />
+                </Box>
+
+                <Typography variant="h6" sx={{ mt: 1.5, fontWeight: 800, lineHeight: 1.45 }}>
+                  <FormattedMessage
+                    id="market.newUserCoupon.popupBody"
+                    defaultMessage="Get {amountOff} off a minimum purchase of {minimumAmount}."
+                    values={{
+                      amountOff: couponAmountOffText,
+                      minimumAmount: couponMinimumAmountText,
+                    }}
+                  />
+                </Typography>
+
+              </Box>
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => setCouponPopupDismissed(true)}
+                sx={{
+                  minWidth: 'auto',
+                  p: 0.5,
+                  borderRadius: 0,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'text.primary',
+                    backgroundColor: 'transparent',
+                  },
+                }}
+                aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </Box>
+
+            <Box
+              sx={{
+                mt: 2,
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 1,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <FormattedMessage
+                  id="market.newUserCoupon.popupCountdownPrefix"
+                  defaultMessage="Expires in:"
+                />
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 900, color: 'warning.dark', letterSpacing: '0.1em', lineHeight: 1 }}>
+                {couponCountdownText}
+              </Typography>
+            </Box>
+
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <FormattedMessage
+                id="market.newUserCoupon.popupHint"
+                defaultMessage="The coupon will be applied automatically at checkout."
+              />
+            </Typography>
+          </Box>
+        </Box>
+      )}
     </div>
   );
 };

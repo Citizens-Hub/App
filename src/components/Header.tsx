@@ -551,9 +551,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               <Link
                 to={primaryMarketItem.path}
                 onClick={(event) => navigateToItem(primaryMarketItem, event)}
-                className={`border border-l-4 p-3 text-left font-normal! transition-colors ${isNavItemActive(primaryMarketItem)
-                  ? 'border-cyan-500 border-l-cyan-500 bg-slate-50 text-slate-950! dark:bg-white/5 dark:text-white!'
-                  : 'border-slate-300 border-l-cyan-500 bg-white text-slate-950! hover:border-slate-500 dark:border-slate-800 dark:border-l-cyan-400 dark:bg-[#151515] dark:text-white! dark:hover:border-slate-600'
+                className={`p-3 text-left font-normal! transition-colors ${isNavItemActive(primaryMarketItem)
+                  ? 'border border-l-4 border-cyan-500 border-l-cyan-500 bg-slate-50 text-slate-950! dark:bg-white/5 dark:text-white!'
+                  : 'border border-slate-300 bg-white text-slate-950! hover:border-slate-500 dark:border-slate-800 dark:bg-[#151515] dark:text-white! dark:hover:border-slate-600'
                   }`}
                 aria-current={isNavItemActive(primaryMarketItem) ? 'page' : undefined}
               >

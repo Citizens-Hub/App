@@ -47,6 +47,7 @@ export { default as usePriceHistoryData } from './priceHistory/usePriceHistoryDa
 
 // Watchlist相关钩子
 export { default as useWatchlistData } from './watchlist/useWatchlistData';
+export { useNewUserCoupon, useAdminNewUserCouponSettings } from './useNewUserCoupon';
 
 // Warbond Subscription相关钩子
 export { default as useWarbondSubscription } from './warbondSubscription/useWarbondSubscription'; 

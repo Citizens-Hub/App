@@ -568,7 +568,20 @@ export default function SalesBalancePanel() {
                             )}
                       </TableCell>
                       <TableCell align="right">
-                        {formatUsd(transaction.grossAmount)}
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {formatUsd(transaction.netAmount)}
+                          </Typography>
+                          {transaction.discountShare > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              <FormattedMessage
+                                id="reseller.balance.discountShare"
+                                defaultMessage="Discount share: -{amount}"
+                                values={{ amount: formatUsd(transaction.discountShare) }}
+                              />
+                            </Typography>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
                         {new Date(transaction.createdAt).toLocaleString(intl.locale)}
