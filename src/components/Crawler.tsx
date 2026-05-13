@@ -40,6 +40,7 @@ type InsuranceType = "LTI" | "Other"
 type CrawlerShipSummary = {
   id: number;
   name: string;
+  itemIds?: number[];
   skus: {
     id: number;
   }[];
@@ -236,7 +237,7 @@ function extractCrawlerShipsFromResponse(value: unknown): CrawlerShipSummary[] |
         return null;
       }
 
-      const { id, name, skus } = ship;
+      const { id, name, skus, itemIds } = ship;
 
       if (typeof id !== "number" || typeof name !== "string") {
         return null;
@@ -255,6 +256,9 @@ function extractCrawlerShipsFromResponse(value: unknown): CrawlerShipSummary[] |
       return {
         id,
         name,
+        itemIds: Array.isArray(itemIds)
+          ? itemIds.filter((itemId): itemId is number => typeof itemId === "number")
+          : undefined,
         skus: normalizedSkus,
       };
     })
@@ -346,6 +350,15 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
 
   const normalizeShipName = useCallback((shipName: string) => shipName.toLowerCase().trim(), []);
 
+  const resolveShipByItemId = useCallback((itemId: number | string | null | undefined) => {
+    const normalizedItemId = Number(itemId);
+    if (!Number.isInteger(normalizedItemId) || normalizedItemId <= 0) {
+      return undefined;
+    }
+
+    return ships.find((ship) => ship.itemIds?.includes(normalizedItemId));
+  }, [ships]);
+
   const resolveShipName = useCallback((shipName: string) => {
     const normalizedShipName = normalizeShipName(shipName);
 
@@ -369,7 +382,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     return aliasMatch?.name || "";
   }, [normalizeShipName, shipWithAlias, ships]);
 
-  const tryResolveCCU = useCallback((content: { name: string, match_items: { name: string }[], target_items: { name: string }[] }) => {
+  const tryResolveCCU = useCallback((content: { name: string, match_items: Array<{ id?: number; name: string }>, target_items: Array<{ id?: number; name: string }> }) => {
     const name = content.name;
 
     let from = "";
@@ -412,6 +425,20 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         })
       }
 
+      if (!from) {
+        const mappedFromShip = resolveShipByItemId(content.match_items[0]?.id);
+        if (mappedFromShip) {
+          from = mappedFromShip.name;
+        }
+      }
+
+      if (!to) {
+        const mappedToShip = resolveShipByItemId(content.target_items[0]?.id);
+        if (mappedToShip) {
+          to = mappedToShip.name;
+        }
+      }
+
       const fromShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(from));
       const toShip = ships.find(ship => normalizeShipName(ship.name) === normalizeShipName(to));
 
@@ -420,6 +447,8 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           reason: "CCU_SHIP_NOT_FOUND",
           fromCandidates,
           toCandidates,
+          fromItemId: content.match_items[0]?.id,
+          toItemId: content.target_items[0]?.id,
           resolvedFrom: from,
           resolvedTo: to,
         }));
@@ -442,7 +471,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       return false;
     }
 
-  }, [normalizeShipName, resolveShipName, ships]);
+  }, [normalizeShipName, resolveShipByItemId, resolveShipName, ships]);
 
   const getBuybackDetailKey = useCallback((name: string) => normalizeWhitespace(name).toLowerCase(), []);
 

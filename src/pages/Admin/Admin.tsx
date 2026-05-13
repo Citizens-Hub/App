@@ -6,6 +6,7 @@ import ManufacturerTranslationsManager from './components/ManufacturerTranslatio
 import ShipTranslationsManager from './components/ShipTranslationsManager';
 import ShipSogModelsManager from './components/ShipSogModelsManager';
 import GameShopsManager from './components/GameShopsManager';
+import ShipItemIdMappingsManager from './components/ShipItemIdMappingsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
@@ -20,6 +21,7 @@ enum Page {
   ManufacturerTranslations = 'manufacturerTranslations',
   ShipSogModels = 'shipSogModels',
   ShipImages = 'shipImages',
+  ShipItemIds = 'shipItemIds',
   WatermarkDebug = 'watermarkDebug',
   ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
@@ -73,6 +75,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.ShipImages),
     },
     {
+      id: Page.ShipItemIds,
+      title: <FormattedMessage id="admin.shipItemIds.title" defaultMessage="Ship Item IDs" />,
+      description: <FormattedMessage id="admin.shipItemIds.description" defaultMessage="Maintain crawler item ID fallback mappings for ship matching." />,
+      active: currentPage === Page.ShipItemIds,
+      onSelect: () => setCurrentPage(Page.ShipItemIds),
+    },
+    {
       id: Page.WatermarkDebug,
       title: <FormattedMessage id="admin.watermarkDebug.title" defaultMessage="Watermark Debug Tool" />,
       description: <FormattedMessage id="admin.watermarkDebug.description" defaultMessage="Upload an exported image or a compressed copy to inspect anchor alignment, decode confidence, and recovered route summary." />,
@@ -122,6 +131,7 @@ export default function Admin() {
         {currentPage === Page.ManufacturerTranslations && <ManufacturerTranslationsManager />}
         {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
         {currentPage === Page.ShipImages && <ShipImagesManager />}
+        {currentPage === Page.ShipItemIds && <ShipItemIdMappingsManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}

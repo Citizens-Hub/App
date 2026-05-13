@@ -151,6 +151,7 @@ export interface Ship {
   ctm?: string;
   id: number;
   name: string;
+  itemIds?: number[];
   localizedName?: string;
   medias: {
     productThumbMediumAndSmall: string;
@@ -183,6 +184,23 @@ export interface Ship {
     availableStock: number;
   }[] | null;
   details?: ShipDetail | null;
+}
+
+export interface AdminShipItemIdMappingListItem {
+  itemId: number;
+  shipId: number;
+  shipName: string | null;
+  itemName: string | null;
+  source: 'auto' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminShipItemIdMappingListResponse {
+  success: boolean;
+  data: {
+    mappings: AdminShipItemIdMappingListItem[];
+  };
 }
 
 export interface ShipsData {
