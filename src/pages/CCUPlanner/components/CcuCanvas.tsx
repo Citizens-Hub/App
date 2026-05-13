@@ -52,6 +52,7 @@ import routeImagePayloadService from '../services/RouteImagePayloadService';
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
 const MAX_HISTORY_STEPS = 100;
+const CANVAS_MIN_ZOOM = 0.05;
 type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 type ImageImportStage = 'decoding' | 'extracting' | 'importing';
 type ImageTaskKind = 'export' | 'import';
@@ -1961,7 +1962,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     }
 
     const fitTimer = window.setTimeout(() => {
-      reactFlowInstance.fitView({ padding: 0.2, duration: 260 });
+      reactFlowInstance.fitView({ padding: 0.2, duration: 260, minZoom: CANVAS_MIN_ZOOM });
     }, 90);
 
     return () => {
@@ -2703,6 +2704,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
               nodes={nodes}
               edges={edges}
               proOptions={proOptions}
+              minZoom={CANVAS_MIN_ZOOM}
               nodesFocusable={false}
               edgesFocusable={false}
               onNodesChange={onNodesChange}
@@ -2717,8 +2719,13 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
               edgeTypes={edgeTypes}
               onlyRenderVisibleElements
               fitView
+              fitViewOptions={{ minZoom: CANVAS_MIN_ZOOM, padding: 0.2 }}
             >
-              <Controls position={isMobile ? "top-left" : "bottom-left"} className='dark:invert-90 !shadow-none flex gap-1' />
+              <Controls
+                position={isMobile ? "top-left" : "bottom-left"}
+                className='dark:invert-90 !shadow-none flex gap-1'
+                fitViewOptions={{ minZoom: CANVAS_MIN_ZOOM, padding: 0.2 }}
+              />
               <MiniMap className='dark:invert-90 xl:block hidden' />
               <Background color="#333" gap={32} />
               {showEmptyCanvasHint && (
