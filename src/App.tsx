@@ -15,7 +15,7 @@ import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
 import { useIntl } from 'react-intl'
-import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
+// import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
 
 // 懒加载路由组件
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
@@ -257,9 +257,9 @@ function App() {
     }
   }, [darkMode]);
 
-  useEffect(() => {
-    void startGoogleCustomerReviewsBadge();
-  }, []);
+  // useEffect(() => {
+  //   void startGoogleCustomerReviewsBadge();
+  // }, []);
 
   const { user } = useSelector((state: RootState) => state.user);
   // const { data: userSession } = useUserSession();

@@ -34,11 +34,11 @@ import {
   formatOrderUsdPrice,
   getOrderItemDisplayName,
 } from './orderI18n';
-import {
-  formatGoogleCustomerReviewsDate,
-  getGoogleCustomerReviewsDeliveryDays,
-  renderGoogleCustomerReviewsOptIn,
-} from '@/utils/googleCustomerReviews';
+// import {
+//   formatGoogleCustomerReviewsDate,
+//   getGoogleCustomerReviewsDeliveryDays,
+//   renderGoogleCustomerReviewsOptIn,
+// } from '@/utils/googleCustomerReviews';
 
 const GOOGLE_ADS_PURCHASE_SEND_TO = (
   import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO
@@ -103,29 +103,29 @@ async function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheck
   return true;
 }
 
-function resolveGoogleCustomerReviewsEstimatedDeliveryDate(
-  checkoutSessionStatus: OrderCheckoutSessionStatus,
-  matchedOrder?: {
-    shipmentDeadlineAt?: string | null;
-  } | null,
-) {
-  if (matchedOrder?.shipmentDeadlineAt) {
-    const matchedOrderDate = new Date(matchedOrder.shipmentDeadlineAt);
-    if (!Number.isNaN(matchedOrderDate.getTime())) {
-      return formatGoogleCustomerReviewsDate(matchedOrderDate);
-    }
-  }
+// function resolveGoogleCustomerReviewsEstimatedDeliveryDate(
+//   checkoutSessionStatus: OrderCheckoutSessionStatus,
+//   matchedOrder?: {
+//     shipmentDeadlineAt?: string | null;
+//   } | null,
+// ) {
+//   if (matchedOrder?.shipmentDeadlineAt) {
+//     const matchedOrderDate = new Date(matchedOrder.shipmentDeadlineAt);
+//     if (!Number.isNaN(matchedOrderDate.getTime())) {
+//       return formatGoogleCustomerReviewsDate(matchedOrderDate);
+//     }
+//   }
 
-  const paidAt = checkoutSessionStatus.paidAt || checkoutSessionStatus.paymentInfo?.paidAt;
-  const baseDate = paidAt ? new Date(paidAt) : new Date();
-  if (Number.isNaN(baseDate.getTime())) {
-    return '';
-  }
+//   const paidAt = checkoutSessionStatus.paidAt || checkoutSessionStatus.paymentInfo?.paidAt;
+//   const baseDate = paidAt ? new Date(paidAt) : new Date();
+//   if (Number.isNaN(baseDate.getTime())) {
+//     return '';
+//   }
 
-  const estimatedDeliveryDate = new Date(baseDate);
-  estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + getGoogleCustomerReviewsDeliveryDays());
-  return formatGoogleCustomerReviewsDate(estimatedDeliveryDate);
-}
+//   const estimatedDeliveryDate = new Date(baseDate);
+//   estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + getGoogleCustomerReviewsDeliveryDays());
+//   return formatGoogleCustomerReviewsDate(estimatedDeliveryDate);
+// }
 
 export default function Orders() {
   const { ships, orders, loading, error, mutate, userInfo } = useOrdersData();
@@ -236,16 +236,16 @@ export default function Orders() {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
             }
 
-            if (isPaidOrder) {
-              const matchedOrder = orders.find((order) => order.id === sessionStatus.orderId);
-              await renderGoogleCustomerReviewsOptIn({
-                checkoutSessionId,
-                orderId: sessionStatus.orderId,
-                email: sessionStatus.paymentInfo?.customerEmail || userInfo?.email || currentUser.email || '',
-                deliveryCountry: sessionStatus.paymentInfo?.billingCountry || '',
-                estimatedDeliveryDate: resolveGoogleCustomerReviewsEstimatedDeliveryDate(sessionStatus, matchedOrder),
-              });
-            }
+            // if (isPaidOrder) {
+            //   const matchedOrder = orders.find((order) => order.id === sessionStatus.orderId);
+            //   await renderGoogleCustomerReviewsOptIn({
+            //     checkoutSessionId,
+            //     orderId: sessionStatus.orderId,
+            //     email: sessionStatus.paymentInfo?.customerEmail || userInfo?.email || currentUser.email || '',
+            //     deliveryCountry: sessionStatus.paymentInfo?.billingCountry || '',
+            //     estimatedDeliveryDate: resolveGoogleCustomerReviewsEstimatedDeliveryDate(sessionStatus, matchedOrder),
+            //   });
+            // }
           } catch (checkoutError) {
             console.error('Failed to process checkout success integrations:', checkoutError);
           }
