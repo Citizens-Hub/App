@@ -25,3 +25,4 @@
 
 User-Agent: *
 Disallow: /app-settings
+Sitemap: https://citizenshub.app/sitemap.xml

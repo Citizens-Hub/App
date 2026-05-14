@@ -19,6 +19,7 @@ import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
+import { Helmet } from 'react-helmet';
 import useSWR from 'swr';
 import RsiIcon from '@/components/RsiIcon';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -67,6 +68,7 @@ import {
   getMarketItemSummary,
 } from './marketDisplayI18n';
 import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
+import { getAbsoluteAssetUrl, getMarketDetailUrl } from '@/utils/marketLinks';
 import MarketImageBadge from './components/MarketImageBadge';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -858,21 +860,30 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
 
   if (notFound || !item) {
     return (
-      <div className={embedded
-        ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
-        : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
-      >
-        <div className='mx-auto flex max-w-[1120px] flex-col gap-4'>
-          {!embedded && (
-            <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start' }}>
-              <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
-            </Button>
-          )}
-          <Alert severity="warning">
-            <FormattedMessage id="market.itemNotFound" defaultMessage="This listing does not exist or has been removed." />
-          </Alert>
+      <>
+        {!embedded && (
+          <Helmet>
+            <title>Listing Not Found | Citizens' Hub</title>
+            <meta name="description" content="This market listing does not exist or has been removed from Citizens' Hub." />
+            <meta name="robots" content="noindex,follow" />
+          </Helmet>
+        )}
+        <div className={embedded
+          ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
+          : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
+        >
+          <div className='mx-auto flex max-w-[1120px] flex-col gap-4'>
+            {!embedded && (
+              <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start' }}>
+                <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
+              </Button>
+            )}
+            <Alert severity="warning">
+              <FormattedMessage id="market.itemNotFound" defaultMessage="This listing does not exist or has been removed." />
+            </Alert>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -1011,6 +1022,54 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   });
   const showOcShipBadge = isOcShipListing(displayItem);
   const heroBadgeKind = resolveMarketImageBadgeKind(displayItem);
+  const pageUrl = !embedded && typeof window !== 'undefined'
+    ? getMarketDetailUrl(decodedSkuId)
+    : '';
+  const rawMetaDescription = [
+    displaySummary,
+    item.description,
+    item.externalRef,
+  ].filter(Boolean).join(' ');
+  const metaDescription = rawMetaDescription
+    ? rawMetaDescription.replace(/\s+/g, ' ').trim().slice(0, 160)
+    : `${displayTitle} listing on Citizens' Hub Star Citizen market.`;
+  const detailKeywords = [
+    'Star Citizen market',
+    'Citizens Hub',
+    displayTitle,
+    getMarketItemTypeLabel(intl, item.itemType),
+    item.browseCategory,
+    currentShipName !== '-' ? currentShipName : '',
+    upgradedShipName !== '-' ? upgradedShipName : '',
+    item.insuranceType || '',
+  ].filter(Boolean).join(', ');
+  const socialImage = heroVisual.isCCU
+    ? heroVisual.toImage || heroVisual.fromImage || getAbsoluteAssetUrl(MARKET_ITEM_PLACEHOLDER)
+    : heroVisual.thumbnail || getAbsoluteAssetUrl(MARKET_ITEM_PLACEHOLDER);
+  const offerAvailability = availableStock > 0
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock';
+  const productStructuredData = !embedded ? {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: displayTitle,
+    description: metaDescription,
+    image: socialImage ? [socialImage] : undefined,
+    sku: decodedSkuId,
+    category: getMarketItemTypeLabel(intl, item.itemType),
+    brand: {
+      '@type': 'Brand',
+      name: "Citizens' Hub",
+    },
+    offers: {
+      '@type': 'Offer',
+      url: pageUrl,
+      priceCurrency: 'USD',
+      price: displayPrice.toFixed(2),
+      availability: offerAvailability,
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  } : null;
   const purchasePanel = (
     <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
       <div className='flex flex-col gap-3'>
@@ -1166,396 +1225,404 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   // const formattedCreatedAt = new Date(item.createdAt).toLocaleString(intl.locale);
 
   return (
-    <div className={embedded
-      ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
-      : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
-    >
-      <div className={`mx-auto flex w-full flex-col gap-4 ${embedded ? 'max-w-[1120px]' : 'max-w-[1280px]'}`}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'stretch', md: 'flex-start' },
-            gap: 2,
-          }}
-        >
-          <div className='flex min-w-0 flex-1 flex-col gap-2'>
-            {!embedded && (
-              <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start', px: 0 }}>
-                <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
-              </Button>
-            )}
-            <Typography variant="h5" className='break-words'>
-              {displayTitle}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" className='break-words'>
-              {displaySummary}
-            </Typography>
-          </div>
-
-          {!embedded && (
-            <div className='flex shrink-0 flex-wrap items-center gap-3 self-start md:justify-end'>
-              <Link to="/orders" className='rounded '>
-                <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
-              </Link>
-              <Link to="/tickets" className='rounded '>
-                <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
-              </Link>
-              <IconButton
-                onClick={openCart}
-                sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
-              >
-                <Badge badgeContent={cart.length} color="secondary" overlap="circular">
-                  <ShoppingCart className='h-6 w-6' />
-                </Badge>
-              </IconButton>
-            </div>
+    <>
+      {!embedded && (
+        <Helmet>
+          <title>{`${displayTitle} | Citizens' Hub Market`}</title>
+          <meta name="description" content={metaDescription} />
+          <meta name="keywords" content={detailKeywords} />
+          <meta name="robots" content="index,follow" />
+          <meta property="og:title" content={`${displayTitle} | Citizens' Hub Market`} />
+          <meta property="og:description" content={metaDescription} />
+          <meta property="og:url" content={pageUrl} />
+          <meta property="og:type" content="product" />
+          <meta property="og:image" content={socialImage} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={`${displayTitle} | Citizens' Hub Market`} />
+          <meta name="twitter:description" content={metaDescription} />
+          <meta name="twitter:image" content={socialImage} />
+          <link rel="canonical" href={pageUrl} />
+          {productStructuredData && (
+            <script type="application/ld+json">
+              {JSON.stringify(productStructuredData)}
+            </script>
           )}
-        </Box>
-
-        <div className={`grid grid-cols-1 gap-6 ${embedded ? 'xl:grid-cols-1' : 'xl:grid-cols-[minmax(0,_1fr)_360px]'}`}>
-          <div className='flex flex-col gap-6'>
-            <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
-              {heroVisual.isCCU ? (
-                <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
-                  <Box
-                    component="img"
-                    sx={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      width: '36%',
-                      height: '100%',
-                      objectFit: 'cover',
-                    }}
-                    src={heroVisual.fromImage}
-                    alt={heroVisual.fromAlt}
-                  />
-                  <Box
-                    component="img"
-                    sx={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 0,
-                      width: '64%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      boxShadow: '0 0 24px 0 rgba(0, 0, 0, 0.2)',
-                    }}
-                    src={heroVisual.toImage}
-                    alt={heroVisual.toAlt}
-                  />
-                  <div className='absolute top-1/2 left-[36%] -translate-x-1/2 -translate-y-1/2 bg-black/45 p-2 text-white'>
-                    <ArrowRightLeft className='h-6 w-6' />
-                  </div>
-                  {item.itemType !== 'credit' && discount && (
-                    <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
-                      {formatMarketDiscount(intl, discount)}
-                    </div>
-                  )}
-                  {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} raised size="detail" />}
-                  <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white'>
-                    <div className='line-clamp-2 text-sm font-medium'>{displayItem.name}</div>
-                  </div>
-                </Box>
-              ) : (
-                <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
-                  <Box
-                    component="img"
-                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    src={heroVisual.thumbnail}
-                    alt={displayItem.name}
-                  />
-                  {item.itemType !== 'credit' && discount && (
-                    <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
-                      {formatMarketDiscount(intl, discount)}
-                    </div>
-                  )}
-                  {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} size="detail" />}
-                </Box>
+        </Helmet>
+      )}
+      <div className={embedded
+        ? 'h-full overflow-y-auto bg-white px-4 py-4 text-left dark:bg-transparent'
+        : 'absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'}
+      >
+        <div className={`mx-auto flex w-full flex-col gap-4 ${embedded ? 'max-w-[1120px]' : 'max-w-[1280px]'}`}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'stretch', md: 'flex-start' },
+              gap: 2,
+            }}
+          >
+            <div className='flex min-w-0 flex-1 flex-col gap-2'>
+              {!embedded && (
+                <Button variant="text" onClick={() => navigate('/market')} sx={{ alignSelf: 'flex-start', px: 0 }}>
+                  <FormattedMessage id="market.backToMarket" defaultMessage="Back to market" />
+                </Button>
               )}
-            </div>
-
-            {embedded && purchasePanel}
-
-            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-              <DetailField
-                label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
-                value={getMarketItemTypeLabel(intl, item.itemType)}
-              />
-              {typeof displayItem.cost === 'number' && displayItem.cost > 0 && (
-                <DetailField
-                  label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
-                  value={formatUsdPrice(intl.locale, displayItem.cost)}
-                />
-              )}
-              {showOcShipBadge ? (
-                <HighlightDetailField
-                  label={intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}
-                  value={intl.formatMessage({ id: 'market.detail.ocShipNoticeTitle', defaultMessage: 'Original Concept LTI' })}
-                />
-              ) : (
-                <DetailField
-                  label={item.itemType === 'credit'
-                    ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
-                    : item.itemType === 'package'
-                      ? intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })
-                      : ''}
-                  value={item.itemType === 'credit'
-                    ? (selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-')
-                    : item.itemType === 'package'
-                      ? (item.insuranceType || '-')
-                      : undefined}
-                />
-              )}
-            </div>
-
-            <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                <FormattedMessage id="market.detail.productInfo" defaultMessage="Product Details" />
+              <Typography variant="h5" className='break-words'>
+                {displayTitle}
               </Typography>
+              <Typography variant="body2" color="text.secondary" className='break-words'>
+                {displaySummary}
+              </Typography>
+            </div>
 
-              {item.itemType === 'ccu' && (
-                <div className='flex flex-col gap-6'>
-                  <div className='flex flex-col gap-3'>
-                    <div className='flex items-center gap-2 text-slate-900 dark:text-slate-100'>
-                      <ArrowRightLeft className='h-4 w-4' />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        <FormattedMessage id="market.detail.compare.title" defaultMessage="Ship Upgrade Comparison" />
-                      </Typography>
+            {!embedded && (
+              <div className='flex shrink-0 flex-wrap items-center gap-3 self-start md:justify-end'>
+                <Link to="/orders" className='rounded '>
+                  <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+                </Link>
+                <Link to="/tickets" className='rounded '>
+                  <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
+                </Link>
+                <IconButton
+                  onClick={openCart}
+                  sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
+                >
+                  <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                    <ShoppingCart className='h-6 w-6' />
+                  </Badge>
+                </IconButton>
+              </div>
+            )}
+          </Box>
+
+          <div className={`grid grid-cols-1 gap-6 ${embedded ? 'xl:grid-cols-1' : 'xl:grid-cols-[minmax(0,_1fr)_360px]'}`}>
+            <div className='flex flex-col gap-6'>
+              <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
+                {heroVisual.isCCU ? (
+                  <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
+                    <Box
+                      component="img"
+                      sx={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        width: '36%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                      src={heroVisual.fromImage}
+                      alt={heroVisual.fromAlt}
+                    />
+                    <Box
+                      component="img"
+                      sx={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        width: '64%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        boxShadow: '0 0 24px 0 rgba(0, 0, 0, 0.2)',
+                      }}
+                      src={heroVisual.toImage}
+                      alt={heroVisual.toAlt}
+                    />
+                    <div className='absolute top-1/2 left-[36%] -translate-x-1/2 -translate-y-1/2 bg-black/45 p-2 text-white'>
+                      <ArrowRightLeft className='h-6 w-6' />
                     </div>
-                    <div className='text-sm text-slate-500 dark:text-slate-400'>
-                      <FormattedMessage
-                        id="market.detail.compare.description"
-                        defaultMessage="Compare the current ship and the upgraded ship side by side before placing the order."
+                    {item.itemType !== 'credit' && discount && (
+                      <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
+                        {formatMarketDiscount(intl, discount)}
+                      </div>
+                    )}
+                    {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} raised size="detail" />}
+                    <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white'>
+                      <div className='line-clamp-2 text-sm font-medium'>{displayItem.name}</div>
+                    </div>
+                  </Box>
+                ) : (
+                  <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
+                    <Box
+                      component="img"
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      src={heroVisual.thumbnail}
+                      alt={displayItem.name}
+                    />
+                    {item.itemType !== 'credit' && discount && (
+                      <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
+                        {formatMarketDiscount(intl, discount)}
+                      </div>
+                    )}
+                    {heroBadgeKind && <MarketImageBadge kind={heroBadgeKind} size="detail" />}
+                  </Box>
+                )}
+              </div>
+
+              {embedded && purchasePanel}
+
+              <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                <DetailField
+                  label={intl.formatMessage({ id: 'market.detail.type', defaultMessage: 'Type' })}
+                  value={getMarketItemTypeLabel(intl, item.itemType)}
+                />
+                {typeof displayItem.cost === 'number' && displayItem.cost > 0 && (
+                  <DetailField
+                    label={intl.formatMessage({ id: 'market.detail.meltValue', defaultMessage: 'Exchange value' })}
+                    value={formatUsdPrice(intl.locale, displayItem.cost)}
+                  />
+                )}
+                {showOcShipBadge ? (
+                  <HighlightDetailField
+                    label={intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })}
+                    value={intl.formatMessage({ id: 'market.detail.ocShipNoticeTitle', defaultMessage: 'Original Concept LTI' })}
+                  />
+                ) : (
+                  <DetailField
+                    label={item.itemType === 'credit'
+                      ? intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })
+                      : item.itemType === 'package'
+                        ? intl.formatMessage({ id: 'market.detail.insurance', defaultMessage: 'Insurance' })
+                        : ''}
+                    value={item.itemType === 'credit'
+                      ? (selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-')
+                      : item.itemType === 'package'
+                        ? (item.insuranceType || '-')
+                        : undefined}
+                  />
+                )}
+              </div>
+
+              <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  <FormattedMessage id="market.detail.productInfo" defaultMessage="Product Details" />
+                </Typography>
+
+                {item.itemType === 'ccu' && (
+                  <div className='flex flex-col gap-6'>
+                    <div className='flex flex-col gap-3'>
+                      <div className='flex items-center gap-2 text-slate-900 dark:text-slate-100'>
+                        <ArrowRightLeft className='h-4 w-4' />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          <FormattedMessage id="market.detail.compare.title" defaultMessage="Ship Upgrade Comparison" />
+                        </Typography>
+                      </div>
+                      <div className='text-sm text-slate-500 dark:text-slate-400'>
+                        <FormattedMessage
+                          id="market.detail.compare.description"
+                          defaultMessage="Compare the current ship and the upgraded ship side by side before placing the order."
+                        />
+                      </div>
+
+                      <ShipComparisonTable
+                        currentShipName={currentShipName}
+                        newShipName={upgradedShipName}
+                        rows={comparisonRows}
                       />
                     </div>
 
-                    <ShipComparisonTable
-                      currentShipName={currentShipName}
-                      newShipName={upgradedShipName}
-                      rows={comparisonRows}
-                    />
+                    <div className='flex flex-col gap-3'>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        <FormattedMessage id="market.detail.upgradeShipDetails" defaultMessage="Upgraded Ship Details" />
+                      </Typography>
+
+                      <ShipIntroductionCard
+                        eyebrow={intl.formatMessage({ id: 'market.detail.upgradeShip', defaultMessage: 'Upgraded Ship' })}
+                        ship={toShipInfo}
+                        fallbackName={upgradedShipName}
+                        fallbackImage={visual.toImage || MARKET_ITEM_PLACEHOLDER}
+                        fallbackDescription={displayItem.description}
+                      />
+                    </div>
                   </div>
+                )}
 
-                  <div className='flex flex-col gap-3'>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      <FormattedMessage id="market.detail.upgradeShipDetails" defaultMessage="Upgraded Ship Details" />
-                    </Typography>
-
-                    <ShipIntroductionCard
-                      eyebrow={intl.formatMessage({ id: 'market.detail.upgradeShip', defaultMessage: 'Upgraded Ship' })}
-                      ship={toShipInfo}
-                      fallbackName={upgradedShipName}
-                      fallbackImage={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                      fallbackDescription={displayItem.description}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {item.itemType === 'package' && (
-                <div className='flex flex-col gap-4'>
-                  {(packageShips.length > 0 || packageItems.length > 0) && (
-                    <div className='flex flex-col gap-2'>
-                      <div className='flex flex-wrap items-center gap-2'>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          <FormattedMessage
-                            id={item.packageKind === 'bundle' ? 'market.detail.bundleContents' : 'market.detail.packageContents'}
-                            defaultMessage={item.packageKind === 'bundle' ? 'Bundle Contents' : 'Package Contents'}
-                          />
-                        </Typography>
-                        {/* {packageShips.length > 0 && (
-                          <Chip
-                            size="small"
-                            label={intl.formatMessage(
-                              { id: 'market.detail.shipCount', defaultMessage: '{count} ships' },
-                              { count: packageShips.length },
-                            )}
-                          />
-                        )}
-                        {packageItems.length > 0 && (
-                          <Chip
-                            size="small"
-                            label={intl.formatMessage(
-                              { id: 'market.detail.extraCount', defaultMessage: '{count} extras' },
-                              { count: packageItems.length },
-                            )}
-                          />
-                        )} */}
-                      </div>
-                      <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
-                        {packageShips.map((ship) => {
-                          const shipInfo = findShip(ships, ship.shipId, ship.shipName);
-                          const shipImage = getShipDetailThumbnailUrl(shipInfo) || getShipThumbLarge(shipInfo) || MARKET_ITEM_PLACEHOLDER;
-                          const msrpText = shipInfo?.msrp
-                            ? formatUsdPrice(intl.locale, shipInfo.msrp / 100)
-                            : null;
-
-                          return (
-                            <PackageContentCard
-                              key={`${item.skuId}-${ship.sortOrder}-${ship.shipName}`}
-                              imageUrl={shipImage}
-                              eyebrow={intl.formatMessage({ id: 'market.detail.ship', defaultMessage: 'Ship' })}
-                              title={ship.shipName}
-                              subtitle={shipInfo?.manufacturer?.name || localizeShipType(locale, shipInfo?.type) || null}
-                              metadata={[
-                                msrpText
-                                  ? intl.formatMessage(
-                                      { id: 'market.detail.shipMsrp', defaultMessage: 'MSRP {price}' },
-                                      { price: msrpText },
-                                    )
-                                  : '',
-                                item.insuranceType
-                                  ? intl.formatMessage(
-                                      { id: 'market.detail.shipInsurance', defaultMessage: 'Insurance {insurance}' },
-                                      { insurance: item.insuranceType },
-                                    )
-                                  : '',
-                              ]}
-                            />
-                          );
-                        })}
-
-                        {packageItemsWithImage.map((entry) => (
-                          <PackageContentCard
-                            key={`${item.skuId}-${entry.sortOrder}-${entry.itemName}`}
-                            imageUrl={entry.imageUrl ? toLargeRsiImage(entry.imageUrl) || entry.imageUrl : null}
-                            eyebrow={entry.itemKind || intl.formatMessage({ id: 'market.detail.extra', defaultMessage: 'Extra' })}
-                            title={entry.itemName}
-                            subtitle={entry.itemKind || null}
-                          />
-                        ))}
-                      </div>
-
-                      {packageItemsWithoutImage.length > 0 && (
-                        <div className='mt-2 flex flex-col gap-2'>
+                {item.itemType === 'package' && (
+                  <div className='flex flex-col gap-4'>
+                    {(packageShips.length > 0 || packageItems.length > 0) && (
+                      <div className='flex flex-col gap-2'>
+                        <div className='flex flex-wrap items-center gap-2'>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                             <FormattedMessage
-                              id="market.detail.additionalItems"
-                              defaultMessage="Additional Included Items"
+                              id={item.packageKind === 'bundle' ? 'market.detail.bundleContents' : 'market.detail.packageContents'}
+                              defaultMessage={item.packageKind === 'bundle' ? 'Bundle Contents' : 'Package Contents'}
                             />
                           </Typography>
-                          <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
-                            {packageItemsWithoutImage.map((entry, index) => (
-                              <div
-                                key={`${item.skuId}-textonly-${entry.sortOrder}-${entry.itemName}`}
-                                className={index > 0 ? 'border-t border-gray-200 dark:border-gray-800' : ''}
-                              >
-                                <TextOnlyPackageItemRow
-                                  title={entry.itemName}
-                                  itemKind={entry.itemKind || intl.formatMessage({ id: 'market.detail.extra', defaultMessage: 'Extra' })}
-                                />
-                              </div>
-                            ))}
-                          </div>
                         </div>
-                      )}
 
-                      {packageShips.length > 0 && (
-                        <div className='mt-4 flex flex-col gap-4'>
-                          <div className='flex items-center justify-between gap-3'>
+                        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+                          {packageShips.map((ship) => {
+                            const shipInfo = findShip(ships, ship.shipId, ship.shipName);
+                            const shipImage = getShipDetailThumbnailUrl(shipInfo) || getShipThumbLarge(shipInfo) || MARKET_ITEM_PLACEHOLDER;
+                            const msrpText = shipInfo?.msrp
+                              ? formatUsdPrice(intl.locale, shipInfo.msrp / 100)
+                              : null;
+
+                            return (
+                              <PackageContentCard
+                                key={`${item.skuId}-${ship.sortOrder}-${ship.shipName}`}
+                                imageUrl={shipImage}
+                                eyebrow={intl.formatMessage({ id: 'market.detail.ship', defaultMessage: 'Ship' })}
+                                title={ship.shipName}
+                                subtitle={shipInfo?.manufacturer?.name || localizeShipType(locale, shipInfo?.type) || null}
+                                metadata={[
+                                  msrpText
+                                    ? intl.formatMessage(
+                                        { id: 'market.detail.shipMsrp', defaultMessage: 'MSRP {price}' },
+                                        { price: msrpText },
+                                      )
+                                    : '',
+                                  item.insuranceType
+                                    ? intl.formatMessage(
+                                        { id: 'market.detail.shipInsurance', defaultMessage: 'Insurance {insurance}' },
+                                        { insurance: item.insuranceType },
+                                      )
+                                    : '',
+                                ]}
+                              />
+                            );
+                          })}
+
+                          {packageItemsWithImage.map((entry) => (
+                            <PackageContentCard
+                              key={`${item.skuId}-${entry.sortOrder}-${entry.itemName}`}
+                              imageUrl={entry.imageUrl ? toLargeRsiImage(entry.imageUrl) || entry.imageUrl : null}
+                              eyebrow={entry.itemKind || intl.formatMessage({ id: 'market.detail.extra', defaultMessage: 'Extra' })}
+                              title={entry.itemName}
+                              subtitle={entry.itemKind || null}
+                            />
+                          ))}
+                        </div>
+
+                        {packageItemsWithoutImage.length > 0 && (
+                          <div className='mt-2 flex flex-col gap-2'>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                               <FormattedMessage
-                                id="market.detail.includedShipDetails"
-                                defaultMessage="Included Ship Details"
+                                id="market.detail.additionalItems"
+                                defaultMessage="Additional Included Items"
                               />
                             </Typography>
-                            {packageShipDetailsLoading && (
-                              <div className='text-xs text-slate-500 dark:text-slate-400'>
+                            <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
+                              {packageItemsWithoutImage.map((entry, index) => (
+                                <div
+                                  key={`${item.skuId}-textonly-${entry.sortOrder}-${entry.itemName}`}
+                                  className={index > 0 ? 'border-t border-gray-200 dark:border-gray-800' : ''}
+                                >
+                                  <TextOnlyPackageItemRow
+                                    title={entry.itemName}
+                                    itemKind={entry.itemKind || intl.formatMessage({ id: 'market.detail.extra', defaultMessage: 'Extra' })}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {packageShips.length > 0 && (
+                          <div className='mt-4 flex flex-col gap-4'>
+                            <div className='flex items-center justify-between gap-3'>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                                 <FormattedMessage
-                                  id="market.detail.loadingShipDescriptions"
-                                  defaultMessage="Loading ship descriptions..."
+                                  id="market.detail.includedShipDetails"
+                                  defaultMessage="Included Ship Details"
                                 />
-                              </div>
-                            )}
+                              </Typography>
+                              {packageShipDetailsLoading && (
+                                <div className='text-xs text-slate-500 dark:text-slate-400'>
+                                  <FormattedMessage
+                                    id="market.detail.loadingShipDescriptions"
+                                    defaultMessage="Loading ship descriptions..."
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className='flex flex-col gap-4'>
+                              {packageShips.map((packageShip) => {
+                                const detailedShip = packageShip.shipId ? packageShipDetailsById[packageShip.shipId] : undefined;
+                                const fallbackShip = findShip(ships, packageShip.shipId, packageShip.shipName);
+                                const shipInfo = detailedShip || fallbackShip;
+                                const shipImage = resolveShipImage(shipInfo, getShipThumbLarge(fallbackShip) || MARKET_ITEM_PLACEHOLDER);
+
+                                return (
+                                  <ShipIntroductionCard
+                                    key={`${item.skuId}-ship-detail-${packageShip.sortOrder}-${packageShip.shipName}`}
+                                    eyebrow={intl.formatMessage({ id: 'market.detail.includedShip', defaultMessage: 'Included Ship' })}
+                                    ship={shipInfo}
+                                    fallbackName={packageShip.shipName}
+                                    fallbackImage={shipImage}
+                                  />
+                                );
+                              })}
+                            </div>
                           </div>
-
-                          <div className='flex flex-col gap-4'>
-                            {packageShips.map((packageShip) => {
-                              const detailedShip = packageShip.shipId ? packageShipDetailsById[packageShip.shipId] : undefined;
-                              const fallbackShip = findShip(ships, packageShip.shipId, packageShip.shipName);
-                              const shipInfo = detailedShip || fallbackShip;
-                              const shipImage = resolveShipImage(shipInfo, getShipThumbLarge(fallbackShip) || MARKET_ITEM_PLACEHOLDER);
-
-                              return (
-                                <ShipIntroductionCard
-                                  key={`${item.skuId}-ship-detail-${packageShip.sortOrder}-${packageShip.shipName}`}
-                                  eyebrow={intl.formatMessage({ id: 'market.detail.includedShip', defaultMessage: 'Included Ship' })}
-                                  ship={shipInfo}
-                                  fallbackName={packageShip.shipName}
-                                  fallbackImage={shipImage}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {item.itemType === 'credit' && (
-                <div className='flex flex-col gap-4'>
-                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                    <DetailField
-                      label={intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })}
-                      value={selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-'}
-                    />
-                    <DetailField
-                      label={intl.formatMessage({ id: 'market.credit.eligibleSellers', defaultMessage: 'Eligible Sellers' })}
-                      value={typeof selectedCreditOption?.sellerCount === 'number' ? String(selectedCreditOption.sellerCount) : '-'}
-                    />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedCreditOption
-                      ? formatCreditPriceFormula(intl, selectedCreditOption.amount, selectedCreditOption.discountRateBps)
-                      : (displayItem.externalRef || displayItem.description)}
-                  </Typography>
-                </div>
-              )}
+                )}
 
-              {displayItem.description && (
-                <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
-                  {displayItem.description}
-                </div>
-              )}
+                {item.itemType === 'credit' && (
+                  <div className='flex flex-col gap-4'>
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                      <DetailField
+                        label={intl.formatMessage({ id: 'market.credit.faceValue', defaultMessage: 'Face Value' })}
+                        value={selectedCreditOption?.amount ? formatUsdPrice(intl.locale, selectedCreditOption.amount) : '-'}
+                      />
+                      <DetailField
+                        label={intl.formatMessage({ id: 'market.credit.eligibleSellers', defaultMessage: 'Eligible Sellers' })}
+                        value={typeof selectedCreditOption?.sellerCount === 'number' ? String(selectedCreditOption.sellerCount) : '-'}
+                      />
+                    </div>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedCreditOption
+                        ? formatCreditPriceFormula(intl, selectedCreditOption.amount, selectedCreditOption.discountRateBps)
+                        : (displayItem.externalRef || displayItem.description)}
+                    </Typography>
+                  </div>
+                )}
+
+                {displayItem.description && (
+                  <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
+                    {displayItem.description}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={`flex flex-col gap-6 ${embedded ? '' : 'xl:sticky xl:top-4 xl:self-start'}`}>
+              {!embedded && purchasePanel}
             </div>
           </div>
-
-          <div className={`flex flex-col gap-6 ${embedded ? '' : 'xl:sticky xl:top-4 xl:self-start'}`}>
-            {!embedded && purchasePanel}
-          </div>
         </div>
-      </div>
 
-      {!embedded && (
-        <CartDrawer
-          open={cartOpen}
-          cart={cart}
-          onClose={closeCart}
-          onRemoveFromCart={removeFromCart}
-          onUpdateQuantity={updateItemQuantity}
-          getAvailableStock={getAvailableStockByResourceId}
-        />
-      )}
+        {!embedded && (
+          <CartDrawer
+            open={cartOpen}
+            cart={cart}
+            onClose={closeCart}
+            onRemoveFromCart={removeFromCart}
+            onUpdateQuantity={updateItemQuantity}
+            getAvailableStock={getAvailableStockByResourceId}
+          />
+        )}
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Alert
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={3000}
           onClose={() => setSnackbarOpen(false)}
-          severity={snackbarSeverity}
-          variant="filled"
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </div>
+          <Alert
+            onClose={() => setSnackbarOpen(false)}
+            severity={snackbarSeverity}
+            variant="filled"
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
+      </div>
+    </>
   );
 }

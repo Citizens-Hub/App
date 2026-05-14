@@ -1,9 +1,26 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
+type SitemapRoute = {
+  path: string;
+  priority: number;
+  changefreq: string;
+};
+
+type MarketSitemapItem = {
+  skuId: string;
+};
+
+type MarketSitemapResponse = {
+  items?: MarketSitemapItem[];
+  pagination?: {
+    totalPages?: number;
+  };
+};
+
 // Define public routes that should be included in sitemap
 // Exclude routes that require authentication, have dynamic params, or are not public
-const publicRoutes = [
+const publicRoutes: SitemapRoute[] = [
   {
     path: '/',
     priority: 0.8,
@@ -23,6 +40,11 @@ const publicRoutes = [
     path: '/price-history',
     priority: 1,
     changefreq: 'weekly',
+  },
+  {
+    path: '/market',
+    priority: 1,
+    changefreq: 'daily',
   },
   {
     path: '/store-preview',
@@ -102,6 +124,32 @@ const getBlogPosts = async () => {
   return data.posts;
 };
 
+const getMarketItems = async () => {
+  const apiBaseUrl = process.env.VITE_PUBLIC_API_ENDPOINT || 'https://worker.citizenshub.app';
+  const firstPageResponse = await fetch(`${apiBaseUrl}/api/market/search?limit=100&page=0`);
+  const firstPageData = await firstPageResponse.json() as MarketSitemapResponse;
+  const totalPages = firstPageData.pagination?.totalPages || 0;
+  const items = [...(firstPageData.items || [])];
+
+  if (totalPages <= 1) {
+    return items;
+  }
+
+  const remainingPages = Array.from({ length: totalPages - 1 }, (_, index) => index + 1);
+  const remainingResponses = await Promise.all(
+    remainingPages.map(async (page) => {
+      const response = await fetch(`${apiBaseUrl}/api/market/search?limit=100&page=${page}`);
+      return response.json() as Promise<MarketSitemapResponse>;
+    }),
+  );
+
+  remainingResponses.forEach((payload) => {
+    items.push(...(payload.items || []));
+  });
+
+  return items;
+};
+
 const generateSlug = (name: string): string => {
   return name
     .toLowerCase()
@@ -129,6 +177,19 @@ const main = async () => {
       path: `/blog/${blogPost.slug}`,
       priority: 0.8,
       changefreq: 'weekly',
+    });
+  });
+
+  const marketItems = await getMarketItems();
+  marketItems.forEach((item) => {
+    if (!item?.skuId) {
+      return;
+    }
+
+    publicRoutes.push({
+      path: `/market/${encodeURIComponent(item.skuId)}`,
+      priority: 0.7,
+      changefreq: 'daily',
     });
   });
 

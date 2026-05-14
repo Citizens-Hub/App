@@ -37,11 +37,12 @@ import {
 import { Plus, ShoppingCart, Minus, X } from 'lucide-react';
 import { useAuthApi, useMarketData } from '@/hooks';
 import { Link, useSearchParams } from 'react-router';
+import { Helmet } from 'react-helmet';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { buildMarketResource } from '@/components/marketItemDisplay';
-import { getMarketDetailUrl } from '@/utils/marketLinks';
+import { getAbsoluteAssetUrl, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
 import {
   getAvailableStock,
   getListingBasePrice,
@@ -442,6 +443,29 @@ const Market: React.FC = () => {
   const couponCountdownText = Number.isFinite(activeCouponExpiresAt)
     ? formatCouponCountdown(activeCouponExpiresAt - couponNow)
     : '';
+  const hasActiveFilters = Boolean(
+    searchTerm.trim()
+    || selectedItemFilter !== 'all'
+    || showOcOnly
+    || sortBy !== 'recommended'
+    || page > 0
+    || rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE,
+  );
+  const pageUrl = typeof window !== 'undefined'
+    ? window.location.href
+    : getMarketListUrl();
+  const canonicalUrl = getMarketListUrl();
+  const metaTitle = hasActiveFilters
+    ? `Star Citizen Market Search Results | Citizens' Hub`
+    : `Star Citizen Market - CCU, Ships, Store Credit & Paints | Citizens' Hub`;
+  const metaDescription = hasActiveFilters
+    ? `Browse filtered Star Citizen marketplace listings on Citizens' Hub, including CCUs, ships, store credit, paints, and other items.`
+    : `Browse the Citizens' Hub Star Citizen market for CCU upgrades, standalone ships, ship packages, store credit, paints, and other marketplace listings.`;
+  const metaKeywords = hasActiveFilters
+    ? 'Star Citizen market search, CCU listings, Star Citizen ships, store credit, Star Citizen marketplace'
+    : 'Star Citizen market, CCU, ship upgrades, standalone ships, ship packages, store credit, paints, Star Citizen marketplace';
+  const metaImage = getAbsoluteAssetUrl('/logo.png');
+  const robotsContent = hasActiveFilters ? 'noindex,follow' : 'index,follow';
 
   if (loading && listingItems.length === 0 && pagination.total === 0) {
     return (
@@ -460,149 +484,166 @@ const Market: React.FC = () => {
   }
 
   return (
-    <div
-      ref={pageContainerRef}
-      className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'
-    >
-      {showAlert && (
-        <Alert
-          severity="warning"
-          sx={{ zIndex: 1000, position: 'fixed', top: 65, left: 0, right: 0, width: '100%', borderRadius: 0 }}
-          onClose={() => {
-            setShowAlert(false);
-          }}
-        >
-          <div className="text-sm text-left">
-            <FormattedMessage
-              id="market.betaNotice"
-              defaultMessage="This page is a test deployment and the order is run in the test environment. All the items listed are test items. Please do not place an order."
-            />
-          </div>
-        </Alert>
-      )}
+    <>
+      <Helmet>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta name="keywords" content={metaKeywords} />
+        <meta name="robots" content={robotsContent} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content={metaImage} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={metaImage} />
+        <link rel="canonical" href={canonicalUrl} />
+      </Helmet>
+      <div
+        ref={pageContainerRef}
+        className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'
+      >
+        {showAlert && (
+          <Alert
+            severity="warning"
+            sx={{ zIndex: 1000, position: 'fixed', top: 65, left: 0, right: 0, width: '100%', borderRadius: 0 }}
+            onClose={() => {
+              setShowAlert(false);
+            }}
+          >
+            <div className="text-sm text-left">
+              <FormattedMessage
+                id="market.betaNotice"
+                defaultMessage="This page is a test deployment and the order is run in the test environment. All the items listed are test items. Please do not place an order."
+              />
+            </div>
+          </Alert>
+        )}
 
-      <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
-        <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-          <div className='flex items-center gap-3'>
-            <Link to="/orders" className='text-slate-700 transition dark:text-slate-200'>
-              <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
-            </Link>
-            <Link to="/tickets" className='text-slate-700 transition dark:text-slate-200'>
-              <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
-            </Link>
-            <IconButton
-              onClick={openCart}
-              sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 0 }}
-            >
-              <Badge badgeContent={cart.length} color="secondary" overlap="circular">
-                <ShoppingCart className='h-6 w-6' />
-              </Badge>
-            </IconButton>
-          </div>
-        </Box>
-
-        <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
-          <div className='lg:sticky lg:top-4 lg:self-start'>
-            <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
-              </Typography>
-              <RadioGroup
-                value={selectedItemFilter}
-                onChange={(event) => {
-                  const nextFilter = event.target.value as MarketItemFilterOption;
-                  updateMarketSearchParams((nextSearchParams) => {
-                    nextSearchParams.delete('itemType');
-                    nextSearchParams.delete('browseCategory');
-                    nextSearchParams.delete('page');
-
-                    if (nextFilter === 'ccu' || nextFilter === 'credit') {
-                      nextSearchParams.set('itemType', nextFilter);
-                    } else if (nextFilter !== 'all') {
-                      nextSearchParams.set('browseCategory', nextFilter);
-                    }
-                  });
-                }}
+        <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
+          <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+            <div className='flex items-center gap-3'>
+              <Link to="/orders" className='text-slate-700 transition dark:text-slate-200'>
+                <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+              </Link>
+              <Link to="/tickets" className='text-slate-700 transition dark:text-slate-200'>
+                <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
+              </Link>
+              <IconButton
+                onClick={openCart}
+                sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 0 }}
               >
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="all"
-                  label={intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="ccu"
-                  label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="standalone_ship"
-                  label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="ship_package"
-                  label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="paint"
-                  label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="other"
-                  label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })}
-                />
-                <FormControlLabel
-                  control={(
-                    <Radio size="small" />
-                  )}
-                  value="credit"
-                  label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })}
-                />
-              </RadioGroup>
+                <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                  <ShoppingCart className='h-6 w-6' />
+                </Badge>
+              </IconButton>
+            </div>
+          </Box>
 
-              <Divider sx={{ my: 2 }} />
+          <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
+            <div className='lg:sticky lg:top-4 lg:self-start'>
+              <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
+                </Typography>
+                <RadioGroup
+                  value={selectedItemFilter}
+                  onChange={(event) => {
+                    const nextFilter = event.target.value as MarketItemFilterOption;
+                    updateMarketSearchParams((nextSearchParams) => {
+                      nextSearchParams.delete('itemType');
+                      nextSearchParams.delete('browseCategory');
+                      nextSearchParams.delete('page');
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                <FormattedMessage id="market.filter.tags" defaultMessage="Special Tags" />
-              </Typography>
-              <FormGroup>
-                <FormControlLabel
-                  control={(
-                    <Checkbox
-                      checked={showOcOnly}
-                      onChange={(event) => {
-                        updateMarketSearchParams((nextSearchParams) => {
-                          nextSearchParams.delete('tag');
-                          nextSearchParams.delete('page');
+                      if (nextFilter === 'ccu' || nextFilter === 'credit') {
+                        nextSearchParams.set('itemType', nextFilter);
+                      } else if (nextFilter !== 'all') {
+                        nextSearchParams.set('browseCategory', nextFilter);
+                      }
+                    });
+                  }}
+                >
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="all"
+                    label={intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="ccu"
+                    label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="standalone_ship"
+                    label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="ship_package"
+                    label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="paint"
+                    label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="other"
+                    label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })}
+                  />
+                  <FormControlLabel
+                    control={(
+                      <Radio size="small" />
+                    )}
+                    value="credit"
+                    label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })}
+                  />
+                </RadioGroup>
 
-                          if (event.target.checked) {
-                            nextSearchParams.set('tag', 'oc');
-                          }
-                        });
-                      }}
-                      size="small"
-                    />
-                  )}
-                  label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
-                />
-              </FormGroup>
-            </Box>
-          </div>
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  <FormattedMessage id="market.filter.tags" defaultMessage="Special Tags" />
+                </Typography>
+                <FormGroup>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={showOcOnly}
+                        onChange={(event) => {
+                          updateMarketSearchParams((nextSearchParams) => {
+                            nextSearchParams.delete('tag');
+                            nextSearchParams.delete('page');
+
+                            if (event.target.checked) {
+                              nextSearchParams.set('tag', 'oc');
+                            }
+                          });
+                        }}
+                        size="small"
+                      />
+                    )}
+                    label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
+                  />
+                </FormGroup>
+              </Box>
+            </div>
 
           <div className='min-w-0'>
             <Box
@@ -712,105 +753,105 @@ const Market: React.FC = () => {
                 </Box>
               )}
 
-            {listingItems.length === 0 ? (
-              <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
-                <Typography variant="h6">
-                  <FormattedMessage id="market.noResults" defaultMessage="No products found" />
-                </Typography>
-              </Box>
-            ) : (
-              <>
-                <div className='grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3'>
-                  {listingItems.map((item) => {
-                    const availableStock = getAvailableStock(item);
-                    const inCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
-                    const inCartQuantity = inCartItem?.quantity || 0;
-                    const basePrice = getListingBasePrice(item, ships);
-                    const discount = getListingDiscountPercent(item, ships);
-                    const isCredit = item.itemType === 'credit';
-                    const isCcu = item.itemType === 'ccu';
-                    const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
-                    const packageShips = item.packageShips || [];
-                    const packageItems = item.packageItems || [];
-                    const displayName = getMarketItemDisplayName(intl, item, ships);
+              {listingItems.length === 0 ? (
+                <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
+                  <Typography variant="h6">
+                    <FormattedMessage id="market.noResults" defaultMessage="No products found" />
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3'>
+                    {listingItems.map((item) => {
+                      const availableStock = getAvailableStock(item);
+                      const inCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+                      const inCartQuantity = inCartItem?.quantity || 0;
+                      const basePrice = getListingBasePrice(item, ships);
+                      const discount = getListingDiscountPercent(item, ships);
+                      const isCredit = item.itemType === 'credit';
+                      const isCcu = item.itemType === 'ccu';
+                      const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
+                      const packageShips = item.packageShips || [];
+                      const packageItems = item.packageItems || [];
+                      const displayName = getMarketItemDisplayName(intl, item, ships);
 
-                    return (
-                      <div
-                        key={item.skuId}
-                        className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
-                      >
+                      return (
                         <div
-                          className='block w-full cursor-pointer text-left'
-                          onClick={() => handleOpenDetails(item)}
+                          key={item.skuId}
+                          className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                         >
-                          <MarketItemMedia
-                            item={item}
-                            ships={ships}
-                            height={240}
-                            badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
-                          />
-                        </div>
-
-                        <div className='flex flex-1 flex-col gap-4 p-5'>
-                          <div className='flex flex-wrap gap-2'>
-                            {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
-                            {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                            {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                          <div
+                            className='block w-full cursor-pointer text-left'
+                            onClick={() => handleOpenDetails(item)}
+                          >
+                            <MarketItemMedia
+                              item={item}
+                              ships={ships}
+                              height={240}
+                              badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
+                            />
                           </div>
 
-                          <div className='flex flex-1 flex-col gap-2'>
-                            <div
-                              className='w-full cursor-pointer text-left text-inherit no-underline'
-                              onClick={() => handleOpenDetails(item)}
-                            >
-                              <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                                {displayName}
-                              </Typography>
+                          <div className='flex flex-1 flex-col gap-4 p-5'>
+                            <div className='flex flex-wrap gap-2'>
+                              {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
+                              {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                              {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
                             </div>
-                            <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
-                              {getMarketItemSummary(intl, item, ships)}
-                            </Typography>
-                            {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
+
+                            <div className='flex flex-1 flex-col gap-2'>
+                              <div
+                                className='w-full cursor-pointer text-left text-inherit no-underline'
+                                onClick={() => handleOpenDetails(item)}
                               >
-                                {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
-                              </Typography>
-                            )}
-                          </div>
-
-                          <div className='mt-auto flex flex-col gap-4'>
-                            <div className='flex flex-col gap-1'>
-                              <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                                {isCredit || isVariantPriceRange
-                                  ? formatMarketPriceFrom(intl, item.price)
-                                  : formatUsdPrice(intl.locale, item.price)}
+                                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+                                  {displayName}
+                                </Typography>
                               </div>
-                              {discount && Number(discount) > 0 && (
-                                <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                                  {formatUsdPrice(intl.locale, basePrice)}
-                                </div>
-                              )}
-                              {typeof item.cost === 'number' && item.cost > 0 && (
-                                <div className='text-sm text-slate-500 dark:text-slate-400'>
-                                  {intl.formatMessage(
-                                    { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
-                                    { value: formatUsdPrice(intl.locale, item.cost) },
-                                  )}
-                                </div>
+                              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
+                                {getMarketItemSummary(intl, item, ships)}
+                              </Typography>
+                              {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
+                                </Typography>
                               )}
                             </div>
 
-                            <Divider />
+                            <div className='mt-auto flex flex-col gap-4'>
+                              <div className='flex flex-col gap-1'>
+                                <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+                                  {isCredit || isVariantPriceRange
+                                    ? formatMarketPriceFrom(intl, item.price)
+                                    : formatUsdPrice(intl.locale, item.price)}
+                                </div>
+                                {discount && Number(discount) > 0 && (
+                                  <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+                                    {formatUsdPrice(intl.locale, basePrice)}
+                                  </div>
+                                )}
+                                {typeof item.cost === 'number' && item.cost > 0 && (
+                                  <div className='text-sm text-slate-500 dark:text-slate-400'>
+                                    {intl.formatMessage(
+                                      { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
+                                      { value: formatUsdPrice(intl.locale, item.cost) },
+                                    )}
+                                  </div>
+                                )}
+                              </div>
 
-                            <div className='flex items-center justify-between gap-3'>
+                              <Divider />
+
+                              <div className='flex items-center justify-between gap-3'>
                               {/* <Link
                                 to={getMarketDetailPath(item.skuId)}
                                 className='text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
@@ -825,109 +866,109 @@ const Market: React.FC = () => {
                                 )}
                               </Link> */}
 
-                              {isCredit ? (
-                                <Button
-                                  variant="outlined"
-                                  onClick={() => handleOpenDetails(item)}
-                                  size="small"
-                                >
-                                  <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
-                                </Button>
-                              ) : isCcu ? (
-                                <Button
-                                  variant="outlined"
-                                  onClick={() => handleOpenDetails(item)}
-                                  size="small"
-                                >
-                                  <FormattedMessage
-                                    id="market.viewDetails"
-                                    defaultMessage="View details"
-                                  />
-                                </Button>
-                              ) : inCartItem ? (
-                                <ButtonGroup
-                                  size="small"
-                                  aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
-                                >
-                                  <IconButton
+                                {isCredit ? (
+                                  <Button
+                                    variant="outlined"
+                                    onClick={() => handleOpenDetails(item)}
                                     size="small"
-                                    onClick={() => {
-                                      if (inCartQuantity > 1) {
-                                        updateItemQuantity(item.skuId, inCartQuantity - 1);
-                                      } else {
-                                        removeFromCart(item.skuId);
-                                      }
-                                    }}
                                   >
-                                    <Minus className="h-4 w-4" />
-                                  </IconButton>
-                                  <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
-                                    {inCartQuantity}
-                                  </Typography>
-                                  <IconButton
+                                    <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
+                                  </Button>
+                                ) : isCcu ? (
+                                  <Button
+                                    variant="outlined"
+                                    onClick={() => handleOpenDetails(item)}
                                     size="small"
-                                    disabled={inCartQuantity >= availableStock}
-                                    onClick={() => {
-                                      if (inCartQuantity < availableStock) {
-                                        updateItemQuantity(item.skuId, inCartQuantity + 1);
-                                      }
-                                    }}
                                   >
-                                    <Plus className="h-4 w-4" />
-                                  </IconButton>
-                                </ButtonGroup>
-                              ) : (
-                                <Button
-                                  variant="outlined"
-                                  onClick={() => handleAddToCart(item)}
-                                  disabled={availableStock <= 0}
-                                  size="small"
-                                >
-                                  <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
-                                </Button>
-                              )}
+                                    <FormattedMessage
+                                      id="market.viewDetails"
+                                      defaultMessage="View details"
+                                    />
+                                  </Button>
+                                ) : inCartItem ? (
+                                  <ButtonGroup
+                                    size="small"
+                                    aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+                                  >
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        if (inCartQuantity > 1) {
+                                          updateItemQuantity(item.skuId, inCartQuantity - 1);
+                                        } else {
+                                          removeFromCart(item.skuId);
+                                        }
+                                      }}
+                                    >
+                                      <Minus className="h-4 w-4" />
+                                    </IconButton>
+                                    <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+                                      {inCartQuantity}
+                                    </Typography>
+                                    <IconButton
+                                      size="small"
+                                      disabled={inCartQuantity >= availableStock}
+                                      onClick={() => {
+                                        if (inCartQuantity < availableStock) {
+                                          updateItemQuantity(item.skuId, inCartQuantity + 1);
+                                        }
+                                      }}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </IconButton>
+                                  </ButtonGroup>
+                                ) : (
+                                  <Button
+                                    variant="outlined"
+                                    onClick={() => handleAddToCart(item)}
+                                    disabled={availableStock <= 0}
+                                    size="small"
+                                  >
+                                    <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
 
-                <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
-                  <TablePagination
-                    rowsPerPageOptions={[12, 24, 36]}
-                    component="div"
-                    count={pagination.total}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={(_event, newPage) => {
-                      updateMarketSearchParams((nextSearchParams) => {
-                        if (newPage > 0) {
-                          nextSearchParams.set('page', String(newPage));
-                        } else {
+                  <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
+                    <TablePagination
+                      rowsPerPageOptions={[12, 24, 36]}
+                      component="div"
+                      count={pagination.total}
+                      rowsPerPage={rowsPerPage}
+                      page={page}
+                      onPageChange={(_event, newPage) => {
+                        updateMarketSearchParams((nextSearchParams) => {
+                          if (newPage > 0) {
+                            nextSearchParams.set('page', String(newPage));
+                          } else {
+                            nextSearchParams.delete('page');
+                          }
+                        });
+                      }}
+                      onRowsPerPageChange={(event) => {
+                        const nextRowsPerPage = parseInt(event.target.value, 10);
+                        updateMarketSearchParams((nextSearchParams) => {
                           nextSearchParams.delete('page');
-                        }
-                      });
-                    }}
-                    onRowsPerPageChange={(event) => {
-                      const nextRowsPerPage = parseInt(event.target.value, 10);
-                      updateMarketSearchParams((nextSearchParams) => {
-                        nextSearchParams.delete('page');
 
-                        if (nextRowsPerPage === MARKET_DEFAULT_ROWS_PER_PAGE) {
-                          nextSearchParams.delete('limit');
-                        } else {
-                          nextSearchParams.set('limit', String(nextRowsPerPage));
-                        }
-                      });
-                    }}
-                    labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
-                    labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
-                  />
-                </Box>
-              </>
-            )}
+                          if (nextRowsPerPage === MARKET_DEFAULT_ROWS_PER_PAGE) {
+                            nextSearchParams.delete('limit');
+                          } else {
+                            nextSearchParams.set('limit', String(nextRowsPerPage));
+                          }
+                        });
+                      }}
+                      labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+                      labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
+                    />
+                  </Box>
+                </>
+              )}
             </Box>
           </div>
         </div>
@@ -958,145 +999,146 @@ const Market: React.FC = () => {
             <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
           </Link>
         </Box>
-      </div>
+        </div>
 
-      <CartDrawer
-        open={cartOpen}
-        cart={cart}
-        onClose={closeCart}
-        onRemoveFromCart={removeFromCart}
-        onUpdateQuantity={updateItemQuantity}
-        getAvailableStock={getAvailableStockByResourceId}
-      />
+        <CartDrawer
+          open={cartOpen}
+          cart={cart}
+          onClose={closeCart}
+          onRemoveFromCart={removeFromCart}
+          onUpdateQuantity={updateItemQuantity}
+          getAvailableStock={getAvailableStockByResourceId}
+        />
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Alert
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={3000}
           onClose={() => setSnackbarOpen(false)}
-          severity={snackbarSeverity}
-          variant="filled"
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+          <Alert
+            onClose={() => setSnackbarOpen(false)}
+            severity={snackbarSeverity}
+            variant="filled"
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
 
-      {isCouponPopupVisible && activeCoupon && (
-        <Box
-          sx={{
-            position: 'fixed',
-            left: { xs: 16, sm: 24 },
-            bottom: { xs: 16, sm: 24 },
-            zIndex: 1300,
-            width: { xs: 'calc(100vw - 32px)', sm: 388 },
-            borderRadius: 0,
-            border: '1px solid',
-            borderColor: 'warning.main',
-            backgroundColor: 'background.paper',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: -1,
-              left: -1,
-              right: -1,
-              height: 4,
-              backgroundColor: 'warning.main',
-            },
-          }}
-        >
-          <Box sx={{ position: 'relative', p: 2.5, pt: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
-              <Box sx={{ minWidth: 0, pr: 1 }}>
-                <Box
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    px: 1,
-                    py: 0.375,
-                    borderRadius: 0,
-                    border: '1px solid',
-                    borderColor: 'warning.main',
-                    backgroundColor: 'rgba(237, 108, 2, 0.08)',
-                    color: 'warning.dark',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  <FormattedMessage
-                    id="market.newUserCoupon.popupTitle"
-                    defaultMessage="New user offer"
-                  />
+        {isCouponPopupVisible && activeCoupon && (
+          <Box
+            sx={{
+              position: 'fixed',
+              left: { xs: 16, sm: 24 },
+              bottom: { xs: 16, sm: 24 },
+              zIndex: 1300,
+              width: { xs: 'calc(100vw - 32px)', sm: 388 },
+              borderRadius: 0,
+              border: '1px solid',
+              borderColor: 'warning.main',
+              backgroundColor: 'background.paper',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: -1,
+                left: -1,
+                right: -1,
+                height: 4,
+                backgroundColor: 'warning.main',
+              },
+            }}
+          >
+            <Box sx={{ position: 'relative', p: 2.5, pt: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                <Box sx={{ minWidth: 0, pr: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      px: 1,
+                      py: 0.375,
+                      borderRadius: 0,
+                      border: '1px solid',
+                      borderColor: 'warning.main',
+                      backgroundColor: 'rgba(237, 108, 2, 0.08)',
+                      color: 'warning.dark',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    <FormattedMessage
+                      id="market.newUserCoupon.popupTitle"
+                      defaultMessage="New user offer"
+                    />
+                  </Box>
+
+                  <Typography variant="h6" sx={{ mt: 1.5, fontWeight: 800, lineHeight: 1.45 }}>
+                    <FormattedMessage
+                      id="market.newUserCoupon.popupBody"
+                      defaultMessage="Get {amountOff} off a minimum purchase of {minimumAmount}."
+                      values={{
+                        amountOff: couponAmountOffText,
+                        minimumAmount: couponMinimumAmountText,
+                      }}
+                    />
+                  </Typography>
+
                 </Box>
 
-                <Typography variant="h6" sx={{ mt: 1.5, fontWeight: 800, lineHeight: 1.45 }}>
-                  <FormattedMessage
-                    id="market.newUserCoupon.popupBody"
-                    defaultMessage="Get {amountOff} off a minimum purchase of {minimumAmount}."
-                    values={{
-                      amountOff: couponAmountOffText,
-                      minimumAmount: couponMinimumAmountText,
-                    }}
-                  />
-                </Typography>
-
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => setCouponPopupDismissed(true)}
+                  sx={{
+                    minWidth: 'auto',
+                    p: 0.5,
+                    borderRadius: 0,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: 'text.primary',
+                      backgroundColor: 'transparent',
+                    },
+                  }}
+                  aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </Box>
 
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => setCouponPopupDismissed(true)}
+              <Box
                 sx={{
-                  minWidth: 'auto',
-                  p: 0.5,
-                  borderRadius: 0,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  color: 'text.secondary',
-                  '&:hover': {
-                    borderColor: 'text.primary',
-                    backgroundColor: 'transparent',
-                  },
+                  mt: 2,
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 1,
+                  flexWrap: 'wrap',
                 }}
-                aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
               >
-                <X className="h-4 w-4" />
-              </Button>
-            </Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  <FormattedMessage
+                    id="market.newUserCoupon.popupCountdownPrefix"
+                    defaultMessage="Expires in:"
+                  />
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 900, color: 'warning.dark', letterSpacing: '0.1em', lineHeight: 1 }}>
+                  {couponCountdownText}
+                </Typography>
+              </Box>
 
-            <Box
-              sx={{
-                mt: 2,
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 1,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 <FormattedMessage
-                  id="market.newUserCoupon.popupCountdownPrefix"
-                  defaultMessage="Expires in:"
+                  id="market.newUserCoupon.popupHint"
+                  defaultMessage="The coupon will be applied automatically at checkout."
                 />
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 900, color: 'warning.dark', letterSpacing: '0.1em', lineHeight: 1 }}>
-                {couponCountdownText}
-              </Typography>
             </Box>
-
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              <FormattedMessage
-                id="market.newUserCoupon.popupHint"
-                defaultMessage="The coupon will be applied automatically at checkout."
-              />
-            </Typography>
           </Box>
-        </Box>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 };
 
