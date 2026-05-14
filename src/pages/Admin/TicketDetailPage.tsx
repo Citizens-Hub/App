@@ -84,8 +84,8 @@ export default function TicketDetailPage() {
 
         {flash && <Alert severity={flash.severity}>{flash.text}</Alert>}
 
-        <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
-          <Typography variant="body2" color="text.secondary">
+        <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider', textAlign: 'left' }} elevation={0}>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
             <FormattedMessage
               id="admin.tickets.detail.meta"
               defaultMessage="User {email} · Created {createdAt} · Updated {updatedAt}"
@@ -97,7 +97,7 @@ export default function TicketDetailPage() {
             />
           </Typography>
           {ticket.relatedOrder?.id && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ mt: 1, textAlign: 'left' }}>
               <FormattedMessage
                 id="tickets.relatedOrder"
                 defaultMessage="Related order: {orderId}"
@@ -107,8 +107,8 @@ export default function TicketDetailPage() {
           )}
         </Paper>
 
-        <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+        <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider', textAlign: 'left' }} elevation={0}>
+          <Typography variant="h6" sx={{ mb: 2, textAlign: 'left' }}>
             <FormattedMessage id="tickets.messages" defaultMessage="Conversation" />
           </Typography>
           <TicketConversation messages={ticket.messages} />

@@ -196,6 +196,14 @@ export default function TicketReplyPage() {
               value={replyContent}
               onChange={(event) => setReplyContent(event.target.value)}
               disabled={ticket.status !== 'open'}
+              sx={{
+                '& .MuiInputBase-input': {
+                  textAlign: 'left',
+                },
+                '& .MuiInputBase-inputMultiline': {
+                  textAlign: 'left',
+                },
+              }}
             />
             <label className="flex items-center gap-2 text-sm">
               <input

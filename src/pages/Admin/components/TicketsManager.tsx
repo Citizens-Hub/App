@@ -69,7 +69,15 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as 'all' | TicketStatus)}
             size="small"
-            sx={{ minWidth: 180 }}
+            sx={{
+              minWidth: 180,
+              '& .MuiSelect-select': {
+                textAlign: 'left',
+              },
+              '& .MuiInputBase-input': {
+                textAlign: 'left',
+              },
+            }}
           >
             <MenuItem value="all">
               <FormattedMessage id="admin.tickets.filter.all" defaultMessage="All" />
@@ -86,7 +94,12 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             size="small"
-            sx={{ minWidth: 260 }}
+            sx={{
+              minWidth: 260,
+              '& .MuiInputBase-input': {
+                textAlign: 'left',
+              },
+            }}
           />
           {showOpenPageButton && (
             <Button onClick={() => navigate('/admin/tickets')}>

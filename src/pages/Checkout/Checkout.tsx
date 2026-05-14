@@ -760,6 +760,11 @@ export default function Checkout() {
                   label={intl.formatMessage({ id: 'checkout.couponSelect', defaultMessage: 'Coupon' })}
                   value={selectedCouponId}
                   onChange={(event) => setSelectedCouponId(event.target.value)}
+                  sx={{
+                    '& .MuiSelect-select': {
+                      textAlign: 'left',
+                    },
+                  }}
                   helperText={selectedCoupon
                     ? intl.formatMessage(
                         {

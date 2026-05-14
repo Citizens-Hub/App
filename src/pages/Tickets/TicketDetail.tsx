@@ -264,6 +264,14 @@ export default function TicketDetail() {
               onChange={(event) => setReplyContent(event.target.value)}
               label={intl.formatMessage({ id: 'tickets.form.content', defaultMessage: 'Message' })}
               disabled={ticket.status !== 'open' || submitting}
+              sx={{
+                '& .MuiInputBase-input': {
+                  textAlign: 'left',
+                },
+                '& .MuiInputBase-inputMultiline': {
+                  textAlign: 'left',
+                },
+              }}
             />
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button onClick={() => setReplyContent('')} disabled={submitting || !replyContent}>

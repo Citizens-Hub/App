@@ -18,13 +18,13 @@ export default function TicketRelatedOrderCard({ order, onOpenOrder }: TicketRel
   }
 
   return (
-    <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+    <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider', textAlign: 'left' }} elevation={0}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap', mb: 2 }}>
         <Box>
-          <Typography variant="h6" sx={{ mb: 1 }}>
+          <Typography variant="h6" sx={{ mb: 1, textAlign: 'left' }}>
             <FormattedMessage id="tickets.orderDetail" defaultMessage="Related Order" />
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
             {formatOrderPublicId(order.id)} · {formatUsd(order.price)}
           </Typography>
         </Box>
@@ -46,11 +46,11 @@ export default function TicketRelatedOrderCard({ order, onOpenOrder }: TicketRel
       </Box>
       <Box sx={{ display: 'grid', gap: 1.5, mt: 2 }}>
         {order.items.map((item: DetailedOrderItem) => (
-          <Box key={item.id} sx={{ border: '1px solid', borderColor: 'divider', p: 2 }}>
-            <Typography variant="subtitle2">
+          <Box key={item.id} sx={{ border: '1px solid', borderColor: 'divider', p: 2, textAlign: 'left' }}>
+            <Typography variant="subtitle2" sx={{ textAlign: 'left' }}>
               {getOrderItemDisplayName(intl, item.marketItem)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
               <FormattedMessage
                 id="tickets.orderItemMeta"
                 defaultMessage="Quantity {quantity} · Price {price}"
