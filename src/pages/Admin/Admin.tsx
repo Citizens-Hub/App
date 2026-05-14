@@ -13,6 +13,7 @@ import WatermarkDebugTool from './components/WatermarkDebugTool';
 import ConciergePaintsManager from './components/ConciergePaintsManager';
 import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
+import OrdersManager from './components/OrdersManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -29,6 +30,7 @@ enum Page {
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
+  Orders = 'orders',
 }
 
 export default function Admin() {
@@ -112,6 +114,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.NewUserCoupon),
     },
     {
+      id: Page.Orders,
+      title: <FormattedMessage id="admin.orders.title" defaultMessage="Order Management" />,
+      description: <FormattedMessage id="admin.orders.description" defaultMessage="Review all orders, inspect buyer information, and manually resend receipts." />,
+      active: currentPage === Page.Orders,
+      onSelect: () => setCurrentPage(Page.Orders),
+    },
+    {
       id: Page.Tickets,
       title: <FormattedMessage id="admin.tickets.title" defaultMessage="Support Tickets" />,
       description: <FormattedMessage id="admin.tickets.description" defaultMessage="Review user support tickets, reply to messages, and close resolved requests." />,
@@ -145,6 +154,7 @@ export default function Admin() {
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
+        {currentPage === Page.Orders && <OrdersManager />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
     </ResponsiveSectionLayout>

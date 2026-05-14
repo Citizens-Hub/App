@@ -995,6 +995,8 @@ export interface DetailedOrder extends Order {
   updatedAt: string;
   invoiceId: string | null;
   items: DetailedOrderItem[];
+  customerEmail?: string | null;
+  customerName?: string | null;
 }
 
 export interface TicketOrderOption {
@@ -1078,6 +1080,29 @@ export interface AdminTicketListResponse {
 export interface AdminTicketDetailResponse {
   success: boolean;
   ticket: TicketDetailItem;
+}
+
+export interface AdminOrderCustomer {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+export interface AdminOrderItem extends DetailedOrder {
+  customer: AdminOrderCustomer;
+}
+
+export interface AdminOrderListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  orders: AdminOrderItem[];
+}
+
+export interface AdminOrderDetailResponse {
+  success: boolean;
+  order: AdminOrderItem;
 }
 
 export interface OrderPaymentInfo {
