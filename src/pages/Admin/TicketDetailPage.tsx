@@ -6,6 +6,7 @@ import {
   Button,
   CircularProgress,
   Paper,
+  Rating,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -112,6 +113,37 @@ export default function TicketDetailPage() {
             <FormattedMessage id="tickets.messages" defaultMessage="Conversation" />
           </Typography>
           <TicketConversation messages={ticket.messages} />
+        </Paper>
+
+        <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider', textAlign: 'left' }} elevation={0}>
+          <Typography variant="h6" sx={{ mb: 2, textAlign: 'left' }}>
+            <FormattedMessage id="admin.tickets.feedback" defaultMessage="Customer Feedback" />
+          </Typography>
+          {ticket.rating ? (
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              <Rating value={ticket.rating} readOnly />
+              <Typography variant="body2" color="text.secondary">
+                <FormattedMessage
+                  id="tickets.feedbackSubmittedAt"
+                  defaultMessage="Submitted at {time}"
+                  values={{ time: formatDateTime(ticket.feedbackAt) }}
+                />
+              </Typography>
+              {ticket.feedback ? (
+                <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                  {ticket.feedback}
+                </Paper>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage id="tickets.feedbackNoComment" defaultMessage="No written comment provided." />
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              <FormattedMessage id="admin.tickets.feedbackEmpty" defaultMessage="No feedback submitted yet." />
+            </Typography>
+          )}
         </Paper>
 
         <TicketRelatedOrderCard order={ticket.relatedOrderDetail} />

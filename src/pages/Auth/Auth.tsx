@@ -11,7 +11,7 @@ import {
   Alert,
   Link
 } from '@mui/material';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { FormattedMessage } from 'react-intl';
 import { useDispatch } from 'react-redux';
 import { login, User } from '@/store/userStore';
@@ -64,7 +64,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
             setOpenSnackbar(true);
 
             setTimeout(() => {
-              navigate('/');
+              navigate(redirectTo);
             }, 1500);
           }
         })
@@ -77,6 +77,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const dispatch = useDispatch();
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = typeof location.state === 'string' && location.state ? location.state : '/';
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,7 +146,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         setOpenSnackbar(true);
 
         setTimeout(() => {
-          navigate('/');
+          navigate(redirectTo);
         }, 500);
       } else {
         setError(data.message);

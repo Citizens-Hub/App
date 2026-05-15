@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useSelector } from 'react-redux';
 import {
@@ -8,6 +8,7 @@ import {
   Chip,
   CircularProgress,
   Paper,
+  Rating,
   TextField,
   Typography,
 } from '@mui/material';
@@ -30,8 +31,12 @@ export default function TicketDetail() {
   const token = useSelector((state: RootState) => state.user.user.token);
   const { data: ticket, error, isLoading, mutate } = useTicketData(ticketId);
   const [replyContent, setReplyContent] = useState('');
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(ticket?.rating ?? null);
+  const [feedbackText, setFeedbackText] = useState(ticket?.feedback || '');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
+  const feedbackSectionRef = useRef<HTMLDivElement | null>(null);
 
   const formatDateTime = (value?: string | null) => value ? new Date(value).toLocaleString(intl.locale) : '-';
   const statusAccentColor = useMemo(
@@ -47,6 +52,17 @@ export default function TicketDetail() {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    setFeedbackRating(ticket?.rating ?? null);
+    setFeedbackText(ticket?.feedback || '');
+  }, [ticket?.feedback, ticket?.rating]);
+
+  useEffect(() => {
+    if (ticket?.status === 'closed' && location.search.includes('review=1')) {
+      feedbackSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [location.search, ticket?.status]);
 
   const handleOpenRelatedOrder = (orderId: string) => {
     const orderPath = `/orders/${orderId}`;
@@ -106,6 +122,58 @@ export default function TicketDetail() {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!ticketId || !feedbackRating) {
+      return;
+    }
+
+    try {
+      setFeedbackSubmitting(true);
+      setFlash(null);
+
+      const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          feedback: feedbackText.trim() || undefined,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || intl.formatMessage({
+          id: 'tickets.feedbackError',
+          defaultMessage: 'Failed to submit feedback.',
+        }));
+      }
+
+      await mutate(payload, { revalidate: false });
+      setFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'tickets.feedbackSuccess',
+          defaultMessage: 'Feedback submitted.',
+        }),
+      });
+    } catch (feedbackError) {
+      setFlash({
+        severity: 'error',
+        text: feedbackError instanceof Error
+          ? feedbackError.message
+          : intl.formatMessage({
+              id: 'tickets.feedbackError',
+              defaultMessage: 'Failed to submit feedback.',
+            }),
+      });
+    } finally {
+      setFeedbackSubmitting(false);
     }
   };
 
@@ -243,6 +311,84 @@ export default function TicketDetail() {
         <TicketRelatedOrderCard
           order={ticket.relatedOrderDetail}
         />
+
+        <Paper ref={feedbackSectionRef} sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            <FormattedMessage id="tickets.feedback" defaultMessage="Support Feedback" />
+          </Typography>
+
+          {ticket.status !== 'closed' && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <FormattedMessage id="tickets.feedbackAfterClose" defaultMessage="Feedback can be submitted after the ticket is closed." />
+            </Alert>
+          )}
+
+          {ticket.status === 'closed' && ticket.rating !== null && ticket.rating !== undefined ? (
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              <Rating value={ticket.rating} readOnly />
+              <Typography variant="body2" color="text.secondary">
+                <FormattedMessage
+                  id="tickets.feedbackSubmittedAt"
+                  defaultMessage="Submitted at {time}"
+                  values={{ time: formatDateTime(ticket.feedbackAt) }}
+                />
+              </Typography>
+              {ticket.feedback ? (
+                <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                  {ticket.feedback}
+                </Paper>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage id="tickets.feedbackNoComment" defaultMessage="No written comment provided." />
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              {ticket.status === 'closed' && location.search.includes('review=1') && (
+                <Alert severity="success">
+                  <FormattedMessage id="tickets.feedbackInvite" defaultMessage="This ticket has been closed. Please rate your support experience." />
+                </Alert>
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <FormattedMessage id="tickets.feedbackRating" defaultMessage="Rating" />
+                </Typography>
+                <Rating
+                  value={feedbackRating}
+                  onChange={(_event, value) => setFeedbackRating(value)}
+                  disabled={ticket.status !== 'closed' || feedbackSubmitting}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                minRows={4}
+                value={feedbackText}
+                onChange={(event) => setFeedbackText(event.target.value)}
+                label={intl.formatMessage({ id: 'tickets.feedbackComment', defaultMessage: 'Comment (optional)' })}
+                disabled={ticket.status !== 'closed' || feedbackSubmitting}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    textAlign: 'left',
+                  },
+                  '& .MuiInputBase-inputMultiline': {
+                    textAlign: 'left',
+                  },
+                }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => void handleSubmitFeedback()}
+                  disabled={ticket.status !== 'closed' || feedbackSubmitting || !feedbackRating}
+                >
+                  <FormattedMessage id="tickets.submitFeedback" defaultMessage="Submit Feedback" />
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Paper>
 
         <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
           <Typography variant="h6" sx={{ mb: 1.5 }}>

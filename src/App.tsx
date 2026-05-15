@@ -152,11 +152,11 @@ export function TestButton() {
 }
 
 function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: UserRole[] }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
 
   if (!allowedRoles.includes(user.role)) {
-    return <RouterNavigate to="/login" replace state={pathname} />
+    return <RouterNavigate to="/login" replace state={`${pathname}${search}`} />
   }
 
   return children;

@@ -1049,6 +1049,9 @@ export interface TicketSummaryItem {
   createdAt: string;
   updatedAt: string;
   closedAt?: string | null;
+  rating?: number | null;
+  feedback?: string | null;
+  feedbackAt?: string | null;
   user?: TicketUserSummary;
   closer?: TicketUserSummary | null;
   relatedOrder?: TicketOrderSummary | null;
