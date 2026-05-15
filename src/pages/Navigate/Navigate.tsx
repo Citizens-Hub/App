@@ -6,7 +6,7 @@ export default function Navigate() {
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 p-8 overflow-auto'>
       <BackgroundVideo />
-      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 gap-4 flex flex-col select-none drop-shadow-lg bg-gray-500/30 rounded-sm p-16 md:px-48'>
+      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 gap-4 flex flex-col select-none drop-shadow-lg bg-gray-500/30 rounded-sm p-16 md:px-42'>
         <div className="text-center text-gray-100 text-sm sm:text-lg">
           <FormattedMessage id="navigate.welcome" defaultMessage="Welcome Aboard" />
         </div>
@@ -14,7 +14,7 @@ export default function Navigate() {
           <FormattedMessage id="navigate.title" defaultMessage="Citizens' Hub" />
         </div>
 
-        <div className='text-center text-gray-100 text-lg max-w-2xl mx-auto mt-4'>
+        <div className='text-center text-gray-100 text-2xl max-w-2xl mx-auto mt-4'>
           <FormattedMessage
             id="navigate.description"
             defaultMessage="Plan your CCU upgrades, preview store items, and manage your fleet with ease."
@@ -28,6 +28,10 @@ export default function Navigate() {
           <span>|</span>
           <Link to="/store-preview" style={{ color: 'inherit' }}>
             <FormattedMessage id="navigate.storePreview" defaultMessage="Store Preview" />
+          </Link>
+          <span>|</span>
+          <Link to="/market" style={{ color: 'inherit' }}>
+            <FormattedMessage id="navigate.market" defaultMessage="Market" />
           </Link>
         </div>
 
