@@ -466,7 +466,6 @@ const Market: React.FC = () => {
     : 'Star Citizen market, CCU, ship upgrades, standalone ships, ship packages, store credit, paints, Star Citizen marketplace';
   const metaImage = getAbsoluteAssetUrl('/logo.png');
   const robotsContent = hasActiveFilters ? 'noindex,follow' : 'index,follow';
-
   if (loading && listingItems.length === 0 && pagination.total === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -541,6 +540,71 @@ const Market: React.FC = () => {
               </IconButton>
             </div>
           </Box>
+
+          <div className='rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+            <div className='flex flex-col gap-3'>
+              <div className='flex flex-col gap-2'>
+                <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+                  <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
+                </div>
+                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+                  <FormattedMessage id="market.trust.title" defaultMessage="Own inventory, no third-party sellers involved" />
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage
+                    id="market.trust.description"
+                    defaultMessage="We sell from our own managed inventory so the buying flow stays more direct, secure, and convenient."
+                  />
+                </Typography>
+              </div>
+              <div className='border-t border-gray-200 pt-3 text-sm leading-7 text-slate-600 dark:border-gray-800 dark:text-slate-300'>
+                <div>
+                  <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
+                </div>
+                <div>
+                  <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
+                </div>
+                <div>
+                  <FormattedMessage
+                    id="market.trust.progressSupport"
+                    defaultMessage="You can join our <discord>Discord</discord> or <ticket>submit a ticket</ticket> at any time to ask about progress."
+                    values={{
+                      discord: (chunks) => (
+                        <a
+                          href="https://discord.gg/AEuRtb5Vy8"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                      ticket: (chunks) => (
+                        <Link
+                          to="/tickets"
+                          className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+                        >
+                          {chunks}
+                        </Link>
+                      ),
+                    }}
+                  />
+                </div>
+                <div className='pt-2'>
+                  <picture>
+                    <source
+                      srcSet="/stripe/Powered by Stripe - blurple.svg"
+                    />
+                    <img
+                      src="/stripe/Powered by Stripe - blurple.svg"
+                      alt="Powered by Stripe"
+                      className='h-8 w-auto opacity-80'
+                    />
+                  </picture>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
             <div className='lg:sticky lg:top-4 lg:self-start'>

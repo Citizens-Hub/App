@@ -311,6 +311,109 @@ function ShipSpecsTable({
   );
 }
 
+function MarketImportantInfoCard({
+  items,
+}: {
+  items: string[];
+}) {
+  return (
+    <Alert
+      severity="info"
+      variant="outlined"
+      sx={{
+        mt: 4,
+        alignItems: 'flex-start',
+        '& .MuiAlert-message': {
+          width: '100%',
+        },
+      }}
+    >
+      <div className='flex flex-col gap-3'>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          <FormattedMessage id="market.detail.importantInfo.title" defaultMessage="Important Information" />
+        </Typography>
+        <ul className='list-disc space-y-2 pl-5 text-sm leading-7 text-slate-700 dark:text-slate-200'>
+          {items.map((message, index) => (
+            <li key={`market-important-info-${index}`}>{message}</li>
+          ))}
+        </ul>
+      </div>
+    </Alert>
+  );
+}
+
+function MarketTrustBadge({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
+  return (
+    <div className={`bg-white dark:border-gray-800 dark:bg-neutral-950 ${compact ? '' : 'md:p-5'}`}>
+      <div className='flex flex-col gap-2'>
+        <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+          <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
+        </div>
+        <Typography variant={compact ? 'subtitle2' : 'h6'} sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+          <FormattedMessage id="market.trust.title" defaultMessage="Own inventory, no third-party sellers involved" />
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          <FormattedMessage
+            id="market.trust.description"
+            defaultMessage="We sell from our own managed inventory so the buying flow stays more direct, secure, and convenient."
+          />
+        </Typography>
+        <div className='border-t border-gray-200 pt-3 text-sm leading-7 text-slate-600 dark:border-gray-800 dark:text-slate-300'>
+          <div>
+            <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
+          </div>
+          <div>
+            <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
+          </div>
+          <div>
+            <FormattedMessage
+              id="market.trust.progressSupport"
+              defaultMessage="You can join our <discord>Discord</discord> or <ticket>submit a ticket</ticket> at any time to ask about progress."
+              values={{
+                discord: (chunks) => (
+                  <a
+                    href="https://discord.gg/AEuRtb5Vy8"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+                  >
+                    {chunks}
+                  </a>
+                ),
+                ticket: (chunks) => (
+                  <Link
+                    to="/tickets"
+                    className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              }}
+            />
+          </div>
+          <div className='pt-2'>
+            <picture>
+              <source
+                srcSet="/stripe/Powered by Stripe - blurple.svg"
+                media="(prefers-color-scheme: dark)"
+              />
+              <img
+                src="/stripe/Powered by Stripe - blurple.svg"
+                alt="Powered by Stripe"
+                className='h-7 w-auto opacity-80'
+              />
+            </picture>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ShipIntroductionCard({
   eyebrow,
   ship,
@@ -899,8 +1002,8 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     : getListingBasePrice(displayItem, ships);
   const discount = item.itemType === 'credit'
     ? (selectedCreditOption && selectedCreditOption.amount > displayPrice
-        ? (((selectedCreditOption.amount - displayPrice) / selectedCreditOption.amount) * 100).toFixed(2)
-        : null)
+      ? (((selectedCreditOption.amount - displayPrice) / selectedCreditOption.amount) * 100).toFixed(2)
+      : null)
     : getListingDiscountPercent(displayItem, ships);
   const selectedCreditSkuId = selectedCreditOption ? `credit-pool:${selectedCreditOption.amount}` : item.skuId;
   const selectedMarketSkuId = item.itemType === 'credit' ? selectedCreditSkuId : displayItem.skuId;
@@ -918,12 +1021,38 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     : getMarketItemDisplayName(intl, displayItem, ships);
   const displaySummary = item.itemType === 'credit'
     ? [
-        selectedCreditOption?.amount
-          ? formatCreditFaceValueSummary(intl, selectedCreditOption.amount, selectedCreditOption.amount)
-          : null,
-        resolvedCreditOptions.length ? formatCreditAmountSummary(intl, resolvedCreditOptions.length) : null,
-      ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
+      selectedCreditOption?.amount
+        ? formatCreditFaceValueSummary(intl, selectedCreditOption.amount, selectedCreditOption.amount)
+        : null,
+      resolvedCreditOptions.length ? formatCreditAmountSummary(intl, resolvedCreditOptions.length) : null,
+    ].filter(Boolean).join(' · ') || item.description || item.externalRef || ''
     : getMarketItemSummary(intl, displayItem, ships);
+  const importantInfoItems = [
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.accountRequired',
+      defaultMessage: 'To accept this item, you must have an account on robertspaceindustries.com.',
+    }),
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.gamePackageRequired',
+      defaultMessage: 'Access to Star Citizen requires a game package.',
+    }),
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.deliveryEmail',
+      defaultMessage: 'All orders will be sent to the email you enter at checkout. You will receive an email titled "Someone sent you a gift from Roberts Space Industries" from no-reply@robertsspaceindustries.com. Open the email and click the blue "claim gift" button to claim your order.',
+    }),
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.otherAccount',
+      defaultMessage: 'If you want the order to end up in an account that is not attached to the email you provided, sign in to the correct RSI account in a separate tab before claiming the item, then refresh the RSI page to confirm you are on the right account.',
+    }),
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.giftPurchase',
+      defaultMessage: 'If you are buying this item as a gift, right-click the blue "claim gift" button and copy the link address. Make sure you are logged out of your RSI account so you do not accidentally claim it yourself.',
+    }),
+    intl.formatMessage({
+      id: 'market.detail.importantInfo.claimOnce',
+      defaultMessage: 'Each item can only be claimed once before it becomes bound to the receiving account. Please make sure you are signed in to the correct account.',
+    }),
+  ];
   const fromShipType = localizeShipType(locale, fromShipInfo?.type);
   const toShipType = localizeShipType(locale, toShipInfo?.type);
   const fromShipSize = localizeShipSize(locale, fromShipInfo?.details?.size);
@@ -1220,6 +1349,10 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
           </Button>
         </div>
       )}
+
+      <Divider sx={{ my: 3 }} />
+
+      <MarketTrustBadge compact />
     </div>
   );
   // const formattedCreatedAt = new Date(item.createdAt).toLocaleString(intl.locale);
@@ -1469,15 +1602,15 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                                 metadata={[
                                   msrpText
                                     ? intl.formatMessage(
-                                        { id: 'market.detail.shipMsrp', defaultMessage: 'MSRP {price}' },
-                                        { price: msrpText },
-                                      )
+                                      { id: 'market.detail.shipMsrp', defaultMessage: 'MSRP {price}' },
+                                      { price: msrpText },
+                                    )
                                     : '',
                                   item.insuranceType
                                     ? intl.formatMessage(
-                                        { id: 'market.detail.shipInsurance', defaultMessage: 'Insurance {insurance}' },
-                                        { insurance: item.insuranceType },
-                                      )
+                                      { id: 'market.detail.shipInsurance', defaultMessage: 'Insurance {insurance}' },
+                                      { insurance: item.insuranceType },
+                                    )
                                     : '',
                                 ]}
                               />
@@ -1582,6 +1715,8 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                     </Typography>
                   </div>
                 )}
+
+                <MarketImportantInfoCard items={importantInfoItems} />
 
                 {displayItem.description && (
                   <div className='mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-200'>
