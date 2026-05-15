@@ -989,7 +989,7 @@
   "market.trust.title": "自有库存，无第三方卖家参与",
   "market.trust.description": "我们只销售来自自己机库的商品，更加安全，发货也更快。",
   "market.trust.deliveryWithin24h": "保证在 24 小时内交付。",
-  "market.trust.deliveryWindow": "通常在香港时间 10:00 - 次日凌晨 0:00，我们都可以在 30 分钟内完成交付。",
+  "market.trust.deliveryWindow": "通常在我们在线时，可以在30分钟之内完成交付。",
   "market.trust.progressSupport": "可随时加入我们的 <discord>Discord</discord> 或 <ticket>提交工单</ticket> 询问进展。",
   "market.trust.discordLink": "加入 Discord",
   "market.trust.ticketLink": "提交工单",

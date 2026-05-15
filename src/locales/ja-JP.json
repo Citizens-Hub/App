@@ -931,7 +931,7 @@
   "market.trust.title": "自社在庫のみ、第三者販売者は関与しません",
   "market.trust.description": "自分たちのハンガー在庫にある商品だけを販売しているため、より安全で、配送もより迅速です。",
   "market.trust.deliveryWithin24h": "24 時間以内の配送を保証します。",
-  "market.trust.deliveryWindow": "通常、香港時間の 10:00 から翌 0:00 までは 30 分以内に配送できます。",
+  "market.trust.deliveryWindow": "通常、オンライン中であれば30分以内に配送できます。",
   "market.trust.progressSupport": "進捗確認は、いつでも <discord>Discord</discord> への参加または <ticket>チケット送信</ticket> でお問い合わせいただけます。",
   "market.trust.discordLink": "Discord に参加",
   "market.trust.ticketLink": "チケットを送信",

@@ -931,7 +931,7 @@
   "market.trust.title": "Eigener Bestand, ohne Beteiligung externer Drittanbieter",
   "market.trust.description": "Wir verkaufen nur Artikel aus unserem eigenen Hangar-Bestand, wodurch der Ablauf sicherer ist und die Lieferung schneller erfolgt.",
   "market.trust.deliveryWithin24h": "Lieferung innerhalb von 24 Stunden garantiert.",
-  "market.trust.deliveryWindow": "In der Regel können wir zwischen 10:00 und 00:00 Uhr Hongkong-Zeit innerhalb von 30 Minuten liefern.",
+  "market.trust.deliveryWindow": "Wenn wir online sind, liefern wir in der Regel innerhalb von 30 Minuten.",
   "market.trust.progressSupport": "Sie können jederzeit unserem <discord>Discord</discord> beitreten oder ein <ticket>Ticket einreichen</ticket>, um nach dem Fortschritt zu fragen.",
   "market.trust.discordLink": "Discord beitreten",
   "market.trust.ticketLink": "Ticket einreichen",

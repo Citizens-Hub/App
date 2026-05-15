@@ -931,7 +931,7 @@
   "market.trust.title": "自有庫存，無第三方賣家參與",
   "market.trust.description": "我們只銷售來自自己機庫的商品，更加安全，發貨也更快。",
   "market.trust.deliveryWithin24h": "保證在 24 小時內交付。",
-  "market.trust.deliveryWindow": "通常在香港時間 10:00 - 翌日凌晨 0:00，我們都可以在 30 分鐘內完成交付。",
+  "market.trust.deliveryWindow": "通常在我們在線時，可以在30分鐘之內完成交付。",
   "market.trust.progressSupport": "可隨時加入我們的 <discord>Discord</discord> 或 <ticket>提交工單</ticket> 查詢進度。",
   "market.trust.discordLink": "加入 Discord",
   "market.trust.ticketLink": "提交工單",

@@ -989,7 +989,7 @@
   "market.trust.title": "Own inventory, no third-party sellers involved",
   "market.trust.description": "We only sell items from our own hangar inventory, making the process safer and delivery faster.",
   "market.trust.deliveryWithin24h": "Guaranteed delivery within 24 hours.",
-  "market.trust.deliveryWindow": "Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time.",
+  "market.trust.deliveryWindow": "We can usually deliver within 30 minutes when we're online.",
   "market.trust.progressSupport": "You can join our <discord>Discord</discord> or <ticket>submit a ticket</ticket> at any time to ask about progress.",
   "market.trust.discordLink": "Join our Discord",
   "market.trust.ticketLink": "Submit a ticket",
