@@ -25,8 +25,8 @@ export default function TicketCreate() {
   const token = useSelector((state: RootState) => state.user.user.token);
   const [searchParams] = useSearchParams();
   const { data: orderOptionsData, isLoading: orderOptionsLoading } = useTicketOrderOptions();
-  const [subject, setSubject] = useState('');
-  const [content, setContent] = useState('');
+  const [subject, setSubject] = useState(searchParams.get('subject') || '');
+  const [content, setContent] = useState(searchParams.get('content') || '');
   const [relatedOrderId, setRelatedOrderId] = useState(searchParams.get('orderId') || '');
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);

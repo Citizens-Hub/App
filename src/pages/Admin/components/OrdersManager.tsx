@@ -20,6 +20,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  Rating,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuthApi } from '@/hooks';
@@ -45,6 +46,7 @@ export default function OrdersManager() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [resendingReceipt, setResendingReceipt] = useState(false);
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
   const listPath = useMemo(() => {
@@ -142,6 +144,49 @@ export default function OrdersManager() {
       });
     } finally {
       setResendingReceipt(false);
+    }
+  };
+
+  const handleCancelReviewInvite = async (orderId: string, inviteId: string) => {
+    try {
+      setCancellingInviteId(inviteId);
+      setFlash(null);
+
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/admin/orders/${encodeURIComponent(orderId)}/review-invites/${encodeURIComponent(inviteId)}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to cancel review invite');
+      }
+
+      setFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'admin.orders.reviewInviteCancelSuccess',
+          defaultMessage: 'Scheduled review invite cancelled.',
+        }),
+      });
+
+      await Promise.all([mutate(), mutateDetail(payload, { revalidate: false })]);
+    } catch (cancelError) {
+      setFlash({
+        severity: 'error',
+        text: cancelError instanceof Error
+          ? cancelError.message
+          : intl.formatMessage({
+              id: 'admin.orders.reviewInviteCancelError',
+              defaultMessage: 'Failed to cancel review invite.',
+            }),
+      });
+    } finally {
+      setCancellingInviteId(null);
     }
   };
 
@@ -399,6 +444,136 @@ export default function OrdersManager() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+              </Paper>
+
+              <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 2.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+                  <FormattedMessage id="admin.orders.review" defaultMessage="Order Review" />
+                </Typography>
+                {selectedOrder.rating ? (
+                  <Box sx={{ display: 'grid', gap: 1.5 }}>
+                    <Rating value={selectedOrder.rating} readOnly />
+                    {selectedOrder.feedbackAt && (
+                      <Typography variant="body2" color="text.secondary">
+                        <FormattedMessage
+                          id="orders.reviewSubmittedAt"
+                          defaultMessage="Submitted at {time}"
+                          values={{ time: formatDateTime(selectedOrder.feedbackAt) }}
+                        />
+                      </Typography>
+                    )}
+                    {selectedOrder.feedback ? (
+                      <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                        {selectedOrder.feedback}
+                      </Paper>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        <FormattedMessage id="orders.reviewNoComment" defaultMessage="No written review provided." />
+                      </Typography>
+                    )}
+                    {(selectedOrder.reviewAttachments || []).length > 0 && (
+                      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                        {(selectedOrder.reviewAttachments || []).map((attachment) => (
+                          <a key={attachment.id} href={attachment.imageUrl} target="_blank" rel="noreferrer">
+                            <Box
+                              component="img"
+                              src={attachment.imageUrl}
+                              alt={attachment.fileName}
+                              sx={{
+                                width: 96,
+                                height: 96,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                              }}
+                            />
+                          </a>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage id="admin.orders.reviewEmpty" defaultMessage="No review submitted yet." />
+                  </Typography>
+                )}
+              </Paper>
+
+              <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 2.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+                  <FormattedMessage id="admin.orders.reviewInvites" defaultMessage="Scheduled Review Emails" />
+                </Typography>
+                {(selectedOrder.reviewInviteEmails || []).length > 0 ? (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>
+                            <FormattedMessage id="admin.orders.reviewInviteRecipient" defaultMessage="Recipient" />
+                          </TableCell>
+                          <TableCell>
+                            <FormattedMessage id="admin.orders.reviewInviteScheduledAt" defaultMessage="Scheduled At" />
+                          </TableCell>
+                          <TableCell>
+                            <FormattedMessage id="admin.orders.reviewInviteStatus" defaultMessage="Status" />
+                          </TableCell>
+                          <TableCell>
+                            <FormattedMessage id="admin.orders.reviewInviteUpdatedAt" defaultMessage="Updated At" />
+                          </TableCell>
+                          <TableCell align="right">
+                            <FormattedMessage id="tickets.table.actions" defaultMessage="Actions" />
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(selectedOrder.reviewInviteEmails || []).map((invite) => (
+                          <TableRow key={invite.id}>
+                            <TableCell>
+                              <Typography variant="body2">{invite.recipientName || invite.recipientEmail}</Typography>
+                              <Typography variant="caption" color="text.secondary">{invite.recipientEmail}</Typography>
+                            </TableCell>
+                            <TableCell>{formatDateTime(invite.scheduledAt)}</TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                color={invite.status === 'sent' ? 'success' : invite.status === 'cancelled' ? 'default' : 'warning'}
+                                label={invite.status}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {invite.sentAt
+                                ? formatDateTime(invite.sentAt)
+                                : invite.cancelledAt
+                                  ? formatDateTime(invite.cancelledAt)
+                                  : formatDateTime(invite.updatedAt)}
+                            </TableCell>
+                            <TableCell align="right">
+                              {invite.status === 'scheduled' ? (
+                                <Button
+                                  size="small"
+                                  color="warning"
+                                  disabled={cancellingInviteId === invite.id}
+                                  onClick={() => void handleCancelReviewInvite(selectedOrder.id, invite.id)}
+                                >
+                                  <FormattedMessage id="admin.orders.reviewInviteCancel" defaultMessage="Cancel" />
+                                </Button>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  {invite.cancelReason || '-'}
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage id="admin.orders.reviewInvitesEmpty" defaultMessage="No scheduled review emails." />
+                  </Typography>
+                )}
               </Paper>
             </Box>
           ) : null}

@@ -348,7 +348,7 @@ function MarketTrustBadge({
   compact?: boolean;
 }) {
   return (
-    <div className={`bg-white dark:border-gray-800 dark:bg-neutral-950 ${compact ? '' : 'md:p-5'}`}>
+    <div className={`${compact ? '' : 'md:p-5'}`}>
       <div className='flex flex-col gap-2'>
         <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
           <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />

@@ -24,7 +24,8 @@ export default function useOrderData(orderId: string) {
   const { 
     data: orderData,
     error: orderError,
-    isLoading: orderLoading 
+    isLoading: orderLoading,
+    mutate: mutateOrder,
   } = useAuthApi<DetailedOrder>(`/api/orders/${orderId}`, {
     revalidateOnFocus: true,
   });
@@ -51,6 +52,7 @@ export default function useOrderData(orderId: string) {
     ships, 
     order: orderData || null,
     userInfo: userInfoData || null,
+    mutateOrder,
     loading, 
     error 
   };

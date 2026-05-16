@@ -1,5 +1,6 @@
 import { ChangeEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router';
 import { clearUpgrades, setCurrency, setHangarSyncPreferences } from '@/store/upgradesStore';
 import { clearAllImportData } from '@/store/importStore';
 import { login } from '@/store/userStore';
@@ -30,7 +31,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ProfileData, UserRole } from '@/types';
 import CcuPriorityList from './components/CcuPriorityList';
-import { useProfileData } from '@/hooks';
+import { useAuthApi, useProfileData } from '@/hooks';
 import { Camera, Move } from 'lucide-react';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 import {
@@ -90,6 +91,45 @@ type CropOffset = {
   x: number;
   y: number;
 };
+
+type RsiBindingStatusResponse = {
+  success?: boolean;
+  data?: {
+    bound: boolean;
+    pending: boolean;
+    locked: boolean;
+    code: string | null;
+    pendingHandle: string | null;
+    pendingGeneratedAt: string | null;
+    profileUrl: string | null;
+    profileEditUrl: string | null;
+    citizen: {
+      handle: string | null;
+      displayName: string | null;
+      avatar: string | null;
+      bio: string | null;
+      website: string | null;
+      enlisted: string | null;
+      verifiedAt: string | null;
+    };
+  };
+};
+
+function resolveLocalizedMessage(
+  intl: ReturnType<typeof useIntl>,
+  message: string | null | undefined,
+  fallback: { id: string; defaultMessage: string },
+): string {
+  if (message?.startsWith('message.') || message?.startsWith('settings.') || message?.startsWith('tickets.')) {
+    return intl.formatMessage({ id: message, defaultMessage: fallback.defaultMessage });
+  }
+
+  if (message) {
+    return message;
+  }
+
+  return intl.formatMessage(fallback);
+}
 
 const EMPTY_MODEL_CACHE_SUMMARY: ModelCacheListResult = {
   supported: true,
@@ -171,6 +211,7 @@ function getAvatarOutputName(file: File, mimeType: string) {
 export default function Settings() {
   const intl = useIntl();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const apiBaseUrl = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarCropFrameRef = useRef<HTMLDivElement | null>(null);
@@ -184,8 +225,12 @@ export default function Settings() {
   } | null>(null);
   const users = useSelector((state: RootState) => state.upgrades.users);
   const { user } = useSelector((state: RootState) => state.user);
+  const isAdmin = user.role === UserRole.Admin;
 
   const { profile, loading } = useProfileData(user.id);
+  const { data: rsiBindingResponse, mutate: mutateRsiBinding } = useAuthApi<RsiBindingStatusResponse>(
+    user.token ? '/api/user/rsi-binding' : null
+  );
 
   const [profileData, setProfileData] = useState<ProfileData>({
     name: null,
@@ -194,6 +239,13 @@ export default function Settings() {
     contacts: null,
     homepage: null,
     sharedHangar: null,
+    rsiHandle: null,
+    rsiDisplayName: null,
+    rsiAvatar: null,
+    rsiBio: null,
+    rsiWebsite: null,
+    rsiEnlisted: null,
+    rsiVerifiedAt: null,
 
     // immutable
     email: null,
@@ -205,6 +257,19 @@ export default function Settings() {
       setProfileData(profile);
     }
   }, [profile]);
+
+  const rsiBinding = rsiBindingResponse?.data;
+
+  useEffect(() => {
+    if (rsiBinding?.pendingHandle) {
+      setRsiHandleInput(rsiBinding.pendingHandle);
+      return;
+    }
+
+    if (rsiBinding?.citizen.handle) {
+      setRsiHandleInput(rsiBinding.citizen.handle);
+    }
+  }, [rsiBinding?.citizen.handle, rsiBinding?.pendingHandle]);
 
   const [currentPage, setCurrentPage] = useState<Page>(user.role === UserRole.Guest ? Page.Preferences : Page.Profile);
   const { currency } = useSelector((state: RootState) => state.upgrades);
@@ -238,6 +303,9 @@ export default function Settings() {
   const [avatarCropOffset, setAvatarCropOffset] = useState<CropOffset>({ x: 0, y: 0 });
   const [avatarCropPreviewSize, setAvatarCropPreviewSize] = useState(DEFAULT_AVATAR_CROP_PREVIEW_SIZE);
   const [isAvatarCropDragging, setIsAvatarCropDragging] = useState(false);
+  const [rsiHandleInput, setRsiHandleInput] = useState('');
+  const [isStartingRsiBinding, setIsStartingRsiBinding] = useState(false);
+  const [isConfirmingRsiBinding, setIsConfirmingRsiBinding] = useState(false);
   const [modelCacheSummary, setModelCacheSummary] = useState<ModelCacheListResult>(EMPTY_MODEL_CACHE_SUMMARY);
   const [isLoadingModelCache, setIsLoadingModelCache] = useState(false);
   const [modelCacheActionKey, setModelCacheActionKey] = useState<string | null>(null);
@@ -255,7 +323,7 @@ export default function Settings() {
     : 0;
 
   const loadMcpTokens = async () => {
-    if (!user.token || user.role === UserRole.Guest) {
+    if (!user.token || !isAdmin) {
       setMcpTokens([]);
       return;
     }
@@ -290,7 +358,7 @@ export default function Settings() {
   useEffect(() => {
     void loadMcpTokens();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiBaseUrl, user.id, user.role, user.token]);
+  }, [apiBaseUrl, isAdmin, user.id, user.role, user.token]);
 
   useEffect(() => {
     if (!avatarCropSource) {
@@ -813,6 +881,10 @@ export default function Settings() {
   };
 
   const handleCreateMcpToken = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
     setIsCreatingMcpToken(true);
 
     try {
@@ -856,6 +928,10 @@ export default function Settings() {
   };
 
   const handleDeleteMcpToken = async (tokenId: string) => {
+    if (!isAdmin) {
+      return;
+    }
+
     if (!window.confirm(intl.formatMessage({
       id: 'settings.mcpTokenDeleteConfirm',
       defaultMessage: 'Delete this MCP token? Existing MCP sessions that already used it may need to log out manually.'
@@ -926,6 +1002,149 @@ export default function Settings() {
     setNewMcpTokenDialogOpen(false);
     setNewMcpToken(null);
   };
+
+  const handleStartRsiBinding = async () => {
+    setIsStartingRsiBinding(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/user/rsi-binding/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          handle: rsiHandleInput,
+        }),
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(resolveLocalizedMessage(
+          intl,
+          result?.message,
+          {
+            id: 'settings.rsiBindingStartFailed',
+            defaultMessage: 'Failed to generate RSI verification code.'
+          },
+        ));
+      }
+
+      await mutateRsiBinding();
+      showSuccessMessage(resolveLocalizedMessage(
+        intl,
+        result?.message,
+        {
+          id: 'settings.rsiBindingStartSuccess',
+          defaultMessage: 'Verification code generated. Add it to your RSI bio, then confirm binding.'
+        },
+      ));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.rsiBindingStartFailed',
+              defaultMessage: 'Failed to generate RSI verification code.'
+            })
+      );
+    } finally {
+      setIsStartingRsiBinding(false);
+    }
+  };
+
+  const handleConfirmRsiBinding = async () => {
+    setIsConfirmingRsiBinding(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/user/rsi-binding/confirm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(resolveLocalizedMessage(
+          intl,
+          result?.message,
+          {
+            id: 'settings.rsiBindingConfirmFailed',
+            defaultMessage: 'Failed to verify RSI bio.'
+          },
+        ));
+      }
+
+      await mutateRsiBinding();
+      showSuccessMessage(resolveLocalizedMessage(
+        intl,
+        result?.message,
+        {
+          id: 'settings.rsiBindingConfirmSuccess',
+          defaultMessage: 'RSI account bound successfully.'
+        },
+      ));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.rsiBindingConfirmFailed',
+              defaultMessage: 'Failed to verify RSI bio.'
+            })
+      );
+    } finally {
+      setIsConfirmingRsiBinding(false);
+    }
+  };
+
+  const handleCopyRsiVerificationCode = async () => {
+    if (!rsiBinding?.code) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(rsiBinding.code);
+      showSuccessMessage(intl.formatMessage({
+        id: 'settings.rsiBindingCodeCopied',
+        defaultMessage: 'Verification code copied.'
+      }));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(intl.formatMessage({
+        id: 'settings.rsiBindingCodeCopyFailed',
+        defaultMessage: 'Failed to copy verification code.'
+      }));
+    }
+  };
+
+  const openRsiBindingSupportTicket = () => {
+    const params = new URLSearchParams({
+      subject: 'RSI Account Binding Change',
+      content: `I need help to modify my bound RSI account.\n\nCurrent RSI handle: ${rsiBinding?.citizen.handle || ''}\n\nReason: `,
+    });
+
+    navigate(`/tickets/create?${params.toString()}`);
+  };
+
+  const normalizedRsiHandleInput = rsiHandleInput.trim();
+  const isRsiPendingHandleChanged = Boolean(
+    rsiBinding?.pending
+    && rsiBinding.pendingHandle
+    && normalizedRsiHandleInput
+    && normalizedRsiHandleInput !== rsiBinding.pendingHandle
+  );
 
   const layoutItems: ResponsiveSectionLayoutItem[] = [];
 
@@ -1415,93 +1634,299 @@ export default function Settings() {
                   <div className='flex flex-col gap-4'>
                     <div>
                       <Typography variant="h6">
-                        <FormattedMessage id="settings.mcpTokens" defaultMessage="MCP Tokens" />
+                        <FormattedMessage id="settings.rsiBinding" defaultMessage="RSI Account Binding" />
                       </Typography>
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
-                          id="settings.mcpTokensDescription"
-                          defaultMessage="Create dedicated tokens for MCP clients."
+                          id="settings.rsiBindingDescription"
+                          defaultMessage="Bind your RSI account by placing a generated verification code in your RSI bio."
                         />
                       </Typography>
                     </div>
 
-                    <div className='flex flex-row items-center gap-2 justify-between'>
-                      <Input
-                        placeholder={intl.formatMessage({
-                          id: 'settings.mcpTokenNamePlaceholder',
-                          defaultMessage: 'Optional token name'
-                        })}
-                        value={mcpTokenName}
-                        onChange={(e) => setMcpTokenName(e.target.value)}
-                        sx={{ width: '250px' }}
-                        size='small'
-                      />
-                      <Button
-                        variant="contained"
-                        onClick={() => void handleCreateMcpToken()}
-                        disabled={isCreatingMcpToken}
-                      >
-                        {isCreatingMcpToken ? (
-                          <>
-                            <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                            <FormattedMessage id="settings.creatingMcpToken" defaultMessage="Creating..." />
-                          </>
-                        ) : (
-                          <FormattedMessage id="settings.createMcpToken" defaultMessage="Create Token" />
-                        )}
-                      </Button>
-                    </div>
-
-                    {isLoadingMcpTokens ? (
-                      <div className='flex flex-row items-center gap-2 text-sm text-gray-500'>
-                        <CircularProgress size={16} />
-                        <FormattedMessage id="settings.loadingMcpTokens" defaultMessage="Loading MCP tokens..." />
-                      </div>
-                    ) : mcpTokens.length === 0 ? (
-                      <Typography variant="body2" color='text.secondary'>
-                        <FormattedMessage id="settings.noMcpTokens" defaultMessage="No MCP tokens created yet." />
-                      </Typography>
-                    ) : (
-                      <div className='flex flex-col gap-3'>
-                        {mcpTokens.map((token) => (
-                          <div key={token.id} className='flex flex-row items-start gap-4 justify-between rounded-md border border-gray-200 p-3'>
-                            <div className='flex flex-col gap-1'>
-                              <Typography variant="body1">{token.name}</Typography>
-                              <Typography variant="body2" color='text.secondary'>
-                                {token.tokenPreview}
-                              </Typography>
-                              <Typography variant="caption" color='text.secondary'>
-                                <FormattedMessage
-                                  id="settings.mcpTokenCreatedAt"
-                                  defaultMessage="Created: {date}"
-                                  values={{ date: new Date(token.createdAt).toLocaleString() }}
-                                />
-                              </Typography>
-                              <Typography variant="caption" color='text.secondary'>
-                                <FormattedMessage
-                                  id="settings.mcpTokenLastUsedAt"
-                                  defaultMessage="Last used: {date}"
-                                  values={{ date: token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : intl.formatMessage({ id: 'settings.never', defaultMessage: 'Never' }) }}
-                                />
-                              </Typography>
-                            </div>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              disabled={mcpTokenActionId === token.id}
-                              onClick={() => void handleDeleteMcpToken(token.id)}
-                            >
-                              {mcpTokenActionId === token.id ? (
-                                <CircularProgress size={16} color="inherit" />
-                              ) : (
-                                <FormattedMessage id="settings.deleteMcpToken" defaultMessage="Delete" />
-                              )}
-                            </Button>
-                          </div>
-                        ))}
+                    {rsiBinding?.profileEditUrl && (
+                      <div className='rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900/60 dark:bg-blue-950/30'>
+                        <Typography variant="body2" color='text.secondary'>
+                          <FormattedMessage
+                            id="settings.rsiBindingProfileLinkLabel"
+                            defaultMessage="Go to this RSI page to edit your bio for binding:"
+                          />
+                        </Typography>
+                        <a
+                          href={rsiBinding.profileEditUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className='mt-1 block break-all text-blue-700 underline underline-offset-2 dark:text-blue-300'
+                        >
+                          {rsiBinding.profileEditUrl}
+                        </a>
                       </div>
                     )}
+
+                    {rsiBinding?.bound ? (
+                      <>
+                        <Alert severity="success">
+                          <FormattedMessage
+                            id="settings.rsiBindingLocked"
+                            defaultMessage="This RSI account is already bound and cannot be changed here. Submit a support ticket if you need to modify it."
+                          />
+                        </Alert>
+
+                        <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                          <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                            <Typography variant="caption" color='text.secondary'>
+                              <FormattedMessage id="settings.rsiHandle" defaultMessage="RSI Handle" />
+                            </Typography>
+                            <Typography variant="body1">{rsiBinding.citizen.handle || '-'}</Typography>
+                          </div>
+                          <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                            <Typography variant="caption" color='text.secondary'>
+                              <FormattedMessage id="settings.rsiDisplayName" defaultMessage="Display Name" />
+                            </Typography>
+                            <Typography variant="body1">{rsiBinding.citizen.displayName || '-'}</Typography>
+                          </div>
+                          <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                            <Typography variant="caption" color='text.secondary'>
+                              <FormattedMessage id="settings.rsiEnlisted" defaultMessage="Enlisted" />
+                            </Typography>
+                            <Typography variant="body1">{rsiBinding.citizen.enlisted || '-'}</Typography>
+                          </div>
+                          <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                            <Typography variant="caption" color='text.secondary'>
+                              <FormattedMessage id="settings.rsiWebsite" defaultMessage="Website" />
+                            </Typography>
+                            <Typography variant="body1" className='break-all'>{rsiBinding.citizen.website || '-'}</Typography>
+                          </div>
+                        </div>
+
+                        <div className='rounded-md border border-gray-200 p-3 dark:border-gray-800'>
+                          <Typography variant="caption" color='text.secondary'>
+                            <FormattedMessage id="settings.rsiBio" defaultMessage="Bio" />
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                            {rsiBinding.citizen.bio || '-'}
+                          </Typography>
+                        </div>
+
+                        <div className='flex flex-wrap gap-2'>
+                          {rsiBinding.profileUrl && (
+                            <Button
+                              variant="outlined"
+                              onClick={() => window.open(rsiBinding.profileUrl || '', '_blank', 'noopener,noreferrer')}
+                            >
+                              <FormattedMessage id="settings.rsiOpenProfile" defaultMessage="Open RSI Profile" />
+                            </Button>
+                          )}
+                          <Button variant="contained" onClick={openRsiBindingSupportTicket}>
+                            <FormattedMessage id="settings.rsiSubmitTicket" defaultMessage="Submit Ticket" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
+                          <div>
+                            <Typography variant="body1">
+                              <FormattedMessage id="settings.rsiHandle" defaultMessage="RSI Handle" />
+                            </Typography>
+                            <Typography variant="body2" color='text.secondary'>
+                              <FormattedMessage
+                                id="settings.rsiHandleDescription"
+                                defaultMessage="Enter the RSI handle shown on your public citizen profile."
+                              />
+                            </Typography>
+                          </div>
+                          <Input
+                            value={rsiHandleInput}
+                            onChange={(event) => setRsiHandleInput(event.target.value)}
+                            sx={{ width: '250px' }}
+                            size='small'
+                          />
+                        </div>
+
+                        <div className='flex flex-wrap gap-2'>
+                          <Button
+                            variant="contained"
+                            onClick={() => void handleStartRsiBinding()}
+                            disabled={isStartingRsiBinding || !normalizedRsiHandleInput}
+                          >
+                            {isStartingRsiBinding ? (
+                              <>
+                                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                                <FormattedMessage id="settings.rsiGeneratingCode" defaultMessage="Generating..." />
+                              </>
+                            ) : (
+                              <FormattedMessage id="settings.rsiGenerateCode" defaultMessage="Generate Verification Code" />
+                            )}
+                          </Button>
+                          {rsiBinding?.profileEditUrl && (
+                            <Button
+                              variant="outlined"
+                              onClick={() => window.open(rsiBinding.profileEditUrl || '', '_blank', 'noopener,noreferrer')}
+                            >
+                              <FormattedMessage id="settings.rsiOpenProfileEdit" defaultMessage="Open RSI Profile Settings" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {rsiBinding?.pending && (
+                          <>
+                            <Alert severity="info">
+                              <FormattedMessage
+                                id="settings.rsiBindingPending"
+                                defaultMessage="Copy the verification code below, paste it into your RSI bio, save the bio on RSI, then click Confirm Binding."
+                              />
+                            </Alert>
+
+                            <div className='rounded-md border border-dashed border-gray-300 p-4 dark:border-gray-700'>
+                              <Typography variant="caption" color='text.secondary'>
+                                <FormattedMessage id="settings.rsiVerificationCode" defaultMessage="Verification Code" />
+                              </Typography>
+                              <div className='mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+                                <Typography variant="h6" className='break-all'>
+                                  {rsiBinding.code}
+                                </Typography>
+                                <Button variant="outlined" onClick={() => void handleCopyRsiVerificationCode()}>
+                                  <FormattedMessage id="common.copy" defaultMessage="Copy" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {isRsiPendingHandleChanged && (
+                              <Alert severity="warning">
+                                <FormattedMessage
+                                  id="settings.rsiHandleChangedRequiresRegenerate"
+                                  defaultMessage="The RSI handle has changed. Generate a new verification code before confirming binding."
+                                />
+                              </Alert>
+                            )}
+
+                            <div className='flex flex-wrap gap-2'>
+                              {rsiBinding.profileUrl && (
+                                <Button
+                                  variant="outlined"
+                                  onClick={() => window.open(rsiBinding.profileUrl || '', '_blank', 'noopener,noreferrer')}
+                                >
+                                  <FormattedMessage id="settings.rsiOpenProfile" defaultMessage="Open RSI Profile" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="contained"
+                                onClick={() => void handleConfirmRsiBinding()}
+                                disabled={isConfirmingRsiBinding || isRsiPendingHandleChanged}
+                              >
+                                {isConfirmingRsiBinding ? (
+                                  <>
+                                    <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                                    <FormattedMessage id="settings.rsiConfirming" defaultMessage="Confirming..." />
+                                  </>
+                                ) : (
+                                  <FormattedMessage id="settings.rsiConfirmBinding" defaultMessage="Confirm Binding" />
+                                )}
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
+
+                  {isAdmin ? (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+
+                      <div className='flex flex-col gap-4'>
+                        <div>
+                          <Typography variant="h6">
+                            <FormattedMessage id="settings.mcpTokens" defaultMessage="MCP Tokens" />
+                          </Typography>
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage
+                              id="settings.mcpTokensDescription"
+                              defaultMessage="Create dedicated tokens for MCP clients."
+                            />
+                          </Typography>
+                        </div>
+
+                        <div className='flex flex-row items-center gap-2 justify-between'>
+                          <Input
+                            placeholder={intl.formatMessage({
+                              id: 'settings.mcpTokenNamePlaceholder',
+                              defaultMessage: 'Optional token name'
+                            })}
+                            value={mcpTokenName}
+                            onChange={(e) => setMcpTokenName(e.target.value)}
+                            sx={{ width: '250px' }}
+                            size='small'
+                          />
+                          <Button
+                            variant="contained"
+                            onClick={() => void handleCreateMcpToken()}
+                            disabled={isCreatingMcpToken}
+                          >
+                            {isCreatingMcpToken ? (
+                              <>
+                                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                                <FormattedMessage id="settings.creatingMcpToken" defaultMessage="Creating..." />
+                              </>
+                            ) : (
+                              <FormattedMessage id="settings.createMcpToken" defaultMessage="Create Token" />
+                            )}
+                          </Button>
+                        </div>
+
+                        {isLoadingMcpTokens ? (
+                          <div className='flex flex-row items-center gap-2 text-sm text-gray-500'>
+                            <CircularProgress size={16} />
+                            <FormattedMessage id="settings.loadingMcpTokens" defaultMessage="Loading MCP tokens..." />
+                          </div>
+                        ) : mcpTokens.length === 0 ? (
+                          <Typography variant="body2" color='text.secondary'>
+                            <FormattedMessage id="settings.noMcpTokens" defaultMessage="No MCP tokens created yet." />
+                          </Typography>
+                        ) : (
+                          <div className='flex flex-col gap-3'>
+                            {mcpTokens.map((token) => (
+                              <div key={token.id} className='flex flex-row items-start gap-4 justify-between rounded-md border border-gray-200 p-3'>
+                                <div className='flex flex-col gap-1'>
+                                  <Typography variant="body1">{token.name}</Typography>
+                                  <Typography variant="body2" color='text.secondary'>
+                                    {token.tokenPreview}
+                                  </Typography>
+                                  <Typography variant="caption" color='text.secondary'>
+                                    <FormattedMessage
+                                      id="settings.mcpTokenCreatedAt"
+                                      defaultMessage="Created: {date}"
+                                      values={{ date: new Date(token.createdAt).toLocaleString() }}
+                                    />
+                                  </Typography>
+                                  <Typography variant="caption" color='text.secondary'>
+                                    <FormattedMessage
+                                      id="settings.mcpTokenLastUsedAt"
+                                      defaultMessage="Last used: {date}"
+                                      values={{ date: token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : intl.formatMessage({ id: 'settings.never', defaultMessage: 'Never' }) }}
+                                    />
+                                  </Typography>
+                                </div>
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  disabled={mcpTokenActionId === token.id}
+                                  onClick={() => void handleDeleteMcpToken(token.id)}
+                                >
+                                  {mcpTokenActionId === token.id ? (
+                                    <CircularProgress size={16} color="inherit" />
+                                  ) : (
+                                    <FormattedMessage id="settings.deleteMcpToken" defaultMessage="Delete" />
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : null}
                 </>)
               }
               <Divider sx={{ my: 2 }} />

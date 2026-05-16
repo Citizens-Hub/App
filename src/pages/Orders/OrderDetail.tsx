@@ -14,16 +14,20 @@ import {
   Step,
   StepLabel,
   Stepper,
+  Paper,
+  Rating,
+  TextField,
 } from '@mui/material';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { DetailedOrderItem, OrderStatus } from "@/types";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { Check, ChevronsRight, Info, X } from "lucide-react";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { useOrderData } from '@/hooks';
+import { useOrderData, useUploadOrderReviewAttachment } from '@/hooks';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from '@/components/marketItemDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 import {
@@ -39,11 +43,33 @@ import {
 
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
-  const { ships, order, loading, error } = useOrderData(orderId || '');
+  const { ships, order, loading, error, mutateOrder } = useOrderData(orderId || '');
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
   const intl = useIntl();
   const isMobile = window.innerWidth < 768;
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [reviewFlash, setReviewFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
+  const reviewSectionRef = useRef<HTMLDivElement | null>(null);
+  const { uploadFile, loading: uploadLoading } = useUploadOrderReviewAttachment();
+
+  const canReview = order?.status === OrderStatus.Finished;
+  const hasReview = order?.rating !== null && order?.rating !== undefined;
+  const reviewMode = location.search.includes('review=1');
+
+  useEffect(() => {
+    setFeedbackRating(order?.rating ?? null);
+    setFeedbackText(order?.feedback || '');
+  }, [order?.feedback, order?.rating]);
+
+  useEffect(() => {
+    if (canReview && reviewMode) {
+      reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [canReview, reviewMode]);
 
   // Handle view receipt
   const handleViewReceipt = () => {
@@ -58,6 +84,89 @@ export default function OrderDetail() {
     }).then(res => res.json()).then(data => {
       window.open(data.url, '_blank');
     });
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!order || !feedbackRating) {
+      return;
+    }
+
+    try {
+      setFeedbackSubmitting(true);
+      setReviewFlash(null);
+
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/${order.id}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          feedback: feedbackText.trim() || undefined,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || intl.formatMessage({
+          id: 'orders.reviewSubmitError',
+          defaultMessage: 'Failed to submit review.',
+        }));
+      }
+
+      await mutateOrder(payload, { revalidate: false });
+      setReviewFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'orders.reviewSubmitSuccess',
+          defaultMessage: 'Review submitted.',
+        }),
+      });
+    } catch (submitError) {
+      setReviewFlash({
+        severity: 'error',
+        text: submitError instanceof Error
+          ? submitError.message
+          : intl.formatMessage({
+              id: 'orders.reviewSubmitError',
+              defaultMessage: 'Failed to submit review.',
+            }),
+      });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleReviewImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!order || !file) {
+      return;
+    }
+
+    try {
+      setReviewFlash(null);
+      await uploadFile(order.id, file);
+      await mutateOrder();
+      setReviewFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'orders.reviewImageUploadSuccess',
+          defaultMessage: 'Review image uploaded.',
+        }),
+      });
+    } catch (uploadError) {
+      setReviewFlash({
+        severity: 'error',
+        text: uploadError instanceof Error
+          ? uploadError.message
+          : intl.formatMessage({
+              id: 'orders.reviewImageUploadError',
+              defaultMessage: 'Failed to upload review image.',
+            }),
+      });
+    }
   };
 
   // Get status chip
@@ -202,6 +311,10 @@ export default function OrderDetail() {
   const deadlineAt = deadlineMode === 'payment'
     ? order.expiresAt
     : order.shipmentDeadlineAt;
+  const reviewImages = order.reviewAttachments || [];
+  const canUploadMoreReviewImages = reviewImages.length < 5;
+  const reviewSubmittedAt = order.feedbackAt ? new Date(order.feedbackAt).toLocaleString(intl.locale) : null;
+  const reviewHintVisible = canReview && reviewMode && !hasReview;
 
   return (
     <div className='w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto'>
@@ -585,6 +698,164 @@ export default function OrderDetail() {
             </TableContainer>
           </Box>
         </div>
+
+        <Paper ref={reviewSectionRef} sx={{ p: 3, border: '1px solid', borderColor: 'divider', textAlign: 'left' }} elevation={0}>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            <FormattedMessage id="orders.reviewTitle" defaultMessage="Order Review" />
+          </Typography>
+
+          {!canReview && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <FormattedMessage id="orders.reviewAfterComplete" defaultMessage="Review can be submitted after the order is completed." />
+            </Alert>
+          )}
+
+          {reviewFlash && <Alert severity={reviewFlash.severity} sx={{ mb: 2 }}>{reviewFlash.text}</Alert>}
+
+          {hasReview ? (
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              <Rating value={order.rating || null} readOnly />
+              {reviewSubmittedAt && (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage
+                    id="orders.reviewSubmittedAt"
+                    defaultMessage="Submitted at {time}"
+                    values={{ time: reviewSubmittedAt }}
+                  />
+                </Typography>
+              )}
+              {order.feedback ? (
+                <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                  {order.feedback}
+                </Paper>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage id="orders.reviewNoComment" defaultMessage="No written review provided." />
+                </Typography>
+              )}
+              {reviewImages.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 1 }}>
+                  {reviewImages.map((attachment) => (
+                    <a
+                      key={attachment.id}
+                      href={attachment.imageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Box
+                        component="img"
+                        src={attachment.imageUrl}
+                        alt={attachment.fileName}
+                        sx={{
+                          width: 96,
+                          height: 96,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      />
+                    </a>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              {reviewHintVisible && (
+                <Alert severity="success">
+                  <FormattedMessage id="orders.reviewInvite" defaultMessage="Your order is complete. Please leave a rating and review." />
+                </Alert>
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <FormattedMessage id="orders.reviewRating" defaultMessage="Rating" />
+                </Typography>
+                <Rating
+                  value={feedbackRating}
+                  onChange={(_event, value) => setFeedbackRating(value)}
+                  disabled={!canReview || feedbackSubmitting}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                minRows={4}
+                value={feedbackText}
+                onChange={(event) => setFeedbackText(event.target.value)}
+                label={intl.formatMessage({ id: 'orders.reviewComment', defaultMessage: 'Review comment (optional)' })}
+                disabled={!canReview || feedbackSubmitting}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    textAlign: 'left',
+                  },
+                  '& .MuiInputBase-inputMultiline': {
+                    textAlign: 'left',
+                  },
+                }}
+              />
+              <Box sx={{ display: 'grid', gap: 1 }}>
+                <Typography variant="body2">
+                  <FormattedMessage
+                    id="orders.reviewImagesHelp"
+                    defaultMessage="Upload up to 5 images. JPG, PNG, WEBP and other image formats are supported."
+                  />
+                </Typography>
+                {reviewImages.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                    {reviewImages.map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        href={attachment.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Box
+                          component="img"
+                          src={attachment.imageUrl}
+                          alt={attachment.fileName}
+                          sx={{
+                            width: 96,
+                            height: 96,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        />
+                      </a>
+                    ))}
+                  </Box>
+                )}
+                {canUploadMoreReviewImages && (
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    disabled={!canReview || uploadLoading || feedbackSubmitting}
+                    sx={{ width: 'fit-content' }}
+                  >
+                    <FormattedMessage id="orders.reviewUploadImage" defaultMessage="Upload Image" />
+                    <input
+                      hidden
+                      accept="image/*"
+                      type="file"
+                      onChange={handleReviewImageUpload}
+                    />
+                  </Button>
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => void handleSubmitFeedback()}
+                  disabled={!canReview || feedbackSubmitting || uploadLoading || !feedbackRating}
+                >
+                  <FormattedMessage id="orders.reviewSubmit" defaultMessage="Submit Review" />
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Paper>
       </div>
     </div>
   );

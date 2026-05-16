@@ -32,6 +32,7 @@ import {
   Tooltip,
   Typography,
   type ChipProps,
+  Rating,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
@@ -1133,6 +1134,60 @@ const OrderDetail = () => {
               </Table>
             </TableContainer>
           </Box>
+        </div>
+
+        <div className={sectionClassName}>
+          <Typography variant="h6" fontWeight="medium" align='left' sx={{ mb: 2 }}>
+            <FormattedMessage id="reseller.order.review" defaultMessage="Customer Review" />
+          </Typography>
+          {order.rating ? (
+            <Box sx={{ display: 'grid', gap: 1.5, textAlign: 'left' }}>
+              <Rating value={order.rating} readOnly />
+              {order.feedbackAt && (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage
+                    id="orders.reviewSubmittedAt"
+                    defaultMessage="Submitted at {time}"
+                    values={{ time: formatDateTime(intl.locale, order.feedbackAt) }}
+                  />
+                </Typography>
+              )}
+              {order.feedback ? (
+                <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                  {order.feedback}
+                </Paper>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage id="orders.reviewNoComment" defaultMessage="No written review provided." />
+                </Typography>
+              )}
+              {(order.reviewAttachments || []).length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                  {(order.reviewAttachments || []).map((attachment) => (
+                    <a key={attachment.id} href={attachment.imageUrl} target="_blank" rel="noreferrer">
+                      <Box
+                        component="img"
+                        src={attachment.imageUrl}
+                        alt={attachment.fileName}
+                        sx={{
+                          width: 96,
+                          height: 96,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      />
+                    </a>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary" align='left'>
+              <FormattedMessage id="reseller.order.reviewEmpty" defaultMessage="No customer review submitted yet." />
+            </Typography>
+          )}
         </div>
 
         <div className={sectionClassName}>

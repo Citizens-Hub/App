@@ -58,6 +58,13 @@ export interface ProfileData {
   contacts: string | null;
   homepage: string | null;
   sharedHangar: string | null;
+  rsiHandle?: string | null;
+  rsiDisplayName?: string | null;
+  rsiAvatar?: string | null;
+  rsiBio?: string | null;
+  rsiWebsite?: string | null;
+  rsiEnlisted?: string | null;
+  rsiVerifiedAt?: string | null;
 
   // immutable
   email: string | null;
@@ -933,6 +940,11 @@ export interface Order {
   discountSettlementStatus?: 'pending' | 'settled' | 'review';
   paidFinalizedAt?: string | null;
   paidFinalizationError?: string | null;
+  rating?: number | null;
+  feedback?: string | null;
+  feedbackAt?: string | null;
+  reviewAttachments?: OrderReviewAttachment[];
+  reviewInviteEmails?: OrderReviewInviteEmail[];
   status: OrderStatus;
   createdAt: string;
   expiresAt?: string | null;
@@ -997,6 +1009,30 @@ export interface DetailedOrder extends Order {
   items: DetailedOrderItem[];
   customerEmail?: string | null;
   customerName?: string | null;
+}
+
+export interface OrderReviewAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  url: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface OrderReviewInviteEmail {
+  id: string;
+  scheduledAt: string;
+  sentAt: string | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  cancelReason: string | null;
+  recipientEmail: string;
+  recipientName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  status: 'scheduled' | 'sent' | 'cancelled';
 }
 
 export interface TicketOrderOption {
