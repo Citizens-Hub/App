@@ -58,6 +58,9 @@ export interface ProfileData {
   contacts: string | null;
   homepage: string | null;
   sharedHangar: string | null;
+  adsAudienceConsent?: boolean;
+  adsConsentRegion?: string | null;
+  adsConsentAt?: string | null;
   rsiHandle?: string | null;
   rsiDisplayName?: string | null;
   rsiAvatar?: string | null;

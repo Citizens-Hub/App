@@ -5,6 +5,206 @@
                 "listing": {
                     "resources": [
                         {
+                            "id": "19299",
+                            "slug": "kw6oratueg8tf",
+                            "name": "R6 Pro Yaeger Aviator Glasses",
+                            "title": "R6 Pro Yaeger Aviator Glasses",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/R6-Pro-Yaeger-Aviator-Glasses",
+                            "body": null,
+                            "excerpt": "When the future's looking bright, reach for these aviator shades from R6 Pro. With a design that has remained classic for centuries, you can salute the trailblazing aviators of the past as you chart new horizons.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/n7fvyj2j8ghje/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/n7fvyj2j8ghje/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/n7fvyj2j8ghje/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 200,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 200,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/d6883835f6a5273edc002453a5e8181719ff2ed7/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjResjpQMEiDoagPX5VHpgTAEg9Lj7arCUU4R4)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "R6 Pro Yaeger Aviator Glasses",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19300",
+                            "slug": "x3h9vkk3gaec0",
+                            "name": "P8-AR \"Dominion Camo\" Rifle",
+                            "title": "P8-AR \"Dominion Camo\" Rifle",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/P8-AR-Dominion-Camo-Rifle",
+                            "body": null,
+                            "excerpt": "The direct descendant of the UEE Marines’ standard-issue rifle, Behring has crafted the semi-automatic P8-AR to provide civilians across the empire with a straightforward and dependable weapon to defend themselves.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/ub7r2vej4ooqk/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/ub7r2vej4ooqk/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/ub7r2vej4ooqk/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 500,
+                                "discounted": null,
+                                "discountDescription": null,
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 500,
+                                "discounted": null,
+                                "taxDescription": [],
+                                "discountDescription": null,
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/ac31cb53f624f13cd2cff78d44e271b85dc55fc3/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjReskUJNWd6aAUh8p4TNSvyu1aDfmBGyjeYq4)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "P8-AR \"Dominion Camo\" Rifle",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": false,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
+                            "id": "19301",
+                            "slug": "v2tm0mjw48n57",
+                            "name": "Top Gunner’s Kit",
+                            "title": "Top Gunner’s Kit",
+                            "subtitle": "Subscribers Store",
+                            "url": "/pledge/Subscribers-Store/Top-Gunner-s-Kit",
+                            "body": null,
+                            "excerpt": "Hit hard and look good doing it. Classic aviators and a deadly assault rifle. Everything you need to handle whatever comes your way. Includes the R6 Pro Yaeger Aviator Glasses and Behring P8-AR ‘Dominion Camo’ Rifle.",
+                            "type": "pledge",
+                            "media": {
+                                "thumbnail": {
+                                    "slideshow": "https://media.robertsspaceindustries.com/4r20oh8e2jp3l/slideshow.jpg",
+                                    "storeSmall": "https://media.robertsspaceindustries.com/4r20oh8e2jp3l/store_small.jpg",
+                                    "__typename": "TyItemMediaDerived"
+                                },
+                                "list": [
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/4r20oh8e2jp3l/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/n7fvyj2j8ghje/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    },
+                                    {
+                                        "slideshow": "https://media.robertsspaceindustries.com/ub7r2vej4ooqk/slideshow.jpg",
+                                        "__typename": "TyItemMediaDerived"
+                                    }
+                                ],
+                                "__typename": "TyItemMedia"
+                            },
+                            "nativePrice": {
+                                "amount": 700,
+                                "discounted": 630,
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowsePrice"
+                            },
+                            "price": {
+                                "amount": 700,
+                                "discounted": 630,
+                                "taxDescription": [],
+                                "discountDescription": "10%",
+                                "__typename": "TyBrowseTaxedPrice"
+                            },
+                            "stock": {
+                                "unlimited": true,
+                                "show": true,
+                                "available": true,
+                                "backOrder": false,
+                                "qty": 0,
+                                "backOrderQty": 0,
+                                "level": "high",
+                                "__typename": "TyStock"
+                            },
+                            "tags": [],
+                            "imageComposer": [
+                                {
+                                    "name": "thumbnail",
+                                    "slot": "thumbnail",
+                                    "url": "/i/4e5fa714685d4fe8307a298779d9882129a970b5/resize(910,512,cover,ADdPNihJzmPbNuTnFsH1DqUeqBRpXdSXVVtgJTyDDgscGKrzJuoFjReseYwbKEsB8GrbtLbir2PiEj8K9kP3uqKNW)/source.webp",
+                                    "__typename": "ImageComposer"
+                                }
+                            ],
+                            "label": "Top Gunner’s Kit",
+                            "customizable": false,
+                            "isWarbond": false,
+                            "isPackage": true,
+                            "isVip": false,
+                            "isDirectCheckout": false,
+                            "__typename": "TySku"
+                        },
+                        {
                             "id": "19111",
                             "slug": "vr5i2asyg7679",
                             "name": "CC’s Conversions Azrael ‘Sapphire’ Helmet ",

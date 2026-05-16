@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import {
   Box,
   Button,
+  Checkbox,
   TextField,
   Typography,
   Container,
@@ -9,7 +10,8 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Link
+  Link,
+  FormControlLabel
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router';
 import { FormattedMessage } from 'react-intl';
@@ -34,6 +36,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
+  const [adsAudienceConsent, setAdsAudienceConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -86,20 +90,17 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   };
 
   const validatePassword = (password: string) => {
-    // 验证密码至少6位且不为纯数字
     if (password.length < 6) return false;
-    // 检查是否为纯数字
     const isOnlyNumbers = /^\d+$/.test(password);
     return !isOnlyNumbers;
   };
 
-  // 表单验证状态计算
   const isFormValid = () => {
     if (action === 'register') {
       const isEmailValid = validateEmail(email);
       const isPasswordValid = validatePassword(password);
       const isPasswordsMatch = password === confirmPassword;
-      return isEmailValid && isPasswordValid && isPasswordsMatch && !!captchaPayload;
+      return isEmailValid && isPasswordValid && isPasswordsMatch && privacyPolicyAccepted && !!captchaPayload;
     }
     return !!email && !!password && !!captchaPayload;
   };
@@ -167,7 +168,6 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       return;
     }
 
-    // 重置错误状态
     setEmailError(false);
     setPasswordError(false);
     setPasswordStrengthError(false);
@@ -175,7 +175,6 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
     let hasError = false;
 
-    // 验证邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setEmailError(true);
@@ -183,14 +182,12 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       hasError = true;
     }
 
-    // 验证密码强度
     if (!validatePassword(password)) {
       setPasswordStrengthError(true);
       if (!hasError) setError('Password too weak');
       hasError = true;
     }
 
-    // 验证两次密码输入是否一致
     if (password !== confirmPassword) {
       setPasswordError(true);
       if (!hasError) setError('Passwords do not match');
@@ -210,6 +207,10 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         body: JSON.stringify({
           email,
           password,
+          referralCode: referralCode.trim() || undefined,
+          privacyPolicyAccepted,
+          adsAudienceConsent,
+          consentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
           ...captchaPayload
         }),
       });
@@ -234,25 +235,26 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
     <Container maxWidth="sm">
       <BackgroundVideo />
       {showAlert && (
-        <Alert 
-          severity="info" 
+        <Alert
+          severity="info"
           sx={{ zIndex: 1000, position: 'fixed', top: '65px', left: 0, right: 0, width: '100%', borderRadius: 0 }}
           onClose={() => setShowAlert(false)}
         >
           <div className="text-sm text-left">
-            <FormattedMessage 
-              id="login.siteAccountNotice" 
-              defaultMessage="Please note: You are logging into an account for this site, not your RSI account. Although we encrypt and securely store your information, to avoid any unnecessary issues, please do not use the same password as your RSI account when registering. To retrieve inventory data, please use our browser extension." 
+            <FormattedMessage
+              id="login.siteAccountNotice"
+              defaultMessage="Please note: You are logging into an account for this site, not your RSI account. Although we encrypt and securely store your information, to avoid any unnecessary issues, please do not use the same password as your RSI account when registering. To retrieve inventory data, please use our browser extension."
             />
           </div>
         </Alert>
       )}
       <Box
         sx={{
-          marginTop: 8,
+          marginTop: 14,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          marginBottom: 6
         }}
       >
         <Paper
@@ -354,6 +356,57 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               />
+            )}
+
+            {action === 'register' && (
+              <Box sx={{ mt: 1, display: 'grid', gap: 1 }}>
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={privacyPolicyAccepted}
+                      onChange={(event) => setPrivacyPolicyAccepted(event.target.checked)}
+                    />
+                  )}
+                  label={(
+                    <Typography variant="body2">
+                      <FormattedMessage
+                        id="register.privacyPolicyConsent"
+                        defaultMessage="I have read and agree to the Privacy Policy."
+                      />
+                    </Typography>
+                  )}
+                />
+              </Box>
+            )}
+
+            {action === 'register' && (
+              <Box sx={{ mt: 1, display: 'grid', gap: 1, textAlign: 'left' }}>
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      checked={adsAudienceConsent}
+                      onChange={(event) => setAdsAudienceConsent(event.target.checked)}
+                    />
+                  )}
+                  label={(
+                    <Typography variant="body2">
+                      <FormattedMessage
+                        id="register.adsAudienceConsent"
+                        defaultMessage="Allow Citizens Hub to use my email and related purchase records for customer audience matching with Google and similar advertising platforms."
+                      />
+                    </Typography>
+                  )}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  <FormattedMessage
+                    id="register.adsConsentHelp"
+                    defaultMessage="Optional. You can change this later in App Settings."
+                  />{' '}
+                  <Link href="/privacy" underline="hover">
+                    <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
+                  </Link>
+                </Typography>
+              </Box>
             )}
 
             <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'left' }}>

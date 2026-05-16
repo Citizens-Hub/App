@@ -14,6 +14,7 @@ import ConciergePaintsManager from './components/ConciergePaintsManager';
 import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
 import OrdersManager from './components/OrdersManager';
+import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -30,6 +31,7 @@ enum Page {
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
+  GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
 }
 
@@ -114,6 +116,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.NewUserCoupon),
     },
     {
+      id: Page.GoogleAdsAudience,
+      title: <FormattedMessage id="admin.googleAdsAudience.title" defaultMessage="Google Ads Customer Match" />,
+      description: <FormattedMessage id="admin.googleAdsAudience.description" defaultMessage="Manually build or refresh a Google Customer Match audience from consented paid buyers." />,
+      active: currentPage === Page.GoogleAdsAudience,
+      onSelect: () => setCurrentPage(Page.GoogleAdsAudience),
+    },
+    {
       id: Page.Orders,
       title: <FormattedMessage id="admin.orders.title" defaultMessage="Order Management" />,
       description: <FormattedMessage id="admin.orders.description" defaultMessage="Review all orders, inspect buyer information, and manually resend receipts." />,
@@ -154,6 +163,7 @@ export default function Admin() {
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
+        {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.Orders && <OrdersManager />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}

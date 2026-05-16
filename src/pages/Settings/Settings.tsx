@@ -239,6 +239,9 @@ export default function Settings() {
     contacts: null,
     homepage: null,
     sharedHangar: null,
+    adsAudienceConsent: false,
+    adsConsentRegion: null,
+    adsConsentAt: null,
     rsiHandle: null,
     rsiDisplayName: null,
     rsiAvatar: null,
@@ -1569,6 +1572,46 @@ export default function Settings() {
                       size='small'
                     />
                   </div>
+                  <div className='flex flex-col gap-3 rounded-md border border-gray-200 p-4 dark:border-gray-800'>
+                    <div>
+                      <FormattedMessage id="settings.adsConsent" defaultMessage="Advertising Audience Consent" />
+                      <Typography variant="body2" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.adsConsentDescription"
+                          defaultMessage="Control whether Citizens Hub may share your email and related first-party purchase data with advertising platforms such as Google to build or refresh customer audiences."
+                        />
+                      </Typography>
+                    </div>
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={Boolean(profileData.adsAudienceConsent)}
+                          onChange={(event) => {
+                            setProfileData((prev) => ({
+                              ...prev,
+                              adsAudienceConsent: event.target.checked,
+                            }));
+                          }}
+                        />
+                      )}
+                      label={(
+                        <FormattedMessage
+                          id="settings.adsAudienceConsent"
+                          defaultMessage="Allow sharing my email and related first-party purchase data with Google and similar advertising platforms for customer audience matching and advertising targeting where permitted by law."
+                        />
+                      )}
+                    />
+                    <Typography variant="caption" color='text.secondary'>
+                      <FormattedMessage
+                        id="settings.adsConsentMeta"
+                        defaultMessage="Last updated: {date}. Region hint: {region}."
+                        values={{
+                          date: profileData.adsConsentAt ? new Date(profileData.adsConsentAt).toLocaleString(intl.locale) : '-',
+                          region: profileData.adsConsentRegion || (Intl.DateTimeFormat().resolvedOptions().timeZone || '-'),
+                        }}
+                      />
+                    </Typography>
+                  </div>
 
                   <Button 
                     variant="contained" 
@@ -1579,7 +1622,10 @@ export default function Settings() {
                       setIsSubmitting(true);
                       fetch(`${apiBaseUrl}/api/user/profile`, {
                         method: 'PUT',
-                        body: JSON.stringify(profileData),
+                        body: JSON.stringify({
+                          ...profileData,
+                          adsConsentRegion: profileData.adsConsentRegion || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+                        }),
                         headers: {
                           'Content-Type': 'application/json',
                           'Authorization': `Bearer ${user.token}`
