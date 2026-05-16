@@ -18,7 +18,7 @@ import {
   Rating,
   TextField,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { DetailedOrderItem, OrderStatus } from "@/types";
 import { useLocation, useNavigate, useParams } from "react-router";
