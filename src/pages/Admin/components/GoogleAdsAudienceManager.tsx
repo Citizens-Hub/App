@@ -67,6 +67,19 @@ type AdminGoogleAdsOauthStatusResponse = {
   };
 };
 
+type GoogleAudienceDryRunPayloadPreview = {
+  termsOfService?: {
+    customerMatchTermsOfServiceStatus?: string;
+  };
+  audienceMembers?: Array<{
+    userData?: {
+      userIdentifiers?: Array<{
+        hashedEmail?: string;
+      }>;
+    };
+  }>;
+};
+
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
 export default function GoogleAdsAudienceManager() {
@@ -142,7 +155,14 @@ export default function GoogleAdsAudienceManager() {
         }),
       });
 
-      const payload = await response.json().catch(() => null) as { success?: boolean; message?: string; data?: { counts?: { uniqueEmails?: number } } } | null;
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+        data?: {
+          counts?: { uniqueEmails?: number };
+          toGooglePayload?: GoogleAudienceDryRunPayloadPreview | null;
+        };
+      } | null;
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.message || 'Audience sync failed');
       }
