@@ -1,4 +1,4 @@
-const MANUFACTURER_LOGO_PATHS: Record<string, string> = {
+export const MANUFACTURER_LOGO_PATHS: Record<string, string> = {
   'aegis dynamics': '/rsi-manufacturers/aegis-dynamics.svg',
   'anvil aerospace': '/rsi-manufacturers/anvil-aerospace.svg',
   aopoa: '/rsi-manufacturers/aopoa.svg',
@@ -20,7 +20,7 @@ const MANUFACTURER_LOGO_PATHS: Record<string, string> = {
   'greys market': '/rsi-manufacturers/greys-market.svg'
 };
 
-const MANUFACTURER_LOGO_PATHS_BY_ID: Record<number, string> = {
+export const MANUFACTURER_LOGO_PATHS_BY_ID: Record<number, string> = {
   1: '/rsi-manufacturers/roberts-space-industries.svg',
   3: '/rsi-manufacturers/anvil-aerospace.svg',
   4: '/rsi-manufacturers/misc.svg',

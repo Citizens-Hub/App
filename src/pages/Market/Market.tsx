@@ -8,9 +8,7 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  FormGroup,
   FormControlLabel,
-  Checkbox,
   Radio,
   RadioGroup,
   Badge,
@@ -30,6 +28,7 @@ import {
   CartItem as CartItemType,
   MarketBrowseCategory,
   MarketItemType,
+  MarketShipTraitFilter,
   MarketSortMode,
   Resource,
   NewUserCouponPreview,
@@ -43,6 +42,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { buildMarketResource } from '@/components/marketItemDisplay';
 import { getAbsoluteAssetUrl, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
+import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import {
   getAvailableStock,
   getListingBasePrice,
@@ -63,7 +63,8 @@ type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 type MarketPageSearchState = {
   searchTerm: string;
   selectedItemFilter: MarketItemFilterOption;
-  showOcOnly: boolean;
+  selectedShipTraitFilter: MarketShipTraitFilter | 'all';
+  selectedManufacturerId: number | null;
   sortBy: MarketSortMode;
   page: number;
   rowsPerPage: number;
@@ -73,9 +74,10 @@ const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
-const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'sortBy', 'page', 'limit'] as const;
+const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'sortBy', 'page', 'limit'] as const;
 const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']);
 const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
+const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'non_oc', 'lti']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 
 function formatCouponCountdown(remainingMs: number) {
@@ -111,17 +113,30 @@ function parseRowsPerPage(value: string | null): number {
     : MARKET_DEFAULT_ROWS_PER_PAGE;
 }
 
+function parsePositiveInteger(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSearchState {
   const itemTypeFilter = parseMarketSearchParamList(searchParams, 'itemType')
     .find((value): value is MarketItemType => VALID_MARKET_ITEM_TYPE_FILTERS.has(value as MarketItemType));
   const browseCategoryFilter = parseMarketSearchParamList(searchParams, 'browseCategory')
     .find((value): value is MarketBrowseCategory => VALID_MARKET_BROWSE_CATEGORY_FILTERS.has(value as MarketBrowseCategory));
+  const shipTraitFilter = parseMarketSearchParamList(searchParams, 'shipTrait')
+    .find((value): value is MarketShipTraitFilter => VALID_MARKET_SHIP_TRAIT_FILTERS.has(value as MarketShipTraitFilter));
   const sortByParam = searchParams.get('sortBy');
+  const legacyOcTagSelected = parseMarketSearchParamList(searchParams, 'tag').includes('oc');
 
   return {
     searchTerm: searchParams.get('search') || '',
     selectedItemFilter: itemTypeFilter || browseCategoryFilter || 'all',
-    showOcOnly: parseMarketSearchParamList(searchParams, 'tag').includes('oc'),
+    selectedShipTraitFilter: shipTraitFilter || (legacyOcTagSelected ? 'oc' : 'all'),
+    selectedManufacturerId: parsePositiveInteger(searchParams.get('manufacturerId')),
     sortBy: VALID_MARKET_SORT_MODES.has(sortByParam as MarketSortMode)
       ? sortByParam as MarketSortMode
       : 'recommended',
@@ -148,8 +163,12 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
     nextSearchParams.set('browseCategory', state.selectedItemFilter);
   }
 
-  if (state.showOcOnly) {
-    nextSearchParams.set('tag', 'oc');
+  if (state.selectedShipTraitFilter !== 'all') {
+    nextSearchParams.set('shipTrait', state.selectedShipTraitFilter);
+  }
+
+  if (state.selectedManufacturerId) {
+    nextSearchParams.set('manufacturerId', String(state.selectedManufacturerId));
   }
 
   if (state.sortBy !== 'recommended') {
@@ -188,16 +207,22 @@ const Market: React.FC = () => {
   const {
     searchTerm,
     selectedItemFilter,
-    showOcOnly,
+    selectedShipTraitFilter,
+    selectedManufacturerId,
     sortBy,
     page,
     rowsPerPage,
   } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
   const [searchInput, setSearchInput] = useState(() => searchTerm);
+  const showsShipTraitFilters = selectedItemFilter === 'all'
+    || selectedItemFilter === 'standalone_ship'
+    || selectedItemFilter === 'ship_package';
+  const showsManufacturerFilter = showsShipTraitFilters || selectedItemFilter === 'ccu';
   const normalizedSearchParams = useMemo(() => buildMarketPageSearchParams(searchParams, {
     searchTerm,
     selectedItemFilter,
-    showOcOnly,
+    selectedShipTraitFilter: showsShipTraitFilters ? selectedShipTraitFilter : 'all',
+    selectedManufacturerId: showsManufacturerFilter ? selectedManufacturerId : null,
     sortBy,
     page,
     rowsPerPage,
@@ -206,8 +231,11 @@ const Market: React.FC = () => {
     rowsPerPage,
     searchParams,
     searchTerm,
+    selectedManufacturerId,
     selectedItemFilter,
-    showOcOnly,
+    selectedShipTraitFilter,
+    showsManufacturerFilter,
+    showsShipTraitFilters,
     sortBy,
   ]);
 
@@ -263,6 +291,12 @@ const Market: React.FC = () => {
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
     const browseCategories: MarketBrowseCategory[] = [];
+    const shipTraits = showsShipTraitFilters && selectedShipTraitFilter !== 'all'
+      ? [selectedShipTraitFilter]
+      : [];
+    const manufacturerIds = showsManufacturerFilter && selectedManufacturerId
+      ? [selectedManufacturerId]
+      : [];
 
     switch (selectedItemFilter) {
       case 'ccu':
@@ -283,7 +317,8 @@ const Market: React.FC = () => {
       search: searchTerm,
       itemTypes,
       browseCategories,
-      tags: showOcOnly ? ['oc'] : [],
+      shipTraits,
+      manufacturerIds,
       sortBy,
       page,
       limit: rowsPerPage,
@@ -292,11 +327,60 @@ const Market: React.FC = () => {
     page,
     rowsPerPage,
     searchTerm,
-    showOcOnly,
+    selectedManufacturerId,
     selectedItemFilter,
+    selectedShipTraitFilter,
+    showsManufacturerFilter,
+    showsShipTraitFilters,
     sortBy,
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
+
+  const manufacturerOptions = useMemo(() => {
+    const options = new Map<number, { id: number; name: string; logoPath: string | null }>();
+    const addManufacturer = (manufacturer: { id?: number | null; name?: string | null; localizedName?: string | null }) => {
+      if (!manufacturer.id || !manufacturer.name) {
+        return;
+      }
+
+      if (!options.has(manufacturer.id)) {
+        options.set(manufacturer.id, {
+          id: manufacturer.id,
+          name: manufacturer.localizedName || manufacturer.name,
+          logoPath: getManufacturerLogoPath(manufacturer),
+        });
+      }
+    };
+
+    ships.forEach((ship) => {
+      addManufacturer(ship.manufacturer);
+    });
+
+    listingItems.forEach((item) => {
+      if (!item.toShipManufacturerId && !item.fromShipManufacturerId && !item.shipManufacturerId) {
+        return;
+      }
+
+      [
+        item.toShipManufacturerId,
+        item.fromShipManufacturerId,
+        item.shipManufacturerId,
+        ...(item.packageShips || []).map((packageShip) => packageShip.manufacturerId),
+      ].forEach((manufacturerId) => {
+        if (!manufacturerId || options.has(manufacturerId)) {
+          return;
+        }
+
+        options.set(manufacturerId, {
+          id: manufacturerId,
+          name: String(manufacturerId),
+          logoPath: getManufacturerLogoPath({ id: manufacturerId }),
+        });
+      });
+    });
+
+    return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name));
+  }, [listingItems, ships]);
 
   useEffect(() => {
     pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -446,7 +530,8 @@ const Market: React.FC = () => {
   const hasActiveFilters = Boolean(
     searchTerm.trim()
     || selectedItemFilter !== 'all'
-    || showOcOnly
+    || (showsShipTraitFilters && selectedShipTraitFilter !== 'all')
+    || (showsManufacturerFilter && selectedManufacturerId)
     || sortBy !== 'recommended'
     || page > 0
     || rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE,
@@ -619,12 +704,28 @@ const Market: React.FC = () => {
                     updateMarketSearchParams((nextSearchParams) => {
                       nextSearchParams.delete('itemType');
                       nextSearchParams.delete('browseCategory');
+                      nextSearchParams.delete('tag');
+                      nextSearchParams.delete('shipTrait');
+                      nextSearchParams.delete('manufacturerId');
                       nextSearchParams.delete('page');
 
                       if (nextFilter === 'ccu' || nextFilter === 'credit') {
                         nextSearchParams.set('itemType', nextFilter);
                       } else if (nextFilter !== 'all') {
                         nextSearchParams.set('browseCategory', nextFilter);
+                      }
+
+                      const nextShowsShipTraitFilters = nextFilter === 'all'
+                        || nextFilter === 'standalone_ship'
+                        || nextFilter === 'ship_package';
+                      const nextShowsManufacturerFilter = nextShowsShipTraitFilters || nextFilter === 'ccu';
+
+                      if (nextShowsShipTraitFilters && selectedShipTraitFilter !== 'all') {
+                        nextSearchParams.set('shipTrait', selectedShipTraitFilter);
+                      }
+
+                      if (nextShowsManufacturerFilter && selectedManufacturerId) {
+                        nextSearchParams.set('manufacturerId', String(selectedManufacturerId));
                       }
                     });
                   }}
@@ -680,32 +781,110 @@ const Market: React.FC = () => {
                   />
                 </RadioGroup>
 
-                <Divider sx={{ my: 2 }} />
+                {(showsShipTraitFilters || showsManufacturerFilter) && (
+                  <>
+                    {showsShipTraitFilters && (
+                      <>
+                        <Divider sx={{ my: 2 }} />
 
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  <FormattedMessage id="market.filter.tags" defaultMessage="Special Tags" />
-                </Typography>
-                <FormGroup>
-                  <FormControlLabel
-                    control={(
-                      <Checkbox
-                        checked={showOcOnly}
-                        onChange={(event) => {
-                          updateMarketSearchParams((nextSearchParams) => {
-                            nextSearchParams.delete('tag');
-                            nextSearchParams.delete('page');
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                          <FormattedMessage id="market.filter.shipTraits" defaultMessage="Ship Traits" />
+                        </Typography>
+                        <RadioGroup
+                          value={selectedShipTraitFilter}
+                          onChange={(event) => {
+                            const nextShipTrait = event.target.value as MarketShipTraitFilter | 'all';
+                            updateMarketSearchParams((nextSearchParams) => {
+                              nextSearchParams.delete('tag');
+                              nextSearchParams.delete('shipTrait');
+                              nextSearchParams.delete('page');
 
-                            if (event.target.checked) {
-                              nextSearchParams.set('tag', 'oc');
-                            }
-                          });
-                        }}
-                        size="small"
-                      />
+                              if (nextShipTrait !== 'all') {
+                                nextSearchParams.set('shipTrait', nextShipTrait);
+                              }
+                            });
+                          }}
+                        >
+                          <FormControlLabel
+                            control={<Radio size="small" />}
+                            value="all"
+                            label={intl.formatMessage({ id: 'market.filter.shipTraits.all', defaultMessage: 'All ship listings' })}
+                          />
+                          <FormControlLabel
+                            control={<Radio size="small" />}
+                            value="oc"
+                            label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
+                          />
+                          <FormControlLabel
+                            control={<Radio size="small" />}
+                            value="non_oc"
+                            label={intl.formatMessage({ id: 'market.tag.nonOc', defaultMessage: 'Non-OC' })}
+                          />
+                          <FormControlLabel
+                            control={<Radio size="small" />}
+                            value="lti"
+                            label={intl.formatMessage({ id: 'market.tag.lti', defaultMessage: 'LTI' })}
+                          />
+                        </RadioGroup>
+                      </>
                     )}
-                    label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
-                  />
-                </FormGroup>
+
+                    {showsManufacturerFilter && (
+                      <>
+                        <Divider sx={{ my: 2 }} />
+
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label={intl.formatMessage({ id: 'market.filter.manufacturer', defaultMessage: 'Brand' })}
+                          value={selectedManufacturerId ? String(selectedManufacturerId) : 'all'}
+                          sx={{
+                            '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                          }}
+                          onChange={(event) => {
+                            const nextManufacturerId = parsePositiveInteger(event.target.value);
+                            updateMarketSearchParams((nextSearchParams) => {
+                              nextSearchParams.delete('manufacturerId');
+                              nextSearchParams.delete('page');
+
+                              if (nextManufacturerId) {
+                                nextSearchParams.set('manufacturerId', String(nextManufacturerId));
+                              }
+                            });
+                          }}
+                        >
+                          <MenuItem value="all">
+                            {intl.formatMessage({ id: 'market.filter.manufacturer.all', defaultMessage: 'All brands' })}
+                          </MenuItem>
+                          {manufacturerOptions.map((manufacturer) => (
+                            <MenuItem key={manufacturer.id} value={String(manufacturer.id)}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                                {manufacturer.logoPath && (
+                                  <Box
+                                    component="img"
+                                    src={manufacturer.logoPath}
+                                    alt=""
+                                    sx={{
+                                      width: 24,
+                                      height: 24,
+                                      objectFit: 'contain',
+                                      flexShrink: 0,
+                                      filter: 'var(--market-manufacturer-logo-filter, none)',
+                                    }}
+                                  />
+                                )}
+                                <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {manufacturer.name}
+                                </Box>
+                              </Box>
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </>
+                    )}
+                  </>
+                )}
               </Box>
             </div>
 

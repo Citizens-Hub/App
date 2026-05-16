@@ -5,6 +5,7 @@ import {
   ListingItem,
   MarketListResponse,
   MarketPackageKind,
+  MarketShipTraitFilter,
   MarketSortMode,
   MarketItemType,
   Ship,
@@ -19,6 +20,8 @@ export interface UseMarketDataParams {
   packageKinds?: MarketPackageKind[];
   browseCategories?: MarketBrowseCategory[];
   tags?: string[];
+  shipTraits?: MarketShipTraitFilter[];
+  manufacturerIds?: number[];
   sortBy?: MarketSortMode;
   page?: number;
   limit?: number;
@@ -56,6 +59,16 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
     searchParams.append('tag', tag);
   });
 
+  (params.shipTraits || []).forEach((shipTrait) => {
+    searchParams.append('shipTrait', shipTrait);
+  });
+
+  (params.manufacturerIds || []).forEach((manufacturerId) => {
+    if (Number.isInteger(manufacturerId) && manufacturerId > 0) {
+      searchParams.append('manufacturerId', String(manufacturerId));
+    }
+  });
+
   if (params.sortBy) {
     searchParams.set('sortBy', params.sortBy);
   }
@@ -77,16 +90,20 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
   const packageKindsKey = (params.packageKinds || []).join(',');
   const browseCategoriesKey = (params.browseCategories || []).join(',');
   const tagsKey = (params.tags || []).join(',');
+  const shipTraitsKey = (params.shipTraits || []).join(',');
+  const manufacturerIdsKey = (params.manufacturerIds || []).join(',');
   const marketPath = useMemo(() => buildMarketSearchPath(params), [
     browseCategoriesKey,
     itemTypesKey,
     packageKindsKey,
+    manufacturerIdsKey,
     params.inStockOnly,
     params.groupCcus,
     params.limit,
     params.page,
     params.search,
     params.sortBy,
+    shipTraitsKey,
     tagsKey,
   ]);
 

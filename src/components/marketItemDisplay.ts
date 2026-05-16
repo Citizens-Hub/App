@@ -13,6 +13,9 @@ type MarketDisplayItem = {
   fromShipName?: string;
   toShipName?: string;
   shipName?: string;
+  fromShipManufacturerId?: number;
+  toShipManufacturerId?: number;
+  shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
   imageUrl?: string;
@@ -183,6 +186,9 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
     fromShipName: visual.fromShipName || undefined,
     toShipName: visual.toShipName || undefined,
     shipName: visual.shipName || undefined,
+    fromShipManufacturerId: item.fromShipManufacturerId,
+    toShipManufacturerId: item.toShipManufacturerId,
+    shipManufacturerId: item.shipManufacturerId,
     packageKind: item.packageKind,
     insuranceType: item.insuranceType,
     imageUrl: visual.primaryImage || primaryImage,
@@ -241,6 +247,9 @@ export function buildMarketCartItem(
     fromShipName: visual.fromShipName || undefined,
     toShipName: visual.toShipName || undefined,
     shipName: visual.shipName || undefined,
+    fromShipManufacturerId: item.fromShipManufacturerId,
+    toShipManufacturerId: item.toShipManufacturerId,
+    shipManufacturerId: item.shipManufacturerId,
     packageKind: item.packageKind,
     insuranceType: item.insuranceType,
     imageUrl: visual.primaryImage || primaryImage,
@@ -289,6 +298,9 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     fromShipName: resource.fromShipName,
     toShipName: resource.toShipName,
     shipName: resource.shipName,
+    fromShipManufacturerId: resource.fromShipManufacturerId,
+    toShipManufacturerId: resource.toShipManufacturerId,
+    shipManufacturerId: resource.shipManufacturerId,
     packageKind: resource.packageKind,
     insuranceType: resource.insuranceType,
     imageUrl: toLargeRsiImage(resource.imageUrl) || thumbnail,

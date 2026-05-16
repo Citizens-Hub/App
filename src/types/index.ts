@@ -14,6 +14,9 @@ export interface Resource {
   fromShipName?: string;
   toShipName?: string;
   shipName?: string;
+  fromShipManufacturerId?: number;
+  toShipManufacturerId?: number;
+  shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
   imageUrl?: string;
@@ -709,11 +712,13 @@ export type MarketItemType = 'ccu' | 'package' | 'misc' | 'credit';
 export type MarketPackageKind = 'standalone_ship' | 'bundle';
 export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'other';
 export type MarketSkuTagCode = 'oc' | 'concierge';
+export type MarketShipTraitFilter = 'oc' | 'non_oc' | 'lti';
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
 
 export interface MarketPackageShip {
   shipId?: number;
   shipName: string;
+  manufacturerId?: number;
   sortOrder: number;
 }
 
@@ -751,6 +756,8 @@ export interface MarketItemVariant {
   toShipId?: number;
   fromShipName?: string;
   toShipName?: string;
+  fromShipManufacturerId?: number;
+  toShipManufacturerId?: number;
   toSkuId?: number;
   imageUrl?: string;
   fromImageUrl?: string;
@@ -772,6 +779,9 @@ export interface ListingItem {
   fromShipName?: string;
   toShipName?: string;
   shipName?: string;
+  fromShipManufacturerId?: number;
+  toShipManufacturerId?: number;
+  shipManufacturerId?: number;
   toSkuId?: number;
   packageKind?: string;
   insuranceType?: string;
@@ -854,6 +864,9 @@ export interface MarketCartItem {
   fromShipName?: string;
   toShipName?: string;
   shipName?: string;
+  fromShipManufacturerId?: number;
+  toShipManufacturerId?: number;
+  shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
   imageUrl?: string;
@@ -908,6 +921,9 @@ export interface OrderItem {
     fromShipName?: string;
     toShipName?: string;
     shipName?: string;
+    fromShipManufacturerId?: number;
+    toShipManufacturerId?: number;
+    shipManufacturerId?: number;
     packageKind?: string;
     insuranceType?: string;
     packageShipCount?: number;
@@ -980,6 +996,9 @@ export interface DetailedOrderItem extends OrderItem {
     fromShipName?: string;
     toShipName?: string;
     shipName?: string;
+    fromShipManufacturerId?: number;
+    toShipManufacturerId?: number;
+    shipManufacturerId?: number;
     packageKind?: string;
     insuranceType?: string;
     packageShipCount?: number;
