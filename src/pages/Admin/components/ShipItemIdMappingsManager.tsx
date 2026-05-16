@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
+import { useIntl, type IntlShape } from 'react-intl';
 import { useSelector } from 'react-redux';
 import {
   Alert,
@@ -26,6 +26,83 @@ type FlashState = {
   severity: 'success' | 'error';
   text: string;
 } | null;
+
+function formatShipItemIdSource(source: 'auto' | 'manual', intl: IntlShape): string {
+  return intl.formatMessage({
+    id: source === 'manual' ? 'admin.shipItemIds.source.manual' : 'admin.shipItemIds.source.auto',
+    defaultMessage: source === 'manual' ? 'Manual' : 'Auto',
+  });
+}
+
+function localizeShipItemIdErrorMessage(error: unknown, intl: IntlShape): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  switch (message) {
+    case 'Failed to save ship item ID mapping':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.saveFailed',
+        defaultMessage: 'Failed to save ship item ID mapping.',
+      });
+    case 'Failed to delete ship item ID mapping':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.deleteFailed',
+        defaultMessage: 'Failed to delete ship item ID mapping.',
+      });
+    case 'Failed to rebuild ship item ID mappings':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.rebuildFailed',
+        defaultMessage: 'Failed to rebuild ship item ID mappings.',
+      });
+    case 'Invalid request body, JSON is required':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.error.invalidJson',
+        defaultMessage: 'Invalid request body. JSON is required.',
+      });
+    case 'Please provide a valid item ID':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.error.invalidItemId',
+        defaultMessage: 'Please provide a valid item ID.',
+      });
+    case 'Please provide a valid ship ID':
+      return intl.formatMessage({
+        id: 'admin.shipItemIds.error.invalidShipId',
+        defaultMessage: 'Please provide a valid ship ID.',
+      });
+    default:
+      break;
+  }
+
+  const shipNotFoundMatch = /^Ship not found: (\d+)$/.exec(message);
+  if (shipNotFoundMatch) {
+    return intl.formatMessage(
+      {
+        id: 'admin.shipItemIds.error.shipNotFound',
+        defaultMessage: 'Ship not found: {shipId}',
+      },
+      { shipId: shipNotFoundMatch[1] },
+    );
+  }
+
+  const mappingNotFoundMatch = /^Mapping not found: (\d+)$/.exec(message);
+  if (mappingNotFoundMatch) {
+    return intl.formatMessage(
+      {
+        id: 'admin.shipItemIds.error.mappingNotFound',
+        defaultMessage: 'Mapping not found: {itemId}',
+      },
+      { itemId: mappingNotFoundMatch[1] },
+    );
+  }
+
+  if (!message || /failed to fetch/i.test(message) || /networkerror/i.test(message)) {
+    return intl.formatMessage({
+      id: 'admin.shipItemIds.requestFailed',
+      defaultMessage: 'Request failed.',
+    });
+  }
+
+  return message;
+}
 
 function parsePositiveInt(value: string): number | null {
   const trimmed = value.trim();
@@ -120,7 +197,7 @@ export default function ShipItemIdMappingsManager() {
     } catch (saveError) {
       setFlash({
         severity: 'error',
-        text: saveError instanceof Error ? saveError.message : String(saveError),
+        text: localizeShipItemIdErrorMessage(saveError, intl),
       });
     } finally {
       setSaving(false);
@@ -155,7 +232,7 @@ export default function ShipItemIdMappingsManager() {
     } catch (deleteError) {
       setFlash({
         severity: 'error',
-        text: deleteError instanceof Error ? deleteError.message : String(deleteError),
+        text: localizeShipItemIdErrorMessage(deleteError, intl),
       });
     } finally {
       setSaving(false);
@@ -193,7 +270,7 @@ export default function ShipItemIdMappingsManager() {
     } catch (rebuildError) {
       setFlash({
         severity: 'error',
-        text: rebuildError instanceof Error ? rebuildError.message : String(rebuildError),
+        text: localizeShipItemIdErrorMessage(rebuildError, intl),
       });
     } finally {
       setSaving(false);
@@ -276,7 +353,11 @@ export default function ShipItemIdMappingsManager() {
                 <TableCell>{mapping.shipId}</TableCell>
                 <TableCell>{mapping.shipName || '-'}</TableCell>
                 <TableCell>
-                  <Chip size="small" label={mapping.source} color={mapping.source === 'manual' ? 'primary' : 'default'} />
+                  <Chip
+                    size="small"
+                    label={formatShipItemIdSource(mapping.source, intl)}
+                    color={mapping.source === 'manual' ? 'primary' : 'default'}
+                  />
                 </TableCell>
                 <TableCell>{formatTimestamp(mapping.updatedAt, intl.locale)}</TableCell>
                 <TableCell>

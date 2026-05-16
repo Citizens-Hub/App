@@ -244,14 +244,16 @@ export default function BlogPostDetail() {
                     <Edit className="w-4 h-4 mr-2" />
                     <FormattedMessage id="blog.edit.button" defaultMessage="Edit" />
                   </Link>
-                  <button
+                  <Button
+                    variant='outlined'
+                    color='error'
                     onClick={handleDeleteClick}
                     className="inline-flex items-center px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                     disabled={deleting}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     <FormattedMessage id="blog.delete.button" defaultMessage="Delete" />
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
