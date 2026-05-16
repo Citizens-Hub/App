@@ -748,6 +748,7 @@ export interface MarketItemVariant {
   stock: number;
   lockedStock: number;
   sourceKind?: string | null;
+  visibleInMarket?: boolean;
   belongsTo?: string;
   createdAt: string;
   updatedAt: string;
@@ -794,6 +795,7 @@ export interface ListingItem {
   toImageUrl?: string;
   sourceUrl?: string;
   sourceKind?: string | null;
+  visibleInMarket?: boolean;
   description?: string;
   externalRef?: string;
   creditAmount?: number;
@@ -1289,6 +1291,75 @@ export interface NewUserCouponSettings {
     minimumAmount: number;
     probability: number;
   }>;
+}
+
+export interface AdminUserSearchItem {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar?: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserSearchResponse {
+  success: boolean;
+  users: AdminUserSearchItem[];
+}
+
+export type MarketingOfferStatus = 'creating' | 'active' | 'failed' | 'canceled' | 'used' | 'expired';
+
+export interface MarketingOfferItem extends ListingItem {
+  quantity: number;
+  offerUnitPrice: number;
+}
+
+export interface MarketingOfferUserSummary {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+export interface MarketingOffer {
+  id: string;
+  token: string;
+  title: string;
+  status: MarketingOfferStatus | string;
+  creationState: string;
+  amountOff: number;
+  currency: string;
+  subtotal: number;
+  discountAmount: number;
+  serviceFeeEnabled: boolean;
+  serviceFee: number;
+  total: number;
+  expiresAt: string;
+  checkoutOrderId?: number | null;
+  checkedOutAt?: string | null;
+  appliedOrderId?: number | null;
+  appliedAt?: string | null;
+  invalidatedAt?: string | null;
+  emailSentAt?: string | null;
+  adminNote?: string | null;
+  offerUrl: string;
+  user?: MarketingOfferUserSummary;
+  createdBy?: MarketingOfferUserSummary;
+  createdAt: string;
+  updatedAt: string;
+  items: MarketingOfferItem[];
+}
+
+export interface AdminMarketingOfferListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  offers: MarketingOffer[];
+}
+
+export interface MarketingOfferResponse {
+  success: boolean;
+  offer: MarketingOffer;
 }
 
 export type WithdrawalRequestStatus = 'pending' | 'paid' | 'rejected';

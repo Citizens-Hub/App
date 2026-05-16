@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { selectUsersHangarItems } from "@/store/upgradesStore";
 import { generateItemKey } from "@/store/shareStore";
-import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Chip, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, Autocomplete } from "@mui/material";
+import { Typography, TextField, InputAdornment, TableContainer, TableHead, TableRow, TableCell, TableBody, TablePagination, Box, Table, Chip, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, Autocomplete, Checkbox, FormControlLabel } from "@mui/material";
 import { Search, ChevronsRight, BadgePercent, CircleUser, Inbox, PlusCircle, List } from "lucide-react";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
@@ -62,6 +62,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [currentItem, setCurrentItem] = useState<DisplayEquipmentItem | null>(null);
   const [listingPrice, setListingPrice] = useState(0);
   const [listingQuantity, setListingQuantity] = useState(0);
+  const [listingVisibleInMarket, setListingVisibleInMarket] = useState(true);
   
   // 新增状态管理变量
   const [isManageListingDialogOpen, setIsManageListingDialogOpen] = useState(false);
@@ -70,6 +71,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualItemName, setManualItemName] = useState('');
   const [manualItemPrice, setManualItemPrice] = useState(0);
   const [manualItemQuantity, setManualItemQuantity] = useState(1);
+  const [manualVisibleInMarket, setManualVisibleInMarket] = useState(true);
 
   const { token, id } = useSelector((state: RootState) => state.user.user);
   const { locale } = intl;
@@ -203,12 +205,14 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setCurrentItem(item);
     setListingPrice(item.value);
     setListingQuantity(item.quantity);
+    setListingVisibleInMarket(true);
     setIsListingDialogOpen(true);
   };
 
   const handleCloseListingDialog = () => {
     setIsListingDialogOpen(false);
     setCurrentItem(null);
+    setListingVisibleInMarket(true);
   };
 
   const handleListItem = async (item: DisplayEquipmentItem, value: number, stock: number) => {
@@ -227,6 +231,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         toShipId: item.to.id,
         shipId: undefined,
         stock: stock,
+        visibleInMarket: listingVisibleInMarket,
         lockedStock: stock,
         belongsTo: id
       }),
@@ -306,6 +311,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemName('');
     setManualItemPrice(0);
     setManualItemQuantity(1);
+    setManualVisibleInMarket(true);
   };
 
   const handleManualAdd = async () => {
@@ -324,6 +330,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           to: selectedToShip.id
         }),
         stock: manualItemQuantity,
+        visibleInMarket: manualVisibleInMarket,
         lockedStock: manualItemQuantity,
         belongsTo: id
       }),
@@ -581,6 +588,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             }
           }}
         />
+        <FormControlLabel
+          control={(
+            <Checkbox
+              checked={listingVisibleInMarket}
+              onChange={(event) => setListingVisibleInMarket(event.target.checked)}
+            />
+          )}
+          label={intl.formatMessage({ id: 'market.listing.visibleInMarket', defaultMessage: 'Show in market list' })}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCloseListingDialog}>
@@ -721,6 +737,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   inputProps: { min: 1 }
                 }
               }}
+            />
+            <FormControlLabel
+              control={(
+                <Checkbox
+                  checked={manualVisibleInMarket}
+                  onChange={(e) => setManualVisibleInMarket(e.target.checked)}
+                />
+              )}
+              label={intl.formatMessage({ id: 'market.listing.visibleInMarket', defaultMessage: 'Show in market list' })}
             />
             <Button
               variant="contained"

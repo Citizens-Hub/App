@@ -260,6 +260,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualItemCost, setManualItemCost] = useState(0);
   const [manualItemCostTouched, setManualItemCostTouched] = useState(false);
   const [manualItemQuantity, setManualItemQuantity] = useState(1);
+  const [manualVisibleInMarket, setManualVisibleInMarket] = useState(true);
   const [manualInsuranceType, setManualInsuranceType] = useState("");
   const [manualOcTag, setManualOcTag] = useState(false);
   const [manualPackageItems, setManualPackageItems] = useState<ManualPackageItemDraft[]>([]);
@@ -428,6 +429,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCost(0);
     setManualItemCostTouched(false);
     setManualItemQuantity(1);
+    setManualVisibleInMarket(true);
     setManualInsuranceType("");
     setManualOcTag(false);
     setManualPackageItems([]);
@@ -457,6 +459,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualItemCost(item.cost ?? item.price);
     setManualItemCostTouched(false);
     setManualItemQuantity(Math.max(item.stock, 1));
+    setManualVisibleInMarket(true);
     setManualInsuranceType(item.insuranceType || "");
     setManualOcTag(Boolean(item.tags?.includes('oc')));
     setManualPackageItems((item.packageItems || []).map((entry) => createManualPackageItemDraft({
@@ -702,6 +705,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       cost: manualItemCostTouched || selectedSourceItem ? manualItemCost : manualItemPrice,
       stock: manualItemQuantity,
       sourceKind: selectedSourceItem ? "hangar" : "manual",
+      visibleInMarket: manualVisibleInMarket,
       tags: canAssignOcTag && manualOcTag ? ['oc'] : [],
     };
 
@@ -1052,6 +1056,16 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             )}
                             {item.browseCategory && (
                               <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />
+                            )}
+                            {item.visibleInMarket === false && (
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={intl.formatMessage({
+                                  id: "market.listing.hiddenFromMarket",
+                                  defaultMessage: "Hidden from market list",
+                                })}
+                              />
                             )}
                             {(item.tags || []).map((tag) => (
                               <Chip key={`${item.skuId}-${tag}`} size="small" color="warning" label={getMarketTagLabel(intl, tag)} />
@@ -1481,6 +1495,21 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 inputProps: { min: 1 },
               }}
             />
+
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <FormControlLabel
+                control={(
+                  <Checkbox
+                    checked={manualVisibleInMarket}
+                    onChange={(event) => setManualVisibleInMarket(event.target.checked)}
+                  />
+                )}
+                label={intl.formatMessage({
+                  id: "market.listing.visibleInMarket",
+                  defaultMessage: "Show in market list",
+                })}
+              />
+            </Box>
 
             {manualItemType === "package" && (
               <TextField

@@ -177,4 +177,9 @@ export const navigation = [
     hidden: true,
     requireAdmin: true,
   },
+  {
+    name: "navigation.offers",
+    path: "/offers/:offerId",
+    hidden: true,
+  },
 ];

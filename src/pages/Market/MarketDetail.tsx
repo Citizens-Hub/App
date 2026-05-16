@@ -991,6 +991,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   }
 
   const displayItem = activeItem || item;
+  const isPrivateOfferOnlyListing = displayItem.visibleInMarket === false;
   const visual = getMarketItemVisual(displayItem, ships);
   const heroVisual = resolveMarketDetailHeroImage(displayItem, ships, loading);
   const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(displayItem);
@@ -1284,7 +1285,14 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         </TextField>
       )}
 
-      {item.itemType === 'credit' ? (
+      {isPrivateOfferOnlyListing ? (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <FormattedMessage
+            id="market.privateOfferOnlyNotice"
+            defaultMessage="This item is part of a private special offer and can only be ordered from that offer link."
+          />
+        </Alert>
+      ) : item.itemType === 'credit' ? (
         <div className='flex flex-col gap-3'>
           <Button
             variant="outlined"

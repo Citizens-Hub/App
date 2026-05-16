@@ -15,6 +15,7 @@ import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
 import OrdersManager from './components/OrdersManager';
 import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
+import MarketingOffersManager from './components/MarketingOffersManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -31,6 +32,7 @@ enum Page {
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
+  MarketingOffers = 'marketingOffers',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
 }
@@ -116,6 +118,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.NewUserCoupon),
     },
     {
+      id: Page.MarketingOffers,
+      title: <FormattedMessage id="admin.marketingOffers.title" defaultMessage="Marketing Offers" />,
+      description: <FormattedMessage id="admin.marketingOffers.description" defaultMessage="Create user-bound bundle discounts for existing market listings." />,
+      active: currentPage === Page.MarketingOffers,
+      onSelect: () => setCurrentPage(Page.MarketingOffers),
+    },
+    {
       id: Page.GoogleAdsAudience,
       title: <FormattedMessage id="admin.googleAdsAudience.title" defaultMessage="Google Ads Customer Match" />,
       description: <FormattedMessage id="admin.googleAdsAudience.description" defaultMessage="Manually build or refresh a Google Customer Match audience from consented paid buyers." />,
@@ -163,6 +172,7 @@ export default function Admin() {
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
+        {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.Orders && <OrdersManager />}
         {currentPage === Page.Tickets && <TicketsManager />}
