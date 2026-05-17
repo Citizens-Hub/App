@@ -11,7 +11,11 @@ import {
   Snackbar,
   Alert,
   Link,
-  FormControlLabel
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router';
 import { FormattedMessage } from 'react-intl';
@@ -37,6 +41,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
+  const [marketingEmailConsent, setMarketingEmailConsent] = useState<boolean | null>(null);
   const [adsAudienceConsent, setAdsAudienceConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -100,7 +105,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       const isEmailValid = validateEmail(email);
       const isPasswordValid = validatePassword(password);
       const isPasswordsMatch = password === confirmPassword;
-      return isEmailValid && isPasswordValid && isPasswordsMatch && privacyPolicyAccepted && !!captchaPayload;
+      return isEmailValid && isPasswordValid && isPasswordsMatch && privacyPolicyAccepted && marketingEmailConsent !== null && !!captchaPayload;
     }
     return !!email && !!password && !!captchaPayload;
   };
@@ -209,6 +214,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
           password,
           referralCode: referralCode.trim() || undefined,
           privacyPolicyAccepted,
+          marketingEmailConsent,
+          marketingEmailConsentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
           adsAudienceConsent,
           consentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
           ...captchaPayload
@@ -376,6 +383,56 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                     </Typography>
                   )}
                 />
+              </Box>
+            )}
+
+            {action === 'register' && (
+              <Box sx={{ mt: 1, display: 'grid', gap: 1, textAlign: 'left' }}>
+                <FormControl required>
+                  <FormLabel>
+                    <Typography variant="body2">
+                      <FormattedMessage
+                        id="register.marketingEmailConsentQuestion"
+                        defaultMessage="Would you like to receive marketing broadcast emails from Citizens Hub?"
+                      />
+                    </Typography>
+                  </FormLabel>
+                  <RadioGroup
+                    value={marketingEmailConsent === null ? '' : marketingEmailConsent ? 'yes' : 'no'}
+                    onChange={(event) => setMarketingEmailConsent(event.target.value === 'yes')}
+                  >
+                    <FormControlLabel
+                      value="yes"
+                      control={<Radio />}
+                      label={(
+                        <Typography variant="body2">
+                          <FormattedMessage
+                            id="register.marketingEmailConsentYes"
+                            defaultMessage="Yes, send me product updates, offers, and marketing announcements."
+                          />
+                        </Typography>
+                      )}
+                    />
+                    <FormControlLabel
+                      value="no"
+                      control={<Radio />}
+                      label={(
+                        <Typography variant="body2">
+                          <FormattedMessage
+                            id="register.marketingEmailConsentNo"
+                            defaultMessage="No, do not send me marketing broadcast emails."
+                          />
+                        </Typography>
+                      )}
+                    />
+                  </RadioGroup>
+                </FormControl>
+                <Typography variant="caption" color="text.secondary">
+                  <FormattedMessage
+                    id="register.marketingEmailConsentHelp"
+                    defaultMessage="Required. You can change this later in App Settings."
+                  />
+                </Typography>
               </Box>
             )}
 

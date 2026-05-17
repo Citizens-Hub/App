@@ -1,5 +1,5 @@
 import { ProfileData } from '@/types';
-import { useApi } from '../useApi';
+import { useAuthApi } from '../useApi';
 
 // API响应类型
 interface ProfileResponse {
@@ -12,8 +12,8 @@ export default function useProfileData(userId: string) {
     data: profileData,
     error: profileError,
     isLoading: loading 
-  } = useApi<ProfileResponse>(
-    userId ? `/api/user/profile/${userId}` : null
+  } = useAuthApi<ProfileResponse>(
+    userId ? '/api/user/profile' : null
   );
 
   // 处理数据

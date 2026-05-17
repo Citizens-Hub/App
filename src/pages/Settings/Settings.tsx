@@ -239,6 +239,10 @@ export default function Settings() {
     contacts: null,
     homepage: null,
     sharedHangar: null,
+    marketingEmailConsent: null,
+    marketingEmailConsentRegion: null,
+    marketingEmailConsentSource: null,
+    marketingEmailConsentAt: null,
     adsAudienceConsent: false,
     adsConsentRegion: null,
     adsConsentAt: null,
@@ -488,6 +492,83 @@ export default function Settings() {
     setSnackbarOpen(true);
     
     setClearImportDialog(false);
+  };
+
+  const buildProfileUpdatePayload = () => {
+    const marketingEmailConsent = profileData.marketingEmailConsent;
+    const payload: Partial<ProfileData> = {
+      ...profileData,
+      adsConsentRegion: profileData.adsConsentRegion || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    };
+
+    if (marketingEmailConsent === null || marketingEmailConsent === undefined) {
+      delete payload.marketingEmailConsent;
+      delete payload.marketingEmailConsentRegion;
+      delete payload.marketingEmailConsentSource;
+      delete payload.marketingEmailConsentAt;
+      return payload;
+    }
+
+    payload.marketingEmailConsentRegion = profileData.marketingEmailConsentRegion
+      || Intl.DateTimeFormat().resolvedOptions().timeZone
+      || null;
+    delete payload.marketingEmailConsentSource;
+    delete payload.marketingEmailConsentAt;
+    return payload;
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/user/profile`, {
+        method: 'PUT',
+        body: JSON.stringify(buildProfileUpdatePayload()),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('保存失败');
+      }
+
+      await response.json();
+
+      if (profileData.avatar) {
+        dispatch(login({
+          ...user,
+          avatar: profileData.avatar,
+        }));
+      }
+
+      if (profileData.marketingEmailConsent !== null && profileData.marketingEmailConsent !== undefined) {
+        setProfileData((prev) => ({
+          ...prev,
+          marketingEmailConsentRegion: prev.marketingEmailConsentRegion || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+          marketingEmailConsentSource: 'settings',
+          marketingEmailConsentAt: new Date().toISOString(),
+        }));
+      }
+
+      setErrorMessage(null);
+      setSuccessMessage(intl.formatMessage({
+        id: 'settings.profileSaved',
+        defaultMessage: '个人资料保存成功'
+      }));
+      setSnackbarOpen(true);
+    } catch (err) {
+      setSuccessMessage(null);
+      setErrorMessage(intl.formatMessage({
+        id: 'settings.profileSaveFailed',
+        defaultMessage: '个人资料保存失败'
+      }));
+      setSnackbarOpen(true);
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const showSuccessMessage = (message: string) => {
@@ -1574,6 +1655,54 @@ export default function Settings() {
                   </div>
                   <div className='flex flex-col gap-3 rounded-md border border-gray-200 p-4 dark:border-gray-800'>
                     <div>
+                      <FormattedMessage id="settings.marketingEmailConsent" defaultMessage="Marketing Broadcast Emails" />
+                      <Typography variant="body2" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.marketingEmailConsentDescription"
+                          defaultMessage="Control whether Citizens Hub may send you marketing broadcast emails, including product updates, offers, and announcements."
+                        />
+                      </Typography>
+                    </div>
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={profileData.marketingEmailConsent === true}
+                          onChange={(event) => {
+                            setProfileData((prev) => ({
+                              ...prev,
+                              marketingEmailConsent: event.target.checked,
+                            }));
+                          }}
+                        />
+                      )}
+                      label={(
+                        <FormattedMessage
+                          id="settings.marketingEmailConsentToggle"
+                          defaultMessage="Receive marketing broadcast emails"
+                        />
+                      )}
+                    />
+                    {profileData.marketingEmailConsent === null && (
+                      <Alert severity="info">
+                        <FormattedMessage
+                          id="settings.marketingEmailConsentPending"
+                          defaultMessage="You have not selected a marketing email preference yet."
+                        />
+                      </Alert>
+                    )}
+                    <Typography variant="caption" color='text.secondary'>
+                      <FormattedMessage
+                        id="settings.marketingEmailConsentMeta"
+                        defaultMessage="Last updated: {date}. Region hint: {region}."
+                        values={{
+                          date: profileData.marketingEmailConsentAt ? new Date(profileData.marketingEmailConsentAt).toLocaleString(intl.locale) : '-',
+                          region: profileData.marketingEmailConsentRegion || (Intl.DateTimeFormat().resolvedOptions().timeZone || '-'),
+                        }}
+                      />
+                    </Typography>
+                  </div>
+                  <div className='flex flex-col gap-3 rounded-md border border-gray-200 p-4 dark:border-gray-800'>
+                    <div>
                       <FormattedMessage id="settings.adsConsent" defaultMessage="Advertising Audience Consent" />
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
@@ -1618,52 +1747,7 @@ export default function Settings() {
                     color="primary" 
                     disabled={isSubmitting || isAvatarUploading}
                     aria-label={intl.formatMessage({ id: "settings.save", defaultMessage: "Save" })}
-                    onClick={() => {
-                      setIsSubmitting(true);
-                      fetch(`${apiBaseUrl}/api/user/profile`, {
-                        method: 'PUT',
-                        body: JSON.stringify({
-                          ...profileData,
-                          adsConsentRegion: profileData.adsConsentRegion || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
-                        }),
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${user.token}`
-                        }
-                      })
-                      .then(res => {
-                        if (!res.ok) {
-                          throw new Error('保存失败');
-                        }
-                        return res.json();
-                      })
-                      .then(() => {
-                        if (profileData.avatar) {
-                          dispatch(login({
-                            ...user,
-                            avatar: profileData.avatar,
-                          }));
-                        }
-                        setErrorMessage(null);
-                        setSuccessMessage(intl.formatMessage({
-                          id: 'settings.profileSaved',
-                          defaultMessage: '个人资料保存成功'
-                        }));
-                        setSnackbarOpen(true);
-                      })
-                      .catch(err => {
-                        setSuccessMessage(null);
-                        setErrorMessage(intl.formatMessage({
-                          id: 'settings.profileSaveFailed',
-                          defaultMessage: '个人资料保存失败'
-                        }));
-                        setSnackbarOpen(true);
-                        console.error(err);
-                      })
-                      .finally(() => {
-                        setIsSubmitting(false);
-                      });
-                    }}
+                    onClick={() => void handleSaveProfile()}
                   >
                     {isSubmitting ? (
                       <>

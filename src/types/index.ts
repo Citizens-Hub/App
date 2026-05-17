@@ -61,6 +61,10 @@ export interface ProfileData {
   contacts: string | null;
   homepage: string | null;
   sharedHangar: string | null;
+  marketingEmailConsent?: boolean | null;
+  marketingEmailConsentRegion?: string | null;
+  marketingEmailConsentSource?: string | null;
+  marketingEmailConsentAt?: string | null;
   adsAudienceConsent?: boolean;
   adsConsentRegion?: string | null;
   adsConsentAt?: string | null;
@@ -1423,6 +1427,10 @@ export interface UserInfo {
   avatar: string;
   email: string;
   emailVerified: boolean;
+  marketingEmailConsent?: boolean | null;
+  marketingEmailConsentRegion?: string | null;
+  marketingEmailConsentSource?: string | null;
+  marketingEmailConsentAt?: string | null;
   name: string;
   role: UserRole;
 }

@@ -14,6 +14,7 @@ import { swrConfig, useUserSession, useSharedHangar, useHangarSync } from '@/hoo
 import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
+import MarketingEmailConsentPrompt from '@/components/MarketingEmailConsentPrompt'
 import { useIntl } from 'react-intl'
 // import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
 
@@ -317,6 +318,7 @@ function App() {
         <Router>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
+          <MarketingEmailConsentPrompt />
           <Snackbar
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             autoHideDuration={12000}
