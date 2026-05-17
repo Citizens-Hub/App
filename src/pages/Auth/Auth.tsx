@@ -39,6 +39,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  // @ts-ignore
   const [referralCode, setReferralCode] = useState('');
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
   const [marketingEmailConsent, setMarketingEmailConsent] = useState<boolean | null>(null);
