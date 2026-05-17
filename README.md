@@ -15,7 +15,7 @@ Planning your ship upgrades has never been easier!
 
 If you're using it for the first time, you're probably eager to start creating your first chain. The first thing you need to decide is the starting and ending points of the chain.
 
-For the upcoming Fleet Week, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
+For the upcoming ILW, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
 
 ![](https://citizenshub.app/imgs/tutorial/02.png)
 
