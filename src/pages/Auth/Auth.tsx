@@ -353,7 +353,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
               />
             )}
 
-            {action === 'register' && (
+            {/* {action === 'register' && (
               <TextField
                 margin="normal"
                 fullWidth
@@ -363,7 +363,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               />
-            )}
+            )} */}
 
             {action === 'register' && (
               <Box sx={{ mt: 1, display: 'grid', gap: 1 }}>
