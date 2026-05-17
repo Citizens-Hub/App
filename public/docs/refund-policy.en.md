@@ -20,7 +20,7 @@ Delivery is deemed complete once:
 - The digital gift link, key, file, access credentials, or redemption information has been made available to you; and
 - Our system confirms successful delivery.
 
-Once a buyer clicks and/or claims a gift link, the item permanently leaves our digital inventory and becomes bound to the buyer’s account. At that point, we no longer have any control over the item.
+Once a buyer clicks and/or claims a gift link, the item permanently leaves our own stock and becomes bound to the buyer’s account. At that point, we no longer have any control over the item.
 
 After successful redemption, the buyer is solely responsible for contacting **Cloud Imperium Games (CIG)** regarding any account, platform, or gifting-related issues.
 

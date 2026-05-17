@@ -354,12 +354,12 @@ function MarketTrustBadge({
           <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
         </div>
         <Typography variant={compact ? 'subtitle2' : 'h6'} sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-          <FormattedMessage id="market.trust.title" defaultMessage="Own inventory, no third-party sellers involved" />
+          <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
         </Typography>
         <Typography variant="body2" color="text.secondary">
           <FormattedMessage
             id="market.trust.description"
-            defaultMessage="We sell from our own managed inventory so the buying flow stays more direct, secure, and convenient."
+            defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
           />
         </Typography>
         <div className='border-t border-gray-200 pt-3 text-sm leading-7 text-slate-600 dark:border-gray-800 dark:text-slate-300'>

@@ -633,12 +633,12 @@ const Market: React.FC = () => {
                   <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
                 </div>
                 <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                  <FormattedMessage id="market.trust.title" defaultMessage="Own inventory, no third-party sellers involved" />
+                  <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   <FormattedMessage
                     id="market.trust.description"
-                    defaultMessage="We sell from our own managed inventory so the buying flow stays more direct, secure, and convenient."
+                    defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
                   />
                 </Typography>
               </div>
