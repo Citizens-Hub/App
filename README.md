@@ -15,7 +15,7 @@ Planning your ship upgrades has never been easier!
 
 If you're using it for the first time, you're probably eager to start creating your first chain. The first thing you need to decide is the starting and ending points of the chain.
 
-For the upcoming Fleet Week, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
+For the upcoming ILW, I want to upgrade my ATLAS GEO to a Starlancer Tac. So, let's first choose to insert these two nodes.
 
 ![](https://citizenshub.app/imgs/tutorial/02.png)
 
@@ -86,20 +86,3 @@ You can go to [App Settings](/app-settings) to set the priority order. When crea
 ## Can I see my buy-back pledges/ships/ship packages in my hangar and incorporate them into the CCU chain construction?
 
 Working on it, will be supported in the future.
-
-## Google Customer Reviews
-
-To enable Google Customer Reviews opt-in and seller badge integration, set these Vite env vars for the `App` project:
-
-```bash
-VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID=5680123087
-VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_BADGE_POSITION=BOTTOM_RIGHT
-VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_BADGE_REGION=US
-VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_DELIVERY_DAYS=1
-```
-
-- `VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID` is required. Without it, the integration stays disabled.
-- The badge is mounted sitewide.
-- The opt-in module is shown after a successful checkout on `/orders?checkout=success&session_id=...`.
-- `products.gtin` is not sent yet because the current catalog data does not expose reliable GTIN values.
-- `estimated_delivery_date` uses the order shipment deadline when available, otherwise it falls back to `paidAt + VITE_PUBLIC_GOOGLE_CUSTOMER_REVIEWS_DELIVERY_DAYS`.
