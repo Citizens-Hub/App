@@ -1501,6 +1501,39 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   const onDropFile = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
 
+    const shipId = event.dataTransfer.getData('application/shipId');
+    if (shipId) {
+      const ship = ships.find((s) => s.id.toString() === shipId);
+
+      if (!ship || !reactFlowInstance || !reactFlowWrapper.current) {
+        return;
+      }
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      const newNode: Node = {
+        id: `ship-${ship.id}-${Date.now()}`,
+        type: 'ship',
+        position,
+        data: {
+          ship,
+          onUpdateEdge: updateEdgeData,
+          onDeleteEdge: deleteEdge,
+          onDeleteNode: handleDeleteNode,
+          onDuplicateNode: handleDuplicateNode,
+          onOpenShipInfo: handleOpenShipInfoDialog,
+          onOpenShipContextMenu: openShipContextMenu,
+          ccus
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+      return;
+    }
+
     const items = Array.from(event.dataTransfer.items);
     const importItem = items.find(item =>
       item.kind === 'file' && (
@@ -1543,38 +1576,6 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
 
         return;
       }
-    }
-
-    const shipId = event.dataTransfer.getData('application/shipId');
-    if (shipId) {
-      const ship = ships.find((s) => s.id.toString() === shipId);
-
-      if (!ship || !reactFlowInstance || !reactFlowWrapper.current) {
-        return;
-      }
-
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
-      const newNode: Node = {
-        id: `ship-${ship.id}-${Date.now()}`,
-        type: 'ship',
-        position,
-        data: {
-          ship,
-          onUpdateEdge: updateEdgeData,
-          onDeleteEdge: deleteEdge,
-          onDeleteNode: handleDeleteNode,
-          onDuplicateNode: handleDuplicateNode,
-          onOpenShipInfo: handleOpenShipInfoDialog,
-          onOpenShipContextMenu: openShipContextMenu,
-          ccus
-        },
-      };
-
-      setNodes((nds) => nds.concat(newNode));
     }
   }, [decodeFlowDataFromPng, importFlowData, ships, reactFlowInstance, updateEdgeData, deleteEdge, handleDeleteNode, handleDuplicateNode, ccus, setNodes, handleOpenShipInfoDialog, openShipContextMenu, intl, showAlert]);
 

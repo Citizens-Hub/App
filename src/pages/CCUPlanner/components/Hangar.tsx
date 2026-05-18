@@ -13,6 +13,10 @@ import { selectImportItems } from "@/store/importStore";
 import { getShipDisplayName, matchesShipNameQuery } from "@/utils/shipDisplay";
 import { getShipThumbSmall } from "@/utils/shipImage";
 
+function preventImageNativeDrag(event: React.DragEvent<HTMLImageElement>) {
+  event.preventDefault();
+}
+
 interface ShipSelectorProps {
   ships: Ship[];
   ccus: Ccu[];
@@ -265,7 +269,9 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                     <img
                       src={getShipThumbSmall(fromShip)}
                       alt={getShipDisplayName(fromShip) || fromShip.name}
-                      className="w-16 h-16 object-cover mr-2"
+                      draggable={false}
+                      onDragStart={preventImageNativeDrag}
+                      className="w-16 h-16 object-cover mr-2 pointer-events-none select-none"
                     />
                     <div>
                       <div className="flex items-center gap-2">
@@ -317,7 +323,9 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
                     <img
                       src={getShipThumbSmall(toShip)}
                       alt={getShipDisplayName(toShip) || toShip.name}
-                      className="w-16 h-16 object-cover mr-2"
+                      draggable={false}
+                      onDragStart={preventImageNativeDrag}
+                      className="w-16 h-16 object-cover mr-2 pointer-events-none select-none"
                     />
                     <div>
                       <div className="flex items-center gap-2">

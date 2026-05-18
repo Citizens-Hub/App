@@ -9,6 +9,10 @@ import { localizeShipFocus, localizeShipStatus, localizeShipType } from '@/data/
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { getShipThumbSmall } from '@/utils/shipImage';
 
+function preventImageNativeDrag(event: React.DragEvent<HTMLImageElement>) {
+  event.preventDefault();
+}
+
 interface ShipSelectorProps {
   ships: Ship[];
   ccus: Ccu[];
@@ -258,7 +262,9 @@ function ShipSelector({
                   <img
                     src={getShipThumbSmall(ship)}
                     alt={ship.name}
-                    className="w-17 h-17 object-cover mr-2"
+                    draggable={false}
+                    onDragStart={preventImageNativeDrag}
+                    className="w-17 h-17 object-cover mr-2 pointer-events-none select-none"
                   />
                   <div>
                     <div className="flex items-center gap-2">
