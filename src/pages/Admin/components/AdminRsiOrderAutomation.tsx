@@ -862,7 +862,14 @@ export default function AdminRsiOrderAutomation() {
           continue;
         }
 
-        const resourceTitle = pickString(resource.title?.replace(" - 10 Year", ""), resource.name);
+        const trimPackName = (name: string) => {
+          const nameInSplit = name.split("-");
+          const tail = nameInSplit[nameInSplit.length-1];
+
+          return name.replace(` -${tail}`, "")
+        }
+
+        const resourceTitle = trimPackName(pickString(resource.title, resource.name));
         if (!resource.id || !resourceTitle) {
           continue;
         }
