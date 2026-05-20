@@ -31,6 +31,7 @@ const LISTING_PAGE_LIMIT = 20;
 const DEFAULT_POLL_INTERVAL_MS = '2500';
 const MAX_LOG_ENTRIES = 200;
 const TOKEN_REQUEST_TIMEOUT_MS = 10_000;
+const PREFETCHED_TOKEN_TTL_MS = 60_000;
 const TOKEN_PROVIDER_STATUS_TIMEOUT_MS = 4_000;
 const TOKEN_PROVIDER_STATUS_POLL_INTERVAL_MS = 10_000;
 const CHECKOUT_RECAPTCHA_SITE_KEY = '6LerBOgUAAAAAKPg6vsAFPTN66Woz-jBClxdQU-o';
@@ -242,6 +243,10 @@ type MatchedSku = {
 
 type TokenBridgeStatus = 'idle' | 'requesting' | 'ready' | 'error';
 type TokenProviderStatus = 'idle' | 'checking' | 'online' | 'offline' | 'error';
+type PrefetchedTokenState = {
+  token: string;
+  receivedAt: string;
+};
 type RunInput = {
   shipName: string;
   mark: string;
@@ -623,6 +628,7 @@ export default function AdminRsiOrderAutomation() {
   const [tokenProviderError, setTokenProviderError] = useState('');
   const [tokenProviderCount, setTokenProviderCount] = useState(0);
   const [lastProviderCheckAt, setLastProviderCheckAt] = useState<string | null>(null);
+  const [prefetchedToken, setPrefetchedToken] = useState<PrefetchedTokenState | null>(null);
   const [lastTokenReceivedAt, setLastTokenReceivedAt] = useState<string | null>(null);
   const [lastTokenPreview, setLastTokenPreview] = useState('');
 
@@ -734,6 +740,46 @@ export default function AdminRsiOrderAutomation() {
       setTokenBridgeError(message);
       throw error instanceof Error ? error : new Error(message);
     }
+  };
+
+  const getFreshPrefetchedToken = () => {
+    if (!prefetchedToken) {
+      return null;
+    }
+
+    const receivedAtMs = new Date(prefetchedToken.receivedAt).getTime();
+    if (!Number.isFinite(receivedAtMs)) {
+      setPrefetchedToken(null);
+      return null;
+    }
+
+    if (Date.now() - receivedAtMs > PREFETCHED_TOKEN_TTL_MS) {
+      setPrefetchedToken(null);
+      return null;
+    }
+
+    return prefetchedToken;
+  };
+
+  const consumeTokenForAutomation = async () => {
+    const cachedToken = getFreshPrefetchedToken();
+    if (cachedToken) {
+      setPrefetchedToken(null);
+      setTokenBridgeStatus('ready');
+      setTokenBridgeError('');
+      appendLog('info', `Reusing a manually requested checkout reCAPTCHA token from ${formatTimestamp(cachedToken.receivedAt, intl.locale)}.`);
+      return {
+        token: cachedToken.token,
+        reused: true,
+      };
+    }
+
+    appendLog('info', 'Requesting a checkout reCAPTCHA token from the open RSI tab through the extension.');
+    const token = await requestCheckoutTokenFromBridge();
+    return {
+      token,
+      reused: false,
+    };
   };
 
   const checkTokenProviderStatus = async (mode: 'manual' | 'poll' = 'manual') => {
@@ -1227,13 +1273,17 @@ export default function AdminRsiOrderAutomation() {
     );
 
     try {
-      appendLog('info', 'Requesting a checkout reCAPTCHA token from the open RSI tab through the extension.');
-      const token = await requestCheckoutTokenFromBridge();
-      appendLog('success', `Received checkout reCAPTCHA token (${formatTokenPreview(token)}).`);
+      const tokenResult = await consumeTokenForAutomation();
+      appendLog(
+        'success',
+        tokenResult.reused
+          ? `Reused checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`
+          : `Received checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`,
+      );
 
       await runAutomation({
         shipName,
-        token,
+        token: tokenResult.token,
         mark,
         pollIntervalMs,
       });
@@ -1307,12 +1357,16 @@ export default function AdminRsiOrderAutomation() {
 
     try {
       const token = await requestCheckoutTokenFromBridge();
+      setPrefetchedToken({
+        token,
+        receivedAt: new Date().toISOString(),
+      });
       appendLog('success', `Received checkout reCAPTCHA token (${formatTokenPreview(token)}).`);
       setFlash({
         severity: 'success',
         text: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.success.tokenReceived',
-          defaultMessage: 'A checkout reCAPTCHA token was received from the open RSI tab.',
+          defaultMessage: 'A checkout reCAPTCHA token was received from the open RSI tab and will be reused for up to 1 minute.',
         }),
       });
     } catch (error) {
