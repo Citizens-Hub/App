@@ -1,5 +1,5 @@
 import CloseIcon from '@mui/icons-material/Close'
-import { Alert, Button, CssBaseline, IconButton, Snackbar, ThemeProvider, createTheme } from '@mui/material'
+import { Alert, AlertTitle, Box, Button, CssBaseline, IconButton, Snackbar, ThemeProvider, createTheme } from '@mui/material'
 import { useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react'
 import { Route, BrowserRouter, HashRouter, Routes, useLocation, Navigate as RouterNavigate } from 'react-router'
 import Header from '@/components/Header'
@@ -10,12 +10,13 @@ import { logout } from '@/store/userStore'
 import { UserRole } from '@/types'
 import { Loader2 } from 'lucide-react'
 import { SWRConfig } from 'swr'
-import { swrConfig, useUserSession, useSharedHangar, useHangarSync } from '@/hooks'
+import { swrConfig, useUserSession, useSharedHangar, useHangarSync, useSiteNotification } from '@/hooks'
 import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
 import MarketingEmailConsentPrompt from '@/components/MarketingEmailConsentPrompt'
 import { useIntl } from 'react-intl'
+import { SiteNotification } from '@/types'
 // import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
 
 // 懒加载路由组件
@@ -58,6 +59,7 @@ const Router = import.meta.env.VITE_PUBLIC_CN_MIRROR === 'true' ? HashRouter : B
 const CN_MIRROR_HOST = 'citizenshub.oxdl.cn';
 const CN_LOCATION_CACHE_KEY = 'citizenshub-cn-location-cache';
 const CN_MIRROR_PROMPT_DISMISSED_KEY = 'citizenshub-cn-mirror-prompt-dismissed';
+const SITE_NOTIFICATION_DISMISSED_KEY = 'citizenshub-site-notification-dismissed';
 const CN_LOCATION_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 type CnLocationCache = {
@@ -129,6 +131,22 @@ function getCnMirrorUrl() {
   return `https://${CN_MIRROR_HOST}/#${window.location.pathname}${window.location.search}`;
 }
 
+function readDismissedSiteNotificationId(): string | null {
+  try {
+    return localStorage.getItem(SITE_NOTIFICATION_DISMISSED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function dismissSiteNotification(id: string) {
+  try {
+    localStorage.setItem(SITE_NOTIFICATION_DISMISSED_KEY, id);
+  } catch {
+    // Ignore storage failures and only dismiss for the current render.
+  }
+}
+
 // Loading 组件
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-[calc(100vh-65px)]">
@@ -167,6 +185,7 @@ function RequireAuth({ children, allowedRoles }: { children: React.ReactNode, al
 function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
   const [showCnMirrorPrompt, setShowCnMirrorPrompt] = useState(false);
+  const [dismissedSiteNotificationId, setDismissedSiteNotificationId] = useState<string | null>(null);
   const intl = useIntl();
 
   useLayoutEffect(() => {
@@ -178,6 +197,10 @@ function App() {
         window.matchMedia('(prefers-color-scheme: dark)').matches
       );
     }
+  }, []);
+
+  useEffect(() => {
+    setDismissedSiteNotificationId(readDismissedSiteNotificationId());
   }, []);
 
   useEffect(() => {
@@ -277,6 +300,11 @@ function App() {
     resolveConflictKeepLocal,
     resolveConflictUseRemote,
   } = useHangarSync();
+  const { data: siteNotificationResponse } = useSiteNotification();
+  const siteNotification = siteNotificationResponse?.data.notification ?? null;
+  const visibleSiteNotification = siteNotification?.id !== dismissedSiteNotificationId
+    ? siteNotification
+    : null;
 
   // 当会话无效时登出
   useEffect(() => {
@@ -311,6 +339,15 @@ function App() {
     setShowCnMirrorPrompt(false);
   };
 
+  const closeSiteNotification = (notification: SiteNotification | null) => {
+    if (!notification) {
+      return;
+    }
+
+    dismissSiteNotification(notification.id);
+    setDismissedSiteNotificationId(notification.id);
+  };
+
   return (
     <SWRConfig value={swrConfig}>
       <ThemeProvider theme={theme}>
@@ -319,6 +356,33 @@ function App() {
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
           <MarketingEmailConsentPrompt />
+          <Snackbar
+            key={visibleSiteNotification?.id || 'site-notification-empty'}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            onClose={(_, reason) => {
+              if (reason === 'clickaway') {
+                return;
+              }
+
+              closeSiteNotification(visibleSiteNotification);
+            }}
+            open={Boolean(visibleSiteNotification)}
+            sx={{ mt: 7 }}
+          >
+            <Alert
+              onClose={() => closeSiteNotification(visibleSiteNotification)}
+              severity={visibleSiteNotification?.severity || 'info'}
+              sx={{ width: '100%', maxWidth: 'calc(100vw - 24px)', alignItems: 'flex-start' }}
+              variant="filled"
+            >
+              {visibleSiteNotification?.title ? (
+                <AlertTitle>{visibleSiteNotification.title}</AlertTitle>
+              ) : null}
+              <Box sx={{ whiteSpace: 'pre-line' }}>
+                {visibleSiteNotification?.message}
+              </Box>
+            </Alert>
+          </Snackbar>
           <Snackbar
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             autoHideDuration={12000}

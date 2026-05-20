@@ -1297,6 +1297,24 @@ export interface NewUserCouponSettings {
   }>;
 }
 
+export type SiteNotificationSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface SiteNotification {
+  id: string;
+  title: string | null;
+  message: string;
+  severity: SiteNotificationSeverity;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export interface SiteNotificationResponse {
+  success: boolean;
+  data: {
+    notification: SiteNotification | null;
+  };
+}
+
 export interface AdminUserSearchItem {
   id: string;
   email: string;

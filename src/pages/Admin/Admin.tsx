@@ -18,6 +18,7 @@ import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
 import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
+import SiteNotificationManager from './components/SiteNotificationManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -37,6 +38,7 @@ enum Page {
   MarketingOffers = 'marketingOffers',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
+  SiteNotification = 'siteNotification',
   GraphqlDebugger = 'graphqlDebugger',
   RsiOrderAutomation = 'rsiOrderAutomation',
 }
@@ -136,6 +138,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.GoogleAdsAudience),
     },
     {
+      id: Page.SiteNotification,
+      title: <FormattedMessage id="admin.siteNotification.title" defaultMessage="Site Notification" />,
+      description: <FormattedMessage id="admin.siteNotification.description" defaultMessage="Publish one global site-wide notification from KV without creating any database records." />,
+      active: currentPage === Page.SiteNotification,
+      onSelect: () => setCurrentPage(Page.SiteNotification),
+    },
+    {
       id: Page.Orders,
       title: <FormattedMessage id="admin.orders.title" defaultMessage="Order Management" />,
       description: <FormattedMessage id="admin.orders.description" defaultMessage="Review all orders, inspect buyer information, and manually resend receipts." />,
@@ -192,6 +201,7 @@ export default function Admin() {
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
+        {currentPage === Page.SiteNotification && <SiteNotificationManager />}
         {currentPage === Page.Orders && <OrdersManager />}
         {currentPage === Page.GraphqlDebugger && <AdminGraphqlDebugger />}
         {currentPage === Page.RsiOrderAutomation && <AdminRsiOrderAutomation />}
