@@ -601,6 +601,7 @@ export default function AdminRsiOrderAutomation() {
   const runningRef = useRef(false);
   const appendLogRef = useRef<((level: LogLevel, text: string) => void) | null>(null);
   const startAutomationRef = useRef<((trigger: AutomationTrigger) => Promise<void>) | null>(null);
+  const checkTokenProviderStatusRef = useRef<((mode?: 'manual' | 'poll') => Promise<void>) | null>(null);
   const [targetShipName, setTargetShipName] = useState('');
   const [validateMark, setValidateMark] = useState('');
   const [pollIntervalInput, setPollIntervalInput] = useState(DEFAULT_POLL_INTERVAL_MS);
@@ -775,6 +776,7 @@ export default function AdminRsiOrderAutomation() {
       }
     }
   };
+  checkTokenProviderStatusRef.current = checkTokenProviderStatus;
 
   const sendRsiGraphql = async <TData,>(
     operationName: string,
@@ -1321,10 +1323,10 @@ export default function AdminRsiOrderAutomation() {
   };
 
   useEffect(() => {
-    void checkTokenProviderStatus('poll');
+    void checkTokenProviderStatusRef.current?.('poll');
 
     const timer = window.setInterval(() => {
-      void checkTokenProviderStatus('poll');
+      void checkTokenProviderStatusRef.current?.('poll');
     }, TOKEN_PROVIDER_STATUS_POLL_INTERVAL_MS);
 
     return () => {
