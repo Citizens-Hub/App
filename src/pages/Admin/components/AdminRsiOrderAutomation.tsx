@@ -1,4 +1,4 @@
-import { PlayArrow, Stop } from '@mui/icons-material';
+import { PlayArrow, Refresh, Stop } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -6,8 +6,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControlLabel,
   Paper,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -16,7 +18,11 @@ import { useIntl } from 'react-intl';
 
 import { useApi } from '@/hooks';
 import type { ShipsData } from '@/types';
-import { requestViaExtension } from '@/utils/extensionHttpRequest';
+import {
+  requestTokenProviderStatusViaExtension,
+  requestTokenViaExtension,
+  requestViaExtension,
+} from '@/utils/extensionHttpRequest';
 
 const RSI_GRAPHQL_URL = 'https://robertsspaceindustries.com/graphql';
 const RESPONSE_TIMEOUT_MS = 20_000;
@@ -24,6 +30,12 @@ const STORE_FRONT = 'pledge';
 const LISTING_PAGE_LIMIT = 20;
 const DEFAULT_POLL_INTERVAL_MS = '2500';
 const MAX_LOG_ENTRIES = 200;
+const TOKEN_REQUEST_TIMEOUT_MS = 10_000;
+const TOKEN_PROVIDER_STATUS_TIMEOUT_MS = 4_000;
+const TOKEN_PROVIDER_STATUS_POLL_INTERVAL_MS = 10_000;
+const CHECKOUT_RECAPTCHA_SITE_KEY = '6LerBOgUAAAAAKPg6vsAFPTN66Woz-jBClxdQU-o';
+const CHECKOUT_RECAPTCHA_ACTION = 'checkout';
+// const CHECKOUT_TOKEN_SOURCE = 'grecaptcha.enterprise.execute(..., { action: "checkout" })';
 
 type FlashState = {
   severity: 'success' | 'error' | 'warning';
@@ -31,8 +43,10 @@ type FlashState = {
 } | null;
 
 type AutomationPhase = 'idle' | 'running' | 'success' | 'failure' | 'stopped';
+type AutomationTrigger = 'manual' | 'scheduled';
 type AutomationStep =
   | 'idle'
+  | 'requestingToken'
   | 'matching'
   | 'addingToCart'
   | 'addingCredit'
@@ -226,6 +240,14 @@ type MatchedSku = {
   priceCents: number;
 };
 
+type TokenBridgeStatus = 'idle' | 'requesting' | 'ready' | 'error';
+type TokenProviderStatus = 'idle' | 'checking' | 'online' | 'offline' | 'error';
+type RunInput = {
+  shipName: string;
+  mark: string;
+  pollIntervalMs: number;
+};
+
 class StopRequestedError extends Error {
   constructor() {
     super('Automation stopped by user.');
@@ -262,6 +284,22 @@ function formatTimestamp(value: string, locale: string): string {
   }
 
   return date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatDateTime(value: string, locale: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -334,6 +372,44 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function parseDailyScheduleTime(value: string): { hours: number; minutes: number } | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  return {
+    hours: Number(match[1]),
+    minutes: Number(match[2]),
+  };
+}
+
+function getNextScheduledRunAt(value: string, now: Date = new Date()): Date | null {
+  const parsed = parseDailyScheduleTime(value);
+  if (!parsed) {
+    return null;
+  }
+
+  const next = new Date(now);
+  next.setHours(parsed.hours, parsed.minutes, 0, 0);
+  if (next.getTime() <= now.getTime()) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return next;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds]
+    .map((value) => value.toString().padStart(2, '0'))
+    .join(':');
+}
+
 function chooseAddress(addresses: AddressRecord[]): AddressRecord | null {
   if (addresses.length === 0) {
     return null;
@@ -353,6 +429,15 @@ function formatAddressLabel(address: AddressRecord): string {
   ].filter((value): value is string => Boolean(value && value.trim())).join(' | ');
 
   return [fullName, location].filter(Boolean).join(' | ');
+}
+
+function formatTokenPreview(token: string): string {
+  const trimmed = token.trim();
+  if (trimmed.length <= 16) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, 8)}...${trimmed.slice(-6)}`;
 }
 
 const BROWSE_STANDALONE_SHIPS_QUERY = `
@@ -513,10 +598,17 @@ export default function AdminRsiOrderAutomation() {
   const intl = useIntl();
   const isMountedRef = useRef(true);
   const stopRequestedRef = useRef(false);
+  const runningRef = useRef(false);
+  const appendLogRef = useRef<((level: LogLevel, text: string) => void) | null>(null);
+  const startAutomationRef = useRef<((trigger: AutomationTrigger) => Promise<void>) | null>(null);
   const [targetShipName, setTargetShipName] = useState('');
-  const [validateToken, setValidateToken] = useState('');
   const [validateMark, setValidateMark] = useState('');
   const [pollIntervalInput, setPollIntervalInput] = useState(DEFAULT_POLL_INTERVAL_MS);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleTimeInput, setScheduleTimeInput] = useState('00:00');
+  const [nextScheduledAt, setNextScheduledAt] = useState<string | null>(null);
+  const [scheduleRevision, setScheduleRevision] = useState(0);
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const [phase, setPhase] = useState<AutomationPhase>('idle');
   const [step, setStep] = useState<AutomationStep>('idle');
   const [stopRequested, setStopRequested] = useState(false);
@@ -524,6 +616,14 @@ export default function AdminRsiOrderAutomation() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const [tokenBridgeStatus, setTokenBridgeStatus] = useState<TokenBridgeStatus>('idle');
+  const [tokenBridgeError, setTokenBridgeError] = useState('');
+  const [tokenProviderStatus, setTokenProviderStatus] = useState<TokenProviderStatus>('idle');
+  const [tokenProviderError, setTokenProviderError] = useState('');
+  const [tokenProviderCount, setTokenProviderCount] = useState(0);
+  const [lastProviderCheckAt, setLastProviderCheckAt] = useState<string | null>(null);
+  const [lastTokenReceivedAt, setLastTokenReceivedAt] = useState<string | null>(null);
+  const [lastTokenPreview, setLastTokenPreview] = useState('');
 
   const {
     data: shipsData,
@@ -531,13 +631,6 @@ export default function AdminRsiOrderAutomation() {
   } = useApi<ShipsData>('/api/ships', {
     revalidateOnFocus: false,
   });
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      stopRequestedRef.current = true;
-    };
-  }, []);
 
   const shipOptions = useMemo(() => {
     const names = (shipsData?.data.ships || [])
@@ -548,6 +641,24 @@ export default function AdminRsiOrderAutomation() {
   }, [shipsData?.data.ships]);
 
   const running = phase === 'running';
+  const scheduleTimeValid = Boolean(parseDailyScheduleTime(scheduleTimeInput));
+  const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || intl.formatMessage({
+    id: 'admin.rsiOrderAutomation.localTimeZoneFallback',
+    defaultMessage: 'local browser time',
+  });
+  const nextScheduledTimestamp = nextScheduledAt ? new Date(nextScheduledAt).getTime() : NaN;
+  const scheduleCountdown = Number.isFinite(nextScheduledTimestamp)
+    ? Math.max(0, nextScheduledTimestamp - countdownNow)
+    : null;
+  const scheduleCountdownLabel = scheduleCountdown === null ? null : formatDuration(scheduleCountdown);
+  runningRef.current = running;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      stopRequestedRef.current = true;
+    };
+  }, []);
 
   const appendLog = (level: LogLevel, text: string) => {
     if (!isMountedRef.current) {
@@ -564,6 +675,7 @@ export default function AdminRsiOrderAutomation() {
       },
     ]);
   };
+  appendLogRef.current = appendLog;
 
   const updateSummary = (patch: Partial<RunSummary>) => {
     if (!isMountedRef.current) {
@@ -576,6 +688,91 @@ export default function AdminRsiOrderAutomation() {
   const ensureNotStopped = () => {
     if (stopRequestedRef.current) {
       throw new StopRequestedError();
+    }
+  };
+
+  const requestCheckoutTokenFromBridge = async () => {
+    ensureNotStopped();
+    setTokenBridgeStatus('requesting');
+    setTokenBridgeError('');
+
+    try {
+      const response = await requestTokenViaExtension({
+        provider: 'grecaptcha.enterprise.execute',
+        siteKey: CHECKOUT_RECAPTCHA_SITE_KEY,
+        action: CHECKOUT_RECAPTCHA_ACTION,
+        source: 'admin-rsi-order-automation',
+      }, {
+        timeoutMs: TOKEN_REQUEST_TIMEOUT_MS,
+        timeoutMessage: intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.error.tokenRequestTimeout',
+          defaultMessage: 'No checkout token was returned from the open RSI tab before the timeout expired.',
+        }),
+        requestIdPrefix: 'admin-rsi-order-automation-checkout-token',
+      });
+
+      const token = response?.token?.trim() || '';
+      if (!token) {
+        const message = intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.error.tokenProviderEmpty',
+          defaultMessage: 'The checkout token provider responded, but no token was returned.',
+        });
+        setTokenBridgeStatus('error');
+        setTokenBridgeError(message);
+        throw new Error(message);
+      }
+
+      setTokenBridgeStatus('ready');
+      setTokenBridgeError('');
+      setLastTokenReceivedAt(new Date().toISOString());
+      setLastTokenPreview(formatTokenPreview(token));
+      return token;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setTokenBridgeStatus('error');
+      setTokenBridgeError(message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  };
+
+  const checkTokenProviderStatus = async (mode: 'manual' | 'poll' = 'manual') => {
+    if (mode === 'manual') {
+      setTokenProviderStatus('checking');
+    }
+    setTokenProviderError('');
+
+    try {
+      const response = await requestTokenProviderStatusViaExtension({
+        timeoutMs: TOKEN_PROVIDER_STATUS_TIMEOUT_MS,
+        timeoutMessage: intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.error.tokenProviderStatusTimeout',
+          defaultMessage: 'The token provider status check timed out. Reload the extension bridge or the RSI page and try again.',
+        }),
+        requestIdPrefix: 'admin-rsi-order-automation-token-provider-status',
+      });
+
+      const providerCount = typeof response?.providerCount === 'number' ? response.providerCount : 0;
+      const available = Boolean(response?.available) && providerCount > 0;
+
+      setTokenProviderCount(providerCount);
+      setTokenProviderStatus(available ? 'online' : 'offline');
+      setLastProviderCheckAt(new Date().toISOString());
+      setTokenProviderError(available
+        ? ''
+        : intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.tokenProviderOffline',
+          defaultMessage: 'No RSI tab responded to the token provider handshake. Re-run the provider snippet in an open RSI tab.',
+        }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setTokenProviderStatus('error');
+      setTokenProviderError(message);
+      setTokenProviderCount(0);
+      setLastProviderCheckAt(new Date().toISOString());
+
+      if (mode === 'manual') {
+        appendLog('error', `Token provider status check failed: ${message}`);
+      }
     }
   };
 
@@ -927,54 +1124,78 @@ export default function AdminRsiOrderAutomation() {
     appendLog('success', `Purchase tracking completed for order ${trackedOrderSlug}.`);
   };
 
-  const handleStart = async () => {
-    if (running) {
-      return;
-    }
-
+  const getRunInput = (): { input: RunInput; error: null } | { input: null; error: string } => {
     const shipName = targetShipName.trim();
-    const token = validateToken.trim();
     const mark = validateMark.trim();
     const pollIntervalMs = Number(pollIntervalInput.trim());
 
     if (!shipName) {
-      setFlash({
-        severity: 'error',
-        text: intl.formatMessage({
+      return {
+        input: null,
+        error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.missingShip',
           defaultMessage: 'Please enter the English ship name to match in the RSI store listing.',
         }),
-      });
-      return;
+      };
     }
 
-    if (!token || !mark) {
-      setFlash({
-        severity: 'error',
-        text: intl.formatMessage({
-          id: 'admin.rsiOrderAutomation.error.missingValidateFields',
-          defaultMessage: 'Please provide both the validate token and mark values before starting the task.',
+    if (!mark) {
+      return {
+        input: null,
+        error: intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.error.missingValidateMark',
+          defaultMessage: 'Please provide the validate mark value before starting the task.',
         }),
-      });
-      return;
+      };
     }
 
     if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 500) {
-      setFlash({
-        severity: 'error',
-        text: intl.formatMessage({
+      return {
+        input: null,
+        error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.invalidPollInterval',
           defaultMessage: 'The poll interval must be a number greater than or equal to 500ms.',
         }),
-      });
+      };
+    }
+
+    return {
+      input: {
+        shipName,
+        mark,
+        pollIntervalMs,
+      },
+      error: null,
+    };
+  };
+
+  const startAutomation = async (trigger: AutomationTrigger) => {
+    if (runningRef.current) {
+      if (trigger === 'scheduled') {
+        appendLog('warning', 'The scheduled run was skipped because another automation run is already in progress.');
+      }
       return;
     }
 
+    const result = getRunInput();
+    if (result.error) {
+      setFlash({
+        severity: 'error',
+        text: result.error,
+      });
+
+      if (trigger === 'scheduled') {
+        appendLog('error', `The scheduled run could not start: ${result.error}`);
+      }
+      return;
+    }
+
+    const { shipName, mark, pollIntervalMs } = result.input as RunInput;
     stopRequestedRef.current = false;
     setStopRequested(false);
     setFlash(null);
     setPhase('running');
-    setStep('matching');
+    setStep('requestingToken');
     setLogs([]);
     setRunStartedAt(new Date().toISOString());
     setSummary({
@@ -989,9 +1210,18 @@ export default function AdminRsiOrderAutomation() {
       orderSlug: null,
       trackingTotalCents: null,
     });
-    appendLog('info', `Starting RSI auto checkout for "${shipName}".`);
+    appendLog(
+      'info',
+      trigger === 'scheduled'
+        ? `Starting RSI auto checkout for "${shipName}" from the daily schedule.`
+        : `Starting RSI auto checkout for "${shipName}".`,
+    );
 
     try {
+      appendLog('info', 'Requesting a checkout reCAPTCHA token from the open RSI tab through the extension.');
+      const token = await requestCheckoutTokenFromBridge();
+      appendLog('success', `Received checkout reCAPTCHA token (${formatTokenPreview(token)}).`);
+
       await runAutomation({
         shipName,
         token,
@@ -1042,6 +1272,11 @@ export default function AdminRsiOrderAutomation() {
       }
     }
   };
+  startAutomationRef.current = startAutomation;
+
+  const handleStart = async () => {
+    await startAutomation('manual');
+  };
 
   const handleStop = () => {
     if (!running || stopRequestedRef.current) {
@@ -1052,6 +1287,105 @@ export default function AdminRsiOrderAutomation() {
     setStopRequested(true);
     appendLog('warning', 'Stop requested. The automation will stop after the current RSI request finishes.');
   };
+
+  const handleRequestTokenNow = async () => {
+    if (running || tokenBridgeStatus === 'requesting') {
+      return;
+    }
+
+    setFlash(null);
+    appendLog('info', 'Requesting a checkout reCAPTCHA token from the open RSI tab through the extension.');
+
+    try {
+      const token = await requestCheckoutTokenFromBridge();
+      appendLog('success', `Received checkout reCAPTCHA token (${formatTokenPreview(token)}).`);
+      setFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'admin.rsiOrderAutomation.success.tokenReceived',
+          defaultMessage: 'A checkout reCAPTCHA token was received from the open RSI tab.',
+        }),
+      });
+    } catch (error) {
+      if (error instanceof StopRequestedError) {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      appendLog('error', message);
+      setFlash({
+        severity: 'error',
+        text: message,
+      });
+    }
+  };
+
+  useEffect(() => {
+    void checkTokenProviderStatus('poll');
+
+    const timer = window.setInterval(() => {
+      void checkTokenProviderStatus('poll');
+    }, TOKEN_PROVIDER_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!scheduleEnabled) {
+      setNextScheduledAt(null);
+      return undefined;
+    }
+
+    const nextRunAt = getNextScheduledRunAt(scheduleTimeInput);
+    if (!nextRunAt) {
+      setNextScheduledAt(null);
+      return undefined;
+    }
+
+    setNextScheduledAt(nextRunAt.toISOString());
+
+    const timeout = window.setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      if (runningRef.current) {
+        appendLogRef.current?.('warning', `Scheduled run at ${scheduleTimeInput} was skipped because the automation is already running.`);
+      } else {
+        appendLogRef.current?.('info', `Scheduled run triggered at ${scheduleTimeInput}.`);
+        void startAutomationRef.current?.('scheduled');
+      }
+
+      if (isMountedRef.current) {
+        setScheduleRevision((current) => current + 1);
+      }
+    }, Math.max(0, nextRunAt.getTime() - Date.now()));
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [scheduleEnabled, scheduleTimeInput, scheduleRevision]);
+
+  useEffect(() => {
+    if (!scheduleEnabled || !nextScheduledAt) {
+      return undefined;
+    }
+
+    setCountdownNow(Date.now());
+    const timer = window.setInterval(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setCountdownNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [scheduleEnabled, nextScheduledAt]);
 
   const phaseLabel = (() => {
     switch (phase) {
@@ -1070,6 +1404,8 @@ export default function AdminRsiOrderAutomation() {
 
   const stepLabel = (() => {
     switch (step) {
+      case 'requestingToken':
+        return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.requestingToken', defaultMessage: 'Requesting token' });
       case 'matching':
         return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.matching', defaultMessage: 'Matching listing' });
       case 'addingToCart':
@@ -1179,22 +1515,170 @@ export default function AdminRsiOrderAutomation() {
             />
           </Box>
 
-          <TextField
-            label={intl.formatMessage({
-              id: 'admin.rsiOrderAutomation.validateToken',
-              defaultMessage: 'Validate token',
-            })}
-            value={validateToken}
-            onChange={(event) => setValidateToken(event.target.value)}
-            disabled={running}
-            multiline
-            minRows={3}
-            autoComplete="off"
-            helperText={intl.formatMessage({
-              id: 'admin.rsiOrderAutomation.validateTokenHelp',
-              defaultMessage: 'Provide the current cart validate token manually for this run only. It is not stored anywhere.',
-            })}
-          />
+          <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' }} gap={2}>
+            <FormControlLabel
+              control={(
+                <Switch
+                  checked={scheduleEnabled}
+                  onChange={(event) => setScheduleEnabled(event.target.checked)}
+                />
+              )}
+              label={intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.scheduleEnabled',
+                defaultMessage: 'Enable daily schedule',
+              })}
+            />
+
+            <TextField
+              label={intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.scheduleTime',
+                defaultMessage: 'Daily start time',
+              })}
+              type="time"
+              value={scheduleTimeInput}
+              onChange={(event) => setScheduleTimeInput(event.target.value)}
+              disabled={!scheduleEnabled}
+              error={scheduleEnabled && !scheduleTimeValid}
+              inputProps={{ step: 60 }}
+              helperText={scheduleEnabled
+                ? intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.scheduleTimeHelpEnabled',
+                  defaultMessage: 'Uses the current browser time zone. 00:00 runs at the next local midnight.',
+                })
+                : intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.scheduleTimeHelpDisabled',
+                  defaultMessage: 'Turn on the daily schedule to arm a local browser timer.',
+                })}
+            />
+          </Box>
+
+          <Alert severity={scheduleEnabled && !scheduleTimeValid ? 'warning' : 'info'}>
+            {scheduleEnabled && !scheduleTimeValid
+              ? intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.scheduleInvalid',
+                defaultMessage: 'The daily schedule is enabled, but the execution time is invalid. Enter a valid 24-hour time such as 00:00.',
+              })
+              : intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.scheduleInfo',
+                defaultMessage: 'Scheduled runs happen only in this browser tab. Keep the admin page open until the task starts.',
+              })}
+          </Alert>
+
+          <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, auto)' }} gap={2} justifyContent="start">
+            <Button
+              variant="outlined"
+              startIcon={tokenProviderStatus === 'checking' ? <CircularProgress size={16} color="inherit" /> : <Refresh />}
+              disabled={tokenProviderStatus === 'checking'}
+              onClick={() => void checkTokenProviderStatus('manual')}
+            >
+              {tokenProviderStatus === 'checking'
+                ? intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.checkingProvider',
+                  defaultMessage: 'Checking provider...',
+                })
+                : intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.checkProvider',
+                  defaultMessage: 'Check provider',
+                })}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={tokenBridgeStatus === 'requesting' ? <CircularProgress size={16} color="inherit" /> : <Refresh />}
+              disabled={running || tokenBridgeStatus === 'requesting'}
+              onClick={() => void handleRequestTokenNow()}
+            >
+              {tokenBridgeStatus === 'requesting'
+                ? intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.requestingToken',
+                  defaultMessage: 'Requesting token...',
+                })
+                : intl.formatMessage({
+                  id: 'admin.rsiOrderAutomation.requestToken',
+                  defaultMessage: 'Request token now',
+                })}
+            </Button>
+          </Box>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip
+              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus', defaultMessage: 'Provider' })}: ${
+                tokenProviderStatus === 'checking'
+                  ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus.checking', defaultMessage: 'Checking' })
+                  : tokenProviderStatus === 'online'
+                    ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus.online', defaultMessage: 'Online' })
+                    : tokenProviderStatus === 'offline'
+                      ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus.offline', defaultMessage: 'Offline' })
+                      : tokenProviderStatus === 'error'
+                        ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus.error', defaultMessage: 'Error' })
+                        : intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderStatus.idle', defaultMessage: 'Idle' })
+              }`}
+              size="small"
+              color={
+                tokenProviderStatus === 'online'
+                  ? 'success'
+                  : tokenProviderStatus === 'offline' || tokenProviderStatus === 'error'
+                    ? 'error'
+                    : tokenProviderStatus === 'checking'
+                      ? 'warning'
+                      : 'default'
+              }
+            />
+            <Chip
+              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenProviderCount', defaultMessage: 'Online tabs' })}: ${tokenProviderCount}`}
+              size="small"
+            />
+            <Chip
+              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus', defaultMessage: 'Token bridge' })}: ${
+                tokenBridgeStatus === 'requesting'
+                  ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus.requesting', defaultMessage: 'Requesting' })
+                  : tokenBridgeStatus === 'ready'
+                    ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus.ready', defaultMessage: 'Ready' })
+                    : tokenBridgeStatus === 'error'
+                      ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus.error', defaultMessage: 'Error' })
+                      : intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus.idle', defaultMessage: 'Idle' })
+              }`}
+              size="small"
+              color={
+                tokenBridgeStatus === 'ready'
+                  ? 'success'
+                  : tokenBridgeStatus === 'error'
+                    ? 'error'
+                    : tokenBridgeStatus === 'requesting'
+                      ? 'warning'
+                      : 'default'
+              }
+            />
+            {lastProviderCheckAt ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.lastProviderCheckAt', defaultMessage: 'Last check' })}: ${formatTimestamp(lastProviderCheckAt, intl.locale)}`}
+                size="small"
+              />
+            ) : null}
+            {lastTokenReceivedAt ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.lastTokenAt', defaultMessage: 'Last token' })}: ${formatTimestamp(lastTokenReceivedAt, intl.locale)}`}
+                size="small"
+              />
+            ) : null}
+            {lastTokenPreview ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenPreview', defaultMessage: 'Preview' })}: ${lastTokenPreview}`}
+                size="small"
+              />
+            ) : null}
+          </Stack>
+
+          {tokenBridgeError ? (
+            <Alert severity="warning">
+              {tokenBridgeError}
+            </Alert>
+          ) : null}
+
+          {tokenProviderError ? (
+            <Alert severity={tokenProviderStatus === 'error' ? 'warning' : 'info'}>
+              {tokenProviderError}
+            </Alert>
+          ) : null}
 
           <TextField
             label={intl.formatMessage({
@@ -1266,12 +1750,40 @@ export default function AdminRsiOrderAutomation() {
               color={getPhaseColor(phase)}
             />
             <Chip
+              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus', defaultMessage: 'Schedule' })}: ${
+                scheduleEnabled
+                  ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.enabled', defaultMessage: 'Enabled' })
+                  : intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.disabled', defaultMessage: 'Disabled' })
+              }`}
+              size="small"
+              color={scheduleEnabled ? 'success' : 'default'}
+            />
+            <Chip
               label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.step', defaultMessage: 'Step' })}: ${stepLabel}`}
               size="small"
             />
             {runStartedAt ? (
               <Chip
                 label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.startedAt', defaultMessage: 'Started' })}: ${formatTimestamp(runStartedAt, intl.locale)}`}
+                size="small"
+              />
+            ) : null}
+            {scheduleEnabled && nextScheduledAt ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.nextRunAt', defaultMessage: 'Next run' })}: ${formatDateTime(nextScheduledAt, intl.locale)}`}
+                size="small"
+              />
+            ) : null}
+            {scheduleEnabled && scheduleCountdownLabel ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.countdown', defaultMessage: 'Starts in' })}: ${scheduleCountdownLabel}`}
+                size="small"
+                color="warning"
+              />
+            ) : null}
+            {scheduleEnabled ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleTimeZone', defaultMessage: 'Time zone' })}: ${localTimeZone}`}
                 size="small"
               />
             ) : null}

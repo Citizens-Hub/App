@@ -8,6 +8,17 @@ export interface ExtensionHttpRequestPayload {
   headers?: Record<string, string>;
 }
 
+export interface ExtensionTokenResponse {
+  token: string;
+  provider?: string | null;
+}
+
+export interface ExtensionTokenProviderStatusResponse {
+  available: boolean;
+  providerCount: number;
+  providers?: string[] | null;
+}
+
 interface ExtensionResponseMessage {
   requestId?: string;
   value?: unknown;
@@ -22,10 +33,10 @@ interface RequestViaExtensionOptions {
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
-export function requestViaExtension(
-  request: ExtensionHttpRequestPayload,
+function requestViaExtensionMessage<TResponse>(
+  messageFactory: (requestId: string) => unknown,
   options: RequestViaExtensionOptions = {},
-): Promise<unknown> {
+): Promise<TResponse> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const requestIdPrefix = options.requestIdPrefix || 'extension-http-request';
   const timeoutMessage = options.timeoutMessage || 'The extension request timed out.';
@@ -64,7 +75,7 @@ export function requestViaExtension(
         return;
       }
 
-      resolve(message.value ?? null);
+      resolve((message.value ?? null) as TResponse);
     };
 
     const timeoutId = window.setTimeout(() => {
@@ -76,11 +87,47 @@ export function requestViaExtension(
 
     window.postMessage({
       type: 'ccuPlannerAppIntegrationRequest',
-      message: {
-        type: 'httpRequest',
-        request,
-        requestId,
-      },
+      message: messageFactory(requestId),
     }, '*');
   });
+}
+
+export function requestViaExtension(
+  request: ExtensionHttpRequestPayload,
+  options: RequestViaExtensionOptions = {},
+): Promise<unknown> {
+  return requestViaExtensionMessage(
+    (requestId) => ({
+      type: 'httpRequest',
+      request,
+      requestId,
+    }),
+    options,
+  );
+}
+
+export function requestTokenViaExtension(
+  payload: Record<string, unknown> = {},
+  options: RequestViaExtensionOptions = {},
+): Promise<ExtensionTokenResponse | null> {
+  return requestViaExtensionMessage<ExtensionTokenResponse | null>(
+    (requestId) => ({
+      type: 'tokenRequest',
+      payload,
+      requestId,
+    }),
+    options,
+  );
+}
+
+export function requestTokenProviderStatusViaExtension(
+  options: RequestViaExtensionOptions = {},
+): Promise<ExtensionTokenProviderStatusResponse | null> {
+  return requestViaExtensionMessage<ExtensionTokenProviderStatusResponse | null>(
+    (requestId) => ({
+      type: 'tokenProviderStatus',
+      requestId,
+    }),
+    options,
+  );
 }
