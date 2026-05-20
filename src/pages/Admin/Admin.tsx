@@ -16,6 +16,8 @@ import NewUserCouponSettingsManager from './components/NewUserCouponSettingsMana
 import OrdersManager from './components/OrdersManager';
 import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
+import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
+import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -35,6 +37,8 @@ enum Page {
   MarketingOffers = 'marketingOffers',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
+  GraphqlDebugger = 'graphqlDebugger',
+  RsiOrderAutomation = 'rsiOrderAutomation',
 }
 
 export default function Admin() {
@@ -139,6 +143,20 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.Orders),
     },
     {
+      id: Page.GraphqlDebugger,
+      title: <FormattedMessage id="admin.graphqlDebugger.title" defaultMessage="GraphQL Debugger" />,
+      description: <FormattedMessage id="admin.graphqlDebugger.description" defaultMessage="Manually configure RSI GraphQL requests, run them through the browser extension, inspect responses, and save payloads to local storage for repeat testing." />,
+      active: currentPage === Page.GraphqlDebugger,
+      onSelect: () => setCurrentPage(Page.GraphqlDebugger),
+    },
+    {
+      id: Page.RsiOrderAutomation,
+      title: <FormattedMessage id="admin.rsiOrderAutomation.title" defaultMessage="RSI Auto Checkout" />,
+      description: <FormattedMessage id="admin.rsiOrderAutomation.description" defaultMessage="Poll RSI standalone ship listings through the browser extension, retry add-to-cart when the ship is out of stock, and complete the remaining checkout steps with per-run validate inputs." />,
+      active: currentPage === Page.RsiOrderAutomation,
+      onSelect: () => setCurrentPage(Page.RsiOrderAutomation),
+    },
+    {
       id: Page.Tickets,
       title: <FormattedMessage id="admin.tickets.title" defaultMessage="Support Tickets" />,
       description: <FormattedMessage id="admin.tickets.description" defaultMessage="Review user support tickets, reply to messages, and close resolved requests." />,
@@ -175,6 +193,8 @@ export default function Admin() {
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.Orders && <OrdersManager />}
+        {currentPage === Page.GraphqlDebugger && <AdminGraphqlDebugger />}
+        {currentPage === Page.RsiOrderAutomation && <AdminRsiOrderAutomation />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
     </ResponsiveSectionLayout>
