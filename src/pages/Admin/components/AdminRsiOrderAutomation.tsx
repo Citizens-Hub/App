@@ -1,4 +1,4 @@
-import { PlayArrow, Refresh, Stop } from '@mui/icons-material';
+import { Add, DeleteOutline, PlayArrow, Refresh, Stop } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -7,6 +7,7 @@ import {
   Chip,
   CircularProgress,
   FormControlLabel,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -34,6 +35,7 @@ const TOKEN_REQUEST_TIMEOUT_MS = 10_000;
 const PREFETCHED_TOKEN_TTL_MS = 60_000;
 const TOKEN_PROVIDER_STATUS_TIMEOUT_MS = 4_000;
 const TOKEN_PROVIDER_STATUS_POLL_INTERVAL_MS = 10_000;
+const SCHEDULED_TASKS_STORAGE_KEY = 'admin-rsi-order-automation-scheduled-tasks-v1';
 const CHECKOUT_RECAPTCHA_SITE_KEY = '6LerBOgUAAAAAKPg6vsAFPTN66Woz-jBClxdQU-o';
 const CHECKOUT_RECAPTCHA_ACTION = 'checkout';
 // const CHECKOUT_TOKEN_SOURCE = 'grecaptcha.enterprise.execute(..., { action: "checkout" })';
@@ -56,6 +58,8 @@ type AutomationStep =
   | 'assigningAddress'
   | 'validatingCart'
   | 'trackingPurchase';
+type AutomationExecutionStep = Exclude<AutomationStep, 'idle' | 'requestingToken'>;
+type AutomationStartStep = Exclude<AutomationExecutionStep, 'trackingPurchase'>;
 
 type LogLevel = 'info' | 'success' | 'warning' | 'error';
 
@@ -247,10 +251,55 @@ type PrefetchedTokenState = {
   token: string;
   receivedAt: string;
 };
-type RunInput = {
+type AutomationPlanFields = {
   shipName: string;
   mark: string;
-  pollIntervalMs: number;
+  pollIntervalInput: string;
+  startStep: AutomationStartStep;
+  endStep: AutomationExecutionStep;
+};
+type AutomationRunPlan = {
+  shipName: string;
+  mark: string;
+  pollIntervalMs: number | null;
+  startStep: AutomationStartStep;
+  endStep: AutomationExecutionStep;
+};
+type RunPlanBuildResult =
+  | {
+    ok: true;
+    input: AutomationRunPlan;
+  }
+  | {
+    ok: false;
+    error: string;
+  };
+type ScheduledTask = AutomationPlanFields & {
+  id: string;
+  name: string;
+  enabled: boolean;
+  scheduleTimeInput: string;
+  updatedAt: string;
+};
+type AddressSelectionContext = {
+  selectedAddress: AddressRecord | null;
+  shippingRequired: boolean;
+  billingRequired: boolean;
+};
+type AutomationRuntimeContext = {
+  matchedSku: MatchedSku | null;
+  appliedCreditsCents: number | null;
+  orderSlug: string | null;
+  addressSelection: AddressSelectionContext | null;
+};
+type StartAutomationRequest = {
+  trigger: AutomationTrigger;
+  plan: AutomationRunPlan;
+  label?: string | null;
+  scheduledTaskContext?: {
+    taskId: string;
+    laterTaskIds: string[];
+  } | null;
 };
 
 class StopRequestedError extends Error {
@@ -260,8 +309,198 @@ class StopRequestedError extends Error {
   }
 }
 
+const EXECUTION_STEPS: AutomationExecutionStep[] = [
+  'matching',
+  'addingToCart',
+  'addingCredit',
+  'movingNext',
+  'loadingAddresses',
+  'assigningAddress',
+  'validatingCart',
+  'trackingPurchase',
+];
+const DEFAULT_START_STEP: AutomationStartStep = 'matching';
+const DEFAULT_END_STEP: AutomationExecutionStep = 'trackingPurchase';
+
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isAutomationExecutionStep(value: unknown): value is AutomationExecutionStep {
+  return typeof value === 'string' && EXECUTION_STEPS.includes(value as AutomationExecutionStep);
+}
+
+function isAutomationStartStep(value: unknown): value is AutomationStartStep {
+  return isAutomationExecutionStep(value) && value !== 'trackingPurchase';
+}
+
+function getAutomationStepIndex(step: AutomationExecutionStep): number {
+  return EXECUTION_STEPS.indexOf(step);
+}
+
+function rangeIncludesStep(
+  startStep: AutomationStartStep,
+  endStep: AutomationExecutionStep,
+  step: AutomationExecutionStep,
+): boolean {
+  const startIndex = getAutomationStepIndex(startStep);
+  const endIndex = getAutomationStepIndex(endStep);
+  const targetIndex = getAutomationStepIndex(step);
+  return targetIndex >= startIndex && targetIndex <= endIndex;
+}
+
+function planNeedsShipName(startStep: AutomationStartStep): boolean {
+  return getAutomationStepIndex(startStep) <= getAutomationStepIndex('addingCredit');
+}
+
+function planNeedsPollInterval(startStep: AutomationStartStep): boolean {
+  return getAutomationStepIndex(startStep) <= getAutomationStepIndex('addingToCart');
+}
+
+function planNeedsValidateInputs(endStep: AutomationExecutionStep): boolean {
+  return getAutomationStepIndex(endStep) >= getAutomationStepIndex('validatingCart');
+}
+
+function normalizeEndStep(startStep: AutomationStartStep, endStep: unknown): AutomationExecutionStep {
+  if (!isAutomationExecutionStep(endStep)) {
+    return DEFAULT_END_STEP;
+  }
+
+  return getAutomationStepIndex(endStep) < getAutomationStepIndex(startStep)
+    ? DEFAULT_END_STEP
+    : endStep;
+}
+
+function parseScheduledTasks(): ScheduledTask[] {
+  try {
+    const raw = localStorage.getItem(SCHEDULED_TASKS_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap((entry) => {
+      if (!isRecord(entry)) {
+        return [];
+      }
+
+      const id = typeof entry.id === 'string' ? entry.id : '';
+      const name = typeof entry.name === 'string' ? entry.name : '';
+      const enabled = typeof entry.enabled === 'boolean' ? entry.enabled : true;
+      const scheduleTimeInput = typeof entry.scheduleTimeInput === 'string' ? entry.scheduleTimeInput : '00:00';
+      const shipName = typeof entry.shipName === 'string' ? entry.shipName : '';
+      const mark = typeof entry.mark === 'string' ? entry.mark : '';
+      const pollIntervalInput = typeof entry.pollIntervalInput === 'string' ? entry.pollIntervalInput : DEFAULT_POLL_INTERVAL_MS;
+      const startStep = isAutomationStartStep(entry.startStep) ? entry.startStep : DEFAULT_START_STEP;
+      const endStep = normalizeEndStep(startStep, entry.endStep);
+      const updatedAt = typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date(0).toISOString();
+
+      if (!id || !name) {
+        return [];
+      }
+
+      return [{
+        id,
+        name,
+        enabled,
+        scheduleTimeInput,
+        shipName,
+        mark,
+        pollIntervalInput,
+        startStep,
+        endStep,
+        updatedAt,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function writeScheduledTasks(tasks: ScheduledTask[]) {
+  try {
+    localStorage.setItem(SCHEDULED_TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch {
+    // Ignore localStorage failures and keep the current session usable.
+  }
+}
+
+function getTaskNextRunAt(task: ScheduledTask, now: Date = new Date()): Date | null {
+  if (!task.enabled) {
+    return null;
+  }
+
+  return getNextScheduledRunAt(task.scheduleTimeInput, now);
+}
+
+function getSubsequentScheduledTaskIds(
+  entries: Array<{
+    task: ScheduledTask;
+    nextRunAtIso: string | null;
+  }>,
+  currentTaskId: string,
+): string[] {
+  const queue = entries
+    .map((entry, index) => ({
+      taskId: entry.task.id,
+      sortIndex: index,
+      nextRunAtMs: entry.nextRunAtIso ? new Date(entry.nextRunAtIso).getTime() : NaN,
+    }))
+    .filter((entry) => Number.isFinite(entry.nextRunAtMs))
+    .sort((left, right) => left.nextRunAtMs - right.nextRunAtMs || left.sortIndex - right.sortIndex);
+
+  const currentIndex = queue.findIndex((entry) => entry.taskId === currentTaskId);
+  if (currentIndex < 0) {
+    return [];
+  }
+
+  return queue.slice(currentIndex + 1).map((entry) => entry.taskId);
+}
+
+function createDefaultScheduledTask(index: number): ScheduledTask {
+  return {
+    id: createId(),
+    name: `Task ${index}`,
+    enabled: true,
+    scheduleTimeInput: '00:00',
+    shipName: '',
+    mark: '',
+    pollIntervalInput: DEFAULT_POLL_INTERVAL_MS,
+    startStep: DEFAULT_START_STEP,
+    endStep: DEFAULT_END_STEP,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function formatStepLabel(step: AutomationExecutionStep | AutomationStartStep, intl: ReturnType<typeof useIntl>) {
+  switch (step) {
+    case 'matching':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.matching', defaultMessage: 'Matching listing' });
+    case 'addingToCart':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.addingToCart', defaultMessage: 'Adding to cart' });
+    case 'addingCredit':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.addingCredit', defaultMessage: 'Adding credit' });
+    case 'movingNext':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.movingNext', defaultMessage: 'Advancing checkout' });
+    case 'loadingAddresses':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.loadingAddresses', defaultMessage: 'Loading addresses' });
+    case 'assigningAddress':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.assigningAddress', defaultMessage: 'Assigning address' });
+    case 'validatingCart':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.validatingCart', defaultMessage: 'Validating cart' });
+    case 'trackingPurchase':
+      return intl.formatMessage({ id: 'admin.rsiOrderAutomation.step.trackingPurchase', defaultMessage: 'Purchase tracking' });
+    default:
+      return step;
+  }
 }
 
 function normalizeShipName(value: string): string {
@@ -605,15 +844,17 @@ export default function AdminRsiOrderAutomation() {
   const stopRequestedRef = useRef(false);
   const runningRef = useRef(false);
   const appendLogRef = useRef<((level: LogLevel, text: string) => void) | null>(null);
-  const startAutomationRef = useRef<((trigger: AutomationTrigger) => Promise<void>) | null>(null);
+  const startAutomationRef = useRef<((request: StartAutomationRequest) => Promise<void>) | null>(null);
   const checkTokenProviderStatusRef = useRef<((mode?: 'manual' | 'poll') => Promise<void>) | null>(null);
-  const [targetShipName, setTargetShipName] = useState('');
-  const [validateMark, setValidateMark] = useState('');
-  const [pollIntervalInput, setPollIntervalInput] = useState(DEFAULT_POLL_INTERVAL_MS);
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
-  const [scheduleTimeInput, setScheduleTimeInput] = useState('00:00');
-  const [nextScheduledAt, setNextScheduledAt] = useState<string | null>(null);
-  const [scheduleRevision, setScheduleRevision] = useState(0);
+  const buildRunPlanRef = useRef<((fields: AutomationPlanFields) => RunPlanBuildResult) | null>(null);
+  const [manualPlanFields, setManualPlanFields] = useState<AutomationPlanFields>({
+    shipName: '',
+    mark: '',
+    pollIntervalInput: DEFAULT_POLL_INTERVAL_MS,
+    startStep: DEFAULT_START_STEP,
+    endStep: DEFAULT_END_STEP,
+  });
+  const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>(() => parseScheduledTasks());
   const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const [phase, setPhase] = useState<AutomationPhase>('idle');
   const [step, setStep] = useState<AutomationStep>('idle');
@@ -631,6 +872,7 @@ export default function AdminRsiOrderAutomation() {
   const [prefetchedToken, setPrefetchedToken] = useState<PrefetchedTokenState | null>(null);
   const [lastTokenReceivedAt, setLastTokenReceivedAt] = useState<string | null>(null);
   const [lastTokenPreview, setLastTokenPreview] = useState('');
+  const [lastScheduledTaskId, setLastScheduledTaskId] = useState<string | null>(null);
 
   const {
     data: shipsData,
@@ -648,16 +890,26 @@ export default function AdminRsiOrderAutomation() {
   }, [shipsData?.data.ships]);
 
   const running = phase === 'running';
-  const scheduleTimeValid = Boolean(parseDailyScheduleTime(scheduleTimeInput));
   const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || intl.formatMessage({
     id: 'admin.rsiOrderAutomation.localTimeZoneFallback',
     defaultMessage: 'local browser time',
   });
-  const nextScheduledTimestamp = nextScheduledAt ? new Date(nextScheduledAt).getTime() : NaN;
-  const scheduleCountdown = Number.isFinite(nextScheduledTimestamp)
-    ? Math.max(0, nextScheduledTimestamp - countdownNow)
-    : null;
-  const scheduleCountdownLabel = scheduleCountdown === null ? null : formatDuration(scheduleCountdown);
+  const taskScheduleSnapshots = useMemo(() => scheduledTasks.map((task) => {
+    const nextRunAt = getTaskNextRunAt(task);
+    const nextRunAtIso = nextRunAt ? nextRunAt.toISOString() : null;
+    const countdownMs = nextRunAt ? Math.max(0, nextRunAt.getTime() - countdownNow) : null;
+
+    return {
+      task,
+      nextRunAtIso,
+      countdownMs,
+      countdownLabel: countdownMs === null ? null : formatDuration(countdownMs),
+    };
+  }), [countdownNow, scheduledTasks]);
+  const nextScheduledTaskSnapshot = taskScheduleSnapshots
+    .filter((entry) => entry.nextRunAtIso)
+    .sort((left, right) => new Date(left.nextRunAtIso || 0).getTime() - new Date(right.nextRunAtIso || 0).getTime())[0] || null;
+  const scheduledTasksEnabled = scheduledTasks.some((task) => task.enabled);
   runningRef.current = running;
 
   useEffect(() => {
@@ -824,6 +1076,42 @@ export default function AdminRsiOrderAutomation() {
   };
   checkTokenProviderStatusRef.current = checkTokenProviderStatus;
 
+  const updateManualPlanField = <TKey extends keyof AutomationPlanFields>(key: TKey, value: AutomationPlanFields[TKey]) => {
+    setManualPlanFields((current) => {
+      const next = { ...current, [key]: value };
+      if (key === 'startStep' && getAutomationStepIndex(next.endStep) < getAutomationStepIndex(value as AutomationStartStep)) {
+        next.endStep = DEFAULT_END_STEP;
+      }
+      return next;
+    });
+  };
+
+  const updateScheduledTask = (taskId: string, patch: Partial<ScheduledTask>) => {
+    setScheduledTasks((current) => current.map((task) => task.id === taskId
+      ? {
+        ...task,
+        ...patch,
+        endStep: patch.startStep
+          ? normalizeEndStep(patch.startStep, patch.endStep ?? task.endStep)
+          : patch.endStep
+            ? normalizeEndStep(task.startStep, patch.endStep)
+            : task.endStep,
+        updatedAt: new Date().toISOString(),
+      }
+      : task));
+  };
+
+  const handleAddScheduledTask = () => {
+    setScheduledTasks((current) => [...current, createDefaultScheduledTask(current.length + 1)]);
+  };
+
+  const handleDeleteScheduledTask = (taskId: string) => {
+    setScheduledTasks((current) => current.filter((task) => task.id !== taskId));
+    if (lastScheduledTaskId === taskId) {
+      setLastScheduledTaskId(null);
+    }
+  };
+
   const sendRsiGraphql = async <TData,>(
     operationName: string,
     variables: Record<string, unknown>,
@@ -982,103 +1270,77 @@ export default function AdminRsiOrderAutomation() {
     };
   };
 
-  const runAutomation = async (input: {
-    shipName: string;
-    token: string;
-    mark: string;
-    pollIntervalMs: number;
-  }) => {
+  const resolveMatchedSkuOnce = async (shipName: string) => {
+    ensureNotStopped();
+    setStep('matching');
+    appendLog('info', `Searching RSI standalone ship listings for "${shipName}".`);
+
+    const matchedSku = await findMatchingSku(shipName);
+    if (!matchedSku) {
+      throw new Error(`No matching non-warbond listing was found for "${shipName}".`);
+    }
+
+    updateSummary({
+      matchedShipName: matchedSku.title,
+      matchedSkuId: matchedSku.skuId,
+      matchedSlug: matchedSku.slug,
+      matchedPriceCents: matchedSku.priceCents,
+    });
+    appendLog('success', `Matched SKU ${matchedSku.skuId} at ${formatUsdCents(matchedSku.priceCents, intl.locale)}.`);
+    return matchedSku;
+  };
+
+  const pollForMatchedSku = async (shipName: string, pollIntervalMs: number) => {
     let attempt = 1;
-    let matchedSku: MatchedSku | null = null;
-    let appliedCreditsCents: number | null = null;
 
     while (true) {
       ensureNotStopped();
       setStep('matching');
-      appendLog('info', `Attempt ${attempt}: searching RSI standalone ship listings for "${input.shipName}".`);
+      appendLog('info', `Attempt ${attempt}: searching RSI standalone ship listings for "${shipName}".`);
 
-      matchedSku = await findMatchingSku(input.shipName);
-      if (!matchedSku) {
-        appendLog('warning', `Attempt ${attempt}: no matching non-warbond listing found.`);
-        await sleep(input.pollIntervalMs);
-        attempt += 1;
-        continue;
+      const matchedSku = await findMatchingSku(shipName);
+      if (matchedSku) {
+        updateSummary({
+          matchedShipName: matchedSku.title,
+          matchedSkuId: matchedSku.skuId,
+          matchedSlug: matchedSku.slug,
+          matchedPriceCents: matchedSku.priceCents,
+        });
+        appendLog('success', `Attempt ${attempt}: matched SKU ${matchedSku.skuId} at ${formatUsdCents(matchedSku.priceCents, intl.locale)}.`);
+        return matchedSku;
       }
 
-      updateSummary({
-        matchedShipName: matchedSku.title,
-        matchedSkuId: matchedSku.skuId,
-        matchedSlug: matchedSku.slug,
-        matchedPriceCents: matchedSku.priceCents,
-      });
-      appendLog('info', `Attempt ${attempt}: matched SKU ${matchedSku.skuId} at ${formatUsdCents(matchedSku.priceCents, intl.locale)}.`);
+      appendLog('warning', `Attempt ${attempt}: no matching non-warbond listing found.`);
+      await sleep(pollIntervalMs);
+      attempt += 1;
+    }
+  };
 
+  const addMatchedSkuToCartWithRetry = async (matchedSku: MatchedSku, pollIntervalMs: number) => {
+    let attempt = 1;
+
+    while (true) {
       ensureNotStopped();
       setStep('addingToCart');
       appendLog('info', `Attempt ${attempt}: adding SKU ${matchedSku.skuId} to the RSI cart.`);
       const addResult = await attemptAddToCart(matchedSku.skuId);
       if (addResult.added) {
         const resolvedPrice = addResult.priceCents ?? matchedSku.priceCents;
-        matchedSku = { ...matchedSku, priceCents: resolvedPrice };
+        const resolvedSku = { ...matchedSku, priceCents: resolvedPrice };
         updateSummary({
           matchedPriceCents: resolvedPrice,
         });
-        appendLog('success', `Cart add succeeded for SKU ${matchedSku.skuId}${addResult.resourceName ? ` (${addResult.resourceName})` : ''}.`);
-        break;
+        appendLog('success', `Cart add succeeded for SKU ${resolvedSku.skuId}${addResult.resourceName ? ` (${addResult.resourceName})` : ''}.`);
+        return resolvedSku;
       }
 
-      appendLog('warning', `Attempt ${attempt}: SKU ${matchedSku.skuId} is out of stock. Waiting ${input.pollIntervalMs}ms before retry.`);
-      await sleep(input.pollIntervalMs);
+      appendLog('warning', `Attempt ${attempt}: SKU ${matchedSku.skuId} is out of stock. Waiting ${pollIntervalMs}ms before retry.`);
+      await sleep(pollIntervalMs);
       attempt += 1;
     }
+  };
 
-    if (!matchedSku) {
-      throw new Error('Failed to match a ship SKU.');
-    }
-
-    const creditAmount = Number((matchedSku.priceCents / 100).toFixed(2));
-    setStep('addingCredit');
-    appendLog('info', `Applying checkout credit ${creditAmount.toFixed(2)}.`);
-    const creditItem = await sendRsiGraphql<AddCreditResponse>(
-      'AddCreditMutation',
-      {
-        amount: creditAmount,
-        storeFront: STORE_FRONT,
-      },
-      ADD_CREDIT_QUERY,
-    );
-
-    if (!creditItem.data?.store?.cart?.mutations?.credit_update) {
-      throw new Error('RSI credit update returned false.');
-    }
-
-    updateSummary({
-      orderSlug: creditItem.data?.store?.order?.slug || null,
-      creditsAppliedCents: creditItem.data?.store?.cart?.totals?.credits?.amount ?? matchedSku.priceCents,
-    });
-    appliedCreditsCents = creditItem.data?.store?.cart?.totals?.credits?.amount ?? matchedSku.priceCents;
-    appendLog('success', 'Checkout credit applied successfully.');
-
-    ensureNotStopped();
-    setStep('movingNext');
-    appendLog('info', 'Advancing the checkout flow to the address step.');
-    const nextItem = await sendRsiGraphql<NextStepResponse>(
-      'NextStepMutation',
-      {
-        storeFront: STORE_FRONT,
-      },
-      NEXT_STEP_QUERY,
-    );
-
-    if (!nextItem.data?.store?.cart?.mutations?.flow?.moveNext) {
-      throw new Error('RSI checkout flow did not move to the next step.');
-    }
-
-    updateSummary({
-      orderSlug: nextItem.data?.store?.order?.slug || null,
-    });
-    appendLog('success', 'Checkout flow advanced successfully.');
-
+  const loadAddressSelectionContext = async () => {
     ensureNotStopped();
     setStep('loadingAddresses');
     appendLog('info', 'Loading the RSI address book.');
@@ -1107,86 +1369,230 @@ export default function AdminRsiOrderAutomation() {
         addressLabel,
       });
       appendLog('info', `Using address ${selectedAddress.id}: ${addressLabel}.`);
-
-      ensureNotStopped();
-      setStep('assigningAddress');
-      const assignItem = await sendRsiGraphql<AssignAddressResponse>(
-        'CartAddressAssignMutation',
-        {
-          billing: billingRequired ? selectedAddress.id : null,
-          shipping: shippingRequired ? selectedAddress.id : null,
-          storeFront: STORE_FRONT,
-        },
-        ASSIGN_ADDRESS_QUERY,
-      );
-
-      if (!assignItem.data?.store?.cart?.mutations?.assignAddresses) {
-        throw new Error('RSI address assignment returned false.');
-      }
-
-      appendLog('success', 'Address assignment completed successfully.');
     } else {
       appendLog('info', 'This checkout does not require billing or shipping addresses.');
     }
 
-    ensureNotStopped();
-    setStep('validatingCart');
-    appendLog('info', 'Validating the cart with the provided token and mark.');
-    const validateItem = await sendRsiGraphql<ValidateCartResponse>(
-      'CartValidateCartMutation',
-      {
-        token: input.token,
-        mark: input.mark,
-        storeFront: STORE_FRONT,
-      },
-      VALIDATE_CART_QUERY,
-    );
-
-    const orderSlug = validateItem.data?.store?.cart?.mutations?.validate
-      || validateItem.data?.store?.order?.slug
-      || null;
-
-    if (!orderSlug) {
-      throw new Error('RSI cart validation did not return an order slug.');
-    }
-
-    updateSummary({
-      orderSlug,
-    });
-    appendLog('success', `Cart validation succeeded with order slug ${orderSlug}.`);
-
-    ensureNotStopped();
-    setStep('trackingPurchase');
-    appendLog('info', `Fetching purchase tracking for order ${orderSlug}.`);
-    const trackingItem = await sendRsiGraphql<PurchaseTrackingResponse>(
-      'PurchaseTrackingQuery',
-      {
-        orderSlug,
-      },
-      PURCHASE_TRACKING_QUERY,
-    );
-
-    const trackedOrderSlug = trackingItem.data?.order?.order?.slug || null;
-    if (!trackedOrderSlug) {
-      throw new Error('Purchase tracking did not return an order slug.');
-    }
-
-    updateSummary({
-      orderSlug: trackedOrderSlug,
-      trackingTotalCents: trackingItem.data?.order?.totals?.total ?? null,
-      creditsAppliedCents: trackingItem.data?.order?.totals?.credits?.amount ?? appliedCreditsCents,
-    });
-    appendLog('success', `Purchase tracking completed for order ${trackedOrderSlug}.`);
+    return {
+      selectedAddress,
+      shippingRequired,
+      billingRequired,
+    } satisfies AddressSelectionContext;
   };
 
-  const getRunInput = (): { input: RunInput; error: null } | { input: null; error: string } => {
-    const shipName = targetShipName.trim();
-    const mark = validateMark.trim();
-    const pollIntervalMs = Number(pollIntervalInput.trim());
+  const runAutomation = async (input: {
+    plan: AutomationRunPlan;
+    token: string | null;
+  }) => {
+    const runtime: AutomationRuntimeContext = {
+      matchedSku: null,
+      appliedCreditsCents: null,
+      orderSlug: null,
+      addressSelection: null,
+    };
+    const { plan } = input;
 
-    if (!shipName) {
+    if (plan.startStep === 'matching') {
+      runtime.matchedSku = await pollForMatchedSku(plan.shipName, plan.pollIntervalMs ?? 0);
+      if (plan.endStep === 'matching') {
+        return;
+      }
+    }
+
+    if (plan.startStep === 'addingToCart') {
+      runtime.matchedSku = await resolveMatchedSkuOnce(plan.shipName);
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'addingToCart')) {
+      if (!runtime.matchedSku || plan.pollIntervalMs === null) {
+        throw new Error('Adding to cart requires a matched SKU and poll interval.');
+      }
+
+      runtime.matchedSku = await addMatchedSkuToCartWithRetry(runtime.matchedSku, plan.pollIntervalMs);
+      if (plan.endStep === 'addingToCart') {
+        return;
+      }
+    }
+
+    if (plan.startStep === 'addingCredit' && !runtime.matchedSku) {
+      runtime.matchedSku = await resolveMatchedSkuOnce(plan.shipName);
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'addingCredit')) {
+      if (!runtime.matchedSku) {
+        throw new Error('Adding credit requires a matched ship SKU.');
+      }
+
+      const creditAmount = Number((runtime.matchedSku.priceCents / 100).toFixed(2));
+      setStep('addingCredit');
+      appendLog('info', `Applying checkout credit ${creditAmount.toFixed(2)}.`);
+      const creditItem = await sendRsiGraphql<AddCreditResponse>(
+        'AddCreditMutation',
+        {
+          amount: creditAmount,
+          storeFront: STORE_FRONT,
+        },
+        ADD_CREDIT_QUERY,
+      );
+
+      if (!creditItem.data?.store?.cart?.mutations?.credit_update) {
+        throw new Error('RSI credit update returned false.');
+      }
+
+      runtime.appliedCreditsCents = creditItem.data?.store?.cart?.totals?.credits?.amount ?? runtime.matchedSku.priceCents;
+      runtime.orderSlug = creditItem.data?.store?.order?.slug || runtime.orderSlug;
+      updateSummary({
+        orderSlug: runtime.orderSlug,
+        creditsAppliedCents: runtime.appliedCreditsCents,
+      });
+      appendLog('success', 'Checkout credit applied successfully.');
+      if (plan.endStep === 'addingCredit') {
+        return;
+      }
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'movingNext')) {
+      ensureNotStopped();
+      setStep('movingNext');
+      appendLog('info', 'Advancing the checkout flow to the address step.');
+      const nextItem = await sendRsiGraphql<NextStepResponse>(
+        'NextStepMutation',
+        {
+          storeFront: STORE_FRONT,
+        },
+        NEXT_STEP_QUERY,
+      );
+
+      if (!nextItem.data?.store?.cart?.mutations?.flow?.moveNext) {
+        throw new Error('RSI checkout flow did not move to the next step.');
+      }
+
+      runtime.orderSlug = nextItem.data?.store?.order?.slug || runtime.orderSlug;
+      updateSummary({
+        orderSlug: runtime.orderSlug,
+      });
+      appendLog('success', 'Checkout flow advanced successfully.');
+      if (plan.endStep === 'movingNext') {
+        return;
+      }
+    }
+
+    if (plan.startStep === 'loadingAddresses' || plan.startStep === 'assigningAddress') {
+      runtime.addressSelection = await loadAddressSelectionContext();
+      if (plan.endStep === 'loadingAddresses') {
+        return;
+      }
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'assigningAddress')) {
+      if (!runtime.addressSelection) {
+        runtime.addressSelection = await loadAddressSelectionContext();
+      }
+
+      const { selectedAddress, shippingRequired, billingRequired } = runtime.addressSelection;
+      if (selectedAddress?.id && (shippingRequired || billingRequired)) {
+        ensureNotStopped();
+        setStep('assigningAddress');
+        const assignItem = await sendRsiGraphql<AssignAddressResponse>(
+          'CartAddressAssignMutation',
+          {
+            billing: billingRequired ? selectedAddress.id : null,
+            shipping: shippingRequired ? selectedAddress.id : null,
+            storeFront: STORE_FRONT,
+          },
+          ASSIGN_ADDRESS_QUERY,
+        );
+
+        if (!assignItem.data?.store?.cart?.mutations?.assignAddresses) {
+          throw new Error('RSI address assignment returned false.');
+        }
+
+        appendLog('success', 'Address assignment completed successfully.');
+      }
+
+      if (plan.endStep === 'assigningAddress') {
+        return;
+      }
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'validatingCart')) {
+      if (!input.token || !plan.mark.trim()) {
+        throw new Error('Cart validation requires a checkout token and validate mark.');
+      }
+
+      ensureNotStopped();
+      setStep('validatingCart');
+      appendLog('info', 'Validating the cart with the provided token and mark.');
+      const validateItem = await sendRsiGraphql<ValidateCartResponse>(
+        'CartValidateCartMutation',
+        {
+          token: input.token,
+          mark: plan.mark,
+          storeFront: STORE_FRONT,
+        },
+        VALIDATE_CART_QUERY,
+      );
+
+      const orderSlug = validateItem.data?.store?.cart?.mutations?.validate
+        || validateItem.data?.store?.order?.slug
+        || null;
+
+      if (!orderSlug) {
+        throw new Error('RSI cart validation did not return an order slug.');
+      }
+
+      runtime.orderSlug = orderSlug;
+      updateSummary({
+        orderSlug,
+      });
+      appendLog('success', `Cart validation succeeded with order slug ${orderSlug}.`);
+      if (plan.endStep === 'validatingCart') {
+        return;
+      }
+    }
+
+    if (rangeIncludesStep(plan.startStep, plan.endStep, 'trackingPurchase')) {
+      if (!runtime.orderSlug) {
+        throw new Error('Purchase tracking requires an order slug from an earlier step.');
+      }
+
+      ensureNotStopped();
+      setStep('trackingPurchase');
+      appendLog('info', `Fetching purchase tracking for order ${runtime.orderSlug}.`);
+      const trackingItem = await sendRsiGraphql<PurchaseTrackingResponse>(
+        'PurchaseTrackingQuery',
+        {
+          orderSlug: runtime.orderSlug,
+        },
+        PURCHASE_TRACKING_QUERY,
+      );
+
+      const trackedOrderSlug = trackingItem.data?.order?.order?.slug || null;
+      if (!trackedOrderSlug) {
+        throw new Error('Purchase tracking did not return an order slug.');
+      }
+
+      updateSummary({
+        orderSlug: trackedOrderSlug,
+        trackingTotalCents: trackingItem.data?.order?.totals?.total ?? null,
+        creditsAppliedCents: trackingItem.data?.order?.totals?.credits?.amount ?? runtime.appliedCreditsCents,
+      });
+      appendLog('success', `Purchase tracking completed for order ${trackedOrderSlug}.`);
+    }
+  };
+
+  const buildRunPlan = (fields: AutomationPlanFields): RunPlanBuildResult => {
+    const shipName = fields.shipName.trim();
+    const mark = fields.mark.trim();
+    const startStep = fields.startStep;
+    const endStep = fields.endStep;
+    const requiresShipName = planNeedsShipName(startStep);
+    const requiresPollInterval = planNeedsPollInterval(startStep);
+    const requiresValidateInputs = planNeedsValidateInputs(endStep);
+
+    if (requiresShipName && !shipName) {
       return {
-        input: null,
+        ok: false,
         error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.missingShip',
           defaultMessage: 'Please enter the English ship name to match in the RSI store listing.',
@@ -1194,9 +1600,9 @@ export default function AdminRsiOrderAutomation() {
       };
     }
 
-    if (!mark) {
+    if (requiresValidateInputs && !mark) {
       return {
-        input: null,
+        ok: false,
         error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.missingValidateMark',
           defaultMessage: 'Please provide the validate mark value before starting the task.',
@@ -1204,9 +1610,11 @@ export default function AdminRsiOrderAutomation() {
       };
     }
 
-    if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 500) {
+    const rawPollIntervalMs = Number(fields.pollIntervalInput.trim());
+    const pollIntervalMs = requiresPollInterval ? rawPollIntervalMs : null;
+    if (requiresPollInterval && (!Number.isFinite(rawPollIntervalMs) || rawPollIntervalMs < 500)) {
       return {
-        input: null,
+        ok: false,
         error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.invalidPollInterval',
           defaultMessage: 'The poll interval must be a number greater than or equal to 500ms.',
@@ -1215,16 +1623,19 @@ export default function AdminRsiOrderAutomation() {
     }
 
     return {
+      ok: true,
       input: {
         shipName,
         mark,
         pollIntervalMs,
+        startStep,
+        endStep,
       },
-      error: null,
     };
   };
+  buildRunPlanRef.current = buildRunPlan;
 
-  const startAutomation = async (trigger: AutomationTrigger) => {
+  const startAutomation = async ({ trigger, plan, label, scheduledTaskContext = null }: StartAutomationRequest) => {
     if (runningRef.current) {
       if (trigger === 'scheduled') {
         appendLog('warning', 'The scheduled run was skipped because another automation run is already in progress.');
@@ -1232,20 +1643,8 @@ export default function AdminRsiOrderAutomation() {
       return;
     }
 
-    const result = getRunInput();
-    if (result.error) {
-      setFlash({
-        severity: 'error',
-        text: result.error,
-      });
-
-      if (trigger === 'scheduled') {
-        appendLog('error', `The scheduled run could not start: ${result.error}`);
-      }
-      return;
-    }
-
-    const { shipName, mark, pollIntervalMs } = result.input as RunInput;
+    runningRef.current = true;
+    const { shipName } = plan;
     stopRequestedRef.current = false;
     setStopRequested(false);
     setFlash(null);
@@ -1268,24 +1667,27 @@ export default function AdminRsiOrderAutomation() {
     appendLog(
       'info',
       trigger === 'scheduled'
-        ? `Starting RSI auto checkout for "${shipName}" from the daily schedule.`
-        : `Starting RSI auto checkout for "${shipName}".`,
+        ? `Starting RSI auto checkout for "${label || shipName || 'scheduled task'}" from the daily schedule.`
+        : `Starting RSI auto checkout for "${label || shipName || 'manual task'}".`,
     );
 
     try {
-      const tokenResult = await consumeTokenForAutomation();
-      appendLog(
-        'success',
-        tokenResult.reused
-          ? `Reused checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`
-          : `Received checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`,
-      );
+      const needsCheckoutToken = rangeIncludesStep(plan.startStep, plan.endStep, 'validatingCart');
+      const tokenResult = needsCheckoutToken ? await consumeTokenForAutomation() : null;
+      if (tokenResult) {
+        appendLog(
+          'success',
+          tokenResult.reused
+            ? `Reused checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`
+            : `Received checkout reCAPTCHA token (${formatTokenPreview(tokenResult.token)}).`,
+        );
+      } else {
+        appendLog('info', 'This run does not include cart validation, so no checkout token is required.');
+      }
 
       await runAutomation({
-        shipName,
-        token: tokenResult.token,
-        mark,
-        pollIntervalMs,
+        plan,
+        token: tokenResult?.token || null,
       });
 
       if (!isMountedRef.current) {
@@ -1300,6 +1702,24 @@ export default function AdminRsiOrderAutomation() {
           defaultMessage: 'The RSI checkout automation completed successfully.',
         }),
       });
+
+      if (trigger === 'scheduled' && scheduledTaskContext?.laterTaskIds.length) {
+        const laterTaskIdSet = new Set(scheduledTaskContext.laterTaskIds);
+        let removedCount = 0;
+
+        setScheduledTasks((current) => current.filter((task) => {
+          if (!laterTaskIdSet.has(task.id)) {
+            return true;
+          }
+
+          removedCount += 1;
+          return false;
+        }));
+
+        if (removedCount > 0) {
+          appendLog('info', `Cleared ${removedCount} later scheduled task${removedCount === 1 ? '' : 's'} after the successful scheduled run.`);
+        }
+      }
     } catch (error) {
       if (!isMountedRef.current) {
         return;
@@ -1325,6 +1745,7 @@ export default function AdminRsiOrderAutomation() {
         appendLog('error', message);
       }
     } finally {
+      runningRef.current = false;
       if (isMountedRef.current) {
         stopRequestedRef.current = false;
         setStopRequested(false);
@@ -1334,7 +1755,21 @@ export default function AdminRsiOrderAutomation() {
   startAutomationRef.current = startAutomation;
 
   const handleStart = async () => {
-    await startAutomation('manual');
+    const result = buildRunPlan(manualPlanFields);
+    if (!result.ok) {
+      setFlash({
+        severity: 'error',
+        text: result.error,
+      });
+      return;
+    }
+
+    const plan = result.input;
+    await startAutomation({
+      trigger: 'manual',
+      plan,
+      label: plan.shipName || 'manual task',
+    });
   };
 
   const handleStop = () => {
@@ -1396,43 +1831,11 @@ export default function AdminRsiOrderAutomation() {
   }, []);
 
   useEffect(() => {
-    if (!scheduleEnabled) {
-      setNextScheduledAt(null);
-      return undefined;
-    }
-
-    const nextRunAt = getNextScheduledRunAt(scheduleTimeInput);
-    if (!nextRunAt) {
-      setNextScheduledAt(null);
-      return undefined;
-    }
-
-    setNextScheduledAt(nextRunAt.toISOString());
-
-    const timeout = window.setTimeout(() => {
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      if (runningRef.current) {
-        appendLogRef.current?.('warning', `Scheduled run at ${scheduleTimeInput} was skipped because the automation is already running.`);
-      } else {
-        appendLogRef.current?.('info', `Scheduled run triggered at ${scheduleTimeInput}.`);
-        void startAutomationRef.current?.('scheduled');
-      }
-
-      if (isMountedRef.current) {
-        setScheduleRevision((current) => current + 1);
-      }
-    }, Math.max(0, nextRunAt.getTime() - Date.now()));
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [scheduleEnabled, scheduleTimeInput, scheduleRevision]);
+    writeScheduledTasks(scheduledTasks);
+  }, [scheduledTasks]);
 
   useEffect(() => {
-    if (!scheduleEnabled || !nextScheduledAt) {
+    if (!scheduledTasksEnabled) {
       return undefined;
     }
 
@@ -1448,7 +1851,54 @@ export default function AdminRsiOrderAutomation() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [scheduleEnabled, nextScheduledAt]);
+  }, [scheduledTasksEnabled]);
+
+  useEffect(() => {
+    const timeouts = taskScheduleSnapshots.flatMap((entry) => {
+      if (!entry.task.enabled || !entry.nextRunAtIso) {
+        return [];
+      }
+
+      const planResult = buildRunPlanRef.current?.(entry.task);
+      if (!planResult) {
+        return [];
+      }
+
+      if (!planResult.ok) {
+        return [];
+      }
+
+      const plan = planResult.input;
+      const laterTaskIds = getSubsequentScheduledTaskIds(taskScheduleSnapshots, entry.task.id);
+      const timeout = window.setTimeout(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (runningRef.current) {
+          appendLogRef.current?.('warning', `Scheduled task "${entry.task.name}" at ${entry.task.scheduleTimeInput} was skipped because another automation run is already in progress.`);
+        } else {
+          appendLogRef.current?.('info', `Scheduled task "${entry.task.name}" triggered at ${entry.task.scheduleTimeInput}.`);
+          setLastScheduledTaskId(entry.task.id);
+          void startAutomationRef.current?.({
+            trigger: 'scheduled',
+            plan,
+            label: entry.task.name,
+            scheduledTaskContext: {
+              taskId: entry.task.id,
+              laterTaskIds,
+            },
+          });
+        }
+      }, Math.max(0, new Date(entry.nextRunAtIso).getTime() - Date.now()));
+
+      return [timeout];
+    });
+
+    return () => {
+      timeouts.forEach((timeout) => window.clearTimeout(timeout));
+    };
+  }, [taskScheduleSnapshots]);
 
   const phaseLabel = (() => {
     switch (phase) {
@@ -1533,14 +1983,21 @@ export default function AdminRsiOrderAutomation() {
 
       <Paper sx={{ p: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
         <Stack spacing={2.5}>
+          <Typography variant="h6">
+            {intl.formatMessage({
+              id: 'admin.rsiOrderAutomation.manualPlanTitle',
+              defaultMessage: 'Manual run configuration',
+            })}
+          </Typography>
+
           <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap={2}>
             <Autocomplete
               freeSolo
-              value={targetShipName}
+              value={manualPlanFields.shipName}
               options={shipOptions}
-              onChange={(_, value) => setTargetShipName(value || '')}
-              inputValue={targetShipName}
-              onInputChange={(_, value) => setTargetShipName(value)}
+              onChange={(_, value) => updateManualPlanField('shipName', value || '')}
+              inputValue={manualPlanFields.shipName}
+              onInputChange={(_, value) => updateManualPlanField('shipName', value)}
               disabled={running}
               renderInput={(params) => (
                 <TextField
@@ -1566,8 +2023,8 @@ export default function AdminRsiOrderAutomation() {
                 id: 'admin.rsiOrderAutomation.pollInterval',
                 defaultMessage: 'Poll interval (ms)',
               })}
-              value={pollIntervalInput}
-              onChange={(event) => setPollIntervalInput(event.target.value)}
+              value={manualPlanFields.pollIntervalInput}
+              onChange={(event) => updateManualPlanField('pollIntervalInput', event.target.value)}
               disabled={running}
               type="number"
               inputProps={{ min: 500, step: 100 }}
@@ -1578,54 +2035,253 @@ export default function AdminRsiOrderAutomation() {
             />
           </Box>
 
-          <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' }} gap={2}>
-            <FormControlLabel
-              control={(
-                <Switch
-                  checked={scheduleEnabled}
-                  onChange={(event) => setScheduleEnabled(event.target.checked)}
-                />
-              )}
+          <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap={2}>
+            <TextField
+              select
               label={intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.scheduleEnabled',
-                defaultMessage: 'Enable daily schedule',
+                id: 'admin.rsiOrderAutomation.startStep',
+                defaultMessage: 'Start step',
               })}
-            />
-
+              value={manualPlanFields.startStep}
+              onChange={(event) => updateManualPlanField('startStep', event.target.value as AutomationStartStep)}
+              disabled={running}
+            >
+              {EXECUTION_STEPS.filter((step) => step !== 'trackingPurchase').map((step) => (
+                <MenuItem key={step} value={step}>
+                  {formatStepLabel(step, intl)}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label={intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.endStep',
+                defaultMessage: 'End step',
+              })}
+              value={manualPlanFields.endStep}
+              onChange={(event) => updateManualPlanField('endStep', event.target.value as AutomationExecutionStep)}
+              disabled={running}
+            >
+              {EXECUTION_STEPS.filter((step) => getAutomationStepIndex(step) >= getAutomationStepIndex(manualPlanFields.startStep)).map((step) => (
+                <MenuItem key={step} value={step}>
+                  {formatStepLabel(step, intl)}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label={intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.scheduleTime',
-                defaultMessage: 'Daily start time',
+                id: 'admin.rsiOrderAutomation.validateMark',
+                defaultMessage: 'Validate mark',
               })}
-              type="time"
-              value={scheduleTimeInput}
-              onChange={(event) => setScheduleTimeInput(event.target.value)}
-              disabled={!scheduleEnabled}
-              error={scheduleEnabled && !scheduleTimeValid}
-              inputProps={{ step: 60 }}
-              helperText={scheduleEnabled
-                ? intl.formatMessage({
-                  id: 'admin.rsiOrderAutomation.scheduleTimeHelpEnabled',
-                  defaultMessage: 'Uses the current browser time zone. 00:00 runs at the next local midnight.',
-                })
-                : intl.formatMessage({
-                  id: 'admin.rsiOrderAutomation.scheduleTimeHelpDisabled',
-                  defaultMessage: 'Turn on the daily schedule to arm a local browser timer.',
-                })}
+              value={manualPlanFields.mark}
+              onChange={(event) => updateManualPlanField('mark', event.target.value)}
+              disabled={running}
+              autoComplete="off"
+              helperText={intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.validateMarkHelp',
+                defaultMessage: 'Provide the current mark value manually for this run only. It is not stored anywhere.',
+              })}
             />
           </Box>
 
-          <Alert severity={scheduleEnabled && !scheduleTimeValid ? 'warning' : 'info'}>
-            {scheduleEnabled && !scheduleTimeValid
-              ? intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.scheduleInvalid',
-                defaultMessage: 'The daily schedule is enabled, but the execution time is invalid. Enter a valid 24-hour time such as 00:00.',
-              })
-              : intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.scheduleInfo',
-                defaultMessage: 'Scheduled runs happen only in this browser tab. Keep the admin page open until the task starts.',
-              })}
+          <Alert severity="info">
+            {intl.formatMessage({
+              id: 'admin.rsiOrderAutomation.planRangeInfo',
+              defaultMessage: 'Each run executes a continuous step range. Mid-flow ranges only work when the selected start step can rebuild the context it needs.',
+            })}
           </Alert>
+
+          <Paper sx={{ p: 2, border: '1px dashed', borderColor: 'divider' }} elevation={0}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
+                <Box>
+                  <Typography variant="h6">
+                    {intl.formatMessage({
+                      id: 'admin.rsiOrderAutomation.scheduledTasksTitle',
+                      defaultMessage: 'Scheduled tasks',
+                    })}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {intl.formatMessage({
+                      id: 'admin.rsiOrderAutomation.scheduledTasksHelp',
+                      defaultMessage: 'Each task uses the local browser time zone and runs only while this page stays open.',
+                    })}
+                  </Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<Add />} onClick={handleAddScheduledTask} disabled={running}>
+                  {intl.formatMessage({
+                    id: 'admin.rsiOrderAutomation.addScheduledTask',
+                    defaultMessage: 'Add scheduled task',
+                  })}
+                </Button>
+              </Stack>
+
+              {scheduledTasks.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {intl.formatMessage({
+                    id: 'admin.rsiOrderAutomation.scheduledTasksEmpty',
+                    defaultMessage: 'No scheduled tasks yet.',
+                  })}
+                </Typography>
+              ) : (
+                <Stack spacing={2}>
+                  {taskScheduleSnapshots.map((entry, index) => (
+                    <Paper key={entry.task.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+                      <Stack spacing={2}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
+                          <FormControlLabel
+                            control={(
+                              <Switch
+                                checked={entry.task.enabled}
+                                onChange={(event) => updateScheduledTask(entry.task.id, { enabled: event.target.checked })}
+                              />
+                            )}
+                            label={entry.task.name}
+                          />
+                          <Button
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<DeleteOutline />}
+                            onClick={() => handleDeleteScheduledTask(entry.task.id)}
+                            disabled={running}
+                          >
+                            {intl.formatMessage({
+                              id: 'delete',
+                              defaultMessage: 'Delete',
+                            })}
+                          </Button>
+                        </Stack>
+
+                        <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap={2}>
+                          <TextField
+                            label={intl.formatMessage({
+                              id: 'admin.rsiOrderAutomation.taskName',
+                              defaultMessage: 'Task name',
+                            })}
+                            value={entry.task.name}
+                            onChange={(event) => updateScheduledTask(entry.task.id, { name: event.target.value || `Task ${index + 1}` })}
+                            disabled={running}
+                          />
+                          <TextField
+                            label={intl.formatMessage({
+                              id: 'admin.rsiOrderAutomation.scheduleTime',
+                              defaultMessage: 'Daily start time',
+                            })}
+                            type="time"
+                            value={entry.task.scheduleTimeInput}
+                            onChange={(event) => updateScheduledTask(entry.task.id, { scheduleTimeInput: event.target.value })}
+                            disabled={running}
+                            error={!parseDailyScheduleTime(entry.task.scheduleTimeInput)}
+                            inputProps={{ step: 60 }}
+                          />
+                          <TextField
+                            label={intl.formatMessage({
+                              id: 'admin.rsiOrderAutomation.pollInterval',
+                              defaultMessage: 'Poll interval (ms)',
+                            })}
+                            value={entry.task.pollIntervalInput}
+                            onChange={(event) => updateScheduledTask(entry.task.id, { pollIntervalInput: event.target.value })}
+                            disabled={running}
+                            type="number"
+                            inputProps={{ min: 500, step: 100 }}
+                          />
+                        </Box>
+
+                        <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap={2}>
+                          <Autocomplete
+                            freeSolo
+                            value={entry.task.shipName}
+                            options={shipOptions}
+                            onChange={(_, value) => updateScheduledTask(entry.task.id, { shipName: value || '' })}
+                            inputValue={entry.task.shipName}
+                            onInputChange={(_, value) => updateScheduledTask(entry.task.id, { shipName: value })}
+                            disabled={running}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label={intl.formatMessage({
+                                  id: 'admin.rsiOrderAutomation.shipName',
+                                  defaultMessage: 'English ship name',
+                                })}
+                              />
+                            )}
+                          />
+                          <TextField
+                            select
+                            label={intl.formatMessage({
+                              id: 'admin.rsiOrderAutomation.startStep',
+                              defaultMessage: 'Start step',
+                            })}
+                            value={entry.task.startStep}
+                            onChange={(event) => updateScheduledTask(entry.task.id, { startStep: event.target.value as AutomationStartStep })}
+                            disabled={running}
+                          >
+                            {EXECUTION_STEPS.filter((step) => step !== 'trackingPurchase').map((step) => (
+                              <MenuItem key={step} value={step}>
+                                {formatStepLabel(step, intl)}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                          <TextField
+                            select
+                            label={intl.formatMessage({
+                              id: 'admin.rsiOrderAutomation.endStep',
+                              defaultMessage: 'End step',
+                            })}
+                            value={entry.task.endStep}
+                            onChange={(event) => updateScheduledTask(entry.task.id, { endStep: event.target.value as AutomationExecutionStep })}
+                            disabled={running}
+                          >
+                            {EXECUTION_STEPS.filter((step) => getAutomationStepIndex(step) >= getAutomationStepIndex(entry.task.startStep)).map((step) => (
+                              <MenuItem key={step} value={step}>
+                                {formatStepLabel(step, intl)}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Box>
+
+                        <TextField
+                          label={intl.formatMessage({
+                            id: 'admin.rsiOrderAutomation.validateMark',
+                            defaultMessage: 'Validate mark',
+                          })}
+                          value={entry.task.mark}
+                          onChange={(event) => updateScheduledTask(entry.task.id, { mark: event.target.value })}
+                          disabled={running}
+                          autoComplete="off"
+                        />
+
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Chip
+                            label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus', defaultMessage: 'Schedule' })}: ${
+                              entry.task.enabled
+                                ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.enabled', defaultMessage: 'Enabled' })
+                                : intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.disabled', defaultMessage: 'Disabled' })
+                            }`}
+                            size="small"
+                            color={entry.task.enabled ? 'success' : 'default'}
+                          />
+                          {entry.nextRunAtIso ? (
+                            <Chip
+                              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.nextRunAt', defaultMessage: 'Next run' })}: ${formatDateTime(entry.nextRunAtIso, intl.locale)}`}
+                              size="small"
+                            />
+                          ) : null}
+                          {entry.countdownLabel ? (
+                            <Chip
+                              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.countdown', defaultMessage: 'Starts in' })}: ${entry.countdownLabel}`}
+                              size="small"
+                              color="warning"
+                            />
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Stack>
+          </Paper>
 
           <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, auto)' }} gap={2} justifyContent="start">
             <Button
@@ -1743,21 +2399,6 @@ export default function AdminRsiOrderAutomation() {
             </Alert>
           ) : null}
 
-          <TextField
-            label={intl.formatMessage({
-              id: 'admin.rsiOrderAutomation.validateMark',
-              defaultMessage: 'Validate mark',
-            })}
-            value={validateMark}
-            onChange={(event) => setValidateMark(event.target.value)}
-            disabled={running}
-            autoComplete="off"
-            helperText={intl.formatMessage({
-              id: 'admin.rsiOrderAutomation.validateMarkHelp',
-              defaultMessage: 'Provide the current mark value manually for this run only. It is not stored anywhere.',
-            })}
-          />
-
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
             <Button
               variant="contained"
@@ -1814,12 +2455,12 @@ export default function AdminRsiOrderAutomation() {
             />
             <Chip
               label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus', defaultMessage: 'Schedule' })}: ${
-                scheduleEnabled
+                scheduledTasksEnabled
                   ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.enabled', defaultMessage: 'Enabled' })
                   : intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleStatus.disabled', defaultMessage: 'Disabled' })
               }`}
               size="small"
-              color={scheduleEnabled ? 'success' : 'default'}
+              color={scheduledTasksEnabled ? 'success' : 'default'}
             />
             <Chip
               label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.step', defaultMessage: 'Step' })}: ${stepLabel}`}
@@ -1831,22 +2472,28 @@ export default function AdminRsiOrderAutomation() {
                 size="small"
               />
             ) : null}
-            {scheduleEnabled && nextScheduledAt ? (
+            {nextScheduledTaskSnapshot?.nextRunAtIso ? (
               <Chip
-                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.nextRunAt', defaultMessage: 'Next run' })}: ${formatDateTime(nextScheduledAt, intl.locale)}`}
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.nextRunAt', defaultMessage: 'Next run' })}: ${nextScheduledTaskSnapshot.task.name} · ${formatDateTime(nextScheduledTaskSnapshot.nextRunAtIso, intl.locale)}`}
                 size="small"
               />
             ) : null}
-            {scheduleEnabled && scheduleCountdownLabel ? (
+            {nextScheduledTaskSnapshot?.countdownLabel ? (
               <Chip
-                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.countdown', defaultMessage: 'Starts in' })}: ${scheduleCountdownLabel}`}
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.countdown', defaultMessage: 'Starts in' })}: ${nextScheduledTaskSnapshot.countdownLabel}`}
                 size="small"
                 color="warning"
               />
             ) : null}
-            {scheduleEnabled ? (
+            {scheduledTasksEnabled ? (
               <Chip
                 label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.scheduleTimeZone', defaultMessage: 'Time zone' })}: ${localTimeZone}`}
+                size="small"
+              />
+            ) : null}
+            {lastScheduledTaskId ? (
+              <Chip
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.lastScheduledTask', defaultMessage: 'Last triggered task' })}: ${scheduledTasks.find((task) => task.id === lastScheduledTaskId)?.name || '-'}`}
                 size="small"
               />
             ) : null}
