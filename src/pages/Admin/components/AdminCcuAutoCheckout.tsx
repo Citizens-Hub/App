@@ -18,7 +18,7 @@ import type { Edge } from 'reactflow';
 
 import { useCcuPlannerData } from '@/hooks';
 import { requestTokenViaExtension, requestViaExtension } from '@/utils/extensionHttpRequest';
-import { addRsiOfficialCcuToCartViaExtension, resolveCurrentRsiCcuSkuForEdge } from '@/utils/rsiOfficialCcu';
+import { addManyRsiOfficialCcusToCartViaExtension, resolveCurrentRsiCcuSkuForEdge } from '@/utils/rsiOfficialCcu';
 import type {
   CcuEdgeData,
   CcuSourceType,
@@ -1056,6 +1056,8 @@ export default function AdminCcuAutoCheckout() {
           `${batchLabel}: starting checkout for ${batchQuantity} route ${batchQuantity === 1 ? 'copy' : 'copies'} (estimated credit ${formatUsd(batchOfficialCreditAmount)}, estimated cash ${formatUsd(batchCashAmount)}).`,
         );
 
+        const batchCartEntries: Array<{ fromShipId: number; toSkuId: number }> = [];
+
         for (let copyIndex = 0; copyIndex < batchQuantity; copyIndex += 1) {
           for (const [edgeIndex, entry] of latestRoutePreview.purchasableEdges.entries()) {
             const fromShip = entry.edge.data?.sourceShip;
@@ -1070,20 +1072,22 @@ export default function AdminCcuAutoCheckout() {
               `${batchLabel}, copy ${copyIndex + 1}/${batchQuantity}, step ${edgeIndex + 1}/${latestRoutePreview.purchasableEdges.length}: adding ${fromShip.name} -> ${toShip.name} (${formatStepType(entry.edge.data?.sourceType)}, SKU ${entry.skuId}).`,
             );
 
-            await addRsiOfficialCcuToCartViaExtension(
-              {
-                fromShipId: fromShip.id,
-                toSkuId: entry.skuId,
-              },
-              {
-                timeoutMs: RESPONSE_TIMEOUT_MS,
-                requestIdPrefix: `admin-ccu-auto-checkout-batch-${batchIndex + 1}-copy-${copyIndex + 1}-edge-${edgeIndex + 1}`,
-              },
-            );
-
-            appendLog('success', `${batchLabel}, copy ${copyIndex + 1}/${batchQuantity}: added ${fromShip.name} -> ${toShip.name} to the RSI cart.`);
+            batchCartEntries.push({
+              fromShipId: fromShip.id,
+              toSkuId: entry.skuId,
+            });
           }
         }
+
+        await addManyRsiOfficialCcusToCartViaExtension(
+          batchCartEntries,
+          {
+            timeoutMs: RESPONSE_TIMEOUT_MS,
+            requestIdPrefix: `admin-ccu-auto-checkout-batch-${batchIndex + 1}`,
+          },
+        );
+
+        appendLog('success', `${batchLabel}: added ${batchCartEntries.length} CCU item${batchCartEntries.length === 1 ? '' : 's'} to the RSI cart.`);
 
         await checkoutCurrentCart(latestRoutePreview, batchIndex, totalBatches, batchQuantity);
         processedQuantity += batchQuantity;

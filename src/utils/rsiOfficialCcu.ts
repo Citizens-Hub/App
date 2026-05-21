@@ -25,6 +25,11 @@ export type ResolvedCurrentRsiCcuSku = {
   targetPriceCents: number;
 };
 
+export type RsiOfficialCcuCartEntry = {
+  fromShipId: number;
+  toSkuId: number;
+};
+
 function getTargetCcuSkus(targetShipId: number | undefined, ccus: Ccu[]) {
   if (!targetShipId) {
     return [];
@@ -143,21 +148,11 @@ async function postJsonViaExtension(
   });
 }
 
-export async function addRsiOfficialCcuToCartViaExtension(
-  params: {
-    fromShipId: number;
-    toSkuId: number;
-  },
-  options: {
-    timeoutMs?: number;
-    requestIdPrefix?: string;
-    timeoutMessage?: string;
-  } = {},
+async function setRsiAuthTokenViaExtension(
+  timeoutMs: number,
+  timeoutMessage: string,
+  requestIdPrefix: string,
 ) {
-  const requestIdPrefix = options.requestIdPrefix || 'rsi-official-ccu-add-to-cart';
-  const timeoutMs = options.timeoutMs ?? DEFAULT_EXTENSION_TIMEOUT_MS;
-  const timeoutMessage = options.timeoutMessage || 'The browser extension request timed out while adding a CCU to the RSI cart.';
-
   await postJsonViaExtension(
     RSI_SET_AUTH_TOKEN_URL,
     null,
@@ -167,7 +162,13 @@ export async function addRsiOfficialCcuToCartViaExtension(
       requestIdPrefix: `${requestIdPrefix}-set-auth-token`,
     },
   );
+}
 
+async function setRsiUpgradeContextTokenViaExtension(
+  timeoutMs: number,
+  timeoutMessage: string,
+  requestIdPrefix: string,
+) {
   await postJsonViaExtension(
     RSI_SET_UPGRADE_CONTEXT_TOKEN_URL,
     {},
@@ -177,7 +178,14 @@ export async function addRsiOfficialCcuToCartViaExtension(
       requestIdPrefix: `${requestIdPrefix}-set-context-token`,
     },
   );
+}
 
+async function runRsiUpgradeAddToCartMutationViaExtension(
+  params: RsiOfficialCcuCartEntry,
+  timeoutMs: number,
+  timeoutMessage: string,
+  requestIdPrefix: string,
+) {
   const addToCartResponse = await postJsonViaExtension(
     RSI_UPGRADE_GRAPHQL_URL,
     [{
@@ -205,6 +213,15 @@ export async function addRsiOfficialCcuToCartViaExtension(
     throw new Error('RSI upgrade add-to-cart did not return a cart JWT.');
   }
 
+  return jwt;
+}
+
+async function setRsiCartTokenViaExtension(
+  jwt: string,
+  timeoutMs: number,
+  timeoutMessage: string,
+  requestIdPrefix: string,
+) {
   await postJsonViaExtension(
     RSI_CART_TOKEN_URL,
     { jwt },
@@ -214,8 +231,68 @@ export async function addRsiOfficialCcuToCartViaExtension(
       requestIdPrefix: `${requestIdPrefix}-cart-token`,
     },
   );
+}
+
+export async function addManyRsiOfficialCcusToCartViaExtension(
+  entries: RsiOfficialCcuCartEntry[],
+  options: {
+    timeoutMs?: number;
+    requestIdPrefix?: string;
+    timeoutMessage?: string;
+  } = {},
+) {
+  if (!entries.length) {
+    return {
+      count: 0,
+      lastJwt: null as string | null,
+    };
+  }
+
+  const requestIdPrefix = options.requestIdPrefix || 'rsi-official-ccu-add-to-cart';
+  const timeoutMs = options.timeoutMs ?? DEFAULT_EXTENSION_TIMEOUT_MS;
+  const timeoutMessage = options.timeoutMessage || 'The browser extension request timed out while adding a CCU to the RSI cart.';
+
+  await setRsiAuthTokenViaExtension(timeoutMs, timeoutMessage, requestIdPrefix);
+  await setRsiUpgradeContextTokenViaExtension(timeoutMs, timeoutMessage, requestIdPrefix);
+
+  let lastJwt: string | null = null;
+
+  for (const [index, entry] of entries.entries()) {
+    const entryRequestIdPrefix = `${requestIdPrefix}-item-${index + 1}`;
+    const jwt = await runRsiUpgradeAddToCartMutationViaExtension(
+      entry,
+      timeoutMs,
+      timeoutMessage,
+      entryRequestIdPrefix,
+    );
+
+    await setRsiCartTokenViaExtension(
+      jwt,
+      timeoutMs,
+      timeoutMessage,
+      entryRequestIdPrefix,
+    );
+
+    lastJwt = jwt;
+  }
 
   return {
-    jwt,
+    count: entries.length,
+    lastJwt,
+  };
+}
+
+export async function addRsiOfficialCcuToCartViaExtension(
+  params: RsiOfficialCcuCartEntry,
+  options: {
+    timeoutMs?: number;
+    requestIdPrefix?: string;
+    timeoutMessage?: string;
+  } = {},
+) {
+  const result = await addManyRsiOfficialCcusToCartViaExtension([params], options);
+
+  return {
+    jwt: result.lastJwt,
   };
 }
