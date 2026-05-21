@@ -38,7 +38,6 @@ const DEFAULT_POLL_INTERVAL_MS = '2500';
 const MAX_LOG_ENTRIES = 200;
 const TOKEN_REQUEST_TIMEOUT_MS = 50_000;
 const TOKEN_MANAGER_POLL_INTERVAL_MS = 500;
-const SCHEDULED_TOKEN_PREFETCH_LEAD_MS = 5_000;
 const PREFETCHED_TOKEN_TTL_MS = 60_000;
 const SCHEDULED_TASKS_STORAGE_KEY = 'admin-rsi-order-automation-scheduled-tasks-v1';
 const TOKEN_SOURCE_STORAGE_KEY = 'admin-rsi-order-automation-token-source-v1';
@@ -284,6 +283,7 @@ type AutomationRunPlan = {
   pollIntervalMs: number | null;
   startStep: AutomationStartStep;
   endStep: AutomationExecutionStep;
+  preflightMatchBeforeStart: boolean;
 };
 type RunPlanBuildResult =
   | {
@@ -294,6 +294,9 @@ type RunPlanBuildResult =
     ok: false;
     error: string;
   };
+type RunPlanBuildOptions = {
+  trigger?: AutomationTrigger;
+};
 type ScheduledTask = AutomationPlanFields & {
   id: string;
   name: string;
@@ -1057,13 +1060,13 @@ export default function AdminRsiOrderAutomation() {
   const isMountedRef = useRef(true);
   const stopRequestedRef = useRef(false);
   const runningRef = useRef(false);
-  const scheduledPrefetchRunKeysRef = useRef(new Set<string>());
   const scheduledExecutionRunKeysRef = useRef(new Set<string>());
   const appendLogRef = useRef<((level: LogLevel, text: string) => void) | null>(null);
   const updatePrefetchedTokenRef = useRef<((nextToken: PrefetchedTokenState | null) => void) | null>(null);
   const requestCheckoutTokenRef = useRef<((preferredSource?: CheckoutTokenSource) => Promise<CheckoutTokenResult>) | null>(null);
+  const successfulRsiRequestHandlerRef = useRef<(() => void) | null>(null);
   const startAutomationRef = useRef<((request: StartAutomationRequest) => Promise<void>) | null>(null);
-  const buildRunPlanRef = useRef<((fields: AutomationPlanFields) => RunPlanBuildResult) | null>(null);
+  const buildRunPlanRef = useRef<((fields: AutomationPlanFields, options?: RunPlanBuildOptions) => RunPlanBuildResult) | null>(null);
   const [manualPlanFields, setManualPlanFields] = useState<AutomationPlanFields>({
     shipName: '',
     mark: '',
@@ -1351,6 +1354,11 @@ export default function AdminRsiOrderAutomation() {
   };
 
   const consumeTokenForAutomation = async (preferredSource: CheckoutTokenSource = tokenSource) => {
+    if (preferredSource === 'tokenProvider') {
+      appendLog('info', 'Requesting a checkout token from token provider.');
+      return requestCheckoutToken(preferredSource);
+    }
+
     const cachedToken = getFreshPrefetchedToken();
     if (cachedToken && cachedToken.source === preferredSource) {
       setTokenBridgeStatus('ready');
@@ -1370,9 +1378,7 @@ export default function AdminRsiOrderAutomation() {
 
     appendLog(
       'info',
-      preferredSource === 'tokenProvider'
-        ? 'Requesting a checkout token from token provider.'
-        : 'Requesting a checkout token from token manager.',
+      'Requesting a checkout token from token manager.',
     );
     return requestCheckoutToken(preferredSource);
   };
@@ -1452,6 +1458,7 @@ export default function AdminRsiOrderAutomation() {
       throw new Error(formatGraphqlErrors(item.errors));
     }
 
+    successfulRsiRequestHandlerRef.current?.();
     return item;
   };
 
@@ -1685,6 +1692,7 @@ export default function AdminRsiOrderAutomation() {
     plan: AutomationRunPlan;
     resolveToken: () => Promise<string>;
     onStepStart: (step: AutomationExecutionStep) => void;
+    onSuccessfulMatch: () => void;
   }) => {
     const runtime: AutomationRuntimeContext = {
       matchedSku: null,
@@ -1694,17 +1702,26 @@ export default function AdminRsiOrderAutomation() {
     };
     const { plan } = input;
 
-    if (plan.startStep === 'matching') {
+    if (plan.preflightMatchBeforeStart) {
       input.onStepStart('matching');
       runtime.matchedSku = await pollForMatchedSku(plan.shipName, plan.pollIntervalMs ?? 0);
+      input.onSuccessfulMatch();
+      if (plan.endStep === 'matching') {
+        return;
+      }
+    } else if (plan.startStep === 'matching') {
+      input.onStepStart('matching');
+      runtime.matchedSku = await pollForMatchedSku(plan.shipName, plan.pollIntervalMs ?? 0);
+      input.onSuccessfulMatch();
       if (plan.endStep === 'matching') {
         return;
       }
     }
 
-    if (plan.startStep === 'addingToCart') {
+    if (plan.startStep === 'addingToCart' && !runtime.matchedSku) {
       input.onStepStart('matching');
       runtime.matchedSku = await resolveMatchedSkuOnce(plan.shipName);
+      input.onSuccessfulMatch();
     }
 
     if (rangeIncludesStep(plan.startStep, plan.endStep, 'addingToCart')) {
@@ -1722,6 +1739,7 @@ export default function AdminRsiOrderAutomation() {
     if (plan.startStep === 'addingCredit' && !runtime.matchedSku) {
       input.onStepStart('matching');
       runtime.matchedSku = await resolveMatchedSkuOnce(plan.shipName);
+      input.onSuccessfulMatch();
     }
 
     if (rangeIncludesStep(plan.startStep, plan.endStep, 'addingCredit')) {
@@ -1894,13 +1912,17 @@ export default function AdminRsiOrderAutomation() {
     }
   };
 
-  const buildRunPlan = (fields: AutomationPlanFields): RunPlanBuildResult => {
+  const buildRunPlan = (
+    fields: AutomationPlanFields,
+    options: RunPlanBuildOptions = {},
+  ): RunPlanBuildResult => {
     const shipName = fields.shipName.trim();
     const mark = fields.mark.trim();
+    const preflightMatchBeforeStart = options.trigger === 'scheduled';
     const startStep = fields.startStep;
     const endStep = fields.endStep;
-    const requiresShipName = planNeedsShipName(startStep);
-    const requiresPollInterval = planNeedsPollInterval(startStep);
+    const requiresShipName = preflightMatchBeforeStart || planNeedsShipName(startStep);
+    const requiresPollInterval = preflightMatchBeforeStart || planNeedsPollInterval(startStep);
     const requiresValidateInputs = planNeedsValidateInputs(endStep);
 
     if (requiresShipName && !shipName) {
@@ -1943,6 +1965,7 @@ export default function AdminRsiOrderAutomation() {
         pollIntervalMs,
         startStep,
         endStep,
+        preflightMatchBeforeStart,
       },
     };
   };
@@ -1980,14 +2003,36 @@ export default function AdminRsiOrderAutomation() {
     appendLog(
       'info',
       trigger === 'scheduled'
-        ? `Starting RSI auto checkout for "${label || shipName || 'scheduled task'}" from the daily schedule.`
+        ? plan.preflightMatchBeforeStart
+          ? `Starting RSI auto checkout for "${label || shipName || 'scheduled task'}" from the daily schedule. The run will match the listing first, then continue from the configured start step.`
+          : `Starting RSI auto checkout for "${label || shipName || 'scheduled task'}" from the daily schedule.`
         : `Starting RSI auto checkout for "${label || shipName || 'manual task'}".`,
     );
 
     try {
       const needsCheckoutToken = rangeIncludesStep(plan.startStep, plan.endStep, 'validatingCart');
       let tokenPromise: Promise<CheckoutTokenResult> | null = null;
-      const tokenKickoffStep = getTokenRequestKickoffStep(plan);
+      let tokenRequestStartedAfterMatch = false;
+      let tokenProviderStartedAfterSuccessfulRequest = false;
+      successfulRsiRequestHandlerRef.current = () => {
+        if (
+          !needsCheckoutToken
+          || tokenPromise
+          || tokenSource !== 'tokenProvider'
+          || trigger === 'scheduled'
+          || tokenRequestStartedAfterMatch
+          || tokenProviderStartedAfterSuccessfulRequest
+        ) {
+          return;
+        }
+
+        tokenProviderStartedAfterSuccessfulRequest = true;
+        appendLog(
+          'info',
+          'Starting checkout token request from token provider after the first successful RSI request.',
+        );
+        tokenPromise = consumeTokenForAutomation(tokenSource);
+      };
 
       await runAutomation({
         plan,
@@ -2026,17 +2071,54 @@ export default function AdminRsiOrderAutomation() {
           );
           return tokenResult.token;
         },
+        onSuccessfulMatch: () => {
+          if (!needsCheckoutToken || tokenPromise) {
+            return;
+          }
+
+          if (trigger === 'scheduled') {
+            tokenRequestStartedAfterMatch = true;
+            tokenProviderStartedAfterSuccessfulRequest = true;
+            appendLog(
+              'info',
+              tokenSource === 'tokenProvider'
+                ? 'Starting checkout token request from token provider after listing match succeeded.'
+                : 'Starting checkout token request from token manager after listing match succeeded.',
+            );
+            tokenPromise = consumeTokenForAutomation(tokenSource);
+            return;
+          }
+
+          if (tokenSource !== 'tokenProvider' || tokenRequestStartedAfterMatch) {
+            return;
+          }
+
+          tokenRequestStartedAfterMatch = true;
+          tokenProviderStartedAfterSuccessfulRequest = true;
+          appendLog(
+            'info',
+            'Starting checkout token request from token provider after listing match succeeded.',
+          );
+          tokenPromise = consumeTokenForAutomation(tokenSource);
+        },
         onStepStart: (currentStep) => {
           if (!needsCheckoutToken || tokenPromise) {
             return;
           }
 
+          if (plan.preflightMatchBeforeStart && currentStep === 'matching') {
+            return;
+          }
+
+          if (tokenSource === 'tokenProvider') {
+            return;
+          }
+
+          const tokenKickoffStep = getTokenRequestKickoffStep(plan);
           if (currentStep === tokenKickoffStep) {
             appendLog(
               'info',
-              tokenSource === 'tokenProvider'
-                ? 'Starting checkout token request from token provider in parallel with the first RSI request.'
-                : 'Starting checkout token request from token manager in parallel with the first RSI request.',
+              'Starting checkout token request from token manager in parallel with the first RSI request.',
             );
             tokenPromise = consumeTokenForAutomation(tokenSource);
           }
@@ -2102,6 +2184,7 @@ export default function AdminRsiOrderAutomation() {
         appendLog('error', message);
       }
     } finally {
+      successfulRsiRequestHandlerRef.current = null;
       runningRef.current = false;
       if (isMountedRef.current) {
         stopRequestedRef.current = false;
@@ -2297,7 +2380,7 @@ export default function AdminRsiOrderAutomation() {
         return [];
       }
 
-      const planResult = buildRunPlanRef.current?.(entry.task);
+      const planResult = buildRunPlanRef.current?.(entry.task, { trigger: 'scheduled' });
       if (!planResult) {
         return [];
       }
@@ -2310,56 +2393,6 @@ export default function AdminRsiOrderAutomation() {
       const laterTaskIds = getSubsequentScheduledTaskIds(taskScheduleSnapshots, entry.task.id);
       const nextRunAtMs = new Date(entry.nextRunAtIso).getTime();
       const scheduledRunKey = `${entry.task.id}:${entry.nextRunAtIso}`;
-      const prefetchTimeout = window.setTimeout(() => {
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        if (!rangeIncludesStep(plan.startStep, plan.endStep, 'validatingCart')) {
-          return;
-        }
-
-        if (runningRef.current) {
-          return;
-        }
-
-        if (scheduledPrefetchRunKeysRef.current.has(scheduledRunKey)) {
-          return;
-        }
-        scheduledPrefetchRunKeysRef.current.add(scheduledRunKey);
-
-        appendLogRef.current?.(
-          'info',
-          `Scheduled task "${entry.task.name}" is prefetching a checkout token from ${formatTokenSourceLabel(tokenSource, intl)} 5 seconds before ${entry.task.scheduleTimeInput}.`,
-        );
-        void requestCheckoutTokenRef.current?.(tokenSource)
-          .then((tokenResult) => {
-            if (!tokenResult) {
-              return;
-            }
-            const nextToken = {
-              token: tokenResult.token,
-              receivedAt: new Date().toISOString(),
-              source: tokenResult.source,
-              provider: tokenResult.provider,
-            };
-            updatePrefetchedTokenRef.current?.(nextToken);
-            appendLogRef.current?.(
-              'success',
-              `Prefetched checkout token from ${formatTokenSourceLabel(tokenResult.source, intl)} for scheduled task "${entry.task.name}" (${formatTokenPreview(tokenResult.token)}).`,
-            );
-          })
-          .catch((error) => {
-            scheduledPrefetchRunKeysRef.current.delete(scheduledRunKey);
-            if (error instanceof StopRequestedError) {
-              return;
-            }
-
-            const message = error instanceof Error ? error.message : String(error);
-            appendLogRef.current?.('error', `Scheduled token prefetch failed for "${entry.task.name}": ${message}`);
-          });
-      }, Math.max(0, nextRunAtMs - Date.now() - SCHEDULED_TOKEN_PREFETCH_LEAD_MS));
-
       const runTimeout = window.setTimeout(() => {
         if (!isMountedRef.current) {
           return;
@@ -2387,7 +2420,7 @@ export default function AdminRsiOrderAutomation() {
         }
       }, Math.max(0, nextRunAtMs - Date.now()));
 
-      return [prefetchTimeout, runTimeout];
+      return [runTimeout];
     });
 
     return () => {
