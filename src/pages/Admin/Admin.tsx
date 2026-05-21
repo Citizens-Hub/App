@@ -19,6 +19,7 @@ import MarketingOffersManager from './components/MarketingOffersManager';
 import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import SiteNotificationManager from './components/SiteNotificationManager';
+import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -41,6 +42,7 @@ enum Page {
   SiteNotification = 'siteNotification',
   GraphqlDebugger = 'graphqlDebugger',
   RsiOrderAutomation = 'rsiOrderAutomation',
+  RecaptchaV3 = 'recaptchaV3',
 }
 
 export default function Admin() {
@@ -159,6 +161,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.GraphqlDebugger),
     },
     {
+      id: Page.RecaptchaV3,
+      title: <FormattedMessage id="admin.recaptchaV3.title" defaultMessage="reCAPTCHA v3 Score Probe" />,
+      description: <FormattedMessage id="admin.recaptchaV3.description" defaultMessage="Generate a real reCAPTCHA v3 token in the current browser session, verify it with the worker secret, and inspect the returned score, action, hostname, and error codes." />,
+      active: currentPage === Page.RecaptchaV3,
+      onSelect: () => setCurrentPage(Page.RecaptchaV3),
+    },
+    {
       id: Page.RsiOrderAutomation,
       title: <FormattedMessage id="admin.rsiOrderAutomation.title" defaultMessage="RSI Auto Checkout" />,
       description: <FormattedMessage id="admin.rsiOrderAutomation.description" defaultMessage="Poll RSI standalone ship listings through the browser extension, retry add-to-cart when the ship is out of stock, and complete the remaining checkout steps with per-run validate inputs." />,
@@ -204,6 +213,7 @@ export default function Admin() {
         {currentPage === Page.SiteNotification && <SiteNotificationManager />}
         {currentPage === Page.Orders && <OrdersManager />}
         {currentPage === Page.GraphqlDebugger && <AdminGraphqlDebugger />}
+        {currentPage === Page.RecaptchaV3 && <AdminRecaptchaV3Tool />}
         {currentPage === Page.RsiOrderAutomation && <AdminRsiOrderAutomation />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
