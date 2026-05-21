@@ -23,6 +23,7 @@ import { SiteNotification } from '@/types'
 const ResourcesTable = lazy(() => import('./pages/ResourcesTable/ResourcesTable'));
 const CCUPlanner = lazy(() => import('./pages/CCUPlanner/CCUPlanner'));
 const PriceHistory = lazy(() => import('./pages/PriceHistory/PriceHistory'));
+const AboutUs = lazy(() => import('./pages/AboutUs/AboutUs'));
 const Privacy = lazy(() => import('./pages/Privacy/Privacy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService/TermsOfService'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy/RefundPolicy'));
@@ -478,6 +479,7 @@ function App() {
                   </div>
                 }
               />
+              <Route path="/about-us" element={<AboutUs />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />

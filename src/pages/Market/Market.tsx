@@ -489,7 +489,7 @@ const Market: React.FC = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [activeCoupon?.id, activeCouponExpiresAt, couponPopupDismissed]);
+  }, [activeCoupon, activeCoupon?.id, activeCouponExpiresAt, couponPopupDismissed]);
 
   useEffect(() => {
     if (!user.token || !user.id) {
@@ -1230,6 +1230,11 @@ const Market: React.FC = () => {
             color: 'text.secondary',
           }}
         >
+          {/* MARK: ABOUT US */}
+          {/* <Link to="/about-us" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
+            <FormattedMessage id="navigate.about" defaultMessage="About Us" />
+          </Link>
+          <span className='text-slate-400'>|</span> */}
           <Link to="/terms-of-service" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
             <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
           </Link>

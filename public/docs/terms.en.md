@@ -2,7 +2,7 @@
 
 ## Agreement between User and [citizenshub.app](https://citizenshub.app)
 
-Welcome to [citizenshub.app](https://citizenshub.app). The [citizenshub.app](https://citizenshub.app) website (the Site) is comprised of various web pages operated by Citizens' Hub (Citizens' Hub). [citizenshub.app](https://citizenshub.app) is offered to you conditioned on your acceptance without modification of the terms, conditions, and notices contained herein (the Terms). Your use of [citizenshub.app](https://citizenshub.app) constitutes your agreement to all such Terms. Please read these terms carefully, and keep a copy of them for your reference.
+Welcome to [citizenshub.app](https://citizenshub.app). The [citizenshub.app](https://citizenshub.app) website (the Site) is comprised of various web pages operated by PARAVIA LIMITED. [citizenshub.app](https://citizenshub.app) is offered to you conditioned on your acceptance without modification of the terms, conditions, and notices contained herein (the Terms). Your use of [citizenshub.app](https://citizenshub.app) constitutes your agreement to all such Terms. Please read these terms carefully, and keep a copy of them for your reference.
 
 [citizenshub.app](https://citizenshub.app) is an E-Commerce Site.
 

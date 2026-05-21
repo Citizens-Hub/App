@@ -2065,7 +2065,7 @@ export default function Settings() {
                 <FormattedMessage id="settings.deleteAccount" defaultMessage="Delete Account" />
               </Typography>
               <Typography variant="body2" color='text.secondary' sx={{ mb: 2 }}>
-                <FormattedMessage id="settings.deleteAccountDescription" defaultMessage="Deleting your account will permanently remove all data associated with your account. This action cannot be undone." />
+                <FormattedMessage id="settings.deleteAccountDescription" defaultMessage="Deleting your account will disable login immediately. Your account will be marked as deleted, and you can reply to the deletion email within 14 days to contact support for recovery." />
               </Typography>
               <Button 
                 variant="contained" 
@@ -2075,7 +2075,7 @@ export default function Settings() {
                 onClick={() => {
                   if (window.confirm(intl.formatMessage({
                     id: 'settings.deleteAccountConfirm',
-                    defaultMessage: 'Are you sure you want to delete your account? This action cannot be undone, and all data associated with your account will be permanently deleted.'
+                    defaultMessage: 'Are you sure you want to delete your account? You will be logged out immediately. The account will be marked as deleted, and you can contact support within 14 days to recover it.'
                   }))) {
                     setIsSubmitting(true);
                     fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/user/account`, {
@@ -2088,7 +2088,7 @@ export default function Settings() {
                       if (!res.ok) {
                         throw new Error('Delete account failed');
                       }
-                      localStorage.clear();
+                      localStorage.removeItem('user');
                       window.location.href = '/';
                     })
                     .catch(err => {

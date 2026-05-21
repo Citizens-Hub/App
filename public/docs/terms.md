@@ -1,6 +1,6 @@
 # 用户与 [citizenshub.app](https://citizenshub.app) 之间的协议
 
-欢迎访问 [citizenshub.app](https://citizenshub.app)。[citizenshub.app](https://citizenshub.app) 网站（网站）由 Citizens' Hub（Citizens' Hub）运营，包含多个网页。[citizenshub.app](https://citizenshub.app) 在您接受本协议中所包含的条款、条件和通知（条款）的基础上提供服务，并且不作任何修改。您对 [citizenshub.app](https://citizenshub.app) 的使用即构成您对所有这些条款的同意。请仔细阅读这些条款，并保存一份副本以供参考。
+欢迎访问 [citizenshub.app](https://citizenshub.app)。[citizenshub.app](https://citizenshub.app) 网站（网站）由 PARAVIA LIMITED 运营，包含多个网页。[citizenshub.app](https://citizenshub.app) 在您接受本协议中所包含的条款、条件和通知（条款）的基础上提供服务，并且不作任何修改。您对 [citizenshub.app](https://citizenshub.app) 的使用即构成您对所有这些条款的同意。请仔细阅读这些条款，并保存一份副本以供参考。
 
 [citizenshub.app](https://citizenshub.app) 是一个电子商务网站。
 
