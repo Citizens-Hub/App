@@ -9,7 +9,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import { getShipDisplayName } from '@/utils/shipDisplay';
+import { areShipNamesEqual, getShipDisplayName } from '@/utils/shipDisplay';
 import {
   CcuConcretePricingOption,
   findMatchingConcretePricingOption,
@@ -80,8 +80,8 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
   const findHangarItem = (edge: Edge<CcuEdgeData>) => hangarItems.find(item =>
     item.fromShip &&
     item.toShip &&
-    item.fromShip.toUpperCase() === edge.data?.sourceShip?.name.trim().toUpperCase() &&
-    item.toShip.toUpperCase() === edge.data?.targetShip?.name.trim().toUpperCase()
+    areShipNamesEqual(item.fromShip, edge.data?.sourceShip?.name) &&
+    areShipNamesEqual(item.toShip, edge.data?.targetShip?.name)
   );
 
   const findSubscriptionItem = (edge: Edge<CcuEdgeData>) => importItems.find(item =>

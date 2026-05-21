@@ -32,6 +32,21 @@ function normalizeShipMatchValue(value?: string | null) {
   return value?.trim().toUpperCase() || '';
 }
 
+export function normalizeShipNameMatch(value?: string | null) {
+  return normalizeShipMatchValue(value);
+}
+
+export function areShipNamesEqual(left?: string | null, right?: string | null) {
+  const normalizedLeft = normalizeShipMatchValue(left);
+  const normalizedRight = normalizeShipMatchValue(right);
+
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  return normalizedLeft === normalizedRight;
+}
+
 export function getShipDisplayName(ship?: ShipNameDisplayable | null): string {
   const localizedName = ship?.localizedName?.trim();
   if (localizedName) {

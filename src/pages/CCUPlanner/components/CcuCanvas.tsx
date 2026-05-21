@@ -48,6 +48,7 @@ import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslatio
 import { RootState } from '@/store';
 import { CanvasImageExportProgress, exportCanvasImage } from '../services/CanvasImageExportService';
 import routeImagePayloadService from '../services/RouteImagePayloadService';
+import { areShipNamesEqual } from '@/utils/shipDisplay';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
 const DEFAULT_TAB_ID = 'route-1';
@@ -601,10 +602,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
 
         // Check for hangar CCU
         const hangarCcu = upgrades.ccus.find(upgrade => {
-          const from = upgrade.parsed.from.toUpperCase()
-          const to = upgrade.parsed.to.toUpperCase()
-
-          return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase()
+          return areShipNamesEqual(upgrade.parsed.from, sourceShip.name)
+            && areShipNamesEqual(upgrade.parsed.to, targetShip.name)
         })
 
         // If target ship price is 0 and no hangar CCU, disallow upgrade

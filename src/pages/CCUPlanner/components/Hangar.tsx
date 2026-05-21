@@ -10,7 +10,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import Crawler from "@/components/Crawler";
 import { Gift } from "lucide-react";
 import { selectImportItems } from "@/store/importStore";
-import { getShipDisplayName, matchesShipNameQuery } from "@/utils/shipDisplay";
+import { areShipNamesEqual, getShipDisplayName, matchesShipNameQuery } from "@/utils/shipDisplay";
 import { getShipThumbSmall } from "@/utils/shipImage";
 
 function preventImageNativeDrag(event: React.DragEvent<HTMLImageElement>) {
@@ -45,7 +45,7 @@ function Hangar({ ships, onDragStart }: ShipSelectorProps) {
   };
 
   const findShipByName = (name: string) => ships.find(
-    ship => ship.name.toUpperCase().trim() === name.toUpperCase().trim(),
+    ship => areShipNamesEqual(ship.name, name),
   );
 
   // Merge local upgrades and imported upgrade data

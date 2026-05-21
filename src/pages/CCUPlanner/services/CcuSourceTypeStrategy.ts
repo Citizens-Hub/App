@@ -2,6 +2,7 @@ import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, W
 import { IntlShape } from "react-intl";
 import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
 import { loadHangarState } from "@/store/hangarStorage";
+import { areShipNamesEqual } from "@/utils/shipDisplay";
 import {
   getConcretePricingOptionsForType,
   getExpectedWbPricingOptions,
@@ -254,11 +255,9 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     
     const hangarCcu = hangarItems.find(item => {
       if (item.type.toLowerCase() !== 'ccu') return false;
-      
-      const from = item.fromShip?.toUpperCase() || '';
-      const to = item.toShip?.toUpperCase() || '';
-      
-      return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
+
+      return areShipNamesEqual(item.fromShip, sourceShip.name)
+        && areShipNamesEqual(item.toShip, targetShip.name);
     });
     
     // 如果找到了机库中的CCU，检查它是否已经用完
@@ -283,8 +282,8 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
         const ccus = state.items?.ccus || [];
         const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string } }) => {
           const parsed = ccu.parsed || {};
-          return parsed.from?.toUpperCase().trim() === sourceShip.name.toUpperCase().trim() &&
-                 parsed.to?.toUpperCase().trim() === targetShip.name.toUpperCase().trim();
+          return areShipNamesEqual(parsed.from, sourceShip.name)
+            && areShipNamesEqual(parsed.to, targetShip.name);
         });
         
         // 如果已使用数量大于等于总数量，则标记CCU已用完，但仍返回正常价格
@@ -332,11 +331,9 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     // 先检查是否有匹配的CCU
     const hasMatchingCcu = hangarItems.some(item => {
       if (item.type.toLowerCase() !== 'ccu') return false;
-      
-      const from = item.fromShip?.toUpperCase() || '';
-      const to = item.toShip?.toUpperCase() || '';
-      
-      return from === sourceShip.name.trim().toUpperCase() && to === targetShip.name.trim().toUpperCase();
+
+      return areShipNamesEqual(item.fromShip, sourceShip.name)
+        && areShipNamesEqual(item.toShip, targetShip.name);
     });
 
     // 如果没有匹配的CCU，直接返回false
@@ -363,8 +360,8 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
       const ccus = state.items?.ccus || [];
       const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string }; quantity?: number }) => {
         const parsed = ccu.parsed || {};
-        return parsed.from?.toUpperCase().trim() === sourceShip.name.toUpperCase().trim() &&
-                parsed.to?.toUpperCase().trim() === targetShip.name.toUpperCase().trim();
+        return areShipNamesEqual(parsed.from, sourceShip.name)
+          && areShipNamesEqual(parsed.to, targetShip.name);
       });
       
       // 如果已使用数量大于等于总数量，则表示此CCU已用完，返回false

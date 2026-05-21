@@ -2,6 +2,7 @@ import { Ship, Ccu, WbHistoryData, HangarItem, ImportItem, PriceHistoryEntity, C
 import { CcuSourceType, CcuEdgeData } from '../../../types';
 import { Node, Edge } from 'reactflow';
 import pathBuilderCWasmService from './PathBuilderCWasmService';
+import { areShipNamesEqual, normalizeShipNameMatch } from '@/utils/shipDisplay';
 
 type ShipVariant = 'base' | 'wb' | 'historical';
 
@@ -1589,7 +1590,7 @@ export class PathBuilderService {
     if (!sourceName || !targetName) {
       return null;
     }
-    return `${sourceName.trim().toUpperCase()}->${targetName.trim().toUpperCase()}`;
+    return `${normalizeShipNameMatch(sourceName)}->${normalizeShipNameMatch(targetName)}`;
   }
 
   private _keepReachablePaths(params: {
@@ -2307,8 +2308,8 @@ export class PathBuilderService {
             const targetShipCost = this._getShipPrice(targetShipInPath || targetShipNode.data.ship, ccus, [], priceHistoryMap, specialPricingMap);
 
             const exactMatchCCU = (buildConstraintAwareGraph || preferHangarCcu) && hangarItems.some(upgrade =>
-              upgrade.fromShip?.toUpperCase() === sourceShipNode.data.ship.name.trim().toUpperCase() &&
-              upgrade.toShip?.toUpperCase() === targetShipNode.data.ship.name.trim().toUpperCase()
+              areShipNamesEqual(upgrade.fromShip, sourceShipNode.data.ship.name) &&
+              areShipNamesEqual(upgrade.toShip, targetShipNode.data.ship.name)
             );
 
             if (isHistoricalTargetPricing && sourceShipNode.data.ship.msrp >= targetShipNode.data.ship.msrp && !exactMatchCCU) {
@@ -2329,18 +2330,17 @@ export class PathBuilderService {
 
             return (originShip ? this._isWbVariantName(originShip.name) : false) ||
               (originShip ? this._isPriceIncreaseVariantName(originShip.name) : false) ||
-              hangarItems.some(upgrade => upgrade.toShip?.toUpperCase() === sourceShipNode.data.ship.name.trim().toUpperCase()) ||
+              hangarItems.some(upgrade => areShipNamesEqual(upgrade.toShip, sourceShipNode.data.ship.name)) ||
               exactMatchCCU;
           });
 
           if (sourceShips.length > 0) {
             sourceShips.forEach(sourceShipNode => {
               const priceDifference = targetShipNode.data.ship.msrp - sourceShipNode.data.ship.msrp;
-              const hangarCcu = hangarItems.find(upgrade => {
-                const from = upgrade.fromShip?.toUpperCase();
-                const to = upgrade.toShip?.toUpperCase();
-                return from === sourceShipNode.data.ship.name.trim().toUpperCase() && to === targetShipNode.data.ship.name.trim().toUpperCase();
-              });
+              const hangarCcu = hangarItems.find(upgrade =>
+                areShipNamesEqual(upgrade.fromShip, sourceShipNode.data.ship.name)
+                && areShipNamesEqual(upgrade.toShip, targetShipNode.data.ship.name)
+              );
 
               const nonHangarEdgeDataList = this._buildNonHangarEdgeData({
                 sourceShipNode,
