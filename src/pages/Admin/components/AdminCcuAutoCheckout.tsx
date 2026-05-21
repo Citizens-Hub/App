@@ -38,9 +38,12 @@ const RESPONSE_TIMEOUT_MS = 20_000;
 const TOKEN_REQUEST_TIMEOUT_MS = 50_000;
 const TOKEN_MANAGER_POLL_INTERVAL_MS = 500;
 const STORE_FRONT = 'pledge';
-const MAX_LOG_ENTRIES = 200;
+const MAX_LOG_ENTRIES = 1000;
 const TOKEN_SOURCE_STORAGE_KEY = 'admin-rsi-order-automation-token-source-v1';
 const TOKEN_MANAGER_SECRET_STORAGE_KEY = 'admin-rsi-order-automation-token-manager-secret-v1';
+const PURCHASE_BATCH_SIZE = 5;
+const BATCH_DELAY_MIN_MS = 200;
+const BATCH_DELAY_MAX_MS = 600;
 
 type CheckoutTokenSource = 'tokenProvider' | 'tokenManager';
 type LogLevel = 'info' | 'success' | 'warning' | 'error';
@@ -245,6 +248,28 @@ function formatUsd(value: number) {
 
 function formatStepType(sourceType: CcuSourceType | undefined) {
   return sourceType || CcuSourceTypeEnum.OFFICIAL;
+}
+
+function parseRequestedQuantity(value: string): number | null {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getBatchCount(quantity: number) {
+  return Math.ceil(quantity / PURCHASE_BATCH_SIZE);
+}
+
+function getRandomBatchDelayMs() {
+  return BATCH_DELAY_MIN_MS + Math.floor(Math.random() * (BATCH_DELAY_MAX_MS - BATCH_DELAY_MIN_MS + 1));
 }
 
 function readStoredTokenSource(): CheckoutTokenSource {
@@ -629,6 +654,7 @@ export default function AdminCcuAutoCheckout() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [validateMark, setValidateMark] = useState('');
+  const [purchaseQuantityInput, setPurchaseQuantityInput] = useState('1');
   const [tokenSource, setTokenSource] = useState<CheckoutTokenSource>(() => readStoredTokenSource());
   const [tokenManagerSecret, setTokenManagerSecret] = useState(() => readStoredSecretKey());
 
@@ -663,6 +689,25 @@ export default function AdminCcuAutoCheckout() {
   useEffect(() => {
     writeStoredSecretKey(tokenManagerSecret);
   }, [tokenManagerSecret]);
+
+  const requestedQuantity = useMemo(
+    () => parseRequestedQuantity(purchaseQuantityInput),
+    [purchaseQuantityInput],
+  );
+
+  const requestedBatchCount = requestedQuantity ? getBatchCount(requestedQuantity) : 0;
+
+  const totalRequestedPurchasableCcus = routePreview && requestedQuantity
+    ? routePreview.purchasableEdges.length * requestedQuantity
+    : 0;
+
+  const totalRequestedOfficialCredit = routePreview && requestedQuantity
+    ? Number((routePreview.officialCreditAmount * requestedQuantity).toFixed(2))
+    : 0;
+
+  const totalRequestedCash = routePreview && requestedQuantity
+    ? Number((routePreview.cashAmount * requestedQuantity).toFixed(2))
+    : 0;
 
   const refreshRoutePreview = async () => {
     if (loading) {
@@ -828,6 +873,132 @@ export default function AdminCcuAutoCheckout() {
     };
   };
 
+  const checkoutCurrentCart = async (
+    latestRoutePreview: RoutePreview,
+    batchIndex: number,
+    totalBatches: number,
+    batchQuantity: number,
+  ) => {
+    const batchLabel = `Batch ${batchIndex + 1}/${totalBatches}`;
+    const batchOfficialCreditAmount = Number((latestRoutePreview.officialCreditAmount * batchQuantity).toFixed(2));
+    let orderSlug: string | null = null;
+
+    if (batchOfficialCreditAmount > 0) {
+      setCurrentStep(`${batchLabel} addingCredit`);
+      appendLog('info', `${batchLabel}: applying store credit ${formatUsd(batchOfficialCreditAmount)}.`);
+
+      const creditItem = await sendRsiGraphql<AddCreditResponse>(
+        'AddCreditMutation',
+        {
+          amount: batchOfficialCreditAmount,
+          storeFront: STORE_FRONT,
+        },
+        ADD_CREDIT_QUERY,
+      );
+
+      if (!creditItem.data?.store?.cart?.mutations?.credit_update) {
+        throw new Error(`${batchLabel}: RSI credit update returned false.`);
+      }
+
+      orderSlug = creditItem.data?.store?.order?.slug || orderSlug;
+      appendLog('success', `${batchLabel}: store credit applied successfully.`);
+    } else {
+      appendLog('info', `${batchLabel}: no standard official CCU steps were selected, so no store credit was applied.`);
+    }
+
+    setCurrentStep(`${batchLabel} movingNext`);
+    appendLog('info', `${batchLabel}: advancing the RSI checkout flow.`);
+    const nextItem = await sendRsiGraphql<NextStepResponse>(
+      'NextStepMutation',
+      { storeFront: STORE_FRONT },
+      NEXT_STEP_QUERY,
+    );
+
+    if (!nextItem.data?.store?.cart?.mutations?.flow?.moveNext) {
+      throw new Error(`${batchLabel}: RSI checkout flow did not move to the next step.`);
+    }
+
+    orderSlug = nextItem.data?.store?.order?.slug || orderSlug;
+    appendLog('success', `${batchLabel}: checkout flow advanced successfully.`);
+
+    setCurrentStep(`${batchLabel} loadingAddresses`);
+    appendLog('info', `${batchLabel}: loading the RSI address book.`);
+    const addressSelection = await loadAddressSelectionContext();
+
+    if (addressSelection.selectedAddress?.id && (addressSelection.shippingRequired || addressSelection.billingRequired)) {
+      setCurrentStep(`${batchLabel} assigningAddress`);
+      appendLog('info', `${batchLabel}: assigning address ${addressSelection.selectedAddress.id}: ${formatAddressLabel(addressSelection.selectedAddress)}.`);
+
+      const assignItem = await sendRsiGraphql<AssignAddressResponse>(
+        'CartAddressAssignMutation',
+        {
+          billing: addressSelection.billingRequired ? addressSelection.selectedAddress.id : null,
+          shipping: addressSelection.shippingRequired ? addressSelection.selectedAddress.id : null,
+          storeFront: STORE_FRONT,
+        },
+        ASSIGN_ADDRESS_QUERY,
+      );
+
+      if (!assignItem.data?.store?.cart?.mutations?.assignAddresses) {
+        throw new Error(`${batchLabel}: RSI address assignment returned false.`);
+      }
+
+      appendLog('success', `${batchLabel}: address assignment completed successfully.`);
+    } else {
+      appendLog('info', `${batchLabel}: this checkout does not require billing or shipping addresses.`);
+    }
+
+    setCurrentStep(`${batchLabel} requestingToken`);
+    appendLog(
+      'info',
+      tokenSource === 'tokenProvider'
+        ? `${batchLabel}: requesting a checkout token from token provider.`
+        : `${batchLabel}: requesting a checkout token from token manager.`,
+    );
+    const token = await requestCheckoutToken();
+    appendLog('success', `${batchLabel}: a checkout token was received successfully.`);
+
+    setCurrentStep(`${batchLabel} validatingCart`);
+    appendLog('info', `${batchLabel}: validating the RSI cart.`);
+    const validateItem = await sendRsiGraphql<ValidateCartResponse>(
+      'CartValidateCartMutation',
+      {
+        token,
+        mark: validateMark.trim(),
+        storeFront: STORE_FRONT,
+      },
+      VALIDATE_CART_QUERY,
+    );
+
+    orderSlug = validateItem.data?.store?.cart?.mutations?.validate
+      || validateItem.data?.store?.order?.slug
+      || orderSlug;
+
+    if (!orderSlug) {
+      throw new Error(`${batchLabel}: RSI cart validation did not return an order slug.`);
+    }
+
+    appendLog('success', `${batchLabel}: cart validation succeeded with order slug ${orderSlug}.`);
+
+    setCurrentStep(`${batchLabel} trackingPurchase`);
+    appendLog('info', `${batchLabel}: fetching purchase tracking for order ${orderSlug}.`);
+    const trackingItem = await sendRsiGraphql<PurchaseTrackingResponse>(
+      'PurchaseTrackingQuery',
+      { orderSlug },
+      PURCHASE_TRACKING_QUERY,
+    );
+
+    const trackedOrderSlug = trackingItem.data?.order?.order?.slug || orderSlug;
+    appendLog(
+      'success',
+      `${batchLabel}: purchase tracking completed for order ${trackedOrderSlug}. Total: ${
+        typeof trackingItem.data?.order?.totals?.total === 'number'
+          ? formatUsd(trackingItem.data.order.totals.total / 100)
+          : 'N/A'
+      }.`,
+    );
+  };
+
   const handleRun = async () => {
     const currentRunId = Date.now();
     runIdRef.current = currentRunId;
@@ -855,154 +1026,75 @@ export default function AdminCcuAutoCheckout() {
         throw new Error('Please provide the validate mark value before starting CCU auto checkout.');
       }
 
+      const nextRequestedQuantity = parseRequestedQuantity(purchaseQuantityInput);
+      if (!nextRequestedQuantity) {
+        throw new Error('Please provide a valid integer quantity of at least 1 before starting CCU auto checkout.');
+      }
+
       if (!latestRoutePreview.purchasableEdges.length) {
         throw new Error('The active CCU Planner tab does not contain any current official/WB CCUs that can be purchased from RSI right now.');
       }
 
       appendLog('warning', 'This tool does not clear the existing RSI official cart. Start from an empty RSI cart to avoid checking out unrelated items.');
       appendLog('info', `Loaded route "${latestRoutePreview.tabName}" with ${latestRoutePreview.orderedEdges.length} steps.`);
-      appendLog('info', `Purchasing ${latestRoutePreview.purchasableEdges.length} current official/WB CCU steps from the active route.`);
+      appendLog(
+        'info',
+        `Purchasing ${latestRoutePreview.purchasableEdges.length} current official/WB CCU steps per route copy, quantity ${nextRequestedQuantity}, across ${getBatchCount(nextRequestedQuantity)} batch(es).`,
+      );
 
-      setCurrentStep('addingCcus');
-      for (const [index, entry] of latestRoutePreview.purchasableEdges.entries()) {
-        const fromShip = entry.edge.data?.sourceShip;
-        const toShip = entry.edge.data?.targetShip;
-        if (!fromShip?.id || !toShip?.id) {
-          throw new Error('A route edge is missing ship metadata.');
-        }
+      let processedQuantity = 0;
+      const totalBatches = getBatchCount(nextRequestedQuantity);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex += 1) {
+        const batchQuantity = Math.min(PURCHASE_BATCH_SIZE, nextRequestedQuantity - processedQuantity);
+        const batchLabel = `Batch ${batchIndex + 1}/${totalBatches}`;
+        const batchCashAmount = Number((latestRoutePreview.cashAmount * batchQuantity).toFixed(2));
+        const batchOfficialCreditAmount = Number((latestRoutePreview.officialCreditAmount * batchQuantity).toFixed(2));
 
         appendLog(
           'info',
-          `Step ${index + 1}/${latestRoutePreview.purchasableEdges.length}: adding ${fromShip.name} -> ${toShip.name} (${formatStepType(entry.edge.data?.sourceType)}, SKU ${entry.skuId}).`,
+          `${batchLabel}: starting checkout for ${batchQuantity} route ${batchQuantity === 1 ? 'copy' : 'copies'} (estimated credit ${formatUsd(batchOfficialCreditAmount)}, estimated cash ${formatUsd(batchCashAmount)}).`,
         );
 
-        await addRsiOfficialCcuToCartViaExtension(
-          {
-            fromShipId: fromShip.id,
-            toSkuId: entry.skuId,
-          },
-          {
-            timeoutMs: RESPONSE_TIMEOUT_MS,
-            requestIdPrefix: `admin-ccu-auto-checkout-add-${index + 1}`,
-          },
-        );
+        for (let copyIndex = 0; copyIndex < batchQuantity; copyIndex += 1) {
+          for (const [edgeIndex, entry] of latestRoutePreview.purchasableEdges.entries()) {
+            const fromShip = entry.edge.data?.sourceShip;
+            const toShip = entry.edge.data?.targetShip;
+            if (!fromShip?.id || !toShip?.id) {
+              throw new Error('A route edge is missing ship metadata.');
+            }
 
-        appendLog('success', `Added ${fromShip.name} -> ${toShip.name} to the RSI cart.`);
-      }
+            setCurrentStep(`${batchLabel} addingCcus`);
+            appendLog(
+              'info',
+              `${batchLabel}, copy ${copyIndex + 1}/${batchQuantity}, step ${edgeIndex + 1}/${latestRoutePreview.purchasableEdges.length}: adding ${fromShip.name} -> ${toShip.name} (${formatStepType(entry.edge.data?.sourceType)}, SKU ${entry.skuId}).`,
+            );
 
-      let orderSlug: string | null = null;
+            await addRsiOfficialCcuToCartViaExtension(
+              {
+                fromShipId: fromShip.id,
+                toSkuId: entry.skuId,
+              },
+              {
+                timeoutMs: RESPONSE_TIMEOUT_MS,
+                requestIdPrefix: `admin-ccu-auto-checkout-batch-${batchIndex + 1}-copy-${copyIndex + 1}-edge-${edgeIndex + 1}`,
+              },
+            );
 
-      if (latestRoutePreview.officialCreditAmount > 0) {
-        setCurrentStep('addingCredit');
-        appendLog('info', `Applying store credit ${formatUsd(latestRoutePreview.officialCreditAmount)} for standard CCU steps.`);
-
-        const creditItem = await sendRsiGraphql<AddCreditResponse>(
-          'AddCreditMutation',
-          {
-            amount: latestRoutePreview.officialCreditAmount,
-            storeFront: STORE_FRONT,
-          },
-          ADD_CREDIT_QUERY,
-        );
-
-        if (!creditItem.data?.store?.cart?.mutations?.credit_update) {
-          throw new Error('RSI credit update returned false.');
+            appendLog('success', `${batchLabel}, copy ${copyIndex + 1}/${batchQuantity}: added ${fromShip.name} -> ${toShip.name} to the RSI cart.`);
+          }
         }
 
-        orderSlug = creditItem.data?.store?.order?.slug || orderSlug;
-        appendLog('success', 'Store credit applied successfully.');
-      } else {
-        appendLog('info', 'No standard official CCU steps were selected, so no store credit was applied.');
-      }
+        await checkoutCurrentCart(latestRoutePreview, batchIndex, totalBatches, batchQuantity);
+        processedQuantity += batchQuantity;
 
-      setCurrentStep('movingNext');
-      appendLog('info', 'Advancing the RSI checkout flow.');
-      const nextItem = await sendRsiGraphql<NextStepResponse>(
-        'NextStepMutation',
-        { storeFront: STORE_FRONT },
-        NEXT_STEP_QUERY,
-      );
-
-      if (!nextItem.data?.store?.cart?.mutations?.flow?.moveNext) {
-        throw new Error('RSI checkout flow did not move to the next step.');
-      }
-
-      orderSlug = nextItem.data?.store?.order?.slug || orderSlug;
-      appendLog('success', 'Checkout flow advanced successfully.');
-
-      setCurrentStep('loadingAddresses');
-      appendLog('info', 'Loading the RSI address book.');
-      const addressSelection = await loadAddressSelectionContext();
-
-      if (addressSelection.selectedAddress?.id && (addressSelection.shippingRequired || addressSelection.billingRequired)) {
-        setCurrentStep('assigningAddress');
-        appendLog('info', `Assigning address ${addressSelection.selectedAddress.id}: ${formatAddressLabel(addressSelection.selectedAddress)}.`);
-
-        const assignItem = await sendRsiGraphql<AssignAddressResponse>(
-          'CartAddressAssignMutation',
-          {
-            billing: addressSelection.billingRequired ? addressSelection.selectedAddress.id : null,
-            shipping: addressSelection.shippingRequired ? addressSelection.selectedAddress.id : null,
-            storeFront: STORE_FRONT,
-          },
-          ASSIGN_ADDRESS_QUERY,
-        );
-
-        if (!assignItem.data?.store?.cart?.mutations?.assignAddresses) {
-          throw new Error('RSI address assignment returned false.');
+        if (batchIndex < totalBatches - 1) {
+          const delayMs = getRandomBatchDelayMs();
+          setCurrentStep(`${batchLabel} waiting`);
+          appendLog('info', `${batchLabel}: waiting ${delayMs}ms before the next batch.`);
+          await sleep(delayMs);
         }
-
-        appendLog('success', 'Address assignment completed successfully.');
-      } else {
-        appendLog('info', 'This checkout does not require billing or shipping addresses.');
       }
-
-      setCurrentStep('requestingToken');
-      appendLog('info', tokenSource === 'tokenProvider'
-        ? 'Requesting a checkout token from token provider.'
-        : 'Requesting a checkout token from token manager.');
-      const token = await requestCheckoutToken();
-      appendLog('success', 'A checkout token was received successfully.');
-
-      setCurrentStep('validatingCart');
-      appendLog('info', 'Validating the RSI cart.');
-      const validateItem = await sendRsiGraphql<ValidateCartResponse>(
-        'CartValidateCartMutation',
-        {
-          token,
-          mark: validateMark.trim(),
-          storeFront: STORE_FRONT,
-        },
-        VALIDATE_CART_QUERY,
-      );
-
-      orderSlug = validateItem.data?.store?.cart?.mutations?.validate
-        || validateItem.data?.store?.order?.slug
-        || orderSlug;
-
-      if (!orderSlug) {
-        throw new Error('RSI cart validation did not return an order slug.');
-      }
-
-      appendLog('success', `Cart validation succeeded with order slug ${orderSlug}.`);
-
-      setCurrentStep('trackingPurchase');
-      appendLog('info', `Fetching purchase tracking for order ${orderSlug}.`);
-      const trackingItem = await sendRsiGraphql<PurchaseTrackingResponse>(
-        'PurchaseTrackingQuery',
-        { orderSlug },
-        PURCHASE_TRACKING_QUERY,
-      );
-
-      const trackedOrderSlug = trackingItem.data?.order?.order?.slug || orderSlug;
-      appendLog(
-        'success',
-        `Purchase tracking completed for order ${trackedOrderSlug}. Total: ${
-          typeof trackingItem.data?.order?.totals?.total === 'number'
-            ? formatUsd(trackingItem.data.order.totals.total / 100)
-            : 'N/A'
-        }.`,
-      );
 
       if (runIdRef.current !== currentRunId) {
         return;
@@ -1012,7 +1104,7 @@ export default function AdminCcuAutoCheckout() {
       setCurrentStep('done');
       setFlash({
         severity: 'success',
-        text: `CCU auto checkout completed successfully for route "${latestRoutePreview.tabName}".`,
+        text: `CCU auto checkout completed successfully for route "${latestRoutePreview.tabName}" with quantity ${nextRequestedQuantity} across ${totalBatches} batch(es).`,
       });
     } catch (error) {
       if (runIdRef.current !== currentRunId) {
@@ -1030,7 +1122,12 @@ export default function AdminCcuAutoCheckout() {
     }
   };
 
-  const runDisabled = loading || refreshingRoute || phase === 'running' || !routePreview || !routePreview.purchasableEdges.length;
+  const runDisabled = loading
+    || refreshingRoute
+    || phase === 'running'
+    || !routePreview
+    || !routePreview.purchasableEdges.length
+    || !requestedQuantity;
 
   return (
     <Stack spacing={3}>
@@ -1038,11 +1135,11 @@ export default function AdminCcuAutoCheckout() {
         <Stack spacing={2}>
           <Typography variant="h6">CCU Auto Checkout</Typography>
           <Typography variant="body2" color="text.secondary">
-            Load the active CCU Planner tab from local storage, extract one linear route, add all current official/WB RSI CCUs in that route to the official cart, then complete the checkout flow.
+            Load the active CCU Planner tab from local storage, extract one linear route, and repeatedly buy that route in batches of up to 5 copies per order until the requested quantity is completed.
           </Typography>
 
           <Alert severity="warning">
-            Start from an empty RSI official cart. This tool only adds the current route&apos;s official/WB CCUs and does not clear unrelated items already in the RSI cart.
+            Start from an empty RSI official cart. This tool places repeated batch orders for the current route&apos;s official/WB CCUs and does not clear unrelated items already in the RSI cart.
           </Alert>
 
           <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap={2}>
@@ -1053,6 +1150,19 @@ export default function AdminCcuAutoCheckout() {
               disabled={phase === 'running'}
               autoComplete="off"
               helperText="Provide the current validate mark manually for this run."
+            />
+            <TextField
+              label="Quantity"
+              value={purchaseQuantityInput}
+              onChange={(event) => setPurchaseQuantityInput(event.target.value)}
+              disabled={phase === 'running'}
+              autoComplete="off"
+              type="number"
+              inputProps={{ min: 1, step: 1 }}
+              error={Boolean(purchaseQuantityInput.trim()) && !requestedQuantity}
+              helperText={requestedQuantity
+                ? `Will place ${requestedBatchCount} batch(es), with up to ${PURCHASE_BATCH_SIZE} route copies per batch and a random ${BATCH_DELAY_MIN_MS}-${BATCH_DELAY_MAX_MS}ms delay between batches.`
+                : 'Enter an integer quantity of at least 1.'}
             />
             <TextField
               select
@@ -1119,10 +1229,13 @@ export default function AdminCcuAutoCheckout() {
             <>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Chip label={`Total steps ${routePreview.orderedEdges.length}`} />
-                <Chip label={`Current RSI CCUs ${routePreview.purchasableEdges.length}`} color={routePreview.purchasableEdges.length ? 'success' : 'default'} />
+                <Chip label={`Current RSI CCUs per route ${routePreview.purchasableEdges.length}`} color={routePreview.purchasableEdges.length ? 'success' : 'default'} />
+                <Chip label={`Requested quantity ${requestedQuantity ?? 'Invalid'}`} color={requestedQuantity ? 'info' : 'error'} />
+                <Chip label={`Batches ${requestedBatchCount}`} />
+                <Chip label={`Total CCUs ${totalRequestedPurchasableCcus}`} />
                 <Chip label={`Skipped ${routePreview.skippedEdges.length}`} color={routePreview.skippedEdges.length ? 'warning' : 'default'} />
-                <Chip label={`Store credit ${formatUsd(routePreview.officialCreditAmount)}`} />
-                <Chip label={`Cash ${formatUsd(routePreview.cashAmount)}`} />
+                <Chip label={`Total store credit ${formatUsd(totalRequestedOfficialCredit)}`} />
+                <Chip label={`Total cash ${formatUsd(totalRequestedCash)}`} />
               </Stack>
 
               <Stack spacing={1.5}>
