@@ -18,6 +18,7 @@ import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
 import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
+import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
 import SiteNotificationManager from './components/SiteNotificationManager';
 import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
@@ -42,6 +43,7 @@ enum Page {
   SiteNotification = 'siteNotification',
   GraphqlDebugger = 'graphqlDebugger',
   RsiOrderAutomation = 'rsiOrderAutomation',
+  CcuAutoCheckout = 'ccuAutoCheckout',
   RecaptchaV3 = 'recaptchaV3',
 }
 
@@ -175,6 +177,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.RsiOrderAutomation),
     },
     {
+      id: Page.CcuAutoCheckout,
+      title: <FormattedMessage id="admin.ccuAutoCheckout.title" defaultMessage="CCU Auto Checkout" />,
+      description: <FormattedMessage id="admin.ccuAutoCheckout.description" defaultMessage="Load the active CCU Planner route, add all current official and WB CCUs to the RSI cart, and finish checkout with a validate token." />,
+      active: currentPage === Page.CcuAutoCheckout,
+      onSelect: () => setCurrentPage(Page.CcuAutoCheckout),
+    },
+    {
       id: Page.Tickets,
       title: <FormattedMessage id="admin.tickets.title" defaultMessage="Support Tickets" />,
       description: <FormattedMessage id="admin.tickets.description" defaultMessage="Review user support tickets, reply to messages, and close resolved requests." />,
@@ -215,6 +224,7 @@ export default function Admin() {
         {currentPage === Page.GraphqlDebugger && <AdminGraphqlDebugger />}
         {currentPage === Page.RecaptchaV3 && <AdminRecaptchaV3Tool />}
         {currentPage === Page.RsiOrderAutomation && <AdminRsiOrderAutomation />}
+        {currentPage === Page.CcuAutoCheckout && <AdminCcuAutoCheckout />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
     </ResponsiveSectionLayout>

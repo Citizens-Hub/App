@@ -10,6 +10,7 @@ import { RootState } from '@/store';
 import { IconButton } from '@mui/material';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { BiSlots, reportBi } from '@/report';
+import { resolveCurrentRsiCcuSkuForEdge } from '@/utils/rsiOfficialCcu';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -156,7 +157,11 @@ function CcuEdge({
     ? Math.floor((savingsUsd / officialUpgradePriceUsd) * 100)
     : null;
 
-  const ccuAvailable = ccus.some(c => c.id === data.targetShip?.id) && (data.sourceShip?.msrp || 0) >= 2000;
+  const resolvedCurrentRsiSku = useMemo(
+    () => resolveCurrentRsiCcuSkuForEdge(data, ccus),
+    [ccus, data],
+  );
+  const ccuAvailable = Boolean(resolvedCurrentRsiSku);
 
   return (
     <>
@@ -211,15 +216,12 @@ function CcuEdge({
             {
               [CcuSourceType.AVAILABLE_WB, CcuSourceType.OFFICIAL].includes(sourceType) && ccuAvailable && (
                 <IconButton size="small" onClick={() => {
-                  const sku = ccus.find(c => c.id === data.targetShip?.id)?.skus
-                    .filter(s => s.price <= (data.targetShip?.msrp || 0))
-                    .sort((a, b) => a.price - b.price)[0];
-                  if (sku && data.sourceShip?.id && data.targetShip?.id) {
+                  if (resolvedCurrentRsiSku && data.sourceShip?.id && data.targetShip?.id) {
                     window.postMessage({
                       type: "addToCartRequest",
                       message: {
                         from: data.sourceShip.id,
-                        to: sku.id
+                        to: resolvedCurrentRsiSku.skuId
                       }
                     }, "*")
                     
@@ -230,7 +232,7 @@ function CcuEdge({
                     }>({
                       slot: BiSlots.ADD_RSI_CART,
                       data: {
-                        sku: sku.id,
+                        sku: resolvedCurrentRsiSku.skuId,
                         targetShip: data.targetShip.id,
                         sourceShip: data.sourceShip.id
                       }

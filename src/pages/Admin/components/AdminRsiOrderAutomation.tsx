@@ -34,7 +34,7 @@ const TOKEN_MANAGER_TOKEN_API_PATH = '/api/admin/rsi/token-manager/token';
 const RESPONSE_TIMEOUT_MS = 20_000;
 const STORE_FRONT = 'pledge';
 const LISTING_PAGE_LIMIT = 20;
-const DEFAULT_POLL_INTERVAL_MS = '2500';
+const DEFAULT_POLL_INTERVAL_MS = '200';
 const MAX_LOG_ENTRIES = 200;
 const TOKEN_REQUEST_TIMEOUT_MS = 50_000;
 const TOKEN_MANAGER_POLL_INTERVAL_MS = 500;
@@ -1947,12 +1947,12 @@ export default function AdminRsiOrderAutomation() {
 
     const rawPollIntervalMs = Number(fields.pollIntervalInput.trim());
     const pollIntervalMs = requiresPollInterval ? rawPollIntervalMs : null;
-    if (requiresPollInterval && (!Number.isFinite(rawPollIntervalMs) || rawPollIntervalMs < 500)) {
+    if (requiresPollInterval && (!Number.isFinite(rawPollIntervalMs) || rawPollIntervalMs < 10)) {
       return {
         ok: false,
         error: intl.formatMessage({
           id: 'admin.rsiOrderAutomation.error.invalidPollInterval',
-          defaultMessage: 'The poll interval must be a number greater than or equal to 500ms.',
+          defaultMessage: 'The poll interval must be a number greater than or equal to 10ms.',
         }),
       };
     }
