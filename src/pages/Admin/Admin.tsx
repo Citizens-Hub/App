@@ -187,8 +187,8 @@ export default function Admin() {
     },
     {
       id: Page.CcuAutoCheckout,
-      title: <FormattedMessage id="admin.ccuAutoCheckout.title" defaultMessage="CCU Auto Checkout" />,
-      description: <FormattedMessage id="admin.ccuAutoCheckout.description" defaultMessage="Load the active CCU Planner route, add all current official and WB CCUs to the RSI cart, and finish checkout with a validate token." />,
+      title: <FormattedMessage id="admin.ccuAutoCheckout.title" defaultMessage="CCU Bulk Checkout" />,
+      description: <FormattedMessage id="admin.ccuAutoCheckout.description" defaultMessage="Manually configure CCUs, add current RSI SKUs to the cart in batches, and complete checkout with the browser token provider." />,
       active: currentPage === Page.CcuAutoCheckout,
       onSelect: () => setCurrentPage(Page.CcuAutoCheckout),
     },

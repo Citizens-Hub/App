@@ -48,7 +48,7 @@ import { getShipDisplayName } from '@/utils/shipDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
-const CHECKOUT_PENDING_REQUEST_TTL_MS = 5 * 60 * 1000;
+const CHECKOUT_PENDING_REQUEST_TTL_MS = 15 * 60 * 1000;
 
 type PendingCheckoutRequestCache = {
   createdAt: number;

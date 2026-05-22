@@ -8,11 +8,13 @@ import { useHangarData } from '@/hooks';
 import OrdersTable from './components/OrdersTable';
 import { useNavigate } from 'react-router';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
+import CcuBulkCheckout from '@/pages/CcuBulkCheckout/CcuBulkCheckout';
 
 enum Page {
   MyStore = 'myStore',
   MyOrders = 'myOrders',
   SalesBalance = 'salesBalance',
+  CcuBulkCheckout = 'ccuBulkCheckout',
 }
 
 export default function Reseller() {
@@ -40,6 +42,13 @@ export default function Reseller() {
       description: <FormattedMessage id="hangar.myOrdersDescription" defaultMessage="View your orders here" />,
       active: currentPage === Page.MyOrders,
       onSelect: () => setCurrentPage(Page.MyOrders),
+    },
+    {
+      id: Page.CcuBulkCheckout,
+      title: <FormattedMessage id="reseller.ccuBulkCheckout.title" defaultMessage="CCU Bulk Checkout" />,
+      description: <FormattedMessage id="reseller.ccuBulkCheckout.description" defaultMessage="Manually configure CCUs and purchase them from RSI in small batches." />,
+      active: currentPage === Page.CcuBulkCheckout,
+      onSelect: () => setCurrentPage(Page.CcuBulkCheckout),
     },
     {
       id: 'graphql-export',
@@ -71,6 +80,7 @@ export default function Reseller() {
           )}
           {currentPage === Page.MyOrders && <OrdersTable />}
           {currentPage === Page.SalesBalance && <SalesBalancePanel />}
+          {currentPage === Page.CcuBulkCheckout && <CcuBulkCheckout requestIdPrefix="reseller-ccu-bulk-checkout" />}
         </>)}
     </ResponsiveSectionLayout>
   );

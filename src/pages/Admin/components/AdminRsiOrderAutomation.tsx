@@ -14,12 +14,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useSelector } from 'react-redux';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useApi } from '@/hooks';
-import type { RootState } from '@/store';
 import type { ShipsData } from '@/types';
 import {
   requestTokenProviderStatusViaExtension,
@@ -28,20 +26,14 @@ import {
 } from '@/utils/extensionHttpRequest';
 
 const RSI_GRAPHQL_URL = 'https://robertsspaceindustries.com/graphql';
-const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
-const TOKEN_MANAGER_REQUEST_API_PATH = '/api/admin/rsi/token-manager/request';
-const TOKEN_MANAGER_TOKEN_API_PATH = '/api/admin/rsi/token-manager/token';
 const RESPONSE_TIMEOUT_MS = 20_000;
 const STORE_FRONT = 'pledge';
 const LISTING_PAGE_LIMIT = 20;
 const DEFAULT_POLL_INTERVAL_MS = '200';
 const MAX_LOG_ENTRIES = 200;
 const TOKEN_REQUEST_TIMEOUT_MS = 50_000;
-const TOKEN_MANAGER_POLL_INTERVAL_MS = 500;
 const PREFETCHED_TOKEN_TTL_MS = 60_000;
 const SCHEDULED_TASKS_STORAGE_KEY = 'admin-rsi-order-automation-scheduled-tasks-v1';
-const TOKEN_SOURCE_STORAGE_KEY = 'admin-rsi-order-automation-token-source-v1';
-const TOKEN_MANAGER_SECRET_STORAGE_KEY = 'admin-rsi-order-automation-token-manager-secret-v1';
 const PREFETCHED_TOKEN_STORAGE_KEY = 'admin-rsi-order-automation-prefetched-token-v1';
 
 type FlashState = {
@@ -64,7 +56,6 @@ type AutomationStep =
   | 'trackingPurchase';
 type AutomationExecutionStep = Exclude<AutomationStep, 'idle' | 'requestingToken'>;
 type AutomationStartStep = Exclude<AutomationExecutionStep, 'trackingPurchase'>;
-type CheckoutTokenSource = 'tokenProvider' | 'tokenManager';
 
 type LogLevel = 'info' | 'success' | 'warning' | 'error';
 
@@ -98,11 +89,6 @@ type GraphqlResponseEnvelope = {
 type GraphqlError = {
   message?: string;
   code?: string;
-};
-
-type TokenManagerResponse = {
-  status?: number;
-  request?: string;
 };
 
 type GraphqlBatchItem<TData> = {
@@ -260,13 +246,11 @@ type TokenProviderAvailability = 'idle' | 'checking' | 'available' | 'unavailabl
 type PrefetchedTokenState = {
   token: string;
   receivedAt: string;
-  source: CheckoutTokenSource;
   provider?: string | null;
 };
 type CheckoutTokenResult = {
   token: string;
   reused: boolean;
-  source: CheckoutTokenSource;
   provider: string | null;
   receivedAt: string;
 };
@@ -407,49 +391,6 @@ function isPrefetchedTokenFresh(prefetchedToken: PrefetchedTokenState, nowMs: nu
   return nowMs - receivedAtMs <= PREFETCHED_TOKEN_TTL_MS;
 }
 
-function isCheckoutTokenSource(value: unknown): value is CheckoutTokenSource {
-  return value === 'tokenProvider' || value === 'tokenManager';
-}
-
-function readStoredTokenSource(): CheckoutTokenSource {
-  try {
-    const value = localStorage.getItem(TOKEN_SOURCE_STORAGE_KEY);
-    return isCheckoutTokenSource(value) ? value : 'tokenManager';
-  } catch {
-    return 'tokenManager';
-  }
-}
-
-function writeStoredTokenSource(source: CheckoutTokenSource) {
-  try {
-    localStorage.setItem(TOKEN_SOURCE_STORAGE_KEY, source);
-  } catch {
-    // Ignore localStorage failures and keep the current session usable.
-  }
-}
-
-function readStoredSecretKey(): string {
-  try {
-    return localStorage.getItem(TOKEN_MANAGER_SECRET_STORAGE_KEY) || '';
-  } catch {
-    return '';
-  }
-}
-
-function writeStoredSecretKey(secretKey: string) {
-  try {
-    const trimmed = secretKey.trim();
-    if (!trimmed) {
-      localStorage.removeItem(TOKEN_MANAGER_SECRET_STORAGE_KEY);
-      return;
-    }
-
-    localStorage.setItem(TOKEN_MANAGER_SECRET_STORAGE_KEY, trimmed);
-  } catch {
-    // Ignore localStorage failures and keep the current session usable.
-  }
-}
-
 function readStoredPrefetchedToken(): PrefetchedTokenState | null {
   try {
     const raw = localStorage.getItem(PREFETCHED_TOKEN_STORAGE_KEY);
@@ -465,7 +406,6 @@ function readStoredPrefetchedToken(): PrefetchedTokenState | null {
 
     const token = typeof parsed.token === 'string' ? parsed.token.trim() : '';
     const receivedAt = typeof parsed.receivedAt === 'string' ? parsed.receivedAt : '';
-    const source = isCheckoutTokenSource(parsed.source) ? parsed.source : 'tokenManager';
     const provider = typeof parsed.provider === 'string' && parsed.provider.trim()
       ? parsed.provider.trim()
       : null;
@@ -477,7 +417,6 @@ function readStoredPrefetchedToken(): PrefetchedTokenState | null {
     const prefetchedToken = {
       token,
       receivedAt,
-      source,
       provider,
     };
     if (!isPrefetchedTokenFresh(prefetchedToken)) {
@@ -813,91 +752,11 @@ function formatTokenPreview(token: string): string {
   return `${trimmed.slice(0, 8)}...${trimmed.slice(-6)}`;
 }
 
-function formatTokenSourceLabel(source: CheckoutTokenSource, intl: ReturnType<typeof useIntl>): string {
-  switch (source) {
-    case 'tokenProvider':
-      return intl.formatMessage({
-        id: 'admin.rsiOrderAutomation.tokenSource.tokenProvider',
-        defaultMessage: 'Token provider',
-      });
-    case 'tokenManager':
-    default:
-      return intl.formatMessage({
-        id: 'admin.rsiOrderAutomation.tokenSource.tokenManager',
-        defaultMessage: 'Token manager',
-      });
-  }
-}
-
-function getTokenRequestKickoffStep(plan: AutomationRunPlan): AutomationExecutionStep {
-  if (getAutomationStepIndex(plan.startStep) <= getAutomationStepIndex('addingCredit')) {
-    return 'matching';
-  }
-
-  if (plan.startStep === 'assigningAddress') {
-    return 'loadingAddresses';
-  }
-
-  return plan.startStep;
-}
-
-async function fetchTokenManagerResponse(
-  input: RequestInfo | URL,
-  token: string,
-  timeoutMs: number,
-  init: RequestInit = {},
-): Promise<TokenManagerResponse> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
-
-  try {
-    const headers = new Headers(init.headers);
-    headers.set('Accept', 'application/json');
-    headers.set('Content-Type', 'application/json');
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    const response = await fetch(input, {
-      ...init,
-      signal: controller.signal,
-      headers,
-    });
-
-    if (!response.ok) {
-      let message = `Token manager proxy request failed with HTTP ${response.status}.`;
-      try {
-        const errorPayload = await response.json() as { message?: string };
-        if (typeof errorPayload?.message === 'string' && errorPayload.message.trim()) {
-          message = errorPayload.message.trim();
-        }
-      } catch {
-        // Ignore JSON parsing errors and use the default message.
-      }
-
-      throw new Error(message);
-    }
-
-    const payload: unknown = await response.json();
-    if (!isRecord(payload)) {
-      throw new Error('Token manager returned an invalid response payload.');
-    }
-
-    return {
-      status: typeof payload.status === 'number' ? payload.status : undefined,
-      request: typeof payload.request === 'string' ? payload.request : undefined,
-    };
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('Token manager request timed out.');
-    }
-
-    throw error instanceof Error ? error : new Error(String(error));
-  } finally {
-    window.clearTimeout(timeout);
-  }
+function formatTokenSourceLabel(intl: ReturnType<typeof useIntl>): string {
+  return intl.formatMessage({
+    id: 'admin.rsiOrderAutomation.tokenSource.tokenProvider',
+    defaultMessage: 'Token provider',
+  });
 }
 
 const BROWSE_STANDALONE_SHIPS_QUERY = `
@@ -1056,14 +915,13 @@ query PurchaseTrackingQuery($orderSlug: String!) {
 
 export default function AdminRsiOrderAutomation() {
   const intl = useIntl();
-  const { user } = useSelector((state: RootState) => state.user);
   const isMountedRef = useRef(true);
   const stopRequestedRef = useRef(false);
   const runningRef = useRef(false);
   const scheduledExecutionRunKeysRef = useRef(new Set<string>());
   const appendLogRef = useRef<((level: LogLevel, text: string) => void) | null>(null);
   const updatePrefetchedTokenRef = useRef<((nextToken: PrefetchedTokenState | null) => void) | null>(null);
-  const requestCheckoutTokenRef = useRef<((preferredSource?: CheckoutTokenSource) => Promise<CheckoutTokenResult>) | null>(null);
+  const requestCheckoutTokenRef = useRef<(() => Promise<CheckoutTokenResult>) | null>(null);
   const successfulRsiRequestHandlerRef = useRef<(() => void) | null>(null);
   const startAutomationRef = useRef<((request: StartAutomationRequest) => Promise<void>) | null>(null);
   const buildRunPlanRef = useRef<((fields: AutomationPlanFields, options?: RunPlanBuildOptions) => RunPlanBuildResult) | null>(null);
@@ -1085,12 +943,10 @@ export default function AdminRsiOrderAutomation() {
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
   const [tokenBridgeStatus, setTokenBridgeStatus] = useState<TokenBridgeStatus>('idle');
   const [tokenBridgeError, setTokenBridgeError] = useState('');
-  const [tokenSource, setTokenSource] = useState<CheckoutTokenSource>(() => readStoredTokenSource());
-  const [tokenManagerSecret, setTokenManagerSecret] = useState(() => readStoredSecretKey());
   const [prefetchedToken, setPrefetchedToken] = useState<PrefetchedTokenState | null>(() => readStoredPrefetchedToken());
   const [lastTokenReceivedAt, setLastTokenReceivedAt] = useState<string | null>(null);
   const [lastTokenPreview, setLastTokenPreview] = useState('');
-  const [lastTokenSourceUsed, setLastTokenSourceUsed] = useState<CheckoutTokenSource | null>(() => readStoredPrefetchedToken()?.source || null);
+  const [lastTokenSourceUsed, setLastTokenSourceUsed] = useState(false);
   const [lastTokenProviderLabel, setLastTokenProviderLabel] = useState<string>('');
   const [tokenProviderAvailability, setTokenProviderAvailability] = useState<TokenProviderAvailability>('idle');
   const [tokenProviderSummary, setTokenProviderSummary] = useState('');
@@ -1169,7 +1025,7 @@ export default function AdminRsiOrderAutomation() {
     if (nextToken) {
       setLastTokenReceivedAt(nextToken.receivedAt);
       setLastTokenPreview(formatTokenPreview(nextToken.token));
-      setLastTokenSourceUsed(nextToken.source);
+      setLastTokenSourceUsed(true);
       setLastTokenProviderLabel(nextToken.provider || '');
       return;
     }
@@ -1189,101 +1045,6 @@ export default function AdminRsiOrderAutomation() {
   const ensureNotStopped = () => {
     if (stopRequestedRef.current) {
       throw new StopRequestedError();
-    }
-  };
-
-  const requestCheckoutTokenFromTokenManager = async (secretKeyInput?: string) => {
-    ensureNotStopped();
-
-    try {
-      const secretKey = (secretKeyInput ?? tokenManagerSecret).trim();
-      if (!secretKey) {
-        const message = intl.formatMessage({
-          id: 'admin.rsiOrderAutomation.error.missingTokenManagerSecret',
-          defaultMessage: 'Please enter the token manager secret key before requesting a checkout token.',
-        });
-        throw new Error(message);
-      }
-
-      const deadline = Date.now() + TOKEN_REQUEST_TIMEOUT_MS;
-      const getRemainingTimeoutMs = () => Math.max(250, deadline - Date.now());
-
-      if (!user.token) {
-        throw new Error(intl.formatMessage({
-          id: 'admin.rsiOrderAutomation.error.unauthorized',
-          defaultMessage: 'Your admin session is missing. Please log in again and retry.',
-        }));
-      }
-
-      const createResponse = await fetchTokenManagerResponse(
-        `${API_BASE_URL}${TOKEN_MANAGER_REQUEST_API_PATH}`,
-        user.token,
-        getRemainingTimeoutMs(),
-        {
-          method: 'POST',
-          body: JSON.stringify({ secretKey }),
-        },
-      );
-      const requestId = createResponse.request?.trim() || '';
-
-      if (createResponse.status !== 1 || !requestId) {
-        const message = intl.formatMessage({
-          id: 'admin.rsiOrderAutomation.error.tokenManagerCreateFailed',
-          defaultMessage: 'Token manager did not accept the token request. Please verify the secret key and try again.',
-        });
-        throw new Error(message);
-      }
-
-      let token = '';
-
-      while (!token) {
-        ensureNotStopped();
-
-        if (Date.now() > deadline) {
-          throw new Error(intl.formatMessage({
-            id: 'admin.rsiOrderAutomation.error.tokenRequestTimeout',
-            defaultMessage: 'Token manager did not return a checkout token before the timeout expired.',
-          }));
-        }
-
-        const tokenResponse = await fetchTokenManagerResponse(
-          `${API_BASE_URL}${TOKEN_MANAGER_TOKEN_API_PATH}`,
-          user.token,
-          getRemainingTimeoutMs(),
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              id: requestId,
-              secretKey,
-            }),
-          },
-        );
-
-        if (tokenResponse.status === 1) {
-          token = tokenResponse.request?.trim() || '';
-          break;
-        }
-
-        await sleep(TOKEN_MANAGER_POLL_INTERVAL_MS);
-      }
-
-      if (!token) {
-        const message = intl.formatMessage({
-          id: 'admin.rsiOrderAutomation.error.tokenProviderEmpty',
-          defaultMessage: 'Token manager responded successfully, but no token was returned.',
-        });
-        throw new Error(message);
-      }
-
-      return {
-        token,
-        reused: false,
-        source: 'tokenManager',
-        provider: null,
-        receivedAt: new Date().toISOString(),
-      } satisfies CheckoutTokenResult;
-    } catch (error) {
-      throw error instanceof Error ? error : new Error(String(error));
     }
   };
 
@@ -1310,7 +1071,6 @@ export default function AdminRsiOrderAutomation() {
     return {
       token,
       reused: false,
-      source: 'tokenProvider',
       provider: typeof response?.provider === 'string' && response.provider.trim()
         ? response.provider.trim()
         : null,
@@ -1318,16 +1078,13 @@ export default function AdminRsiOrderAutomation() {
     } satisfies CheckoutTokenResult;
   };
 
-  const requestCheckoutToken = async (preferredSource: CheckoutTokenSource = tokenSource) => {
+  const requestCheckoutToken = async () => {
     ensureNotStopped();
     setTokenBridgeStatus('requesting');
     setTokenBridgeError('');
 
     try {
-      const result = preferredSource === 'tokenProvider'
-        ? await requestCheckoutTokenFromProvider()
-        : await requestCheckoutTokenFromTokenManager();
-
+      const result = await requestCheckoutTokenFromProvider();
       setTokenBridgeStatus('ready');
       setTokenBridgeError('');
       return result;
@@ -1353,34 +1110,25 @@ export default function AdminRsiOrderAutomation() {
     return prefetchedToken;
   };
 
-  const consumeTokenForAutomation = async (preferredSource: CheckoutTokenSource = tokenSource) => {
-    if (preferredSource === 'tokenProvider') {
-      appendLog('info', 'Requesting a checkout token from token provider.');
-      return requestCheckoutToken(preferredSource);
-    }
-
+  const consumeTokenForAutomation = async () => {
     const cachedToken = getFreshPrefetchedToken();
-    if (cachedToken && cachedToken.source === preferredSource) {
+    if (cachedToken) {
       setTokenBridgeStatus('ready');
       setTokenBridgeError('');
       appendLog(
         'info',
-        `Reusing a locally cached checkout token from ${formatTokenSourceLabel(cachedToken.source, intl)} at ${formatTimestamp(cachedToken.receivedAt, intl.locale)}.`,
+        `Reusing a locally cached checkout token from ${formatTokenSourceLabel(intl)} at ${formatTimestamp(cachedToken.receivedAt, intl.locale)}.`,
       );
       return {
         token: cachedToken.token,
         reused: true,
-        source: cachedToken.source,
         provider: cachedToken.provider || null,
         receivedAt: cachedToken.receivedAt,
       } satisfies CheckoutTokenResult;
     }
 
-    appendLog(
-      'info',
-      'Requesting a checkout token from token manager.',
-    );
-    return requestCheckoutToken(preferredSource);
+    appendLog('info', 'Requesting a checkout token from token provider.');
+    return requestCheckoutToken();
   };
 
   const updateManualPlanField = <TKey extends keyof AutomationPlanFields>(key: TKey, value: AutomationPlanFields[TKey]) => {
@@ -2018,7 +1766,6 @@ export default function AdminRsiOrderAutomation() {
         if (
           !needsCheckoutToken
           || tokenPromise
-          || tokenSource !== 'tokenProvider'
           || trigger === 'scheduled'
           || tokenRequestStartedAfterMatch
           || tokenProviderStartedAfterSuccessfulRequest
@@ -2031,7 +1778,7 @@ export default function AdminRsiOrderAutomation() {
           'info',
           'Starting checkout token request from token provider after the first successful RSI request.',
         );
-        tokenPromise = consumeTokenForAutomation(tokenSource);
+        tokenPromise = consumeTokenForAutomation();
       };
 
       await runAutomation({
@@ -2042,15 +1789,15 @@ export default function AdminRsiOrderAutomation() {
           }
 
           if (!tokenPromise) {
-            tokenPromise = consumeTokenForAutomation(tokenSource);
+            tokenPromise = consumeTokenForAutomation();
           }
 
           let tokenResult = await tokenPromise;
-          if (!tokenResult.reused && tokenResult.source === 'tokenProvider') {
+          if (!tokenResult.reused) {
             const ageMs = Date.now() - new Date(tokenResult.receivedAt).getTime();
             if (!Number.isFinite(ageMs) || ageMs > PREFETCHED_TOKEN_TTL_MS) {
               appendLog('warning', 'The prefetched token provider token is stale. Requesting a fresh token before cart validation.');
-              tokenPromise = consumeTokenForAutomation(tokenSource);
+              tokenPromise = consumeTokenForAutomation();
               tokenResult = await tokenPromise;
             }
           }
@@ -2058,7 +1805,6 @@ export default function AdminRsiOrderAutomation() {
           const nextToken = {
             token: tokenResult.token,
             receivedAt: tokenResult.receivedAt,
-            source: tokenResult.source,
             provider: tokenResult.provider,
           } satisfies PrefetchedTokenState;
           updatePrefetchedToken(nextToken);
@@ -2066,8 +1812,8 @@ export default function AdminRsiOrderAutomation() {
           appendLog(
             tokenResult.reused ? 'info' : 'success',
             tokenResult.reused
-              ? `Reused checkout token from ${formatTokenSourceLabel(tokenResult.source, intl)} (${formatTokenPreview(tokenResult.token)}).`
-              : `Received checkout token from ${formatTokenSourceLabel(tokenResult.source, intl)} (${formatTokenPreview(tokenResult.token)}).`,
+              ? `Reused checkout token from ${formatTokenSourceLabel(intl)} (${formatTokenPreview(tokenResult.token)}).`
+              : `Received checkout token from ${formatTokenSourceLabel(intl)} (${formatTokenPreview(tokenResult.token)}).`,
           );
           return tokenResult.token;
         },
@@ -2081,15 +1827,13 @@ export default function AdminRsiOrderAutomation() {
             tokenProviderStartedAfterSuccessfulRequest = true;
             appendLog(
               'info',
-              tokenSource === 'tokenProvider'
-                ? 'Starting checkout token request from token provider after listing match succeeded.'
-                : 'Starting checkout token request from token manager after listing match succeeded.',
+              'Starting checkout token request from token provider after listing match succeeded.',
             );
-            tokenPromise = consumeTokenForAutomation(tokenSource);
+            tokenPromise = consumeTokenForAutomation();
             return;
           }
 
-          if (tokenSource !== 'tokenProvider' || tokenRequestStartedAfterMatch) {
+          if (tokenRequestStartedAfterMatch) {
             return;
           }
 
@@ -2099,28 +1843,11 @@ export default function AdminRsiOrderAutomation() {
             'info',
             'Starting checkout token request from token provider after listing match succeeded.',
           );
-          tokenPromise = consumeTokenForAutomation(tokenSource);
+          tokenPromise = consumeTokenForAutomation();
         },
-        onStepStart: (currentStep) => {
+        onStepStart: () => {
           if (!needsCheckoutToken || tokenPromise) {
             return;
-          }
-
-          if (plan.preflightMatchBeforeStart && currentStep === 'matching') {
-            return;
-          }
-
-          if (tokenSource === 'tokenProvider') {
-            return;
-          }
-
-          const tokenKickoffStep = getTokenRequestKickoffStep(plan);
-          if (currentStep === tokenKickoffStep) {
-            appendLog(
-              'info',
-              'Starting checkout token request from token manager in parallel with the first RSI request.',
-            );
-            tokenPromise = consumeTokenForAutomation(tokenSource);
           }
         },
       });
@@ -2228,25 +1955,19 @@ export default function AdminRsiOrderAutomation() {
     }
 
     setFlash(null);
-    appendLog(
-      'info',
-      tokenSource === 'tokenProvider'
-        ? 'Requesting a checkout token from token provider.'
-        : 'Requesting a checkout token from token manager.',
-    );
+    appendLog('info', 'Requesting a checkout token from token provider.');
 
     try {
-      const tokenResult = await requestCheckoutToken(tokenSource);
+      const tokenResult = await requestCheckoutToken();
       const nextToken = {
         token: tokenResult.token,
         receivedAt: new Date().toISOString(),
-        source: tokenResult.source,
         provider: tokenResult.provider,
       };
       updatePrefetchedToken(nextToken);
       appendLog(
         'success',
-        `Received checkout token from ${formatTokenSourceLabel(tokenResult.source, intl)} (${formatTokenPreview(tokenResult.token)}).`,
+        `Received checkout token from ${formatTokenSourceLabel(intl)} (${formatTokenPreview(tokenResult.token)}).`,
       );
       setFlash({
         severity: 'success',
@@ -2274,14 +1995,6 @@ export default function AdminRsiOrderAutomation() {
   }, [scheduledTasks]);
 
   useEffect(() => {
-    writeStoredSecretKey(tokenManagerSecret);
-  }, [tokenManagerSecret]);
-
-  useEffect(() => {
-    writeStoredTokenSource(tokenSource);
-  }, [tokenSource]);
-
-  useEffect(() => {
     writeStoredPrefetchedToken(prefetchedToken);
   }, [prefetchedToken]);
 
@@ -2293,7 +2006,7 @@ export default function AdminRsiOrderAutomation() {
 
     setLastTokenReceivedAt(cachedToken.receivedAt);
     setLastTokenPreview(formatTokenPreview(cachedToken.token));
-    setLastTokenSourceUsed(cachedToken.source);
+    setLastTokenSourceUsed(true);
     setLastTokenProviderLabel(cachedToken.provider || '');
     setTokenBridgeStatus('ready');
   }, []);
@@ -2353,7 +2066,7 @@ export default function AdminRsiOrderAutomation() {
     return () => {
       cancelled = true;
     };
-  }, [intl, tokenSource]);
+  }, [intl]);
 
   useEffect(() => {
     if (!scheduledTasksEnabled) {
@@ -2426,7 +2139,7 @@ export default function AdminRsiOrderAutomation() {
     return () => {
       timeouts.forEach((timeout) => window.clearTimeout(timeout));
     };
-  }, [intl, taskScheduleSnapshots, tokenManagerSecret, tokenSource]);
+  }, [intl, taskScheduleSnapshots]);
 
   const phaseLabel = (() => {
     switch (phase) {
@@ -2621,45 +2334,18 @@ export default function AdminRsiOrderAutomation() {
 
           <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap={2}>
             <TextField
-              select
               label={intl.formatMessage({
                 id: 'admin.rsiOrderAutomation.broadcastChannel',
                 defaultMessage: 'Token source',
               })}
-              value={tokenSource}
-              onChange={(event) => setTokenSource(event.target.value as CheckoutTokenSource)}
-              disabled={running}
+              value={intl.formatMessage({
+                id: 'admin.rsiOrderAutomation.tokenSource.tokenProvider',
+                defaultMessage: 'Token provider',
+              })}
+              disabled
               helperText={intl.formatMessage({
                 id: 'admin.rsiOrderAutomation.tokenSourceHelp',
-                defaultMessage: 'Choose whether checkout tokens come from an open RSI tab token provider or from token manager.',
-              })}
-            >
-              <MenuItem value="tokenProvider">
-                {intl.formatMessage({
-                  id: 'admin.rsiOrderAutomation.tokenSource.tokenProvider',
-                  defaultMessage: 'Token provider',
-                })}
-              </MenuItem>
-              <MenuItem value="tokenManager">
-                {intl.formatMessage({
-                  id: 'admin.rsiOrderAutomation.tokenSource.tokenManager',
-                  defaultMessage: 'Token manager',
-                })}
-              </MenuItem>
-            </TextField>
-
-            <TextField
-              label={intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.tokenManagerSecret',
-                defaultMessage: 'Token manager secret key',
-              })}
-              value={tokenManagerSecret}
-              onChange={(event) => setTokenManagerSecret(event.target.value)}
-              disabled={running || tokenSource !== 'tokenManager'}
-              autoComplete="off"
-              helperText={intl.formatMessage({
-                id: 'admin.rsiOrderAutomation.tokenManagerSecretHelp',
-                defaultMessage: 'Set manually by an admin. The secret key and the latest valid token are both stored in localStorage on this browser.',
+                defaultMessage: 'Checkout tokens come from the browser extension token provider.',
               })}
             />
           </Box>
@@ -2877,22 +2563,9 @@ export default function AdminRsiOrderAutomation() {
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Chip
-              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenManagerSecretStatus', defaultMessage: 'Secret key' })}: ${
-                tokenManagerSecret.trim()
-                  ? intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenManagerSecretStatus.saved', defaultMessage: 'Saved' })
-                  : intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenManagerSecretStatus.missing', defaultMessage: 'Missing' })
-              }`}
+              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenSourceStatus', defaultMessage: 'Selected source' })}: ${formatTokenSourceLabel(intl)}`}
               size="small"
-              color={
-                tokenManagerSecret.trim()
-                  ? 'success'
-                  : 'warning'
-              }
-            />
-            <Chip
-              label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenSourceStatus', defaultMessage: 'Selected source' })}: ${formatTokenSourceLabel(tokenSource, intl)}`}
-              size="small"
-              color={tokenSource === 'tokenProvider' ? 'info' : 'default'}
+              color="info"
             />
             <Chip
               label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.tokenBridgeStatus', defaultMessage: 'Token bridge' })}: ${
@@ -2946,7 +2619,7 @@ export default function AdminRsiOrderAutomation() {
             ) : null}
             {lastTokenSourceUsed ? (
               <Chip
-                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.lastTokenSource', defaultMessage: 'Last source' })}: ${formatTokenSourceLabel(lastTokenSourceUsed, intl)}`}
+                label={`${intl.formatMessage({ id: 'admin.rsiOrderAutomation.lastTokenSource', defaultMessage: 'Last source' })}: ${formatTokenSourceLabel(intl)}`}
                 size="small"
               />
             ) : null}

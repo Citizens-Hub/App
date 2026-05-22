@@ -82,10 +82,24 @@ export default function OrdersManager() {
 
   const formatDateTime = (value?: string | null) => value ? new Date(value).toLocaleString(intl.locale) : '-';
 
-  const formatStatusLabel = (status: OrderStatus) => intl.formatMessage({
-    id: `orders.status.${status.toLowerCase()}`,
-    defaultMessage: status,
-  });
+  const formatStatusLabel = (status: OrderStatus) => {
+    switch (status) {
+      case OrderStatus.Pending:
+        return intl.formatMessage({ id: 'orders.status.pending', defaultMessage: 'Pending' });
+      case OrderStatus.Paid:
+        return intl.formatMessage({ id: 'orders.status.paid', defaultMessage: 'Paid' });
+      case OrderStatus.PaymentReview:
+        return intl.formatMessage({ id: 'orders.status.payment_review', defaultMessage: 'Payment review' });
+      case OrderStatus.Canceled:
+        return intl.formatMessage({ id: 'orders.status.canceled', defaultMessage: 'Canceled' });
+      case OrderStatus.Finished:
+        return intl.formatMessage({ id: 'orders.status.finished', defaultMessage: 'Finished' });
+      case OrderStatus.Processing:
+        return intl.formatMessage({ id: 'orders.status.processing', defaultMessage: 'Processing' });
+      default:
+        return status;
+    }
+  };
 
   const getStatusColor = (status: OrderStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {

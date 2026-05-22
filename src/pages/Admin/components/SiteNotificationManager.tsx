@@ -35,6 +35,20 @@ const DEFAULT_FORM_STATE: SiteNotificationFormState = {
 
 const SEVERITY_OPTIONS: SiteNotificationSeverity[] = ['info', 'success', 'warning', 'error'];
 
+function formatSeverityLabel(intl: ReturnType<typeof useIntl>, severity: SiteNotificationSeverity) {
+  switch (severity) {
+    case 'success':
+      return intl.formatMessage({ id: 'admin.siteNotification.severity.success', defaultMessage: 'success' });
+    case 'warning':
+      return intl.formatMessage({ id: 'admin.siteNotification.severity.warning', defaultMessage: 'warning' });
+    case 'error':
+      return intl.formatMessage({ id: 'admin.siteNotification.severity.error', defaultMessage: 'error' });
+    case 'info':
+    default:
+      return intl.formatMessage({ id: 'admin.siteNotification.severity.info', defaultMessage: 'info' });
+  }
+}
+
 export default function SiteNotificationManager() {
   const intl = useIntl();
   const token = useSelector((state: RootState) => state.user.user.token);
@@ -242,10 +256,7 @@ export default function SiteNotificationManager() {
         >
           {SEVERITY_OPTIONS.map((severity) => (
             <MenuItem key={severity} value={severity}>
-              {intl.formatMessage({
-                id: `admin.siteNotification.severity.${severity}`,
-                defaultMessage: severity,
-              })}
+              {formatSeverityLabel(intl, severity)}
             </MenuItem>
           ))}
         </TextField>
