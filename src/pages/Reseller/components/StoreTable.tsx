@@ -70,6 +70,15 @@ type ManualPackageItemDraft = {
   imageUrl: string;
 };
 
+type DisplayableMarketItem = StoreInventoryItem | ListingItem;
+
+const twoLineClampSx = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+  overflow: "hidden",
+} as const;
+
 function createManualPackageItemDraft(values?: Partial<Omit<ManualPackageItemDraft, "id">>): ManualPackageItemDraft {
   return {
     id: `manual-package-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -141,7 +150,7 @@ function getInventoryOptionMeta(item: StoreInventoryItem) {
   return `x${item.stock}${ownerText ? ` | ${ownerText}` : ""}`;
 }
 
-function getInventorySubtitle(item: StoreInventoryItem, intl: IntlShape) {
+function getInventorySubtitle(item: DisplayableMarketItem, intl: IntlShape) {
   if (item.itemType === "ccu") {
     return `${item.fromShipName || "-"} -> ${item.toShipName || "-"}`;
   }
@@ -165,19 +174,39 @@ function getInventorySubtitle(item: StoreInventoryItem, intl: IntlShape) {
   return item.shipName || item.packageShips?.[0]?.shipName || item.name;
 }
 
-function InventoryItemMedia({ item, ships }: { item: StoreInventoryItem; ships: Ship[] }) {
+function MarketItemMedia({
+  item,
+  ships,
+  compact = false,
+  height = compact ? 88 : 180,
+  showNameOverlay = false,
+}: {
+  item: DisplayableMarketItem;
+  ships: Ship[];
+  compact?: boolean;
+  height?: number;
+  showNameOverlay?: boolean;
+}) {
   const visual = getMarketItemVisual(item, ships);
 
   if (item.itemType === "ccu") {
     return (
-      <Box sx={{ position: "relative", width: "100%", height: 180, overflow: "hidden", borderRadius: 1 }}>
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height,
+          overflow: "hidden",
+          bgcolor: "action.hover",
+        }}
+      >
         <Box
           component="img"
           sx={{
             position: "absolute",
             left: 0,
             top: 0,
-            width: "35%",
+            width: compact ? "38%" : "35%",
             height: "100%",
             objectFit: "cover",
           }}
@@ -190,7 +219,7 @@ function InventoryItemMedia({ item, ships }: { item: StoreInventoryItem; ships: 
             position: "absolute",
             right: 0,
             top: 0,
-            width: "65%",
+            width: compact ? "62%" : "65%",
             height: "100%",
             objectFit: "cover",
             boxShadow: "0 0 20px 0 rgba(0, 0, 0, 0.2)",
@@ -198,13 +227,24 @@ function InventoryItemMedia({ item, ships }: { item: StoreInventoryItem; ships: 
           src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
           alt={visual.toShipName || item.name}
         />
-        <Box sx={{ position: "absolute", inset: "auto 0 0 0", p: 1, bgcolor: "rgba(0,0,0,0.55)", textAlign: "center" }}>
-          <Typography variant="body2" sx={{ color: "#fff", fontWeight: 600 }}>
-            {item.name}
-          </Typography>
-        </Box>
-        <Box sx={{ position: "absolute", top: "50%", left: "35%", transform: "translate(-50%, -50%)", color: "#fff" }}>
-          <ChevronsRight className="w-8 h-8" />
+        {showNameOverlay && (
+          <Box sx={{ position: "absolute", inset: "auto 0 0 0", p: compact ? 0.75 : 1, bgcolor: "rgba(0,0,0,0.55)", textAlign: "center" }}>
+            <Typography variant={compact ? "caption" : "body2"} sx={{ color: "#fff", fontWeight: 600 }}>
+              {item.name}
+            </Typography>
+          </Box>
+        )}
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: compact ? "38%" : "35%",
+            transform: "translate(-50%, -50%)",
+            color: "#fff",
+            display: "flex",
+          }}
+        >
+          <ChevronsRight size={compact ? 22 : 30} />
         </Box>
       </Box>
     );
@@ -213,7 +253,7 @@ function InventoryItemMedia({ item, ships }: { item: StoreInventoryItem; ships: 
   return (
     <Box
       component="img"
-      sx={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 1 }}
+      sx={{ width: "100%", height, objectFit: "cover", display: "block" }}
       src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
       alt={item.name}
     />
@@ -246,6 +286,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [isAdjustStockSubmitting, setIsAdjustStockSubmitting] = useState(false);
 
   const [isCreateListingDialogOpen, setIsCreateListingDialogOpen] = useState(false);
+  const [editingListing, setEditingListing] = useState<ListingItem | null>(null);
   const [selectedSourceItem, setSelectedSourceItem] = useState<StoreInventoryItem | null>(null);
   const [prefillSearchTerm, setPrefillSearchTerm] = useState("");
   const [prefillGiftableOnly, setPrefillGiftableOnly] = useState(true);
@@ -415,6 +456,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   }, [ships]);
 
   const resetManualFormFields = useCallback(() => {
+    setEditingListing(null);
     setSelectedSourceItem(null);
     setPrefillSearchTerm("");
     setPrefillGiftableOnly(true);
@@ -470,6 +512,47 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualDescription("");
     setManualImageUrl(item.imageUrl || "");
     setManualExternalRef("");
+  }, [resolveShip]);
+
+  const applyListingItemToForm = useCallback((item: ListingItem) => {
+    const resolvedPackageShips = (item.packageShips || [])
+      .map((ship) => resolveShip(ship.shipId, ship.shipName))
+      .filter((ship): ship is Ship => ship !== null);
+    const resolvedPrimaryShip = resolveShip(item.shipId, item.shipName) || resolvedPackageShips[0] || null;
+
+    setSelectedSourceItem(null);
+    setPrefillSearchTerm("");
+    setPrefillGiftableOnly(true);
+    setManualItemType(item.itemType === "credit" ? DEFAULT_MANUAL_ITEM_TYPE : item.itemType);
+    setManualPackageKind(
+      item.itemType === "package"
+        ? ((item.packageKind as MarketPackageKind | undefined) || DEFAULT_PACKAGE_KIND)
+        : DEFAULT_PACKAGE_KIND,
+    );
+    setSelectedFromShip(resolveShip(item.fromShipId, item.fromShipName));
+    setSelectedToShip(resolveShip(item.toShipId, item.toShipName));
+    setSelectedPrimaryShip(resolvedPrimaryShip);
+    setSelectedPackageShips(
+      item.itemType === "package" && item.packageKind === "bundle"
+        ? resolvedPackageShips
+        : (resolvedPrimaryShip ? [resolvedPrimaryShip] : resolvedPackageShips)
+    );
+    setManualItemName(item.name);
+    setManualItemPrice(item.price);
+    setManualItemCost(item.cost ?? item.price);
+    setManualItemCostTouched(false);
+    setManualItemQuantity(Math.max(item.stock - item.lockedStock, 0));
+    setManualVisibleInMarket(item.visibleInMarket !== false);
+    setManualInsuranceType(item.insuranceType || "");
+    setManualOcTag(Boolean(item.tags?.includes("oc")));
+    setManualPackageItems((item.packageItems || []).map((entry) => createManualPackageItemDraft({
+      itemName: entry.itemName,
+      itemKind: entry.itemKind || "",
+      imageUrl: normalizeManualPackageItemImageUrl(entry.imageUrl),
+    })));
+    setManualDescription(item.description || "");
+    setManualImageUrl(item.imageUrl || "");
+    setManualExternalRef(item.externalRef || "");
   }, [resolveShip]);
 
   const filteredInventoryItems = useMemo(() => {
@@ -550,6 +633,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     resetManualFormFields();
     setIsCreateListingDialogOpen(true);
   };
+
+  const handleOpenEditListingDialog = useCallback((item: ListingItem) => {
+    resetManualFormFields();
+    setEditingListing(item);
+    applyListingItemToForm(item);
+    setIsCreateListingDialogOpen(true);
+  }, [applyListingItemToForm, resetManualFormFields]);
 
   const handleCloseCreateListingDialog = () => {
     setIsCreateListingDialogOpen(false);
@@ -694,11 +784,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     return true;
   }, [manualItemName, manualItemPrice, manualItemQuantity, manualItemType, manualPackageKind, selectedFromShip, selectedPrimaryShip, selectedToShip]);
 
-  const handleCreateListing = async () => {
-    if (!token || !canSubmitManualItem) {
-      return;
-    }
+  const editingRequiresReplacement = Boolean(editingListing);
+  const editingLockedStock = editingListing?.lockedStock || 0;
+  const editingAvailableStock = editingListing ? Math.max(editingListing.stock - editingLockedStock, 0) : null;
 
+  const buildManualListingPayload = useCallback(() => {
     const basePayload = {
       name: manualItemName.trim(),
       price: manualItemPrice,
@@ -706,112 +796,137 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       stock: manualItemQuantity,
       sourceKind: selectedSourceItem ? "hangar" : "manual",
       visibleInMarket: manualVisibleInMarket,
-      tags: canAssignOcTag && manualOcTag ? ['oc'] : [],
+      tags: canAssignOcTag && manualOcTag ? ["oc"] : [],
+      ...(editingListing ? { replaceSkuId: editingListing.skuId } : {}),
     };
 
+    if (manualItemType === "ccu") {
+      if (!selectedFromShip || !selectedToShip || selectedFromShip.id === selectedToShip.id) {
+        return null;
+      }
+
+      return {
+        ...basePayload,
+        itemType: "ccu" as const,
+        fromShipId: selectedFromShip.id,
+        toShipId: selectedToShip.id,
+        fromShipName: selectedFromShip.name,
+        toShipName: selectedToShip.name,
+        rsiName: basePayload.name,
+      };
+    }
+
+    if (manualItemType === "package") {
+      const packageShips = manualPackageKind === "standalone_ship"
+        ? (selectedPrimaryShip ? [{
+            shipId: selectedPrimaryShip.id,
+            shipName: selectedPrimaryShip.name,
+            sortOrder: 1,
+          }] : [])
+        : selectedPackageShips.map((ship, index) => ({
+            shipId: ship.id,
+            shipName: ship.name,
+            sortOrder: index + 1,
+          }));
+
+      const primaryShip = manualPackageKind === "standalone_ship"
+        ? selectedPrimaryShip
+        : (selectedPrimaryShip || selectedPackageShips[0] || null);
+
+      if (manualPackageKind === "standalone_ship" && (!packageShips.length || !primaryShip)) {
+        return null;
+      }
+
+      return {
+        ...basePayload,
+        itemType: "package" as const,
+        shipId: primaryShip?.id,
+        primaryShipId: primaryShip?.id,
+        primaryShipName: primaryShip?.name,
+        packageKind: manualPackageKind,
+        insuranceType: manualInsuranceType || undefined,
+        packageShips,
+        packageItems: manualPackageKind === "bundle" ? parseManualPackageItems() : [],
+        imageUrl: manualImageUrl || undefined,
+        description: manualDescription || undefined,
+      };
+    }
+
+    return {
+      ...basePayload,
+      itemType: "misc" as const,
+      imageUrl: manualImageUrl || undefined,
+      description: manualDescription || undefined,
+      externalRef: manualExternalRef || undefined,
+    };
+  }, [
+    canAssignOcTag,
+    editingListing,
+    manualDescription,
+    manualExternalRef,
+    manualImageUrl,
+    manualInsuranceType,
+    manualItemCost,
+    manualItemCostTouched,
+    manualItemName,
+    manualItemPrice,
+    manualItemQuantity,
+    manualItemType,
+    manualOcTag,
+    manualPackageKind,
+    manualVisibleInMarket,
+    parseManualPackageItems,
+    selectedFromShip,
+    selectedPackageShips,
+    selectedPrimaryShip,
+    selectedSourceItem,
+    selectedToShip,
+  ]);
+
+  const handleCreateListing = useCallback(async () => {
+    if (!token || !canSubmitManualItem) {
+      return;
+    }
+
+    const payload = buildManualListingPayload();
+    if (!payload) {
+      return;
+    }
+
     try {
-      if (manualItemType === "ccu") {
-        if (!selectedFromShip || !selectedToShip || selectedFromShip.id === selectedToShip.id) {
-          return;
-        }
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const responsePayload = await response.json().catch(() => null);
 
-        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...basePayload,
-            itemType: "ccu",
-            fromShipId: selectedFromShip.id,
-            toShipId: selectedToShip.id,
-            fromShipName: selectedFromShip.name,
-            toShipName: selectedToShip.name,
-            rsiName: basePayload.name,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Unexpected response: ${response.status}`);
-        }
-      } else if (manualItemType === "package") {
-        const packageShips = manualPackageKind === "standalone_ship"
-          ? (selectedPrimaryShip ? [{
-              shipId: selectedPrimaryShip.id,
-              shipName: selectedPrimaryShip.name,
-              sortOrder: 1,
-            }] : [])
-          : selectedPackageShips.map((ship, index) => ({
-              shipId: ship.id,
-              shipName: ship.name,
-              sortOrder: index + 1,
-            }));
-
-        const primaryShip = manualPackageKind === "standalone_ship"
-          ? selectedPrimaryShip
-          : (selectedPrimaryShip || selectedPackageShips[0] || null);
-
-        if (manualPackageKind === "standalone_ship" && (!packageShips.length || !primaryShip)) {
-          return;
-        }
-
-        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...basePayload,
-            itemType: "package",
-            shipId: primaryShip?.id,
-            primaryShipId: primaryShip?.id,
-            primaryShipName: primaryShip?.name,
-            packageKind: manualPackageKind,
-            insuranceType: manualInsuranceType || undefined,
-            packageShips,
-            packageItems: manualPackageKind === "bundle" ? parseManualPackageItems() : [],
-            imageUrl: manualImageUrl || undefined,
-            description: manualDescription || undefined,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Unexpected response: ${response.status}`);
-        }
-      } else {
-        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...basePayload,
-            itemType: "misc",
-            imageUrl: manualImageUrl || undefined,
-            description: manualDescription || undefined,
-            externalRef: manualExternalRef || undefined,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Unexpected response: ${response.status}`);
-        }
+      if (!response.ok) {
+        throw new Error(
+          typeof responsePayload?.error === "string"
+            ? responsePayload.error
+            : `Unexpected response: ${response.status}`,
+        );
       }
 
       setListingFetchError(null);
       await fetchListingItems();
       handleCloseCreateListingDialog();
     } catch (error) {
-      console.error("Failed to create listing:", error);
-      setListingFetchError(intl.formatMessage({
-        id: "hangar.createListingFailed",
-        defaultMessage: "Failed to create listing",
-      }));
+      console.error(`Failed to ${editingListing ? "replace" : "create"} listing:`, error);
+      setListingFetchError(
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({
+            id: editingListing ? "market.replaceListingFailed" : "hangar.createListingFailed",
+            defaultMessage: editingListing ? "Failed to replace listing" : "Failed to create listing",
+          }),
+      );
     }
-  };
+  }, [buildManualListingPayload, canSubmitManualItem, editingListing, fetchListingItems, handleCloseCreateListingDialog, intl, token]);
 
   return (
     <div className="relative sm:pt-24">
@@ -920,136 +1035,81 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       ) : (
         <Box sx={{ width: "100%", overflow: "auto" }}>
           <TableContainer sx={{ mb: 2 }}>
-            <Table aria-label={intl.formatMessage({ id: 'reseller.store.table.ariaLabel', defaultMessage: 'Store listings table' })}>
+            <Table
+              size="small"
+              aria-label={intl.formatMessage({ id: 'reseller.store.table.ariaLabel', defaultMessage: 'Store listings table' })}
+              sx={{
+                minWidth: 1080,
+                "& .MuiTableCell-root": {
+                  px: 1.5,
+                  py: 1.25,
+                  verticalAlign: "top",
+                },
+              }}
+            >
               <TableHead>
                 <TableRow>
-                  <TableCell width="360px">
+                  <TableCell width="220px">
                     <FormattedMessage id="hangar.image" defaultMessage="Image" />
                   </TableCell>
                   <TableCell>
                     <FormattedMessage id="hangar.details" defaultMessage="Details" />
                   </TableCell>
-                  <TableCell width="180px">
+                  <TableCell width="140px">
                     <FormattedMessage id="hangar.type" defaultMessage="Type" />
                   </TableCell>
-                  <TableCell width="160px">
+                  <TableCell width="120px">
                     <FormattedMessage id="hangar.price" defaultMessage="Price" />
                   </TableCell>
-                  <TableCell width="160px">
+                  <TableCell width="120px">
                     <FormattedMessage id="market.cost" defaultMessage="Cost" />
                   </TableCell>
-                  <TableCell width="180px">
+                  <TableCell width="150px">
                     <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />
                   </TableCell>
-                  <TableCell width="140px">
+                  <TableCell width="220px">
                     <FormattedMessage id="hangar.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {listingItems.map((item) => {
-                  const visual = getMarketItemVisual(item, ships);
                   const displayType = getListingDisplayType(item);
                   const availableStock = Math.max(item.stock - item.lockedStock, 0);
+                  const subtitle = getInventorySubtitle(item, intl);
+                  const showSubtitle = subtitle !== item.name;
+                  const packageMeta = item.itemType === "package"
+                    ? [item.packageKind, item.insuranceType].filter(Boolean).join(" · ")
+                    : "";
+                  const supplementalText = [item.description, item.externalRef].filter(Boolean).join(" · ");
 
                   return (
                     <TableRow key={item.skuId} hover>
                       <TableCell>
-                        {item.itemType === "ccu" ? (
-                          <Box sx={{ position: "relative", width: 320, height: 180, overflow: "hidden" }}>
-                            <Box
-                              component="img"
-                              sx={{
-                                position: "absolute",
-                                left: 0,
-                                top: 0,
-                                width: "35%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                              src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.fromShipName || item.name}
-                            />
-                            <Box
-                              component="img"
-                              sx={{
-                                position: "absolute",
-                                right: 0,
-                                top: 0,
-                                width: "65%",
-                                height: "100%",
-                                objectFit: "cover",
-                                boxShadow: "0 0 20px 0 rgba(0, 0, 0, 0.2)",
-                              }}
-                              src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
-                              alt={visual.toShipName || item.name}
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 flex items-center justify-center">
-                              <span className="text-white text-sm">{item.name}</span>
-                            </div>
-                            <div className="absolute top-[50%] left-[35%] -translate-y-[50%] -translate-x-[50%] text-white text-2xl font-bold">
-                              <ChevronsRight className="w-8 h-8" />
-                            </div>
-                          </Box>
-                        ) : (
-                          <Box
-                            component="img"
-                            sx={{ width: 280, height: 160, objectFit: "cover" }}
-                            src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
-                            alt={item.name}
-                          />
-                        )}
+                        <Box sx={{ width: 196 }}>
+                          <MarketItemMedia item={item} ships={ships} compact height={104} />
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-2">
-                          <Typography variant="h6">{item.name}</Typography>
-
-                          {item.itemType === "ccu" && (
-                            <Typography variant="body2" color="text.secondary">
-                              {item.fromShipName || visual.fromShipName || "-"} {"->"} {item.toShipName || visual.toShipName || "-"}
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, minWidth: 0 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={twoLineClampSx}>
+                            {item.name}
+                          </Typography>
+                          {showSubtitle && (
+                            <Typography variant="body2" color="text.secondary" sx={twoLineClampSx}>
+                              {subtitle}
                             </Typography>
                           )}
-
-                          {item.itemType === "package" && (
-                            <>
-                              {(item.shipName || item.packageShips?.length) && (
-                                <Typography variant="body2" color="text.secondary">
-                                  {item.packageKind === "bundle"
-                                    ? intl.formatMessage(
-                                      { id: "market.detail.shipCount", defaultMessage: "{count, plural, one {# ship} other {# ships}}" },
-                                      { count: item.packageShips?.length || 0 },
-                                    )
-                                    : (item.shipName || item.packageShips?.[0]?.shipName || "-")}
-                                </Typography>
-                              )}
-                              {(item.packageKind || item.insuranceType) && (
-                                <Typography variant="body2" color="text.secondary">
-                                  {[item.packageKind, item.insuranceType].filter(Boolean).join(" · ")}
-                                </Typography>
-                              )}
-                              {item.packageKind === "bundle" && (
-                                <Typography variant="body2" color="text.secondary">
-                                  {intl.formatMessage(
-                                    { id: "market.detail.extraCount", defaultMessage: "{count, plural, one {# extra} other {# extras}}" },
-                                    { count: item.packageItems?.length || 0 },
-                                  )}
-                                </Typography>
-                              )}
-                            </>
-                          )}
-
-                          {item.description && (
-                            <Typography variant="body2" color="text.secondary">
-                              {item.description}
+                          {packageMeta && (
+                            <Typography variant="caption" color="text.secondary" sx={twoLineClampSx}>
+                              {packageMeta}
                             </Typography>
                           )}
-
-                          {item.externalRef && (
-                            <Typography variant="body2" color="text.secondary">
-                              {item.externalRef}
+                          {supplementalText && (
+                            <Typography variant="caption" color="text.secondary" sx={twoLineClampSx}>
+                              {supplementalText}
                             </Typography>
                           )}
-
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                             {item.sourceKind && (
                               <Chip size="small" variant="outlined" label={getSourceKindLabel(item.sourceKind, intl)} />
@@ -1071,28 +1131,28 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                               <Chip key={`${item.skuId}-${tag}`} size="small" color="warning" label={getMarketTagLabel(intl, tag)} />
                             ))}
                           </Box>
-                        </div>
+                        </Box>
                       </TableCell>
-                      <TableCell sx={{ textWrap: "nowrap" }}>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
                         <Chip
                           size="small"
                           label={getDisplayTypeLabel(displayType, intl)}
                         />
                       </TableCell>
-                      <TableCell sx={{ textWrap: "nowrap" }}>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
                         <Typography variant="body2" color="primary" fontWeight={700}>
                           {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ textWrap: "nowrap" }}>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
                         <Typography variant="body2" color="text.secondary" fontWeight={600}>
                           {typeof item.cost === "number"
                             ? item.cost.toLocaleString(intl.locale, { style: "currency", currency: "USD" })
                             : "-"}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ textWrap: "nowrap" }}>
-                        <div className="flex flex-col gap-1">
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
                           <Typography variant="body2" fontWeight={700}>
                             {availableStock}
                           </Typography>
@@ -1103,14 +1163,24 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                               values={{ stock: item.stock, lockedStock: item.lockedStock }}
                             />
                           </Typography>
-                        </div>
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", minWidth: 180 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleOpenEditListingDialog(item)}
+                            disabled={item.itemType === "credit"}
+                            sx={{ minWidth: 0 }}
+                          >
+                            <FormattedMessage id="common.edit" defaultMessage="Edit" />
+                          </Button>
                           <Button
                             size="small"
                             variant="outlined"
                             onClick={() => handleOpenAdjustStockDialog(item)}
+                            sx={{ minWidth: 0 }}
                           >
                             <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
                           </Button>
@@ -1119,6 +1189,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             variant="outlined"
                             color="error"
                             onClick={() => handleRemoveItem(item.skuId)}
+                            sx={{ minWidth: 0 }}
                           >
                             <FormattedMessage id="hangar.remove" defaultMessage="Remove" />
                           </Button>
@@ -1152,18 +1223,48 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         open={isCreateListingDialogOpen}
         onClose={handleCloseCreateListingDialog}
         fullWidth
-        maxWidth="md"
+        fullScreen
       >
         <DialogTitle>
-          <FormattedMessage id="hangar.addListing" defaultMessage="Add Listing" />
+          {editingListing ? (
+            <FormattedMessage id="market.editListing" defaultMessage="Edit Listing" />
+          ) : (
+            <FormattedMessage id="hangar.addListing" defaultMessage="Add Listing" />
+          )}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 3 }}>
-            <FormattedMessage
-              id="market.prefillFromHangarDescription"
-              defaultMessage="Choose a hangar item to prefill the form, or leave it empty and fill the listing manually."
-            />
+            {editingListing ? (
+              <FormattedMessage
+                id="market.replaceListingDescription"
+                defaultMessage="Editing a listing will first take down the original SKU, then publish a new SKU with the updated information."
+              />
+            ) : (
+              <FormattedMessage
+                id="market.prefillFromHangarDescription"
+                defaultMessage="Choose a hangar item to prefill the form, or leave it empty and fill the listing manually."
+              />
+            )}
           </DialogContentText>
+
+          {editingRequiresReplacement && (
+            <Alert
+              severity="info"
+              sx={{ mb: 3 }}
+            >
+              {editingLockedStock > 0
+                ? intl.formatMessage({
+                  id: "market.replaceListingLockedStockNotice",
+                  defaultMessage: "Submitting this form will delist the original SKU and create a new SKU. Locked stock stays on the original SKU for existing orders, and the new SKU quantity defaults to the currently available stock ({stock}).",
+                }, {
+                  stock: editingAvailableStock ?? 0,
+                })
+                : intl.formatMessage({
+                  id: "market.replaceListingNotice",
+                  defaultMessage: "Submitting this form will delist the original SKU and create a new SKU with the updated product information.",
+                })}
+            </Alert>
+          )}
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
             <Box sx={{ gridColumn: { md: "1 / span 2" }, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1205,13 +1306,24 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
                     <FormattedMessage id="market.prefillSelectedItem" defaultMessage="Selected Hangar Item" />
                   </Typography>
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "320px 1fr" }, gap: 2 }}>
-                    <InventoryItemMedia item={selectedSourceItem} ships={ships} />
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      <Typography variant="h6">{selectedSourceItem.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {getInventorySubtitle(selectedSourceItem, intl)}
-                      </Typography>
+                  <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+                    <Box sx={{ width: { xs: "100%", md: 240 }, flexShrink: 0 }}>
+                      <MarketItemMedia item={selectedSourceItem} ships={ships} compact height={132} />
+                    </Box>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="subtitle1" fontWeight={700} sx={twoLineClampSx}>
+                            {selectedSourceItem.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={twoLineClampSx}>
+                            {getInventorySubtitle(selectedSourceItem, intl)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
+                          {selectedSourceItem.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+                        </Typography>
+                      </Box>
                       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                         <Chip size="small" label={getDisplayTypeLabel(selectedSourceItem.displayType, intl)} />
                         <Chip
@@ -1230,11 +1342,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                           />
                         )}
                       </Box>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary">
                         {getInventoryOptionMeta(selectedSourceItem)}
-                      </Typography>
-                      <Typography variant="body2" color="primary" fontWeight={700}>
-                        {selectedSourceItem.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
                       </Typography>
                     </Box>
                   </Box>
@@ -1256,7 +1365,17 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                     <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
                   </Typography>
                 ) : (
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: {
+                        xs: "1fr",
+                        md: "repeat(2, minmax(0, 1fr))",
+                        xl: "repeat(3, minmax(0, 1fr))",
+                      },
+                      gap: 1.25,
+                    }}
+                  >
                     {filteredInventoryItems.map((item) => {
                       const isSelected = selectedSourceItem?.sourceKey === item.sourceKey;
 
@@ -1277,18 +1396,25 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             borderColor: isSelected ? "primary.main" : "divider",
                             bgcolor: isSelected ? "action.selected" : "background.paper",
                             borderRadius: 1,
-                            p: 1.5,
+                            p: 1.25,
                             cursor: "pointer",
                             transition: "border-color 0.2s ease, background-color 0.2s ease",
                           }}
                         >
-                          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                            <InventoryItemMedia item={item} ships={ships} />
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-                              <Typography variant="subtitle1" fontWeight={700}>
-                                {item.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
+                          <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
+                            <Box sx={{ width: { xs: 120, sm: 136 }, flexShrink: 0 }}>
+                              <MarketItemMedia item={item} ships={ships} compact height={84} />
+                            </Box>
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                <Typography variant="subtitle2" fontWeight={700} sx={{ ...twoLineClampSx, flex: 1, minWidth: 0 }}>
+                                  {item.name}
+                                </Typography>
+                                <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
+                                  {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+                                </Typography>
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" sx={twoLineClampSx}>
                                 {getInventorySubtitle(item, intl)}
                               </Typography>
                               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -1309,7 +1435,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                                   />
                                 )}
                               </Box>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary">
                                 {getInventoryOptionMeta(item)}
                               </Typography>
                             </Box>
@@ -1492,7 +1618,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               value={manualItemQuantity}
               onChange={(event) => setManualItemQuantity(Number(event.target.value))}
               InputProps={{
-                inputProps: { min: 1 },
+                inputProps: { min: 0 },
               }}
             />
 
@@ -1641,7 +1767,11 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             <FormattedMessage id="cancel" defaultMessage="Cancel" />
           </Button>
           <Button onClick={handleCreateListing} disabled={!canSubmitManualItem} variant="contained">
-            <FormattedMessage id="hangar.addItem" defaultMessage="Add Item" />
+            {editingListing ? (
+              <FormattedMessage id="market.replaceListingAction" defaultMessage="Replace SKU" />
+            ) : (
+              <FormattedMessage id="hangar.addItem" defaultMessage="Add Item" />
+            )}
           </Button>
         </DialogActions>
       </Dialog>
