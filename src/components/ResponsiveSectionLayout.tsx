@@ -9,6 +9,8 @@ export type ResponsiveSectionLayoutItem = {
   ariaLabel?: string;
   active?: boolean;
   kind?: 'section' | 'action';
+  groupId?: string;
+  groupLabel?: ReactNode;
   onSelect: () => void;
 };
 
@@ -34,6 +36,20 @@ function buildItemClassName(active: boolean) {
     'hover:bg-gray-100 dark:hover:bg-gray-800',
     active ? 'bg-gray-100 dark:bg-gray-800' : '',
   ].join(' ').trim();
+}
+
+function shouldRenderGroupLabel(
+  items: ResponsiveSectionLayoutItem[],
+  index: number,
+): boolean {
+  const current = items[index];
+  const previous = items[index - 1];
+
+  return Boolean(
+    current.groupId &&
+    current.groupLabel &&
+    current.groupId !== previous?.groupId,
+  );
 }
 
 export default function ResponsiveSectionLayout({
@@ -71,24 +87,34 @@ export default function ResponsiveSectionLayout({
       >
         <div className="hidden min-h-0 min-w-[300px] max-w-[400px] shrink-0 border-r border-b border-gray-200 text-left dark:border-gray-800 md:flex md:flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {sectionItems.map((item) => (
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                aria-current={item.active ? 'page' : undefined}
-                aria-label={item.ariaLabel}
-                className={buildItemClassName(Boolean(item.active))}
-                onClick={() => item.onSelect()}
-                onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="text-lg">{item.title}</div>
-                  {item.description && (
-                    <Typography variant="body2" color="text.secondary">
-                      {item.description}
-                    </Typography>
-                  )}
+            {sectionItems.map((item, index) => (
+              <div key={item.id}>
+                {shouldRenderGroupLabel(sectionItems, index) && (
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ display: 'block', px: 2, pt: 2, pb: 0.75, fontWeight: 700, letterSpacing: '0.08em' }}
+                  >
+                    {item.groupLabel}
+                  </Typography>
+                )}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-current={item.active ? 'page' : undefined}
+                  aria-label={item.ariaLabel}
+                  className={buildItemClassName(Boolean(item.active))}
+                  onClick={() => item.onSelect()}
+                  onKeyDown={(event) => handleKeyboardSelect(event, item.onSelect)}
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="text-lg">{item.title}</div>
+                    {item.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {item.description}
+                      </Typography>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -193,34 +219,44 @@ export default function ResponsiveSectionLayout({
           </Typography>
 
           <div className="flex flex-col">
-            {sectionItems.map((item) => (
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                aria-current={item.active ? 'page' : undefined}
-                aria-label={item.ariaLabel}
-                className={[
-                  'border-b border-gray-200 px-0 py-3 transition-colors dark:border-gray-800',
-                  item.active ? 'text-inherit' : 'hover:bg-gray-100 dark:hover:bg-gray-800',
-                ].join(' ')}
-                onClick={() => handleSelect(item)}
-                onKeyDown={(event) => handleKeyboardSelect(event, () => handleSelect(item))}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-base font-medium">{item.title}</div>
-                    {item.description && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {item.description}
+            {sectionItems.map((item, index) => (
+              <div key={item.id}>
+                {shouldRenderGroupLabel(sectionItems, index) && (
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ display: 'block', pt: 1.5, pb: 0.75, fontWeight: 700, letterSpacing: '0.08em' }}
+                  >
+                    {item.groupLabel}
+                  </Typography>
+                )}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-current={item.active ? 'page' : undefined}
+                  aria-label={item.ariaLabel}
+                  className={[
+                    'border-b border-gray-200 px-0 py-3 transition-colors dark:border-gray-800',
+                    item.active ? 'text-inherit' : 'hover:bg-gray-100 dark:hover:bg-gray-800',
+                  ].join(' ')}
+                  onClick={() => handleSelect(item)}
+                  onKeyDown={(event) => handleKeyboardSelect(event, () => handleSelect(item))}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-base font-medium">{item.title}</div>
+                      {item.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {item.description}
+                        </Typography>
+                      )}
+                    </div>
+                    {item.active && (
+                      <Typography variant="body2" color="primary" sx={{ flexShrink: 0, fontWeight: 700 }}>
+                        Current
                       </Typography>
                     )}
                   </div>
-                  {item.active && (
-                    <Typography variant="body2" color="primary" sx={{ flexShrink: 0, fontWeight: 700 }}>
-                      Current
-                    </Typography>
-                  )}
                 </div>
               </div>
             ))}
