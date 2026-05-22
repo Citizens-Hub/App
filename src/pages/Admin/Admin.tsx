@@ -21,6 +21,7 @@ import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
 import SiteNotificationManager from './components/SiteNotificationManager';
 import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
+import InvoiceSettingsManager from './components/InvoiceSettingsManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -37,6 +38,7 @@ enum Page {
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
+  InvoiceSettings = 'invoiceSettings',
   MarketingOffers = 'marketingOffers',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
@@ -128,6 +130,13 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.NewUserCoupon),
     },
     {
+      id: Page.InvoiceSettings,
+      title: <FormattedMessage id="admin.invoiceSettings.title" defaultMessage="Invoice Settings" />,
+      description: <FormattedMessage id="admin.invoiceSettings.description" defaultMessage="Configure issuer details and self-hosted Hong Kong invoice defaults." />,
+      active: currentPage === Page.InvoiceSettings,
+      onSelect: () => setCurrentPage(Page.InvoiceSettings),
+    },
+    {
       id: Page.MarketingOffers,
       title: <FormattedMessage id="admin.marketingOffers.title" defaultMessage="Marketing Offers" />,
       description: <FormattedMessage id="admin.marketingOffers.description" defaultMessage="Create user-bound bundle discounts for existing market listings." />,
@@ -217,6 +226,7 @@ export default function Admin() {
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
+        {currentPage === Page.InvoiceSettings && <InvoiceSettingsManager />}
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.SiteNotification && <SiteNotificationManager />}

@@ -524,7 +524,7 @@ const OrderDetail = () => {
   }, [handleLoadPaymentInfo, order?.id, order?.status]);
 
   const handleOpenPaymentDocument = async () => {
-    const targetUrl = paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl;
+    const targetUrl = order?.invoiceUrl || paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl;
     if (!targetUrl) {
       if (!order?.invoiceId) {
         return;
@@ -726,7 +726,7 @@ const OrderDetail = () => {
   const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
   const total = orderItems.reduce((sum, item) => sum + (item.sellerNetAmount ?? ((item.quantity - (item.cancelledQuantity || 0)) * item.price)), 0);
-  const paymentDocumentAvailable = Boolean(paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || order.invoiceId);
+  const paymentDocumentAvailable = Boolean(order.invoiceUrl || paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || order.invoiceId);
   const chargedLabel = paymentInfo
     ? formatMoney(intl.locale, paymentInfo.amountTotal, paymentInfo.currency)
     : formatOrderChargedLabel(intl, order);

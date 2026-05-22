@@ -385,6 +385,18 @@ export default function OrdersManager() {
                         <FormattedMessage id="orderDetail.invoiceId" defaultMessage="Invoice ID" />: {selectedOrder.invoiceId}
                       </Typography>
                     )}
+                    {selectedOrder.invoiceUrl && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        href={selectedOrder.invoiceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ width: 'fit-content' }}
+                      >
+                        <FormattedMessage id="orderDetail.viewInvoice" defaultMessage="View Invoice" />
+                      </Button>
+                    )}
                   </Box>
                   {renderSummary(selectedOrder)}
                 </Box>

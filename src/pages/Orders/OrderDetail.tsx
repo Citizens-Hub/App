@@ -73,7 +73,14 @@ export default function OrderDetail() {
 
   // Handle view receipt
   const handleViewReceipt = () => {
-    if (!order || !order.invoiceId) return;
+    if (!order) return;
+
+    if (order.invoiceUrl) {
+      window.open(order.invoiceUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!order.invoiceId) return;
 
     fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/invoice?invoiceId=${order.invoiceId}`, {
       method: 'GET',
@@ -82,7 +89,13 @@ export default function OrderDetail() {
         'Authorization': `Bearer ${user?.token}`
       }
     }).then(res => res.json()).then(data => {
-      window.open(data.url, '_blank');
+      if (!data?.url) {
+        throw new Error('Invoice URL not found');
+      }
+
+      window.open(data.url, '_blank', 'noopener,noreferrer');
+    }).catch((viewError) => {
+      console.error(viewError);
     });
   };
 

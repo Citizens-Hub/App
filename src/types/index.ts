@@ -978,6 +978,7 @@ export interface Order {
   updatedAt?: string;
   sessionId?: string | null;
   invoiceId?: string | null;
+  invoiceUrl?: string | null;
 }
 
 export interface DetailedOrderItem extends OrderItem {
@@ -1034,6 +1035,7 @@ export interface DetailedOrderItem extends OrderItem {
 export interface DetailedOrder extends Order {
   updatedAt: string;
   invoiceId: string | null;
+  invoiceUrl?: string | null;
   items: DetailedOrderItem[];
   customerEmail?: string | null;
   customerName?: string | null;
@@ -1182,6 +1184,7 @@ export interface OrderPaymentInfo {
   paymentIntentStatus: string | null;
   currency: string | null;
   amountSubtotal: number | null;
+  amountDiscount: number | null;
   amountTax: number | null;
   amountShipping: number | null;
   amountTotal: number | null;
@@ -1295,6 +1298,25 @@ export interface NewUserCouponSettings {
     minimumAmount: number;
     probability: number;
   }>;
+}
+
+export interface InvoiceSettings {
+  enabled: boolean;
+  storeName: string;
+  companyName: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyWebsite: string;
+  companyRegistrationNumber: string;
+  companyTaxLabel: string;
+  companyTaxNumber: string;
+  bankDetails: string;
+  paymentTerms: string;
+  notes: string;
+  footer: string;
+  locale: string;
+  currency: string;
 }
 
 export type SiteNotificationSeverity = 'info' | 'success' | 'warning' | 'error';
