@@ -659,7 +659,7 @@
   "checkout.currentAccountEmailLabel": "Current account email:",
   "checkout.emptyCart": "Your cart is empty",
   "checkout.error": "An error occurred while processing your order. Please try again.",
-  "checkout.feeWaivedMessage": "Waive software service fee for orders over $20",
+  "checkout.feeWaivedMessage": "Waive software service fee for orders of $5 or more",
   "checkout.goToLogin": "Go to Login",
   "checkout.goToProfile": "Go to Settings",
   "checkout.image": "Image",
@@ -2677,5 +2677,9 @@
   "ccuBulkCheckout.stock.unlimited": "unlimited",
   "ccuBulkCheckout.success.completed": "CCU bulk checkout completed successfully for {count} CCU item(s) across {batchCount} batch(es).",
   "ccuBulkCheckout.title": "CCU Bulk Checkout",
-  "ccuBulkCheckout.warning.cartNotCleared": "This tool does not clear the existing RSI official cart. Start from an empty RSI cart to avoid checking out unrelated items."
+  "ccuBulkCheckout.warning.cartNotCleared": "This tool does not clear the existing RSI official cart. Start from an empty RSI cart to avoid checking out unrelated items.",
+  "checkout.couponSelect": "Coupon",
+  "checkout.couponSelectPlaceholder": "Do not apply a coupon",
+  "checkout.noCoupon": "Do not use a coupon",
+  "checkout.couponOption": "{amountOff} off · min {minimumAmount}"
 }

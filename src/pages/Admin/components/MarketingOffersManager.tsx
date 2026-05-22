@@ -37,6 +37,8 @@ import { formatUsdPrice } from '@/pages/Market/marketI18n';
 import { getAvailableStock } from '@/pages/Market/marketUtils';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
+const SOFTWARE_SERVICE_FEE_AMOUNT = 0.99;
+const SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD = 5;
 
 interface SelectedOfferItem {
   item: ListingItem;
@@ -110,7 +112,9 @@ export default function MarketingOffersManager() {
 
   const subtotal = selectedItems.reduce((sum, entry) => sum + entry.item.price * entry.quantity, 0);
   const discount = Math.min(Number(amountOff) || 0, subtotal);
-  const serviceFee = serviceFeeEnabled && subtotal < 20 && subtotal > 0 ? 0.99 : 0;
+  const serviceFee = serviceFeeEnabled && subtotal < SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD && subtotal > 0
+    ? SOFTWARE_SERVICE_FEE_AMOUNT
+    : 0;
   const total = Math.max(subtotal - discount, 0) + serviceFee;
   const userOptions = usersData?.users || [];
   const listingItems = marketData?.items || [];

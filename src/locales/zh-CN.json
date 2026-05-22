@@ -659,7 +659,7 @@
   "checkout.currentAccountEmailLabel": "当前账号关联邮箱：",
   "checkout.emptyCart": "您的购物车为空",
   "checkout.error": "处理订单时发生错误，请重试。",
-  "checkout.feeWaivedMessage": "订单满 $20 免软件服务费",
+  "checkout.feeWaivedMessage": "订单满 $5 免软件服务费",
   "checkout.goToLogin": "前往登录",
   "checkout.goToProfile": "前往验证",
   "checkout.image": "图片",
@@ -2677,5 +2677,9 @@
   "admin.siteNotification.field.enabled": "Enable this notification immediately",
   "admin.siteNotification.loadError": "Failed to load site notification.",
   "admin.siteNotification.save": "Save Notification",
-  "admin.siteNotification.title": "Site Notification"
+  "admin.siteNotification.title": "Site Notification",
+  "checkout.couponSelect": "优惠券",
+  "checkout.couponSelectPlaceholder": "不使用优惠券",
+  "checkout.noCoupon": "不使用优惠券",
+  "checkout.couponOption": "优惠 {amountOff} · 满 {minimumAmount}"
 }

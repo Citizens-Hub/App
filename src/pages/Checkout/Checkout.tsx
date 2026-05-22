@@ -49,6 +49,8 @@ import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
 const CHECKOUT_PENDING_REQUEST_TTL_MS = 15 * 60 * 1000;
+const SOFTWARE_SERVICE_FEE_AMOUNT = 0.99;
+const SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD = 5;
 
 type PendingCheckoutRequestCache = {
   createdAt: number;
@@ -247,8 +249,8 @@ export default function Checkout() {
     user?.token ? `/api/user/new-user-coupon?subtotal=${encodeURIComponent(String(subtotal))}` : null,
   );
   // 判断是否免除服务费
-  const isServiceFeeFree = subtotal >= 20;
-  const serviceFee = isServiceFeeFree ? 0 : 0.99;
+  const isServiceFeeFree = subtotal >= SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD;
+  const serviceFee = isServiceFeeFree ? 0 : SOFTWARE_SERVICE_FEE_AMOUNT;
   const availableCoupons = couponPreview?.availableCoupons || [];
   const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) || null;
   const effectiveCoupon = selectedCoupon || null;
@@ -705,7 +707,7 @@ export default function Checkout() {
           <Alert severity="info" sx={{ mb: 2, textAlign: 'left', fontSize: '14px' }}>
             <FormattedMessage id="checkout.limitedTimeOffer" defaultMessage="Limited time offer:" />
             <br />
-            <FormattedMessage id="checkout.feeWaivedMessage" defaultMessage="Waive software service fee for orders over $20" />
+            <FormattedMessage id="checkout.feeWaivedMessage" defaultMessage="Waive software service fee for orders of $5 or more" />
           </Alert>
           {/* {couponPreview?.activeCoupon && (
             <Alert severity={couponPreview.applicableToCurrentCart ? 'success' : 'warning'} sx={{ mb: 2, textAlign: 'left', fontSize: '14px' }}>
@@ -837,10 +839,10 @@ export default function Checkout() {
                 )}
                 {isServiceFeeFree ? (
                   <span style={{ textDecoration: 'line-through', marginLeft: '8px' }}>
-                    {formatCheckoutPrice(0.99)}
+                    {formatCheckoutPrice(SOFTWARE_SERVICE_FEE_AMOUNT)}
                   </span>
                 ) : (
-                  <span>{formatCheckoutPrice(0.99)}</span>
+                  <span>{formatCheckoutPrice(SOFTWARE_SERVICE_FEE_AMOUNT)}</span>
                 )}
               </Typography>
             </Box>
