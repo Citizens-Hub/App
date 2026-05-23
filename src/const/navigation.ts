@@ -29,8 +29,18 @@ export const navigation = [
     path: "/market",
   },
   {
+    name: "navigation.accountMarket",
+    path: "/account-market",
+    hidden: true,
+  },
+  {
     name: "navigation.market",
     path: "/market/:item",
+    hidden: true,
+  },
+  {
+    name: "navigation.accountMarket",
+    path: "/account-market/:item",
     hidden: true,
   },
   {
@@ -142,6 +152,11 @@ export const navigation = [
   {
     name: "navigation.checkout",
     path: "/checkout",
+    hidden: true,
+  },
+  {
+    name: "navigation.accountCheckout",
+    path: "/account-market/checkout",
     hidden: true,
   },
   {

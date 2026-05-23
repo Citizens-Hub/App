@@ -15,11 +15,12 @@ import {
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { CartItem, MarketItemType } from '@/types';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
 import { X, Plus, Minus } from 'lucide-react';
 import { useShipsData } from '@/hooks';
+import { useMarketCartValidation } from '@/hooks';
 import { getMarketItemVisual } from '@/components/marketItemDisplay';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 
@@ -36,6 +37,8 @@ interface CartDrawerProps {
   onRemoveFromCart: (resourceId: string) => void;
   onUpdateQuantity?: (resourceId: string, quantity: number) => void;
   getAvailableStock?: (resourceId: string) => number;
+  checkoutPath?: string;
+  title?: ReactNode;
 }
 
 const CartDrawer: React.FC<CartDrawerProps> = ({ 
@@ -44,13 +47,16 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   onClose, 
   onRemoveFromCart, 
   onUpdateQuantity,
-  getAvailableStock 
+  getAvailableStock,
+  checkoutPath = '/checkout',
+  title,
 }) => {
   const intl = useIntl();
   const navigate = useNavigate();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const { ships } = useShipsData();
+  const cartValidation = useMarketCartValidation(cart, { enabled: checkoutPath === '/checkout' });
 
   const getResourceItemType = (item: CartItem['resource']): MarketItemType => {
     const rawItemType = item.itemType || item.subtitle || item.type;
@@ -156,7 +162,15 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       return;
     }
 
-    navigate('/checkout');
+    if (cartValidation.hasInvalidItems) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'cart.invalidItemsNotice',
+        defaultMessage: 'Some items are unavailable or over current stock. You can continue to checkout, and those items will be excluded from payment.',
+      }));
+      setSnackbarOpen(true);
+    }
+
+    navigate(checkoutPath);
     onClose();
   };
 
@@ -172,7 +186,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h6">
-            <FormattedMessage id="cart.title" defaultMessage="Your Cart" />
+            {title || <FormattedMessage id="cart.title" defaultMessage="Your Cart" />}
           </Typography>
           <IconButton onClick={onClose}>
             <Close />
@@ -190,11 +204,23 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
             <List sx={{ flexGrow: 1, overflow: 'auto' }}>
               {cart.map((item) => {
                 const displayName = getCartItemName(item);
+                const validation = cartValidation.itemMap.get(item.resource.id);
+                const isInvalid = validation?.valid === false;
+                const availableStockLabel = validation && validation.availableStock !== Number.MAX_SAFE_INTEGER
+                  ? intl.formatMessage(
+                    { id: 'cart.availableStock', defaultMessage: '{count} available now' },
+                    { count: validation.availableStock },
+                  )
+                  : '';
 
                 return (
                 <Box key={item.resource.id}>
                   <ListItem
-                    sx={{ py: 2 }}
+                    sx={{
+                      py: 2,
+                      opacity: isInvalid ? 0.65 : 1,
+                      bgcolor: isInvalid ? 'action.hover' : undefined,
+                    }}
                     secondaryAction={
                       <IconButton edge="end" onClick={() => onRemoveFromCart(item.resource.id)}>
                         <X className="w-5 h-5 text-red-500" />
@@ -215,6 +241,16 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                             {formatUsdPrice(intl.locale, item.resource.nativePrice.amount / 100)}
                           </div>
 
+                          {isInvalid && (
+                            <Alert severity="warning" sx={{ py: 0 }}>
+                              <FormattedMessage
+                                id="cart.invalidItem"
+                                defaultMessage="This SKU is no longer available for the requested quantity. {availableStock}"
+                                values={{ availableStock: availableStockLabel }}
+                              />
+                            </Alert>
+                          )}
+
                           {onUpdateQuantity && (
                             <ButtonGroup
                               size="small"
@@ -234,7 +270,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                               <IconButton 
                                 size="small"
                                 onClick={() => handleQuantityChange(item.resource.id, (item.quantity || 1) + 1)}
-                                disabled={(item.quantity ?? Infinity) >= (getAvailableStock?.(item.resource.id) ?? Infinity)}
+                                disabled={(item.quantity ?? Infinity) >= (validation?.availableStock ?? getAvailableStock?.(item.resource.id) ?? Infinity)}
                               >
                                 <Plus className="w-4 h-4" />
                               </IconButton>

@@ -40,6 +40,8 @@ const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
 const MarketDetail = lazy(() => import('./pages/Market/MarketDetail'));
+const AccountMarket = lazy(() => import('./pages/AccountMarket/AccountMarket'));
+const AccountMarketDetail = lazy(() => import('./pages/AccountMarket/AccountMarketDetail'));
 const MarketingOffer = lazy(() => import('./pages/MarketingOffer/MarketingOffer'));
 const Orders = lazy(() => import('./pages/Orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail'));
@@ -457,8 +459,11 @@ function App() {
 
               <Route path="/market" element={<Market />} />
               <Route path="/market/:skuId" element={<MarketDetail />} />
+              <Route path="/account-market" element={<AccountMarket />} />
+              <Route path="/account-market/:skuId" element={<AccountMarketDetail />} />
               <Route path="/offers/:token" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><MarketingOffer /></RequireAuth>} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/account-market/checkout" element={<Checkout />} />
               <Route path="/orders" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><Orders /></RequireAuth>} />
               <Route path="/orders/:orderId" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><OrderDetail /></RequireAuth>} />
               <Route path="/tickets" element={<RequireAuth allowedRoles={[UserRole.User, UserRole.Reseller, UserRole.Admin]}><Tickets /></RequireAuth>} />

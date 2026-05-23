@@ -31,6 +31,7 @@ export interface StoreInventoryItem {
   packageShips?: MarketPackageShip[];
   packageItems?: MarketPackageItem[];
   imageUrl?: string;
+  imageUrls?: string[];
   description?: string;
   ownerLabels: string[];
   quantityByOwner: Array<{ id: number; name: string; quantity: number }>;
@@ -121,6 +122,7 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         insuranceType: item.insurance,
         packageShips: [{ shipId: shipInfo.id, shipName: shipInfo.name, sortOrder: 1 }],
         imageUrl: getShipThumbLarge(shipInfo),
+        imageUrls: [getShipThumbLarge(shipInfo)].filter((imageUrl): imageUrl is string => Boolean(imageUrl)),
         ownerLabels: [ownerName],
         quantityByOwner: [{ id: item.belongsTo, name: ownerName, quantity }],
         fromMsrp: shipInfo.msrp || 0,
@@ -180,6 +182,10 @@ export function buildInventoryItems(args: BuildInventoryItemsArgs): StoreInvento
         packageShips: bundleShips,
         packageItems: bundleOthers,
         imageUrl: getShipThumbLarge(primaryShipInfo) || bundleOthers.find((entry) => entry.imageUrl)?.imageUrl,
+        imageUrls: [
+          getShipThumbLarge(primaryShipInfo),
+          ...bundleOthers.map((entry) => entry.imageUrl),
+        ].filter((imageUrl): imageUrl is string => Boolean(imageUrl)),
         ownerLabels: [ownerName],
         quantityByOwner: [{ id: item.belongsTo, name: ownerName, quantity }],
         fromMsrp: totalMsrp,

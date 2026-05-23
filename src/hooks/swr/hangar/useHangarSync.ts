@@ -218,6 +218,7 @@ export default function useHangarSync() {
             ccus: [],
             ships: [],
             bundles: [],
+            accountIssues: [],
             predicts: {},
           },
           imported: {},

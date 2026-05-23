@@ -2,6 +2,7 @@ import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { RootState } from '.';
 import { CcuSourceType } from '../types';
 import { loadHangarState, resolveHangarStateUserId, saveHangarState } from './hangarStorage';
+import { AccountMarketSyncIssue } from '@/types';
 
 const version = '1.0.0';
 export const HANGAR_SYNC_PAYLOAD_VERSION = 1;
@@ -49,6 +50,7 @@ export interface HangarItems {
   ccus: CCUItem[],
   ships: ShipItem[],
   bundles: BundleItem[],
+  accountIssues: AccountMarketSyncIssue[],
   predicts: {
     [shipId: number]: number,
   },
@@ -214,6 +216,7 @@ const getInitialState = (): {
       currency: state.currency || getDefaultCurrency(),
       items: {
         ...state.items,
+        accountIssues: state.items.accountIssues || [],
         predicts: state.items.predicts || { },
       },
       imported: state.imported || {},
@@ -239,6 +242,7 @@ const getInitialState = (): {
       ccus: [],
       ships: [],
       bundles: [],
+      accountIssues: [],
       predicts: {},
     },
     imported: {},
@@ -295,6 +299,11 @@ export const upgradesSlice = createSlice({
       touchHangarContent(state);
       persistUpgradesState(state);
     },
+    addAccountIssue: (state, action: PayloadAction<AccountMarketSyncIssue>) => {
+      state.items.accountIssues.push(action.payload);
+      touchHangarContent(state);
+      persistUpgradesState(state);
+    },
     addBuybackCCU: (state, action: PayloadAction<CCUItem>) => {
       const ccuShipMatchKey = getCcuShipMatchKey(action.payload);
       if (!state.items.ccus.find(item => item.belongsTo === action.payload.belongsTo && item.canGift === action.payload.canGift && getCcuShipMatchKey(item) === ccuShipMatchKey && item.name === action.payload.name && item.value === action.payload.value && item.isBuyBack === action.payload.isBuyBack)) {
@@ -339,6 +348,7 @@ export const upgradesSlice = createSlice({
         ccus: state.items.ccus.filter(item => item.belongsTo !== currentUser),
         ships: state.items.ships.filter(item => item.belongsTo !== currentUser),
         bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
+        accountIssues: state.items.accountIssues.filter(item => item.belongsTo !== currentUser),
         predicts: state.items.predicts,
       };
       touchHangarContent(state);
@@ -437,12 +447,14 @@ export const selectUsersHangarItems = createSelector(
   (state: RootState) => state.upgrades.items.ccus,
   (state: RootState) => state.upgrades.items.ships,
   (state: RootState) => state.upgrades.items.bundles,
+  (state: RootState) => state.upgrades.items.accountIssues,
   (state: RootState) => state.upgrades.selectedUser,
-  (ccus, ships, bundles, selectedUser) => {
+  (ccus, ships, bundles, accountIssues, selectedUser) => {
     return {
       ccus: ccus.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
       ships: ships.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
       bundles: bundles.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
+      accountIssues: accountIssues.filter(item => item.belongsTo === selectedUser || selectedUser === -1),
     };
   }
 );
@@ -451,6 +463,7 @@ export const {
   addCCU,
   addShip,
   addBundle,
+  addAccountIssue,
   addBuybackCCU,
   addUser, 
   clearUpgrades, 

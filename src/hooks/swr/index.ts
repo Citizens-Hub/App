@@ -15,6 +15,12 @@ export { default as useSharedHangar } from './useSharedHangar';
 // 市场相关钩子
 export { default as useMarketData } from './market/useMarketData';
 export { default as useMarketItemData } from './market/useMarketItemData';
+export { useMarketCartValidation } from './market/useMarketCartValidation';
+export { default as useAccountMarketData } from './accountMarket/useAccountMarketData';
+export { default as useAccountMarketItemData } from './accountMarket/useAccountMarketItemData';
+export { useResellerMedia } from './resellerMedia/useResellerMedia';
+export { useUploadResellerMedia } from './resellerMedia/useUploadResellerMedia';
+export { useDeleteResellerMedia } from './resellerMedia/useDeleteResellerMedia';
 
 // 订单相关钩子
 export { default as useOrdersData } from './orders/useOrdersData';

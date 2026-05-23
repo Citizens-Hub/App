@@ -12,39 +12,41 @@ import {
 } from '@/store/cartStore';
 import { Resource } from '@/types';
 
-export function useCartStore() {
+type CartNamespace = 'market' | 'accountMarket';
+
+export function useCartStore(namespace: CartNamespace = 'market') {
   const dispatch = useDispatch();
-  const cartItems = useSelector(selectCartItems);
-  const isCartOpen = useSelector(selectCartOpen);
-  const itemsCount = useSelector(selectCartItemsCount);
+  const cartItems = useSelector(selectCartItems(namespace));
+  const isCartOpen = useSelector(selectCartOpen(namespace));
+  const itemsCount = useSelector(selectCartItemsCount(namespace));
 
   const addToCart = (resource: Resource) => {
-    dispatch(addItem(resource));
+    dispatch(addItem({ namespace, resource }));
   };
 
   const updateItemQuantity = (resourceId: string, quantity: number) => {
-    dispatch(updateQuantity({ resourceId, quantity }));
+    dispatch(updateQuantity({ namespace, resourceId, quantity }));
   };
 
   const removeFromCart = (resourceId: string) => {
-    dispatch(removeItem(resourceId));
+    dispatch(removeItem({ namespace, resourceId }));
   };
 
   const emptyCart = () => {
-    dispatch(clearCart());
+    dispatch(clearCart({ namespace }));
   };
 
   const toggleCart = (open?: boolean) => {
     if (open === undefined) {
       if (isCartOpen) {
-        dispatch(closeCart());
+        dispatch(closeCart({ namespace }));
       } else {
-        dispatch(openCart());
+        dispatch(openCart({ namespace }));
       }
     } else if (open) {
-      dispatch(openCart());
+      dispatch(openCart({ namespace }));
     } else {
-      dispatch(closeCart());
+      dispatch(closeCart({ namespace }));
     }
   };
 
@@ -56,8 +58,8 @@ export function useCartStore() {
     updateItemQuantity,
     removeFromCart,
     emptyCart,
-    openCart: () => dispatch(openCart()),
-    closeCart: () => dispatch(closeCart()),
+    openCart: () => dispatch(openCart({ namespace })),
+    closeCart: () => dispatch(closeCart({ namespace })),
     toggleCart
   };
 } 

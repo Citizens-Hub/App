@@ -77,7 +77,7 @@ function DetailField({ label, value }: { label: string; value?: string | null; }
   if (!value) return null;
 
   return (
-    <div className='flex items-start gap-3 rounded border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]'>
+    <div className='flex items-start gap-3 border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.03]'>
       {/* <RsiIcon src={iconSrc} className='mt-0.5 h-5 w-5' /> */}
       <div className='min-w-0 flex-1'>
         <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
@@ -93,7 +93,7 @@ function HighlightDetailField({ label, value }: { label: string; value?: string 
   if (!value) return null;
 
   return (
-    <div className='flex items-start gap-3 rounded border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:border-amber-700/70 dark:from-amber-950/40 dark:via-neutral-950 dark:to-orange-950/30'>
+    <div className='flex items-start gap-3 border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-3 shadow-sm dark:border-amber-700/70 dark:from-amber-950/40 dark:via-neutral-950 dark:to-orange-950/30'>
       <div className='min-w-0 flex-1'>
         <div className='text-xs font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
           {label}
@@ -220,7 +220,7 @@ function ShipComparisonTable({
   rows: ShipComparisonRow[];
 }) {
   return (
-    <div className='overflow-hidden rounded border border-gray-200 dark:border-gray-800'>
+    <div className='overflow-hidden border border-gray-200 dark:border-gray-800'>
       <div className='overflow-x-auto'>
         <table className='min-w-full border-collapse text-sm'>
           <thead className='bg-neutral-50 dark:bg-neutral-950/70'>
@@ -287,7 +287,7 @@ function ShipSpecsTable({
   }
 
   return (
-    <div className='overflow-hidden rounded border border-gray-200 dark:border-gray-800'>
+    <div className='overflow-hidden border border-gray-200 dark:border-gray-800'>
       <div className='overflow-x-auto'>
         <table className='min-w-full border-collapse text-sm'>
           <tbody>
@@ -501,7 +501,7 @@ function ShipIntroductionCard({
   ];
 
   return (
-    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
+    <div className='overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
       <div className='flex flex-col'>
         <Box
           component="img"
@@ -605,7 +605,7 @@ function PackageContentCard({
   const filteredMetadata = metadata.filter(Boolean);
 
   return (
-    <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
+    <div className='overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
       {imageUrl ? (
         <Box
           component="img"
@@ -657,7 +657,7 @@ function TextOnlyPackageItemRow({
 }) {
   return (
     <div className='flex items-start gap-3 px-4 py-3'>
-      <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900/80 dark:bg-blue-950/50 dark:text-blue-300'>
+      <div className='flex h-10 w-10 shrink-0 items-center justify-center border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900/80 dark:bg-blue-950/50 dark:text-blue-300'>
         <Archive className='h-4 w-4' />
       </div>
       <div className='flex min-w-0 flex-1 flex-col gap-1'>
@@ -1201,7 +1201,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     },
   } : null;
   const purchasePanel = (
-    <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+    <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
       <div className='flex flex-col gap-3'>
         <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
           {formatUsdPrice(intl.locale, displayPrice)}
@@ -1428,7 +1428,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                 </Link>
                 <IconButton
                   onClick={openCart}
-                  sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 1 }}
+                  sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 0 }}
                 >
                   <Badge badgeContent={cart.length} color="secondary" overlap="circular">
                     <ShoppingCart className='h-6 w-6' />
@@ -1440,7 +1440,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
 
           <div className={`grid grid-cols-1 gap-6 ${embedded ? 'xl:grid-cols-1' : 'xl:grid-cols-[minmax(0,_1fr)_360px]'}`}>
             <div className='flex flex-col gap-6'>
-              <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
+              <div className='overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
                 {heroVisual.isCCU ? (
                   <Box sx={{ position: 'relative', width: '100%', height: 460, overflow: 'hidden', backgroundColor: 'grey.100' }}>
                     <Box
@@ -1535,7 +1535,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                 )}
               </div>
 
-              <div className='rounded border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
                   <FormattedMessage id="market.detail.productInfo" defaultMessage="Product Details" />
                 </Typography>
@@ -1644,7 +1644,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                                 defaultMessage="Additional Included Items"
                               />
                             </Typography>
-                            <div className='overflow-hidden rounded border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
+                            <div className='overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-950'>
                               {packageItemsWithoutImage.map((entry, index) => (
                                 <div
                                   key={`${item.skuId}-textonly-${entry.sortOrder}-${entry.itemName}`}

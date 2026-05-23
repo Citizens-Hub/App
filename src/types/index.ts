@@ -19,7 +19,9 @@ export interface Resource {
   shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
+  sourceKind?: string | null;
   imageUrl?: string;
+  imageUrls?: string[];
   fromImageUrl?: string;
   toImageUrl?: string;
   description?: string;
@@ -718,6 +720,134 @@ export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' 
 export type MarketSkuTagCode = 'oc' | 'concierge';
 export type MarketShipTraitFilter = 'oc' | 'non_oc' | 'lti';
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
+export type AccountMarketEntryKind = 'ship' | 'ccu' | 'bundle' | 'extra' | 'highlight';
+export type AccountMarketEntrySource = 'hangar' | 'buyback';
+
+export interface AccountMarketMetadata {
+  hasGamePackage?: boolean | null;
+  hasSquadron42?: boolean | null;
+  conciergeLevel?: string | null;
+  spendAmount?: number | null;
+}
+
+export interface AccountMarketEntry {
+  id: string;
+  kind: AccountMarketEntryKind;
+  name: string;
+  shipId?: number;
+  shipName?: string;
+  fromShipId?: number;
+  toShipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  imageUrl?: string;
+  quantity?: number;
+  value?: number;
+  msrp?: number;
+  sortOrder: number;
+  groupId?: string;
+  linkedEntryId?: string;
+  source?: AccountMarketEntrySource;
+  canGift?: boolean | null;
+}
+
+export interface AccountMarketEntryInput {
+  kind: AccountMarketEntryKind;
+  name: string;
+  shipId?: number;
+  shipName?: string;
+  fromShipId?: number;
+  toShipId?: number;
+  fromShipName?: string;
+  toShipName?: string;
+  imageUrl?: string;
+  quantity?: number;
+  value?: number;
+  msrp?: number;
+  sortOrder?: number;
+  groupId?: string;
+  linkedEntryId?: string;
+  source?: AccountMarketEntrySource;
+  canGift?: boolean | null;
+}
+
+export interface AccountListingItem {
+  skuId: string;
+  name: string;
+  price: number;
+  cost?: number;
+  stock: number;
+  lockedStock: number;
+  description?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+  visibleInMarket?: boolean;
+  sourceKind?: string | null;
+  tags?: MarketSkuTagCode[];
+  shipCount: number;
+  ccuCount: number;
+  bundleCount: number;
+  extraCount: number;
+  highlightCount: number;
+  metadata?: AccountMarketMetadata;
+  entries: AccountMarketEntry[];
+  highlights: string[];
+  seller?: MarketSellerSummary | null;
+  belongsTo?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface AccountMarketListResponse {
+  items: AccountListingItem[];
+  pagination: MarketListPagination;
+}
+
+export interface AccountMarketListingInput {
+  name: string;
+  price: number;
+  cost?: number;
+  stock: number;
+  replaceSkuId?: string;
+  visibleInMarket?: boolean;
+  description?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+  tags?: string[];
+  metadata?: AccountMarketMetadata;
+  entries: AccountMarketEntryInput[];
+}
+
+export interface AccountMarketSyncIssue {
+  id: string;
+  belongsTo: number;
+  source: 'hangar' | 'buyback';
+  itemType: 'ccu' | 'bundle';
+  name: string;
+  reason: string;
+  canGift: boolean;
+  isBuyBack: boolean;
+  pageId?: number;
+}
+
+export interface AccountMarketDraftIssue extends AccountMarketSyncIssue {
+  resolution: 'pending' | 'ignore' | 'manual';
+  manualKind: 'ccu' | 'bundle' | 'extra';
+  manualName: string;
+}
+
+export interface AccountMarketDraft {
+  name: string;
+  estimatedValue: number;
+  shipEntries: AccountMarketEntry[];
+  ccuEntries: AccountMarketEntry[];
+  bundleEntries: AccountMarketEntry[];
+  extraEntries: AccountMarketEntry[];
+  highlightEntries: AccountMarketEntry[];
+  metadata: AccountMarketMetadata;
+  issues: AccountMarketDraftIssue[];
+}
 
 export interface MarketPackageShip {
   shipId?: number;
@@ -765,6 +895,7 @@ export interface MarketItemVariant {
   toShipManufacturerId?: number;
   toSkuId?: number;
   imageUrl?: string;
+  imageUrls?: string[];
   fromImageUrl?: string;
   toImageUrl?: string;
   seller?: MarketSellerSummary | null;
@@ -795,6 +926,7 @@ export interface ListingItem {
   packageShips?: MarketPackageShip[];
   packageItems?: MarketPackageItem[];
   imageUrl?: string;
+  imageUrls?: string[];
   fromImageUrl?: string;
   toImageUrl?: string;
   sourceUrl?: string;
@@ -875,7 +1007,9 @@ export interface MarketCartItem {
   shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
+  sourceKind?: string | null;
   imageUrl?: string;
+  imageUrls?: string[];
   fromImageUrl?: string;
   toImageUrl?: string;
   description?: string;
@@ -901,6 +1035,11 @@ export interface MarketCartItem {
       slideshow?: string;
     }>;
   };
+}
+
+export interface AccountCartItem {
+  resource: Resource;
+  quantity?: number;
 }
 
 export interface OrderItem {

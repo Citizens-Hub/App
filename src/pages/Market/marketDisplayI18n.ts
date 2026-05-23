@@ -101,5 +101,5 @@ export function getMarketItemSummary(
     }
   }
 
-  return item.description || item.externalRef || item.sourceKind || '';
+  return item.description || item.externalRef || '';
 }

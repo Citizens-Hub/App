@@ -2,6 +2,7 @@ import { Typography } from '@mui/material';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import StoreTable from './components/StoreTable';
+import AccountStoreTable from './components/AccountStoreTable';
 import CreditInventoryCard from './components/CreditInventoryCard';
 import SalesBalancePanel from './components/SalesBalancePanel';
 import { useHangarData } from '@/hooks';
@@ -12,6 +13,7 @@ import CcuBulkCheckout from '@/pages/CcuBulkCheckout/CcuBulkCheckout';
 
 enum Page {
   MyStore = 'myStore',
+  AccountStore = 'accountStore',
   MyOrders = 'myOrders',
   SalesBalance = 'salesBalance',
   CcuBulkCheckout = 'ccuBulkCheckout',
@@ -28,6 +30,13 @@ export default function Reseller() {
       description: <FormattedMessage id="hangar.myStoreDescription" defaultMessage="View your store here" />,
       active: currentPage === Page.MyStore,
       onSelect: () => setCurrentPage(Page.MyStore),
+    },
+    {
+      id: Page.AccountStore,
+      title: <FormattedMessage id="accountMarket.reseller.navTitle" defaultMessage="Account Zone" />,
+      description: <FormattedMessage id="accountMarket.reseller.navDescription" defaultMessage="Sync RSI accounts into separate account-market listings." />,
+      active: currentPage === Page.AccountStore,
+      onSelect: () => setCurrentPage(Page.AccountStore),
     },
     {
       id: Page.SalesBalance,
@@ -78,6 +87,7 @@ export default function Reseller() {
               <StoreTable ships={ships} />
             </div>
           )}
+          {currentPage === Page.AccountStore && <AccountStoreTable ships={ships} />}
           {currentPage === Page.MyOrders && <OrdersTable />}
           {currentPage === Page.SalesBalance && <SalesBalancePanel />}
           {currentPage === Page.CcuBulkCheckout && <CcuBulkCheckout requestIdPrefix="reseller-ccu-bulk-checkout" />}

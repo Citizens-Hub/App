@@ -109,15 +109,11 @@ You will be able to connect your Citizens' Hub account to third party accounts. 
 
 ## International Users
 
-The Service is controlled, operated and administered by Citizens' Hub from our offices within the USA. If you access the Service from a location outside the USA, you are responsible for compliance with all local laws. You agree that you will not use the Citizens' Hub Content accessed through [https://citizenshub.app](https://citizenshub.app) in any country or in any manner prohibited by any applicable laws, restrictions or regulations.
+The Service is controlled, operated and administered by Citizens' Hub from our offices within the Hong Kong. If you access the Service from a location outside the Hong Kong, you are responsible for compliance with all local laws. You agree that you will not use the Citizens' Hub Content accessed through [https://citizenshub.app](https://citizenshub.app) in any country or in any manner prohibited by any applicable laws, restrictions or regulations.
 
 ## Indemnification
 
 You agree to indemnify, defend and hold harmless Citizens' Hub, its officers, directors, employees, agents and third parties, for any losses, costs, liabilities and expenses (including reasonable attorneys fees) relating to or arising out of your use of or inability to use the Site or services, any user postings made by you, your violation of any terms of this Agreement or your violation of any rights of a third party, or your violation of any applicable laws, rules or regulations. Citizens' Hub reserves the right, at its own cost, to assume the exclusive defense and control of any matter otherwise subject to indemnification by you, in which event you will fully cooperate with Citizens' Hub in asserting any available defenses.
-
-## Class Action Waiver
-
-Any arbitration under these Terms and Conditions will take place on an individual basis; class arbitrations and class/representative/collective actions are not permitted. THE PARTIES AGREE THAT A PARTY MAY BRING CLAIMS AGAINST THE OTHER ONLY IN EACHS INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PUTATIVE CLASS, COLLECTIVE AND/ OR REPRESENTATIVE PROCEEDING, SUCH AS IN THE FORM OF A PRIVATE ATTORNEY GENERAL ACTION AGAINST THE OTHER. Further, unless both you and Citizens' Hub agree otherwise, the arbitrator may not consolidate more than one persons claims, and may not otherwise preside over any form of a representative or class proceeding.
 
 ## Liability Disclaimer
 

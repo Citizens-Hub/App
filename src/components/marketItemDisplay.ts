@@ -1,5 +1,6 @@
 import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, Resource, Ship } from '@/types';
-import { getShipSlideshowImage, getShipThumbLarge, toApiAssetUrl } from '@/utils/shipImage';
+import { getMarketImageAssetUrl, resolveMarketImageUrls } from '@/utils/marketImages';
+import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
 type MarketDisplayItem = {
   skuId?: string;
@@ -18,7 +19,9 @@ type MarketDisplayItem = {
   shipManufacturerId?: number;
   packageKind?: string;
   insuranceType?: string;
+  sourceKind?: string | null;
   imageUrl?: string;
+  imageUrls?: string[];
   fromImageUrl?: string;
   toImageUrl?: string;
   description?: string;
@@ -46,7 +49,7 @@ function upgradeToLargeImageVariant(url: string) {
 export function toLargeRsiImage(url?: string) {
   const normalizedUrl = url?.trim();
   if (!normalizedUrl) return '';
-  return toApiAssetUrl(upgradeToLargeImageVariant(normalizedUrl));
+  return getMarketImageAssetUrl(upgradeToLargeImageVariant(normalizedUrl));
 }
 
 function normalizeShipName(value?: string) {
@@ -99,12 +102,21 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
   const toShipName = resolvedToShipName || toShip?.name || '';
   const shipName = item.shipName || ship?.name || '';
 
+  const manualImages = resolveMarketImageUrls(item.imageUrl, item.imageUrls)
+    .map(toLargeRsiImage)
+    .filter(Boolean);
   const fromImage = getShipSlideshowImage(fromShip) || getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
   const toImage = getShipSlideshowImage(toShip) || getShipThumbLarge(toShip) || toLargeRsiImage(item.toImageUrl) || '';
-  const primaryImage = getShipSlideshowImage(ship) || getShipThumbLarge(ship) || toLargeRsiImage(item.imageUrl) || '';
+  const shipImage = getShipSlideshowImage(ship) || getShipThumbLarge(ship) || '';
+  const primaryImage = item.itemType === 'ccu'
+    ? shipImage || manualImages[0] || ''
+    : manualImages[0] || shipImage || '';
   const thumbnail = item.itemType === 'ccu'
     ? toImage || fromImage || primaryImage
     : primaryImage || toImage || fromImage;
+  const carouselImages = item.itemType === 'ccu'
+    ? [fromImage, toImage].filter(Boolean)
+    : (manualImages.length > 0 ? manualImages : [primaryImage].filter(Boolean));
 
   return {
     isCCU: item.itemType === 'ccu',
@@ -112,6 +124,7 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
     fromImage,
     toImage,
     primaryImage,
+    carouselImages,
     fromShip,
     toShip,
     ship,
@@ -180,6 +193,7 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
     itemType: item.itemType,
     browseCategory: item.browseCategory,
     tags: item.tags,
+    sourceKind: item.sourceKind || null,
     fromShipId: item.fromShipId,
     toShipId: item.toShipId,
     shipId: item.shipId,
@@ -192,6 +206,7 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
     packageKind: item.packageKind,
     insuranceType: item.insuranceType,
     imageUrl: visual.primaryImage || primaryImage,
+    imageUrls: item.imageUrls,
     fromImageUrl: visual.fromImage || undefined,
     toImageUrl: visual.toImage || undefined,
     description: item.description,
@@ -210,9 +225,8 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
             { slideshow: visual.fromImage || MARKET_ITEM_PLACEHOLDER },
             { slideshow: visual.toImage || MARKET_ITEM_PLACEHOLDER },
           ]
-        : [
-            { slideshow: primaryImage },
-          ],
+        : (visual.carouselImages.length > 0 ? visual.carouselImages : [primaryImage])
+            .map((slideshow) => ({ slideshow })),
     },
     nativePrice: {
       amount: Math.round(item.price * 100),
@@ -241,6 +255,7 @@ export function buildMarketCartItem(
     itemType: item.itemType,
     browseCategory: item.browseCategory,
     tags: item.tags,
+    sourceKind: item.sourceKind || null,
     fromShipId: item.fromShipId,
     toShipId: item.toShipId,
     shipId: item.shipId,
@@ -253,6 +268,7 @@ export function buildMarketCartItem(
     packageKind: item.packageKind,
     insuranceType: item.insuranceType,
     imageUrl: visual.primaryImage || primaryImage,
+    imageUrls: item.imageUrls,
     fromImageUrl: visual.fromImage || undefined,
     toImageUrl: visual.toImage || undefined,
     description: item.description,
@@ -273,9 +289,8 @@ export function buildMarketCartItem(
             { slideshow: visual.fromImage || MARKET_ITEM_PLACEHOLDER },
             { slideshow: visual.toImage || MARKET_ITEM_PLACEHOLDER },
           ]
-        : [
-            { slideshow: primaryImage },
-          ],
+        : (visual.carouselImages.length > 0 ? visual.carouselImages : [primaryImage])
+            .map((slideshow) => ({ slideshow })),
     },
   };
 }
@@ -292,6 +307,7 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     itemType,
     browseCategory: resource.browseCategory,
     tags: resource.tags,
+    sourceKind: resource.sourceKind || null,
     fromShipId: resource.fromShipId,
     toShipId: resource.toShipId,
     shipId: resource.shipId,
@@ -304,6 +320,7 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     packageKind: resource.packageKind,
     insuranceType: resource.insuranceType,
     imageUrl: toLargeRsiImage(resource.imageUrl) || thumbnail,
+    imageUrls: resource.imageUrls,
     fromImageUrl: fromImage || undefined,
     toImageUrl: toImage || undefined,
     description: resource.description,

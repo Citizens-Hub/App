@@ -18,8 +18,9 @@ import {
   Button,
   Divider,
   TablePagination,
+  Tooltip,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { ContentCopy, Search } from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
@@ -34,14 +35,18 @@ import {
   NewUserCouponPreview,
 } from '@/types';
 import { Plus, ShoppingCart, Minus, X } from 'lucide-react';
-import { useAuthApi, useMarketData } from '@/hooks';
+import { useAccountMarketData, useAuthApi, useMarketData } from '@/hooks';
 import { Link, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { buildMarketResource } from '@/components/marketItemDisplay';
-import { getAbsoluteAssetUrl, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
+import { getAbsoluteAssetUrl, getAccountMarketListPath, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
+import {
+  ACCOUNT_MARKET_COUPON_PERCENT_OFF,
+  getMonthlyAccountCouponCode,
+} from '@/utils/accountMarketCoupon';
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import {
   getAvailableStock,
@@ -57,6 +62,7 @@ import {
   getMarketItemTypeLabel,
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
+import { getMarketImageAssetUrl } from '@/utils/marketImages';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 
@@ -335,6 +341,19 @@ const Market: React.FC = () => {
     sortBy,
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
+  const { listingItems: featuredAccountItems } = useAccountMarketData({ limit: 3, page: 0 });
+  const accountCouponCode = getMonthlyAccountCouponCode();
+
+  const handleCopyAccountCouponCode = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(accountCouponCode);
+      setSnackbarMessage(intl.formatMessage({ id: 'common.copied', defaultMessage: 'Copied to clipboard' }));
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Failed to copy account coupon code:', error);
+    }
+  }, [accountCouponCode, intl]);
 
   const manufacturerOptions = useMemo(() => {
     const options = new Map<number, { id: number; name: string; logoPath: string | null }>();
@@ -885,6 +904,76 @@ const Market: React.FC = () => {
                     )}
                   </>
                 )}
+              </Box>
+
+              <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
+                <div className='flex flex-col gap-3'>
+                  <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
+                    <FormattedMessage id="accountMarket.panel.eyebrow" defaultMessage="Looking for a Star Citizen account?" />
+                  </div>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+                    <FormattedMessage id="accountMarket.panel.title" defaultMessage="Premium Star Citizen accounts on sale now" />
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <FormattedMessage
+                      id="accountMarket.panel.description"
+                      defaultMessage="Browse our accounts for sale, including limited ships, retired items, buyback access, and extras. If you need something specific, contact us about a custom account."
+                    />
+                  </Typography>
+
+                  <div className='border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/20'>
+                    <div className='text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300'>
+                      <FormattedMessage id="accountMarket.panel.codeLabel" defaultMessage="Discount code" />
+                    </div>
+                    <div className='mt-1 flex items-start gap-1'>
+                      <div className='min-w-0 break-all text-lg font-black leading-tight text-slate-900 dark:text-white'>{accountCouponCode}</div>
+                      <Tooltip title={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })} arrow>
+                        <IconButton size="small" sx={{ flexShrink: 0, mt: '1px' }} onClick={() => void handleCopyAccountCouponCode()}>
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                    <div className='mt-1 text-slate-600 dark:text-slate-300'>
+                      <FormattedMessage
+                        id="accountMarket.panel.codeBody"
+                        defaultMessage="Use the monthly account code at checkout to claim {percent}% off eligible account listings."
+                        values={{ percent: ACCOUNT_MARKET_COUPON_PERCENT_OFF }}
+                      />
+                    </div>
+                  </div>
+
+                  {featuredAccountItems[0] ? (
+                    <Link
+                      to={`/account-market/${encodeURIComponent(featuredAccountItems[0].skuId)}`}
+                      className='flex gap-3 border border-gray-200 p-3 transition hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600'
+                    >
+                      <img
+                        src={getMarketImageAssetUrl(featuredAccountItems[0].imageUrl || featuredAccountItems[0].entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp')}
+                        alt={featuredAccountItems[0].name}
+                        className='h-20 w-20 shrink-0 object-cover'
+                      />
+                      <div className='min-w-0 flex-1'>
+                        <div className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
+                          <FormattedMessage id="accountMarket.panel.featured" defaultMessage="Featured account" />
+                        </div>
+                        <div className='mt-1 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white'>
+                          {featuredAccountItems[0].name}
+                        </div>
+                        <div className='mt-2 text-sm font-bold text-slate-900 dark:text-white'>
+                          {intl.formatNumber(featuredAccountItems[0].price, { style: 'currency', currency: 'USD' })}
+                        </div>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className='border border-dashed border-gray-300 p-3 text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
+                      <FormattedMessage id="accountMarket.panel.empty" defaultMessage="Account listings will appear here when available." />
+                    </div>
+                  )}
+
+                  <Button component={Link} to={getAccountMarketListPath()} variant="contained" fullWidth>
+                    <FormattedMessage id="accountMarket.panel.cta" defaultMessage="Browse Accounts" />
+                  </Button>
+                </div>
               </Box>
             </div>
 

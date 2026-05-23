@@ -1,6 +1,7 @@
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import { useState } from 'react';
 import { ListingItem, Ship } from '@/types';
-import { ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER, resolveMarketImageBadgeKind } from '@/components/marketItemDisplay';
 import MarketImageBadge from './MarketImageBadge';
 
@@ -17,6 +18,7 @@ export default function MarketItemMedia({
   height = 220,
   badgeText,
 }: MarketItemMediaProps) {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const visual = getMarketItemVisual(item, ships);
   const imageBadgeKind = resolveMarketImageBadgeKind(item);
 
@@ -66,14 +68,89 @@ export default function MarketItemMedia({
     );
   }
 
+  const carouselImages = visual.carouselImages.length > 0
+    ? visual.carouselImages
+    : [visual.thumbnail || MARKET_ITEM_PLACEHOLDER];
+  const selectedIndex = Math.min(activeImageIndex, carouselImages.length - 1);
+  const selectedImage = carouselImages[selectedIndex] || MARKET_ITEM_PLACEHOLDER;
+
   return (
     <Box sx={{ position: 'relative', width: '100%', height, overflow: 'hidden', backgroundColor: 'grey.100' }}>
       <Box
         component="img"
         sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        src={visual.thumbnail || MARKET_ITEM_PLACEHOLDER}
+        src={selectedImage}
         alt={item.name}
       />
+      {carouselImages.length > 1 && (
+        <>
+          <IconButton
+            size="small"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setActiveImageIndex((current) => (current <= 0 ? carouselImages.length - 1 : current - 1));
+            }}
+            sx={{
+              position: 'absolute',
+              left: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              bgcolor: 'rgba(15,23,42,0.62)',
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(15,23,42,0.78)' },
+            }}
+            aria-label="Previous listing image"
+          >
+            <ChevronLeft size={16} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setActiveImageIndex((current) => (current >= carouselImages.length - 1 ? 0 : current + 1));
+            }}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              bgcolor: 'rgba(15,23,42,0.62)',
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(15,23,42,0.78)' },
+            }}
+            aria-label="Next listing image"
+          >
+            <ChevronRight size={16} />
+          </IconButton>
+          <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 8, display: 'flex', justifyContent: 'center', gap: 0.75 }}>
+            {carouselImages.map((imageUrl, index) => (
+              <Box
+                key={`${imageUrl}-${index}`}
+                component="button"
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setActiveImageIndex(index);
+                }}
+                aria-label={`Show listing image ${index + 1}`}
+                sx={{
+                  width: selectedIndex === index ? 18 : 7,
+                  height: 7,
+                  borderRadius: 999,
+                  border: 0,
+                  p: 0,
+                  cursor: 'pointer',
+                  bgcolor: selectedIndex === index ? 'common.white' : 'rgba(255,255,255,0.55)',
+                  transition: 'width 0.18s ease, background-color 0.18s ease',
+                }}
+              />
+            ))}
+          </Box>
+        </>
+      )}
       {badgeText && (
         <div className='absolute right-3 top-3 border border-black/10 bg-white/95 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200'>
           {badgeText}

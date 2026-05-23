@@ -50,6 +50,8 @@ import {
   StoreListingDisplayType,
 } from "./storeListingUtils";
 import { getMarketBrowseCategoryLabel, getMarketTagLabel } from "@/pages/Market/marketI18n";
+import { resolveMarketImageUrls } from "@/utils/marketImages";
+import ResellerImagePicker from "./ResellerImagePicker";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
 const DEFAULT_PACKAGE_KIND: MarketPackageKind = "standalone_ship";
@@ -306,7 +308,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [manualOcTag, setManualOcTag] = useState(false);
   const [manualPackageItems, setManualPackageItems] = useState<ManualPackageItemDraft[]>([]);
   const [manualDescription, setManualDescription] = useState("");
-  const [manualImageUrl, setManualImageUrl] = useState("");
+  const [manualImageUrls, setManualImageUrls] = useState<string[]>([]);
   const [manualExternalRef, setManualExternalRef] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
@@ -476,7 +478,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     setManualOcTag(false);
     setManualPackageItems([]);
     setManualDescription("");
-    setManualImageUrl("");
+    setManualImageUrls([]);
     setManualExternalRef("");
   }, []);
 
@@ -510,7 +512,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       imageUrl: normalizeManualPackageItemImageUrl(entry.imageUrl),
     })));
     setManualDescription("");
-    setManualImageUrl(item.imageUrl || "");
+    setManualImageUrls(resolveMarketImageUrls(item.imageUrl, item.imageUrls));
     setManualExternalRef("");
   }, [resolveShip]);
 
@@ -551,7 +553,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       imageUrl: normalizeManualPackageItemImageUrl(entry.imageUrl),
     })));
     setManualDescription(item.description || "");
-    setManualImageUrl(item.imageUrl || "");
+    setManualImageUrls(resolveMarketImageUrls(item.imageUrl, item.imageUrls));
     setManualExternalRef(item.externalRef || "");
   }, [resolveShip]);
 
@@ -847,7 +849,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         insuranceType: manualInsuranceType || undefined,
         packageShips,
         packageItems: manualPackageKind === "bundle" ? parseManualPackageItems() : [],
-        imageUrl: manualImageUrl || undefined,
+        imageUrl: manualImageUrls[0] || undefined,
+        imageUrls: manualImageUrls,
         description: manualDescription || undefined,
       };
     }
@@ -855,7 +858,8 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     return {
       ...basePayload,
       itemType: "misc" as const,
-      imageUrl: manualImageUrl || undefined,
+      imageUrl: manualImageUrls[0] || undefined,
+      imageUrls: manualImageUrls,
       description: manualDescription || undefined,
       externalRef: manualExternalRef || undefined,
     };
@@ -864,7 +868,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     editingListing,
     manualDescription,
     manualExternalRef,
-    manualImageUrl,
+    manualImageUrls,
     manualInsuranceType,
     manualItemCost,
     manualItemCostTouched,
@@ -1662,11 +1666,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
             )}
 
             {(manualItemType === "package" || manualItemType === "misc") && (
-              <TextField
-                label={intl.formatMessage({ id: "market.imageUrl", defaultMessage: "Image URL" })}
-                value={manualImageUrl}
-                onChange={(event) => setManualImageUrl(event.target.value)}
-              />
+              <Box sx={{ gridColumn: { md: "1 / span 2" }, border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+                <ResellerImagePicker
+                  imageUrls={manualImageUrls}
+                  onChange={setManualImageUrls}
+                  label={intl.formatMessage({ id: "reseller.imagePicker.label", defaultMessage: "Listing images" })}
+                />
+              </Box>
             )}
 
             {manualItemType === "package" && manualPackageKind === "bundle" && (

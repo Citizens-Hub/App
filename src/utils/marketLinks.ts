@@ -41,3 +41,31 @@ export function getMarketDetailPath(skuId: string) {
 export function getMarketDetailUrl(skuId: string) {
   return getSiteUrl(getMarketDetailPath(skuId));
 }
+
+export function getAccountMarketListPath() {
+  return '/account-market';
+}
+
+export function getAccountMarketListUrl() {
+  return getSiteUrl(getAccountMarketListPath());
+}
+
+export function getAccountMarketDetailPath(skuId: string) {
+  return `/account-market/${encodeURIComponent(skuId)}`;
+}
+
+export function getAccountMarketDetailUrl(skuId: string) {
+  return getSiteUrl(getAccountMarketDetailPath(skuId));
+}
+
+export function getAccountMarketCheckoutPath(skuId?: string) {
+  if (!skuId) {
+    return '/account-market/checkout';
+  }
+
+  return `/account-market/checkout?skuId=${encodeURIComponent(skuId)}`;
+}
+
+export function getAccountMarketCheckoutUrl(skuId?: string) {
+  return getSiteUrl(getAccountMarketCheckoutPath(skuId));
+}

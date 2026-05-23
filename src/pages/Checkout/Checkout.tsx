@@ -1,6 +1,6 @@
 // 导入必要的依赖
-import { Link as RouterLink, useLocation, useNavigate } from "react-router";
-import { useState, useEffect } from "react";
+import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useState, useEffect, useMemo } from "react";
 import { MarketCartItem, Order as MarketOrder, Ship } from "@/types";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -23,13 +23,15 @@ import {
   DialogActions,
   Checkbox,
   FormControlLabel,
+  InputAdornment,
   Link as MuiLink,
   MenuItem,
   TextField,
+  Chip,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ChevronsRight, LogIn, Mail } from 'lucide-react';
-import { useAuthApi, useShipsData, useUserSession } from "@/hooks";
+import { useAccountMarketItemData, useAuthApi, useMarketCartValidation, useShipsData, useUserSession } from "@/hooks";
 import { useCartStore } from "@/hooks/useCartStore";
 import { NewUserCouponPreview } from "@/types";
 import {
@@ -46,11 +48,17 @@ import {
 } from '@/pages/Market/marketI18n';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
+import { getAccountMarketListPath } from '@/utils/marketLinks';
+import {
+  ACCOUNT_MARKET_COUPON_PERCENT_OFF,
+  getMonthlyAccountCouponCode,
+} from '@/utils/accountMarketCoupon';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
 const CHECKOUT_PENDING_REQUEST_TTL_MS = 15 * 60 * 1000;
 const SOFTWARE_SERVICE_FEE_AMOUNT = 0.99;
 const SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD = 5;
+const ACCOUNT_MARKET_SOURCE_KIND = 'account-market';
 
 type PendingCheckoutRequestCache = {
   createdAt: number;
@@ -58,7 +66,23 @@ type PendingCheckoutRequestCache = {
   key: string;
 };
 
-function buildCheckoutFingerprint(items: MarketCartItem[], selectedCouponId?: string | null) {
+type AccountCouponValidation = {
+  valid: boolean;
+  code: string;
+  percentOff: number;
+  subtotal: number;
+  discountAmount: number;
+};
+
+function roundCurrency(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function buildCheckoutFingerprint(
+  items: MarketCartItem[],
+  selectedCouponId?: string | null,
+  accountCouponCode?: string | null,
+) {
   return JSON.stringify({
     items: items
       .map((item) => ({
@@ -74,6 +98,7 @@ function buildCheckoutFingerprint(items: MarketCartItem[], selectedCouponId?: st
         return left.quantity - right.quantity;
       }),
     selectedCouponId: typeof selectedCouponId === 'string' ? selectedCouponId.trim() : '',
+    accountCouponCode: typeof accountCouponCode === 'string' ? accountCouponCode.trim().toUpperCase() : '',
   });
 }
 
@@ -101,9 +126,14 @@ function buildLegacyCheckoutFingerprint(
   });
 }
 
-function isMatchingCheckoutFingerprint(existingFingerprint: string, items: MarketCartItem[], selectedCouponId?: string | null) {
+function isMatchingCheckoutFingerprint(
+  existingFingerprint: string,
+  items: MarketCartItem[],
+  selectedCouponId?: string | null,
+  accountCouponCode?: string | null,
+) {
   return [
-    buildCheckoutFingerprint(items, selectedCouponId),
+    buildCheckoutFingerprint(items, selectedCouponId, accountCouponCode),
     buildLegacyCheckoutFingerprint(items, false),
     buildLegacyCheckoutFingerprint(items, true),
   ].includes(existingFingerprint);
@@ -160,13 +190,14 @@ function getOrCreateCheckoutPendingRequestKey(
   userId: string | undefined,
   items: MarketCartItem[],
   selectedCouponId?: string | null,
+  accountCouponCode?: string | null,
 ) {
   const existingRequest = readPendingCheckoutRequest(userId);
-  if (existingRequest && isMatchingCheckoutFingerprint(existingRequest.fingerprint, items, selectedCouponId)) {
+  if (existingRequest && isMatchingCheckoutFingerprint(existingRequest.fingerprint, items, selectedCouponId, accountCouponCode)) {
     return existingRequest.key;
   }
 
-  const fingerprint = buildCheckoutFingerprint(items, selectedCouponId);
+  const fingerprint = buildCheckoutFingerprint(items, selectedCouponId, accountCouponCode);
 
   const nextRequest: PendingCheckoutRequestCache = {
     createdAt: Date.now(),
@@ -184,13 +215,22 @@ function getOrCreateCheckoutPendingRequestKey(
 
 export default function Checkout() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const isAccountMarketCheckout = location.pathname.startsWith('/account-market/checkout');
+  const accountSkuId = isAccountMarketCheckout ? searchParams.get('skuId')?.trim() || '' : '';
   const locationState = location.state as { pendingOrder?: MarketOrder, ships?: Ship[] };
   // cartFromState 来自商城的Redux购物车，实际类型是CartItem[]
   // 注意：系统中有两种不同的购物车实现：
   // 1. ResourcesTable使用的CartItem（本地状态，不使用Redux）
   // 2. 商城使用的商城购物车，使用Redux，但也是CartItem类型
   // 结账页面需要将CartItem转换为MarketCartItem
-  const { cart: cartFromState } = useCartStore();
+  const { cart: cartFromState, removeFromCart } = useCartStore(isAccountMarketCheckout ? 'accountMarket' : 'market');
+  const {
+    item: accountMarketItem,
+    loading: accountMarketItemLoading,
+    error: accountMarketItemError,
+    notFound: accountMarketItemNotFound,
+  } = useAccountMarketItemData(accountSkuId || undefined);
   const { pendingOrder, ships: stateShips } = locationState || {};
   // 使用MarketCartItem类型来管理结账页面的购物车数据
   const [cart, setCart] = useState<MarketCartItem[]>([]);
@@ -202,10 +242,18 @@ export default function Checkout() {
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
   const [selectedCouponId, setSelectedCouponId] = useState('');
+  const [accountCouponCode, setAccountCouponCode] = useState('');
+  const [accountCouponError, setAccountCouponError] = useState<string | null>(null);
+  const [accountCouponValidation, setAccountCouponValidation] = useState<AccountCouponValidation | null>(null);
+  const [accountCouponApplying, setAccountCouponApplying] = useState(false);
   const { data: userSession } = useUserSession();
   const { ships: localizedShips } = useShipsData();
   const effectiveShips = stateShips?.length ? stateShips : localizedShips;
   const accountEmail = userSession?.user?.email?.trim() || user?.email?.trim() || '';
+  const isAccountMarketCart = cart.some((item) => item.sourceKind === ACCOUNT_MARKET_SOURCE_KIND)
+    || pendingOrder?.items?.some((item) => item.marketItem.sourceKind === ACCOUNT_MARKET_SOURCE_KIND);
+  const expectedAccountCouponCode = useMemo(() => getMonthlyAccountCouponCode(), []);
+  const cartValidation = useMarketCartValidation(cart, { enabled: !pendingOrder && !isAccountMarketCart });
   
   // 登录和邮箱验证对话框状态
   const [openLoginDialog, setOpenLoginDialog] = useState(false);
@@ -229,13 +277,34 @@ export default function Checkout() {
       return;
     }
 
+    if (isAccountMarketCheckout) {
+      if (accountMarketItem) {
+        setCart([
+          buildMarketCartItem({
+            skuId: accountMarketItem.skuId,
+            name: accountMarketItem.name,
+            itemType: 'package',
+            sourceKind: accountMarketItem.sourceKind || ACCOUNT_MARKET_SOURCE_KIND,
+            imageUrl: accountMarketItem.imageUrl || accountMarketItem.entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp',
+            description: accountMarketItem.description,
+            packageKind: 'bundle',
+            price: accountMarketItem.price,
+          }, 1, effectiveShips),
+        ]);
+        return;
+      }
+
+      setCart([]);
+      return;
+    }
+
     if (cartFromState?.length) {
       setCart(cartFromState.map((item) => buildMarketCartItemFromResource(item.resource, item.quantity || 1)));
       return;
     }
 
     setCart([]);
-  }, [cartFromState, pendingOrder, effectiveShips, user?.id]);
+  }, [accountMarketItem, cartFromState, effectiveShips, isAccountMarketCheckout, pendingOrder, user?.id]);
 
   const getItemPrice = (item: MarketCartItem) => {
     return item.price || 0;
@@ -243,24 +312,59 @@ export default function Checkout() {
 
   const formatCheckoutPrice = (value: number) => formatUsdPrice(intl.locale, value) || '';
 
+  const checkoutSubmitCart = useMemo(() => {
+    if (pendingOrder || isAccountMarketCart || !cartValidation.hasInvalidItems) {
+      return cart;
+    }
+
+    return cart.filter((item) => cartValidation.itemMap.get(item.skuId)?.valid !== false);
+  }, [cart, cartValidation.hasInvalidItems, cartValidation.itemMap, isAccountMarketCart, pendingOrder]);
+  // const excludedCartItems = useMemo(() => {
+  //   if (pendingOrder || isAccountMarketCart || !cartValidation.hasInvalidItems) {
+  //     return [] as MarketCartItem[];
+  //   }
+
+  //   return cart.filter((item) => cartValidation.itemMap.get(item.skuId)?.valid === false);
+  // }, [cart, cartValidation.hasInvalidItems, cartValidation.itemMap, isAccountMarketCart, pendingOrder]);
+
   // 计算总价 - 更新为使用MarketCartItem，考虑数量
-  const subtotal = cart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0;
+  const subtotal = checkoutSubmitCart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0;
   const { data: couponPreview } = useAuthApi<NewUserCouponPreview>(
-    user?.token ? `/api/user/new-user-coupon?subtotal=${encodeURIComponent(String(subtotal))}` : null,
+    user?.token && !isAccountMarketCart ? `/api/user/new-user-coupon?subtotal=${encodeURIComponent(String(subtotal))}` : null,
   );
   // 判断是否免除服务费
   const isServiceFeeFree = subtotal >= SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD;
   const serviceFee = isServiceFeeFree ? 0 : SOFTWARE_SERVICE_FEE_AMOUNT;
-  const availableCoupons = couponPreview?.availableCoupons || [];
+  const availableCoupons = useMemo(() => couponPreview?.availableCoupons || [], [couponPreview?.availableCoupons]);
   const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) || null;
-  const effectiveCoupon = selectedCoupon || null;
-  const effectiveDiscountAmount = effectiveCoupon?.applicableToCurrentCart
+  const normalizedAccountCouponCode = accountCouponCode.trim().toUpperCase();
+  const accountCouponApplied = Boolean(
+    isAccountMarketCart
+    && accountCouponValidation?.valid
+    && accountCouponValidation.code === normalizedAccountCouponCode
+    && roundCurrency(accountCouponValidation.subtotal) === roundCurrency(subtotal),
+  );
+  const accountCouponDiscountAmount = accountCouponApplied
+    ? accountCouponValidation?.discountAmount || 0
+    : 0;
+  const effectiveCoupon = isAccountMarketCart ? null : selectedCoupon || null;
+  const effectiveDiscountAmount = isAccountMarketCart
+    ? accountCouponDiscountAmount
+    : effectiveCoupon?.applicableToCurrentCart
     ? (effectiveCoupon.projectedDiscountAmount || 0)
     : 0;
   const discountedSubtotal = Math.max(subtotal - effectiveDiscountAmount, 0);
   const totalPrice = discountedSubtotal + serviceFee;
+  const canSubmitCheckout = pendingOrder || isAccountMarketCart || checkoutSubmitCart.length > 0;
 
   useEffect(() => {
+    if (isAccountMarketCart) {
+      if (selectedCouponId) {
+        setSelectedCouponId('');
+      }
+      return;
+    }
+
     if (!availableCoupons.length) {
       if (selectedCouponId) {
         setSelectedCouponId('');
@@ -274,10 +378,122 @@ export default function Checkout() {
 
     const firstApplicableCoupon = availableCoupons.find((coupon) => coupon.applicableToCurrentCart);
     setSelectedCouponId(firstApplicableCoupon?.id || '');
-  }, [availableCoupons, selectedCouponId]);
+  }, [availableCoupons, isAccountMarketCart, selectedCouponId]);
+
+  useEffect(() => {
+    if (!isAccountMarketCart) {
+      if (accountCouponCode) {
+        setAccountCouponCode('');
+      }
+      setAccountCouponError(null);
+      setAccountCouponValidation(null);
+    }
+  }, [accountCouponCode, isAccountMarketCart]);
+
+  const handleAccountCouponCodeChange = (value: string) => {
+    setAccountCouponCode(value.toUpperCase());
+    setAccountCouponError(null);
+    setAccountCouponValidation(null);
+  };
+
+  const handleApplyAccountCoupon = async () => {
+    if (!isAccountMarketCart || pendingOrder) {
+      return;
+    }
+
+    if (!normalizedAccountCouponCode) {
+      setAccountCouponError(intl.formatMessage({
+        id: 'checkout.accountCouponRequired',
+        defaultMessage: 'Enter a coupon code before applying it.',
+      }));
+      return;
+    }
+
+    if (!user?.token) {
+      setAccountCouponError(intl.formatMessage({
+        id: 'checkout.accountCouponLoginRequired',
+        defaultMessage: 'Sign in before applying this account coupon.',
+      }));
+      return;
+    }
+
+    setAccountCouponApplying(true);
+    setAccountCouponError(null);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/account-coupon/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          code: normalizedAccountCouponCode,
+          items: cart.map((item) => ({
+            skuId: item.skuId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.valid) {
+        throw new Error(typeof payload?.error === 'string'
+          ? payload.error
+          : intl.formatMessage({
+            id: 'checkout.accountCouponInvalid',
+            defaultMessage: 'This account coupon could not be applied.',
+          }));
+      }
+
+      setAccountCouponValidation({
+        valid: true,
+        code: payload.code || normalizedAccountCouponCode,
+        percentOff: payload.percentOff || ACCOUNT_MARKET_COUPON_PERCENT_OFF,
+        subtotal: Number(payload.subtotal) || subtotal,
+        discountAmount: Number(payload.discountAmount) || 0,
+      });
+    } catch (error) {
+      setAccountCouponValidation(null);
+      setAccountCouponError(error instanceof Error
+        ? error.message
+        : intl.formatMessage({
+          id: 'checkout.accountCouponInvalid',
+          defaultMessage: 'This account coupon could not be applied.',
+        }));
+    } finally {
+      setAccountCouponApplying(false);
+    }
+  };
 
   // 打开协议确认弹窗
   const handleOpenConfirmDialog = () => {
+    if (isAccountMarketCart && accountCouponCode.trim() && !accountCouponApplied) {
+      setAccountCouponError(intl.formatMessage(
+        { id: 'checkout.accountCouponApplyRequired', defaultMessage: 'Press Apply or Enter to validate this coupon before checkout.' },
+      ));
+      return;
+    }
+
+    if (isAccountMarketCheckout && accountMarketItem) {
+      const availableStock = Math.max(accountMarketItem.stock - accountMarketItem.lockedStock, 0);
+      if (availableStock <= 0) {
+        setError(intl.formatMessage({
+          id: 'checkout.accountListingUnavailable',
+          defaultMessage: 'This account listing is no longer available.',
+        }));
+        return;
+      }
+    }
+
+    if (!isAccountMarketCart && cartValidation.hasInvalidItems && checkoutSubmitCart.length === 0) {
+      setError(intl.formatMessage({
+        id: 'checkout.noValidCartItems',
+        defaultMessage: 'No valid cart items remain in this checkout.',
+      }));
+      return;
+    }
+
     // 检查用户是否已登录
     if (!userSession?.user) {
       setOpenLoginDialog(true);
@@ -330,7 +546,7 @@ export default function Checkout() {
 
   // 处理订单提交
   const handleSubmitOrder = () => {
-    if ((!cart || cart.length === 0) && !pendingOrder) return;
+    if ((!checkoutSubmitCart || checkoutSubmitCart.length === 0) && !pendingOrder) return;
 
     setLoading(true);
     setError(null);
@@ -371,8 +587,9 @@ export default function Checkout() {
 
     const idempotencyKey = getOrCreateCheckoutPendingRequestKey(
       user?.id,
-      cart,
-      selectedCouponId || null,
+      checkoutSubmitCart,
+      isAccountMarketCart ? null : selectedCouponId || null,
+      accountCouponApplied ? normalizedAccountCouponCode : null,
     );
 
     // 创建新订单
@@ -380,12 +597,13 @@ export default function Checkout() {
       `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders`,
       {
         method: 'POST',
-        body: JSON.stringify({
-          items: cart.map(item => ({
-            skuId: item.skuId,
-            quantity: item.quantity
-          })),
-          selectedCouponId: selectedCouponId || null,
+          body: JSON.stringify({
+            items: checkoutSubmitCart.map(item => ({
+              skuId: item.skuId,
+              quantity: item.quantity
+            })),
+          selectedCouponId: isAccountMarketCart ? null : selectedCouponId || null,
+          accountCouponCode: accountCouponApplied ? normalizedAccountCouponCode : null,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -416,13 +634,36 @@ export default function Checkout() {
 
   // 返回购物页面
   const handleBackToMarket = () => {
-    navigate('/market');
+    navigate(isAccountMarketCheckout ? '/account-market' : '/market');
   };
 
   // 返回订单页面
   const handleBackToOrders = () => {
     navigate('/orders');
   };
+
+  if (isAccountMarketCheckout && accountMarketItemLoading && !pendingOrder) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isAccountMarketCheckout && (accountMarketItemNotFound || accountMarketItemError || !accountSkuId) && !pendingOrder) {
+    return (
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="80vh" gap={2}>
+        <Alert severity="warning">
+          {accountMarketItemNotFound || !accountSkuId
+            ? intl.formatMessage({ id: 'checkout.accountListingUnavailable', defaultMessage: 'This account listing is no longer available.' })
+            : accountMarketItemError}
+        </Alert>
+        <Button component={RouterLink} to={getAccountMarketListPath()} variant="contained" color="primary">
+          <FormattedMessage id="checkout.backToAccountMarket" defaultMessage="Back to Account Market" />
+        </Button>
+      </Box>
+    );
+  }
 
   if ((!cart || cart.length === 0) && !pendingOrder) {
     return (
@@ -431,7 +672,10 @@ export default function Checkout() {
           <FormattedMessage id="checkout.emptyCart" defaultMessage="Your cart is empty" />
         </Typography>
         <Button variant="contained" color="primary" onClick={handleBackToMarket}>
-          <FormattedMessage id="checkout.backToMarket" defaultMessage="Back to Market" />
+          <FormattedMessage
+            id={isAccountMarketCheckout ? 'checkout.backToAccountMarket' : 'checkout.backToMarket'}
+            defaultMessage={isAccountMarketCheckout ? 'Back to Account Market' : 'Back to Market'}
+          />
         </Button>
       </Box>
     );
@@ -527,7 +771,10 @@ export default function Checkout() {
           {pendingOrder ? (
             <FormattedMessage id="checkout.resumePayment" defaultMessage="Resume Payment" />
           ) : (
-            <FormattedMessage id="checkout.title" defaultMessage="Checkout" />
+            <FormattedMessage
+              id={isAccountMarketCheckout ? 'checkout.accountTitle' : 'checkout.title'}
+              defaultMessage={isAccountMarketCheckout ? 'Account Market Checkout' : 'Checkout'}
+            />
           )}
         </Typography>
 
@@ -548,6 +795,15 @@ export default function Checkout() {
             <OrderPaymentDeadline
               status={pendingOrder.status}
               expiresAt={pendingOrder.expiresAt}
+            />
+          </Alert>
+        )}
+
+        {!pendingOrder && !isAccountMarketCart && cartValidation.hasInvalidItems && (
+          <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>
+            <FormattedMessage
+              id="checkout.invalidCartItems"
+              defaultMessage="Some cart items are unavailable and were excluded from checkout."
             />
           </Alert>
         )}
@@ -574,6 +830,10 @@ export default function Checkout() {
                   {cart.map((item) => {
                     const isCCU = item.itemType === 'ccu';
                     const isPackage = item.itemType === 'package';
+                    const validation = !pendingOrder && !isAccountMarketCart
+                      ? cartValidation.itemMap.get(item.skuId)
+                      : undefined;
+                    const isInvalid = validation?.valid === false;
                     const media = getItemMedia(item);
                     const localizedShipNames = getLocalizedItemShipNames(item);
                     const name = getItemName(item, localizedShipNames);
@@ -583,7 +843,14 @@ export default function Checkout() {
                     const shipName = localizedShipNames.shipName || media.shipName || item.shipName || '';
                     
                     return (
-                      <TableRow key={item.skuId} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableRow
+                        key={item.skuId}
+                        sx={{
+                          '&:last-child td, &:last-child th': { border: 0 },
+                          opacity: isInvalid ? 0.62 : 1,
+                          bgcolor: isInvalid ? 'action.hover' : undefined,
+                        }}
+                      >
                         <TableCell>
                           {isCCU ? (
                             <Box sx={{ position: 'relative', width: 220, height: 120, overflow: 'hidden' }}>
@@ -637,7 +904,19 @@ export default function Checkout() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body1" sx={{ fontWeight: 500 }}>{name}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>{name}</Typography>
+                            {isInvalid && (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                label={intl.formatMessage({
+                                  id: 'checkout.excludedItemBadge',
+                                  defaultMessage: 'Excluded',
+                                })}
+                              />
+                            )}
+                          </Box>
                           {isCCU && fromShipName && toShipName && (
                             <Typography variant="body2" color="text.secondary">
                               {fromShipName} → {toShipName}
@@ -681,21 +960,61 @@ export default function Checkout() {
                             </span>
                             <span> {item.quantity}</span>
                           </Typography>
+                          {isInvalid && (
+                            <Alert severity="warning" sx={{ mt: 1, py: 0.5 }}>
+                              <FormattedMessage
+                                id="checkout.invalidItemDetail"
+                                defaultMessage="This item is unavailable or over current stock, so it will not be included in payment. {availableStock}"
+                                values={{
+                                  availableStock: validation && validation.availableStock !== Number.MAX_SAFE_INTEGER
+                                    ? intl.formatMessage(
+                                      { id: 'checkout.availableStock', defaultMessage: '{count} available now' },
+                                      { count: validation.availableStock },
+                                    )
+                                    : '',
+                                }}
+                              />
+                            </Alert>
+                          )}
                         </TableCell>
                         <TableCell align="right">
                           <div className="flex flex-col gap-2">
-                            {formatCheckoutPrice(price)}
+                            {isInvalid
+                              ? intl.formatMessage({ id: 'checkout.excludedItemPrice', defaultMessage: 'Excluded' })
+                              : formatCheckoutPrice(price)}
                             {/* 使用更安全的方式检查折扣价格 */}
-                            {(item.discounted !== undefined && item.discounted > 0) && (
+                            {(!isInvalid && item.discounted !== undefined && item.discounted > 0) && (
                               <span className="text-gray-500 line-through">
                                 {formatCheckoutPrice(item.discounted + price)}
                               </span>
+                            )}
+                            {isInvalid && !pendingOrder && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                onClick={() => removeFromCart(item.skuId)}
+                              >
+                                <FormattedMessage id="checkout.removeUnavailableItem" defaultMessage="Remove" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
                       </TableRow>
                     );
                   })}
+                  {cart.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3}>
+                        <Alert severity="warning" sx={{ textAlign: 'left' }}>
+                          <FormattedMessage
+                            id="checkout.noValidCartItems"
+                            defaultMessage="No valid items remain in the checkout list. Please return to the cart and remove unavailable items."
+                          />
+                        </Alert>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -745,6 +1064,16 @@ export default function Checkout() {
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
             </Typography>
 
+            {/* {excludedCartItems.length > 0 && (
+              <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>
+                <FormattedMessage
+                  id="checkout.excludedItemsSummary"
+                  defaultMessage="{count} unavailable cart item(s) are shown in the list but excluded from this payment."
+                  values={{ count: excludedCartItems.length }}
+                />
+              </Alert>
+            )} */}
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1">
                 <FormattedMessage id="checkout.subtotal" defaultMessage="Subtotal" />
@@ -754,7 +1083,51 @@ export default function Checkout() {
               </Typography>
             </Box>
 
-            {availableCoupons.length > 0 && (
+            {isAccountMarketCart && !pendingOrder && (
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  label={intl.formatMessage({ id: 'checkout.accountCouponCode', defaultMessage: 'Account coupon code' })}
+                  value={accountCouponCode}
+                  onChange={(event) => handleAccountCouponCodeChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleApplyAccountCoupon();
+                    }
+                  }}
+                  placeholder={expectedAccountCouponCode}
+                  error={Boolean(accountCouponError)}
+                  helperText={accountCouponError || (accountCouponApplied
+                    ? intl.formatMessage(
+                      { id: 'checkout.accountCouponApplied', defaultMessage: '{percent}% account discount applied.' },
+                      { percent: accountCouponValidation?.percentOff || ACCOUNT_MARKET_COUPON_PERCENT_OFF },
+                    )
+                    : intl.formatMessage(
+                      { id: 'checkout.accountCouponHelp', defaultMessage: 'Use {code} for {percent}% off account listings this month. Press Enter or Apply to validate it.' },
+                      { code: expectedAccountCouponCode, percent: ACCOUNT_MARKET_COUPON_PERCENT_OFF },
+                    ))}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => void handleApplyAccountCoupon()}
+                          disabled={accountCouponApplying || !accountCouponCode.trim()}
+                        >
+                          {accountCouponApplying
+                            ? intl.formatMessage({ id: 'checkout.accountCouponApplying', defaultMessage: 'Applying...' })
+                            : intl.formatMessage({ id: 'checkout.applyCoupon', defaultMessage: 'Apply' })}
+                        </Button>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+            )}
+
+            {!isAccountMarketCart && availableCoupons.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <TextField
                   select
@@ -866,10 +1239,17 @@ export default function Checkout() {
 
             <Alert severity="warning" sx={{ mt: 2, textAlign: 'left' }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                <FormattedMessage
-                  id="checkout.rsiGiftEmailNotice"
-                  defaultMessage="Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox."
-                />
+                {isAccountMarketCart ? (
+                  <FormattedMessage
+                    id="checkout.accountDeliveryNotice"
+                    defaultMessage="After you place the order, we will contact you by email to help complete account delivery, binding changes, and credential handoff."
+                  />
+                ) : (
+                  <FormattedMessage
+                    id="checkout.rsiGiftEmailNotice"
+                    defaultMessage="Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox."
+                  />
+                )}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
                 <FormattedMessage
@@ -889,7 +1269,7 @@ export default function Checkout() {
               fullWidth
               sx={{ mt: 2, textTransform: 'uppercase' }}
               onClick={handleConfirmOrder}
-              disabled={loading}
+              disabled={loading || !canSubmitCheckout}
               startIcon={loading && <CircularProgress size={20} color="inherit" />}
             >
               {loading ? (
@@ -910,8 +1290,8 @@ export default function Checkout() {
               sx={{ mt: 2, textTransform: 'uppercase' }}
             >
               <FormattedMessage
-                id={pendingOrder ? "checkout.backToOrders" : "checkout.backToMarket"}
-                defaultMessage={pendingOrder ? "Back to Orders" : "Back to Market"}
+                id={pendingOrder ? "checkout.backToOrders" : (isAccountMarketCheckout ? "checkout.backToAccountMarket" : "checkout.backToMarket")}
+                defaultMessage={pendingOrder ? "Back to Orders" : (isAccountMarketCheckout ? "Back to Account Market" : "Back to Market")}
               />
             </Button>
           </Paper>
@@ -930,10 +1310,15 @@ export default function Checkout() {
         <DialogContent>
           <div className="flex flex-col gap-2 text-[#555] dark:text-white">
             {
-              intl.formatMessage({
-                id: 'checkout.agreementText',
-                defaultMessage: 'By proceeding with the purchase, you agree to our Terms of Service and Privacy Policy.;All sales are final and non-refundable unless otherwise stated in our refund policy.;In special cases such as stock shortages, we may contact you and you may choose a partial or full refund.;Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox.',
-              })
+              intl.formatMessage(isAccountMarketCart
+                ? {
+                    id: 'checkout.accountAgreementText',
+                    defaultMessage: 'By proceeding with the purchase, you agree to our Terms of Service and Privacy Policy.;After you place the order, we will contact you by email to help complete account delivery, binding changes, and credential handoff.;If needed, you can also reach us anytime through Discord or a support ticket.;All sales are final unless otherwise stated in our refund policy.',
+                  }
+                : {
+                    id: 'checkout.agreementText',
+                    defaultMessage: 'By proceeding with the purchase, you agree to our Terms of Service and Privacy Policy.;All sales are final and non-refundable unless otherwise stated in our refund policy.;In special cases such as stock shortages, we may contact you and you may choose a partial or full refund.;Items will be delivered via RSI gift to the email address associated with your account at registration. Please make sure you can access that inbox.',
+                  })
                 .split(';')
                 .map((line) => line.trim())
                 .filter(Boolean)

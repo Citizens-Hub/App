@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle, OtherItem } from "../store/upgradesStore";
+import { addCCU, addBuybackCCU, addShip, addUser, clearUpgrades, UserInfo, addBundle, OtherItem, addAccountIssue } from "../store/upgradesStore";
 import { useDispatch } from "react-redux";
 // import { Refresh } from "@mui/icons-material";
 import { Button, LinearProgress, Snackbar, Alert } from "@mui/material";
@@ -382,7 +382,15 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
     return aliasMatch?.name || "";
   }, [normalizeShipName, shipWithAlias, ships]);
 
-  const tryResolveCCU = useCallback((content: { name: string, match_items: Array<{ id?: number; name: string }>, target_items: Array<{ id?: number; name: string }> }) => {
+  const tryResolveCCU = useCallback((
+    content: { name: string, match_items: Array<{ id?: number; name: string }>, target_items: Array<{ id?: number; name: string }> },
+    issueContext?: {
+      source: 'hangar' | 'buyback';
+      canGift: boolean;
+      isBuyBack: boolean;
+      pageId?: number;
+    },
+  ) => {
     const name = content.name;
 
     let from = "";
@@ -460,6 +468,17 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       };
     } catch (error) {
       console.warn("error parsing ccu", name, "error >>>>", error, "reporting");
+      dispatch(addAccountIssue({
+        id: `account-issue-ccu-${userRef.current?.id || 0}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        belongsTo: userRef.current?.id || 0,
+        source: issueContext?.source || 'hangar',
+        itemType: 'ccu',
+        name,
+        reason: error instanceof Error ? error.message : String(error),
+        canGift: issueContext?.canGift ?? true,
+        isBuyBack: issueContext?.isBuyBack ?? false,
+        pageId: issueContext?.pageId,
+      }));
       reportError({
         errorType: "CCU_PARSING_ERROR",
         errorMessage: JSON.stringify({
@@ -471,7 +490,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       return false;
     }
 
-  }, [normalizeShipName, resolveShipByItemId, resolveShipName, ships]);
+  }, [dispatch, normalizeShipName, resolveShipByItemId, resolveShipName, ships]);
 
   const getBuybackDetailKey = useCallback((name: string) => normalizeWhitespace(name).toLowerCase(), []);
 
@@ -603,6 +622,21 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         pageId: buybackItem.pageId,
       }];
 
+    if (detail.ships.length === 0 && bundleOthers.length === 0) {
+      dispatch(addAccountIssue({
+        id: `account-issue-buyback-bundle-${userRef.current?.id || 0}-${buybackItem.pageId}`,
+        belongsTo: userRef.current?.id || 0,
+        source: 'buyback',
+        itemType: 'bundle',
+        name: detail.name,
+        reason: 'BUYBACK_BUNDLE_UNRESOLVED',
+        canGift: false,
+        isBuyBack: true,
+        pageId: buybackItem.pageId,
+      }));
+      return;
+    }
+
     dispatch(addBundle({
       ships: detail.ships.map(ship => ({
         ...(typeof ship.id === "number" ? { id: ship.id } : {}),
@@ -636,7 +670,12 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
       if (ccuData) {
         const content = JSON.parse(ccuData)
 
-        const parsed = tryResolveCCU(content);
+        const parsed = tryResolveCCU(content, {
+          source: 'hangar',
+          canGift,
+          isBuyBack: false,
+          pageId: id,
+        });
 
         if (!parsed) return;
 
@@ -759,6 +798,20 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         return;
       }
 
+      if (!currentShips.length && !currentOthers.length) {
+        dispatch(addAccountIssue({
+          id: `account-issue-bundle-${userRef.current?.id || 0}-${id}`,
+          belongsTo: userRef.current?.id || 0,
+          source: 'hangar',
+          itemType: 'bundle',
+          name: bundleName || intl.formatMessage({ id: 'crawler.unknownBundle', defaultMessage: 'Unknown Bundle' }),
+          reason: 'BUNDLE_CONTENT_UNRESOLVED',
+          canGift,
+          isBuyBack: false,
+          pageId: id,
+        }));
+      }
+
     });
   }, [dispatch, intl, normalizeShipName, resolveShipName, ships, tryResolveCCU]);
 
@@ -854,6 +907,11 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
           name: ccu.name,
           match_items: [{ name: ccu.from }],
           target_items: [{ name: ccu.to }],
+        }, {
+          source: 'buyback',
+          canGift: true,
+          isBuyBack: true,
+          pageId: id,
         });
 
         if (parsed) {

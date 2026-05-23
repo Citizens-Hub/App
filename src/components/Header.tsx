@@ -572,7 +572,6 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                 </span>
               </Link>
             )}
-
             <div className="flex flex-col gap-3">
               {groupedNavigation.map((group) => {
                 const expanded = expandedMenuGroups[group.key];
