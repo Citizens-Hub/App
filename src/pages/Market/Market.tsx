@@ -17,10 +17,18 @@ import {
   MenuItem,
   Button,
   Divider,
+  Drawer,
   TablePagination,
   Tooltip,
 } from '@mui/material';
-import { ContentCopy, Search } from '@mui/icons-material';
+import {
+  ContentCopy,
+  FilterListOutlined,
+  LocalShippingOutlined,
+  Search,
+  ShieldOutlined,
+  SupportAgentOutlined,
+} from '@mui/icons-material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import CartDrawer from './components/CartDrawer';
 import MarketItemMedia from './components/MarketItemMedia';
@@ -192,6 +200,25 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
   return nextSearchParams;
 }
 
+function MarketTrustSection() {
+  return (
+    <>
+      <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+        <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
+      </div>
+      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+        <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        <FormattedMessage
+          id="market.trust.description"
+          defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
+        />
+      </Typography>
+    </>
+  );
+}
+
 const Market: React.FC = () => {
   const intl = useIntl();
   const { user } = useSelector((state: RootState) => state.user);
@@ -204,6 +231,7 @@ const Market: React.FC = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [couponPopupDismissed, setCouponPopupDismissed] = useState(false);
   const [couponNow, setCouponNow] = useState(Date.now());
+  const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const autoClaimAttemptedRef = useRef<string | null>(null);
@@ -401,6 +429,32 @@ const Market: React.FC = () => {
     return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name));
   }, [listingItems, ships]);
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+
+    if (selectedItemFilter !== 'all') {
+      count += 1;
+    }
+    if (showsShipTraitFilters && selectedShipTraitFilter !== 'all') {
+      count += 1;
+    }
+    if (showsManufacturerFilter && selectedManufacturerId) {
+      count += 1;
+    }
+    if (sortBy !== 'recommended') {
+      count += 1;
+    }
+
+    return count;
+  }, [
+    selectedItemFilter,
+    selectedManufacturerId,
+    selectedShipTraitFilter,
+    showsManufacturerFilter,
+    showsShipTraitFilters,
+    sortBy,
+  ]);
+
   useEffect(() => {
     pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [marketQuery]);
@@ -570,6 +624,254 @@ const Market: React.FC = () => {
     : 'Star Citizen market, CCU, ship upgrades, standalone ships, ship packages, store credit, paints, Star Citizen marketplace';
   const metaImage = getAbsoluteAssetUrl('/logo.png');
   const robotsContent = hasActiveFilters ? 'noindex,follow' : 'index,follow';
+  const renderProgressSupport = () => (
+    <FormattedMessage
+      id="market.trust.progressSupport"
+      defaultMessage="You can join our <discord>Discord</discord> or <ticket>submit a ticket</ticket> at any time to ask about progress."
+      values={{
+        discord: (chunks) => (
+          <a
+            href="https://discord.gg/AEuRtb5Vy8"
+            target="_blank"
+            rel="noopener noreferrer"
+            className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+          >
+            {chunks}
+          </a>
+        ),
+        ticket: (chunks) => (
+          <Link
+            to="/tickets"
+            className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
+          >
+            {chunks}
+          </Link>
+        ),
+      }}
+    />
+  );
+  const renderFilterPanel = () => (
+    <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+        <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
+      </Typography>
+      <RadioGroup
+        value={selectedItemFilter}
+        onChange={(event) => {
+          const nextFilter = event.target.value as MarketItemFilterOption;
+          updateMarketSearchParams((nextSearchParams) => {
+            nextSearchParams.delete('itemType');
+            nextSearchParams.delete('browseCategory');
+            nextSearchParams.delete('tag');
+            nextSearchParams.delete('shipTrait');
+            nextSearchParams.delete('manufacturerId');
+            nextSearchParams.delete('page');
+
+            if (nextFilter === 'ccu' || nextFilter === 'credit') {
+              nextSearchParams.set('itemType', nextFilter);
+            } else if (nextFilter !== 'all') {
+              nextSearchParams.set('browseCategory', nextFilter);
+            }
+
+            const nextShowsShipTraitFilters = nextFilter === 'all'
+              || nextFilter === 'standalone_ship'
+              || nextFilter === 'ship_package';
+            const nextShowsManufacturerFilter = nextShowsShipTraitFilters || nextFilter === 'ccu';
+
+            if (nextShowsShipTraitFilters && selectedShipTraitFilter !== 'all') {
+              nextSearchParams.set('shipTrait', selectedShipTraitFilter);
+            }
+
+            if (nextShowsManufacturerFilter && selectedManufacturerId) {
+              nextSearchParams.set('manufacturerId', String(selectedManufacturerId));
+            }
+          });
+        }}
+      >
+        <FormControlLabel control={<Radio size="small" />} value="all" label={intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })} />
+        <FormControlLabel control={<Radio size="small" />} value="ccu" label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })} />
+        <FormControlLabel control={<Radio size="small" />} value="standalone_ship" label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })} />
+        <FormControlLabel control={<Radio size="small" />} value="ship_package" label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })} />
+        <FormControlLabel control={<Radio size="small" />} value="paint" label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })} />
+        <FormControlLabel control={<Radio size="small" />} value="other" label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })} />
+        <FormControlLabel control={<Radio size="small" />} value="credit" label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })} />
+      </RadioGroup>
+
+      {(showsShipTraitFilters || showsManufacturerFilter) && (
+        <>
+          {showsShipTraitFilters && (
+            <>
+              <Divider sx={{ my: 2 }} />
+
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                <FormattedMessage id="market.filter.shipTraits" defaultMessage="Ship Traits" />
+              </Typography>
+              <RadioGroup
+                value={selectedShipTraitFilter}
+                onChange={(event) => {
+                  const nextShipTrait = event.target.value as MarketShipTraitFilter | 'all';
+                  updateMarketSearchParams((nextSearchParams) => {
+                    nextSearchParams.delete('tag');
+                    nextSearchParams.delete('shipTrait');
+                    nextSearchParams.delete('page');
+
+                    if (nextShipTrait !== 'all') {
+                      nextSearchParams.set('shipTrait', nextShipTrait);
+                    }
+                  });
+                }}
+              >
+                <FormControlLabel
+                  control={<Radio size="small" />}
+                  value="all"
+                  label={intl.formatMessage({ id: 'market.filter.shipTraits.all', defaultMessage: 'All ship listings' })}
+                />
+                <FormControlLabel control={<Radio size="small" />} value="oc" label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })} />
+                <FormControlLabel control={<Radio size="small" />} value="non_oc" label={intl.formatMessage({ id: 'market.tag.nonOc', defaultMessage: 'Non-OC' })} />
+                <FormControlLabel control={<Radio size="small" />} value="lti" label={intl.formatMessage({ id: 'market.tag.lti', defaultMessage: 'LTI' })} />
+              </RadioGroup>
+            </>
+          )}
+
+          {showsManufacturerFilter && (
+            <>
+              <Divider sx={{ my: 2 }} />
+
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label={intl.formatMessage({ id: 'market.filter.manufacturer', defaultMessage: 'Brand' })}
+                value={selectedManufacturerId ? String(selectedManufacturerId) : 'all'}
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                }}
+                onChange={(event) => {
+                  const nextManufacturerId = parsePositiveInteger(event.target.value);
+                  updateMarketSearchParams((nextSearchParams) => {
+                    nextSearchParams.delete('manufacturerId');
+                    nextSearchParams.delete('page');
+
+                    if (nextManufacturerId) {
+                      nextSearchParams.set('manufacturerId', String(nextManufacturerId));
+                    }
+                  });
+                }}
+              >
+                <MenuItem value="all">
+                  {intl.formatMessage({ id: 'market.filter.manufacturer.all', defaultMessage: 'All brands' })}
+                </MenuItem>
+                {manufacturerOptions.map((manufacturer) => (
+                  <MenuItem key={manufacturer.id} value={String(manufacturer.id)}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                      {manufacturer.logoPath && (
+                        <Box
+                          component="img"
+                          src={manufacturer.logoPath}
+                          alt=""
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            objectFit: 'contain',
+                            flexShrink: 0,
+                            filter: 'var(--market-manufacturer-logo-filter, none)',
+                          }}
+                        />
+                      )}
+                      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {manufacturer.name}
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </TextField>
+            </>
+          )}
+        </>
+      )}
+    </Box>
+  );
+  const renderAccountMarketPanel = (options?: { compact?: boolean; onNavigate?: () => void }) => {
+    const compact = options?.compact ?? false;
+    const onNavigate = options?.onNavigate;
+
+    return (
+      <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: compact ? 1.75 : 2 }}>
+        <div className='flex flex-col gap-3'>
+          <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
+            <FormattedMessage id="accountMarket.panel.eyebrow" defaultMessage="Looking for a Star Citizen account?" />
+          </div>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+            <FormattedMessage id="accountMarket.panel.title" defaultMessage="Premium Star Citizen accounts on sale now" />
+          </Typography>
+          {!compact && (
+            <Typography variant="body2" color="text.secondary">
+              <FormattedMessage
+                id="accountMarket.panel.description"
+                defaultMessage="Browse our accounts for sale, including limited ships, retired items, buyback access, and extras. If you need something specific, contact us about a custom account."
+              />
+            </Typography>
+          )}
+
+          <div className='border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/20'>
+            <div className='text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300'>
+              <FormattedMessage id="accountMarket.panel.codeLabel" defaultMessage="Discount code" />
+            </div>
+            <div className='mt-1 flex items-start gap-1'>
+              <div className='min-w-0 break-all text-lg font-black leading-tight text-slate-900 dark:text-white'>{accountCouponCode}</div>
+              <Tooltip title={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })} arrow>
+                <IconButton size="small" sx={{ flexShrink: 0, mt: '1px' }} onClick={() => void handleCopyAccountCouponCode()}>
+                  <ContentCopy fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </div>
+            <div className='mt-1 text-slate-600 dark:text-slate-300'>
+              <FormattedMessage
+                id="accountMarket.panel.codeBody"
+                defaultMessage="Use the monthly account code at checkout to claim {percent}% off eligible account listings."
+                values={{ percent: ACCOUNT_MARKET_COUPON_PERCENT_OFF }}
+              />
+            </div>
+          </div>
+
+          {!compact && (
+            featuredAccountItems[0] ? (
+              <Link
+                to={`/account-market/${encodeURIComponent(featuredAccountItems[0].skuId)}`}
+                onClick={onNavigate}
+                className='flex gap-3 border border-gray-200 p-3 transition hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600'
+              >
+                <img
+                  src={getMarketImageAssetUrl(featuredAccountItems[0].imageUrl || featuredAccountItems[0].entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp')}
+                  alt={featuredAccountItems[0].name}
+                  className='h-20 w-20 shrink-0 object-cover'
+                />
+                <div className='min-w-0 flex-1'>
+                  <div className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
+                    <FormattedMessage id="accountMarket.panel.featured" defaultMessage="Featured account" />
+                  </div>
+                  <div className='mt-1 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white'>
+                    {featuredAccountItems[0].name}
+                  </div>
+                  <div className='mt-2 text-sm font-bold text-slate-900 dark:text-white'>
+                    {intl.formatNumber(featuredAccountItems[0].price, { style: 'currency', currency: 'USD' })}
+                  </div>
+                </div>
+              </Link>
+            ) : (
+              <div className='border border-dashed border-gray-300 p-3 text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
+                <FormattedMessage id="accountMarket.panel.empty" defaultMessage="Account listings will appear here when available." />
+              </div>
+            )
+          )}
+
+          <Button component={Link} to={getAccountMarketListPath()} onClick={onNavigate} variant="contained" fullWidth>
+            <FormattedMessage id="accountMarket.panel.cta" defaultMessage="Browse Accounts" />
+          </Button>
+        </div>
+      </Box>
+    );
+  };
   if (loading && listingItems.length === 0 && pagination.total === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
@@ -645,21 +947,60 @@ const Market: React.FC = () => {
             </div>
           </Box>
 
-          <div className='rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+          <div className='rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:hidden'>
+            <div className='flex flex-col gap-4'>
+              <MarketTrustSection />
+
+              <div className='grid gap-2 sm:grid-cols-3'>
+                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
+                  <div className='flex items-start gap-2'>
+                    <ShieldOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
+                    <div className='min-w-0'>
+                      <div className='text-sm font-semibold text-slate-900 dark:text-white'>
+                        <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
+                  <div className='flex items-start gap-2'>
+                    <LocalShippingOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
+                    <div className='min-w-0 text-sm leading-6 text-slate-700 dark:text-slate-300'>
+                      <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
+                  <div className='flex items-start gap-2'>
+                    <SupportAgentOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
+                    <div className='min-w-0 text-sm leading-6 text-slate-700 dark:text-slate-300'>
+                      {renderProgressSupport()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className='flex items-center justify-between gap-3 border-t border-gray-200 pt-3 dark:border-gray-800'>
+                <div>
+                  <div className='text-sm font-medium text-slate-900 dark:text-white'>
+                    <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
+                  </div>
+                </div>
+                <img
+                  src="/stripe/Powered by Stripe - blurple.svg"
+                  alt="Powered by Stripe"
+                  className='h-7 w-auto shrink-0 opacity-80'
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className='hidden rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:block md:p-5'>
             <div className='flex flex-col gap-3'>
               <div className='flex flex-col gap-2'>
-                <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
-                  <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
-                </div>
-                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                  <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <FormattedMessage
-                    id="market.trust.description"
-                    defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
-                  />
-                </Typography>
+                <MarketTrustSection />
               </div>
               <div className='border-t border-gray-200 pt-3 text-sm leading-7 text-slate-600 dark:border-gray-800 dark:text-slate-300'>
                 <div>
@@ -669,30 +1010,7 @@ const Market: React.FC = () => {
                   <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
                 </div>
                 <div>
-                  <FormattedMessage
-                    id="market.trust.progressSupport"
-                    defaultMessage="You can join our <discord>Discord</discord> or <ticket>submit a ticket</ticket> at any time to ask about progress."
-                    values={{
-                      discord: (chunks) => (
-                        <a
-                          href="https://discord.gg/AEuRtb5Vy8"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
-                        >
-                          {chunks}
-                        </a>
-                      ),
-                      ticket: (chunks) => (
-                        <Link
-                          to="/tickets"
-                          className='underline underline-offset-4 transition hover:text-slate-900 dark:hover:text-white'
-                        >
-                          {chunks}
-                        </Link>
-                      ),
-                    }}
-                  />
+                  {renderProgressSupport()}
                 </div>
                 <div className='pt-2'>
                   <picture>
@@ -712,269 +1030,15 @@ const Market: React.FC = () => {
 
           <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
             <div className='lg:sticky lg:top-4 lg:self-start'>
-              <Box sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  <FormattedMessage id="market.filter.type" defaultMessage="Item Type" />
-                </Typography>
-                <RadioGroup
-                  value={selectedItemFilter}
-                  onChange={(event) => {
-                    const nextFilter = event.target.value as MarketItemFilterOption;
-                    updateMarketSearchParams((nextSearchParams) => {
-                      nextSearchParams.delete('itemType');
-                      nextSearchParams.delete('browseCategory');
-                      nextSearchParams.delete('tag');
-                      nextSearchParams.delete('shipTrait');
-                      nextSearchParams.delete('manufacturerId');
-                      nextSearchParams.delete('page');
+              <div className='hidden lg:block'>
+                {renderFilterPanel()}
+              </div>
 
-                      if (nextFilter === 'ccu' || nextFilter === 'credit') {
-                        nextSearchParams.set('itemType', nextFilter);
-                      } else if (nextFilter !== 'all') {
-                        nextSearchParams.set('browseCategory', nextFilter);
-                      }
-
-                      const nextShowsShipTraitFilters = nextFilter === 'all'
-                        || nextFilter === 'standalone_ship'
-                        || nextFilter === 'ship_package';
-                      const nextShowsManufacturerFilter = nextShowsShipTraitFilters || nextFilter === 'ccu';
-
-                      if (nextShowsShipTraitFilters && selectedShipTraitFilter !== 'all') {
-                        nextSearchParams.set('shipTrait', selectedShipTraitFilter);
-                      }
-
-                      if (nextShowsManufacturerFilter && selectedManufacturerId) {
-                        nextSearchParams.set('manufacturerId', String(selectedManufacturerId));
-                      }
-                    });
-                  }}
-                >
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="all"
-                    label={intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="ccu"
-                    label={intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="standalone_ship"
-                    label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="ship_package"
-                    label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="paint"
-                    label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="other"
-                    label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })}
-                  />
-                  <FormControlLabel
-                    control={(
-                      <Radio size="small" />
-                    )}
-                    value="credit"
-                    label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })}
-                  />
-                </RadioGroup>
-
-                {(showsShipTraitFilters || showsManufacturerFilter) && (
-                  <>
-                    {showsShipTraitFilters && (
-                      <>
-                        <Divider sx={{ my: 2 }} />
-
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                          <FormattedMessage id="market.filter.shipTraits" defaultMessage="Ship Traits" />
-                        </Typography>
-                        <RadioGroup
-                          value={selectedShipTraitFilter}
-                          onChange={(event) => {
-                            const nextShipTrait = event.target.value as MarketShipTraitFilter | 'all';
-                            updateMarketSearchParams((nextSearchParams) => {
-                              nextSearchParams.delete('tag');
-                              nextSearchParams.delete('shipTrait');
-                              nextSearchParams.delete('page');
-
-                              if (nextShipTrait !== 'all') {
-                                nextSearchParams.set('shipTrait', nextShipTrait);
-                              }
-                            });
-                          }}
-                        >
-                          <FormControlLabel
-                            control={<Radio size="small" />}
-                            value="all"
-                            label={intl.formatMessage({ id: 'market.filter.shipTraits.all', defaultMessage: 'All ship listings' })}
-                          />
-                          <FormControlLabel
-                            control={<Radio size="small" />}
-                            value="oc"
-                            label={intl.formatMessage({ id: 'market.tag.oc', defaultMessage: 'OC' })}
-                          />
-                          <FormControlLabel
-                            control={<Radio size="small" />}
-                            value="non_oc"
-                            label={intl.formatMessage({ id: 'market.tag.nonOc', defaultMessage: 'Non-OC' })}
-                          />
-                          <FormControlLabel
-                            control={<Radio size="small" />}
-                            value="lti"
-                            label={intl.formatMessage({ id: 'market.tag.lti', defaultMessage: 'LTI' })}
-                          />
-                        </RadioGroup>
-                      </>
-                    )}
-
-                    {showsManufacturerFilter && (
-                      <>
-                        <Divider sx={{ my: 2 }} />
-
-                        <TextField
-                          select
-                          fullWidth
-                          size="small"
-                          label={intl.formatMessage({ id: 'market.filter.manufacturer', defaultMessage: 'Brand' })}
-                          value={selectedManufacturerId ? String(selectedManufacturerId) : 'all'}
-                          sx={{
-                            '& .MuiOutlinedInput-root': { borderRadius: 0 }
-                          }}
-                          onChange={(event) => {
-                            const nextManufacturerId = parsePositiveInteger(event.target.value);
-                            updateMarketSearchParams((nextSearchParams) => {
-                              nextSearchParams.delete('manufacturerId');
-                              nextSearchParams.delete('page');
-
-                              if (nextManufacturerId) {
-                                nextSearchParams.set('manufacturerId', String(nextManufacturerId));
-                              }
-                            });
-                          }}
-                        >
-                          <MenuItem value="all">
-                            {intl.formatMessage({ id: 'market.filter.manufacturer.all', defaultMessage: 'All brands' })}
-                          </MenuItem>
-                          {manufacturerOptions.map((manufacturer) => (
-                            <MenuItem key={manufacturer.id} value={String(manufacturer.id)}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-                                {manufacturer.logoPath && (
-                                  <Box
-                                    component="img"
-                                    src={manufacturer.logoPath}
-                                    alt=""
-                                    sx={{
-                                      width: 24,
-                                      height: 24,
-                                      objectFit: 'contain',
-                                      flexShrink: 0,
-                                      filter: 'var(--market-manufacturer-logo-filter, none)',
-                                    }}
-                                  />
-                                )}
-                                <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {manufacturer.name}
-                                </Box>
-                              </Box>
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </>
-                    )}
-                  </>
-                )}
-              </Box>
-
-              <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', p: 2 }}>
-                <div className='flex flex-col gap-3'>
-                  <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
-                    <FormattedMessage id="accountMarket.panel.eyebrow" defaultMessage="Looking for a Star Citizen account?" />
-                  </div>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                    <FormattedMessage id="accountMarket.panel.title" defaultMessage="Premium Star Citizen accounts on sale now" />
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <FormattedMessage
-                      id="accountMarket.panel.description"
-                      defaultMessage="Browse our accounts for sale, including limited ships, retired items, buyback access, and extras. If you need something specific, contact us about a custom account."
-                    />
-                  </Typography>
-
-                  <div className='border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/20'>
-                    <div className='text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300'>
-                      <FormattedMessage id="accountMarket.panel.codeLabel" defaultMessage="Discount code" />
-                    </div>
-                    <div className='mt-1 flex items-start gap-1'>
-                      <div className='min-w-0 break-all text-lg font-black leading-tight text-slate-900 dark:text-white'>{accountCouponCode}</div>
-                      <Tooltip title={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })} arrow>
-                        <IconButton size="small" sx={{ flexShrink: 0, mt: '1px' }} onClick={() => void handleCopyAccountCouponCode()}>
-                          <ContentCopy fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </div>
-                    <div className='mt-1 text-slate-600 dark:text-slate-300'>
-                      <FormattedMessage
-                        id="accountMarket.panel.codeBody"
-                        defaultMessage="Use the monthly account code at checkout to claim {percent}% off eligible account listings."
-                        values={{ percent: ACCOUNT_MARKET_COUPON_PERCENT_OFF }}
-                      />
-                    </div>
-                  </div>
-
-                  {featuredAccountItems[0] ? (
-                    <Link
-                      to={`/account-market/${encodeURIComponent(featuredAccountItems[0].skuId)}`}
-                      className='flex gap-3 border border-gray-200 p-3 transition hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600'
-                    >
-                      <img
-                        src={getMarketImageAssetUrl(featuredAccountItems[0].imageUrl || featuredAccountItems[0].entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp')}
-                        alt={featuredAccountItems[0].name}
-                        className='h-20 w-20 shrink-0 object-cover'
-                      />
-                      <div className='min-w-0 flex-1'>
-                        <div className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
-                          <FormattedMessage id="accountMarket.panel.featured" defaultMessage="Featured account" />
-                        </div>
-                        <div className='mt-1 line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white'>
-                          {featuredAccountItems[0].name}
-                        </div>
-                        <div className='mt-2 text-sm font-bold text-slate-900 dark:text-white'>
-                          {intl.formatNumber(featuredAccountItems[0].price, { style: 'currency', currency: 'USD' })}
-                        </div>
-                      </div>
-                    </Link>
-                  ) : (
-                    <div className='border border-dashed border-gray-300 p-3 text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
-                      <FormattedMessage id="accountMarket.panel.empty" defaultMessage="Account listings will appear here when available." />
-                    </div>
-                  )}
-
-                  <Button component={Link} to={getAccountMarketListPath()} variant="contained" fullWidth>
-                    <FormattedMessage id="accountMarket.panel.cta" defaultMessage="Browse Accounts" />
-                  </Button>
-                </div>
-              </Box>
+              <div className='hidden lg:block'>
+                <Box sx={{ mt: 2 }}>
+                  {renderAccountMarketPanel()}
+                </Box>
+              </div>
             </div>
 
           <div className='min-w-0'>
@@ -1013,6 +1077,31 @@ const Market: React.FC = () => {
                 }}
                 size="small"
               />
+
+              <div className='grid gap-2 lg:hidden'>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<FilterListOutlined />}
+                  onClick={() => setMobileFilterDrawerOpen(true)}
+                  sx={{
+                    minHeight: 40,
+                    borderRadius: 0,
+                    justifyContent: 'space-between',
+                    px: 1.5,
+                    textTransform: 'none',
+                  }}
+                >
+                  <span>
+                    <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
+                  </span>
+                  <span className='text-xs text-slate-500 dark:text-slate-400'>
+                    {activeFilterCount > 0
+                      ? `${activeFilterCount}`
+                      : intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
+                  </span>
+                </Button>
+              </div>
 
               <TextField
                 select
@@ -1346,6 +1435,32 @@ const Market: React.FC = () => {
           onUpdateQuantity={updateItemQuantity}
           getAvailableStock={getAvailableStockByResourceId}
         />
+
+        <Drawer
+          anchor="right"
+          open={mobileFilterDrawerOpen}
+          onClose={() => setMobileFilterDrawerOpen(false)}
+          PaperProps={{
+            sx: {
+              width: 'min(92vw, 420px)',
+              backgroundColor: 'background.default',
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
+            </Typography>
+            <IconButton onClick={() => setMobileFilterDrawerOpen(false)} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+              <X className="h-5 w-5" />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+            {renderFilterPanel()}
+            {renderAccountMarketPanel({ compact: true, onNavigate: () => setMobileFilterDrawerOpen(false) })}
+          </Box>
+        </Drawer>
 
         <Snackbar
           open={snackbarOpen}
