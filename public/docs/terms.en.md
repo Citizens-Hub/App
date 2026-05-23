@@ -2,151 +2,203 @@
 
 ## Agreement between User and [citizenshub.app](https://citizenshub.app)
 
-Welcome to [citizenshub.app](https://citizenshub.app). The [citizenshub.app](https://citizenshub.app) website (the Site) is comprised of various web pages operated by PARAVIA LIMITED. [citizenshub.app](https://citizenshub.app) is offered to you conditioned on your acceptance without modification of the terms, conditions, and notices contained herein (the Terms). Your use of [citizenshub.app](https://citizenshub.app) constitutes your agreement to all such Terms. Please read these terms carefully, and keep a copy of them for your reference.
+Welcome to [citizenshub.app](https://citizenshub.app). The [citizenshub.app](https://citizenshub.app) website, related tools, storefront pages, account pages, checkout flows and support services (together, the Site or Services) are operated by PARAVIA LIMITED, a company incorporated in Hong Kong (Citizens' Hub, we, us or our).
 
-[citizenshub.app](https://citizenshub.app) is an E-Commerce Site.
+These Terms govern your access to and use of the Services. By visiting the Site, creating an account, placing an order, submitting information to us, or otherwise using the Services, you agree to these Terms. If you do not agree, you must not use the Services.
 
-Citizens' Hub is an online retail store which buys and sells digital, non-tangible goods relating to the online video game Star Citizen produced by Cloud Imperium Games. Citizens' Hub is a redistributor and 3rd party retailer of Star Citizen Digital Goods and is in no way or form directly associated with Cloud Imperium Games, its subsidiaries, its employees, or its products.
+[citizenshub.app](https://citizenshub.app) is an e-commerce and tools site for digital, non-tangible goods and related services.
 
-## Important information about chargebacks, claims and cancellations
+## Our Role and Unofficial Status
 
-Anyone who files a chargeback or claim without contacting us first to resolve the issue, even if the claim is found in our favor, will be permanently banned from our store. We are committed to resolving any issues, but you must contact us first so that we can assist you.
+Citizens' Hub is an independent online store and tool site relating to the online video game Star Citizen, produced by Cloud Imperium Games. Citizens' Hub may offer digital items, upgrades, ships, packages, account-market listings or other non-tangible goods connected with Star Citizen.
 
-We reserve the right to cancel any order for any reason, including sudden price changes from CIG.
+Citizens' Hub is not affiliated with, endorsed by, sponsored by or otherwise officially connected with Cloud Imperium Games, Roberts Space Industries, or any of their affiliates, employees or products. Star Citizen, Cloud Imperium Games, Roberts Space Industries and related marks are the property of their respective owners.
 
-## Digital Goods and Waiver of Right to Withdraw
+By buying or using any Star Citizen-related item through the Services, you acknowledge that your use of that item may also be governed by the applicable terms, policies and end user licence agreements of Cloud Imperium Games, Roberts Space Industries and any other relevant third-party platform. You are responsible for complying with those third-party terms.
 
-As per Article 16(m) of the EU Consumer Rights Directive, customers purchasing digital goods acknowledge that the right to withdraw is waived once the content is downloaded, accessed, or claimed. By completing the purchase, customers explicitly consent to this waiver.
+## Eligibility and Accounts
 
-## Limited Responsibility for Third-Party Software
+You must be at least 18 years old, or the age of majority in your jurisdiction if higher, to place an order or use paid Services. If you are under 18, you may use the Services only with the consent and supervision of a parent or legal guardian.
 
-Our store acts as a reseller of digital items developed and maintained by third-party providers. We are not responsible for in-game bugs, platform issues, or delays caused by the third-party game developer. Customers encountering such issues must address them directly with the developer.
+You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account. You must provide accurate account, contact and delivery information. We are not responsible for loss or delay caused by inaccurate information, compromised credentials, or third-party access resulting from your failure to secure your account.
 
-## Refund and Return Policy
+You may not sell, assign, transfer or share your Citizens' Hub account without our written consent.
 
-Refunds or replacements are only granted when it is verified that the item was not delivered or was delivered incorrectly due to errors on our part. Once the digital item has been claimed and added to the customer's account, refunds are no longer possible, except under specific circumstances outlined in the Refund Policy.
+## Orders, Pricing and Availability
 
-## Digital Content Supply
+Product descriptions, prices, stock status, delivery estimates and other information may change from time to time. We try to keep information accurate, but errors, stock shortages, payment risks, third-party platform changes, sudden price changes from Cloud Imperium Games, or other operational issues may occur.
 
-By purchasing digital content from this website, you agree that:
+We reserve the right to refuse, cancel, hold for review, or limit any order where reasonably necessary, including where:
 
-- You are purchasing a license or access right, not ownership of intellectual property.
-- Delivery is completed when digital access information is made available to you.
-- Risk transfers to you upon delivery.
+- Payment is declined, reversed, flagged for review, or appears fraudulent.
+- The item is unavailable or cannot be delivered as described.
+- A price, description or availability error occurred.
+- Third-party platform rules, technical issues or account restrictions prevent delivery.
+- The order appears to violate these Terms or applicable law.
 
-We confirm we have the legal right to supply the digital content offered on this website. Once digital content has been claimed, activated, or redeemed, it cannot be revoked, returned, or reversed due to the irreversible nature of digital delivery. The original content creator may not provide support for secondary transfers. Our obligation is limited to successful delivery of the purchased digital content.
+If we cancel a paid order before delivery, we will refund the amount paid for the undelivered item using the original payment method or another reasonable method agreed with you, unless the payment provider prevents us from doing so or applicable law requires a different approach.
 
-## Limitation of Liability
+## Digital Goods, Delivery and Final Sale
 
-To the fullest extent permitted by law:
+The goods offered through the Services are primarily digital and non-tangible. Unless expressly stated otherwise, you are buying a licence, access right, transfer, claim right, or other contractual right connected with a digital item. You do not acquire ownership of any intellectual property belonging to Citizens' Hub, Cloud Imperium Games, Roberts Space Industries, or any other third party.
 
-- We are not liable for indirect, incidental, or consequential losses.
-- Nothing in these terms excludes rights that cannot legally be excluded under applicable consumer protection law.
+Delivery is completed when we make the relevant digital access information available to you, send the item by RSI gift or another agreed transfer method, provide a redemption code or account handoff information, mark the order as delivered, or otherwise complete the delivery method stated at checkout or in our support communications.
 
-## Notice
+Risk in the delivered digital item passes to you on delivery. You are responsible for ensuring that the delivery email address, RSI account, account credentials, redemption details and other delivery information you provide are accurate and accessible.
 
-The Star Citizen Trademark is the property of Cloud Imperium Games Corporation & Roberts Space Industries Corp. For authorization to sell ships, packages and items see Package Re-Sale Policy of the game on the RSI website. By making any purchase on this site, the BUYER acknowledges and accept RSI`s Terms of Service, Privacy Policy, and End User License Agreement (EULA) for Star Citizen & Squadron 42 as part of this purchase. This is a private and occasional sale and according to European Community law there is no agreed warranty.
+Because digital delivery can be irreversible, all sales are final after the item has been delivered, claimed, activated, redeemed, transferred, or added to the relevant account, except as expressly stated in these Terms, our Refund Policy, or as required by applicable law.
+
+Nothing in these Terms excludes or limits any consumer or statutory rights that cannot be excluded or limited under Hong Kong law or other mandatory law applicable to you.
+
+## Refunds, Replacements and Cancellations
+
+Please see our Refund Policy for more details regarding cancellations, refunds and replacements.
+
+Unless the Refund Policy states otherwise, refunds or replacements are generally available only where we verify that an item was not delivered, was delivered incorrectly, or could not be supplied due to an error on our part. Once a digital item has been claimed, activated, redeemed, transferred or added to the relevant account, refunds are not available unless required by applicable law or approved by us in our discretion.
+
+If a paid order cannot be fulfilled because of stock shortage or another issue before delivery, we may offer you a replacement, store credit, partial refund, full refund, or another reasonable solution.
+
+## Chargebacks, Payment Claims and Abuse
+
+If you have a delivery, payment or product issue, you should contact us first where reasonably possible so that we can investigate and try to resolve it.
+
+If a chargeback, payment dispute, claim, reversal or similar payment-provider process is opened, we may suspend the relevant order, account benefits, delivery, support or future purchases while the matter is investigated. If we reasonably determine that a claim is false, abusive, fraudulent, made in bad faith, or made in breach of these Terms, we may refuse future service, suspend or terminate the account, and take other steps available under applicable law.
+
+This section does not prevent you from exercising any rights you may have under applicable consumer law, payment-card network rules, payment-provider rules, or other mandatory legal protections.
+
+## Third-Party Software, Platforms and Policies
+
+Our Services may involve digital items, accounts, software, websites, payment providers, communication platforms or game services operated by third parties. We do not control those third parties.
+
+We are not responsible for in-game bugs, game balance changes, platform downtime, delivery delays caused by third-party systems, third-party account restrictions, third-party policy changes, or the actions or omissions of Cloud Imperium Games, Roberts Space Industries, payment providers, email providers, messaging platforms, or other third parties.
+
+You may need to contact the relevant third party directly for support relating to its own software, account, platform, rules or services.
 
 ## Privacy
 
-Your use of [citizenshub.app](https://citizenshub.app) is subject to Citizens' Hub's Privacy Policy. Please review our Privacy Policy, which also governs the Site and informs users of our data collection practices.
+Your use of the Services is subject to Citizens' Hub's Privacy Policy. Please review the Privacy Policy, which explains how we collect, use, retain, disclose and protect personal data.
+
+We process personal data in accordance with the Privacy Policy and applicable privacy laws, including the Personal Data (Privacy) Ordinance (Cap. 486) of Hong Kong where applicable.
 
 ## Electronic Communications
 
-Visiting [https://citizenshub.app](https://citizenshub.app) or sending emails to Citizens' Hub constitutes electronic communications. You consent to receive electronic communications and you agree that all agreements, notices, disclosures and other communications that we provide to you electronically, via email and on the Site, satisfy any legal requirement that such communications be in writing.
+Visiting the Site, creating an account, placing an order, submitting support requests, or sending emails or messages to us constitutes electronic communication. You consent to receive communications from us electronically, including by email, website notices, account notifications, support tickets or other digital channels.
 
-## Your Account
+To the extent permitted by the Electronic Transactions Ordinance (Cap. 553) of Hong Kong and other applicable law, electronic records and communications may satisfy legal requirements that communications be in writing.
 
-If you use this site, you are responsible for maintaining the confidentiality of your account and password and for restricting access to your computer, and you agree to accept responsibility for all activities that occur under your account or password. You may not assign or otherwise transfer your account to any other person or entity. You acknowledge that Citizens' Hub is not responsible for third party access to your account that results from theft or misappropriation of your account. Citizens' Hub and its associates reserve the right to refuse or cancel service, terminate accounts, or remove or edit content in our sole discretion.
+## Links to Third-Party Sites and Third-Party Services
 
-## Children Under Thirteen
+The Site may contain links to other websites or services (Linked Sites). Linked Sites are not under our control. We are not responsible for the content, policies, changes, availability or practices of any Linked Site. Links are provided for convenience only and do not imply endorsement, sponsorship or association unless expressly stated.
 
-Citizens' Hub does not knowingly collect, either online or offline, personal information from persons under the age of thirteen. If you are under 18, you may use [https://citizenshub.app](https://citizenshub.app) only with permission of a parent or guardian.
+Certain services made available through the Site may be delivered by third-party sites, platforms or organizations. By using those services, you acknowledge that we may share information with third parties where reasonably necessary to provide the requested product, service, support, payment processing, delivery, fraud prevention, analytics or other functionality, subject to our Privacy Policy and applicable law.
 
-## Cancellation/Refund Policy
+## No Unlawful or Prohibited Use
 
-Please see Refund Policy for details regarding cancellations or refunds.
+You are granted a limited, revocable, non-exclusive, non-transferable licence to access and use the Services strictly in accordance with these Terms.
 
-## Links to Third Party Sites/Third Party Services
+You must not use the Services:
 
-[https://citizenshub.app](https://citizenshub.app) may contain links to other websites (Linked Sites). The Linked Sites are not under the control of Citizens' Hub and Citizens' Hub is not responsible for the contents of any Linked Site, including without limitation any link contained in a Linked Site, or any changes or updates to a Linked Site. [https://citizenshub.app](https://citizenshub.app) is providing these links to you only as a convenience, and the inclusion of any link does not imply endorsement by Citizens' Hub of the site or any association with its operators.
+- For any unlawful, fraudulent, abusive or prohibited purpose.
+- To interfere with, damage, disable, overburden, scan, scrape, reverse engineer, or disrupt the Site or related systems.
+- To obtain or attempt to obtain materials, data, account access, order information or other information through means not intentionally made available by us.
+- To violate the rights of Citizens' Hub, other users, or third parties.
+- To evade payment, abuse promotions, manipulate orders, resell access to your account, or misuse support or payment processes.
+- To upload or transmit malware, malicious code, spam, phishing content, or other harmful material.
 
-Certain services made available via [https://citizenshub.app](https://citizenshub.app) are delivered by third party sites and organizations. By using any product, service or functionality originating from the [https://citizenshub.app](https://citizenshub.app) domain, you hereby acknowledge and consent that Citizens' Hub may share such information and data with any third party with whom Citizens' Hub has a contractual relationship to provide the requested product, service or functionality on behalf of [https://citizenshub.app](https://citizenshub.app) users and customers.
+## Intellectual Property
 
-## No Unlawful or Prohibited Use/Intellectual Property
+All content included as part of the Services, including text, graphics, logos, images, interface elements, compilations, data, software and other materials, is owned by Citizens' Hub or its licensors and suppliers, except for third-party marks and materials owned by their respective owners.
 
-You are granted a non-exclusive, non-transferable, revocable license to access and use [https://citizenshub.app](https://citizenshub.app) strictly in accordance with these terms of use. As a condition of your use of the Site, you warrant to Citizens' Hub that you will not use the Site for any purpose that is unlawful or prohibited by these Terms. You may not use the Site in any manner which could damage, disable, overburden, or impair the Site or interfere with any other partys use and enjoyment of the Site. You may not obtain or attempt to obtain any materials or information through any means not intentionally made available or provided for through the Site.
+You agree to observe all copyright, trademark and other proprietary notices. You must not modify, publish, transmit, reverse engineer, copy, scrape, reproduce, sell, create derivative works from, or exploit any part of the Services except as expressly permitted by these Terms or by us in writing.
 
-All content included as part of the Service, such as text, graphics, logos, images, as well as the compilation thereof, and any software used on the Site, is the property of Citizens' Hub or its suppliers and protected by copyright and other laws that protect intellectual property and proprietary rights. You agree to observe and abide by all copyright and other proprietary notices, legends or other restrictions contained in any such content and will not make any changes thereto.
+Your use of the Services does not give you ownership of any protected content or intellectual property rights.
 
-You will not modify, publish, transmit, reverse engineer, participate in the transfer or sale, create derivative works, or in any way exploit any of the content, in whole or in part, found on the Site. Citizens' Hub content is not for resale. Your use of the Site does not entitle you to make any unauthorized use of any protected content, and in particular you will not delete or alter any proprietary rights or attribution notices in any content. You will use protected content solely for your personal use, and will make no other use of the content without the express written permission of Citizens' Hub and the copyright owner. You agree that you do not acquire any ownership rights in any protected content. We do not grant you any licenses, express or implied, to the intellectual property of Citizens' Hub or our licensors except as expressly authorized by these Terms.
+## Communication Services and User Content
 
-## Use of Communication Services
+The Site may contain forums, comments, reviews, support channels, chat areas, community features, or other communication facilities (Communication Services). You agree to use Communication Services only to post, send and receive messages and materials that are lawful, proper and relevant.
 
-The Site may contain bulletin board services, chat areas, news groups, forums, communities, personal web pages, calendars, and/or other message or communication facilities designed to enable you to communicate with the public at large or with a group (collectively, Communication Services). You agree to use the Communication Services only to post, send and receive messages and material that are proper and related to the particular Communication Service.
+You must not post, upload, submit, distribute or transmit content that is unlawful, defamatory, abusive, harassing, threatening, obscene, indecent, infringing, misleading, fraudulent, malicious, privacy-invasive, or otherwise objectionable. You must not upload files containing viruses or harmful code, advertise or solicit where not permitted, conduct surveys or chain letters, harvest information about others without consent, or violate any applicable rules or laws.
 
-By way of example, and not as a limitation, you agree that when using a Communication Service, you will not: defame, abuse, harass, stalk, threaten or otherwise violate the legal rights (such as rights of privacy and publicity) of others; publish, post, upload, distribute or disseminate any inappropriate, profane, defamatory, infringing, obscene, indecent or unlawful topic, name, material or information; upload files that contain software or other material protected by intellectual property laws (or by rights of privacy of publicity) unless you own or control the rights thereto or have received all necessary consents; upload files that contain viruses, corrupted files, or any other similar software or programs that may damage the operation of anothers computer; advertise or offer to sell or buy any goods or services for any business purpose, unless such Communication Service specifically allows such messages; conduct or forward surveys, contests, pyramid schemes or chain letters; download any file posted by another user of a Communication Service that you know, or reasonably should know, cannot be legally distributed in such manner; falsify or delete any author attributions, legal or other proper notices or proprietary designations or labels of the origin or source of software or other material contained in a file that is uploaded; restrict or inhibit any other user from using and enjoying the Communication Services; violate any code of conduct or other guidelines which may be applicable for any particular Communication Service; harvest or otherwise collect information about others, including e-mail addresses, without their consent; violate any applicable laws or regulations.
+We have no obligation to monitor Communication Services, but we may review, edit, refuse, remove or disable access to content at our discretion and may suspend or terminate access to Communication Services at any time where we consider it reasonably necessary.
 
-Citizens' Hub has no obligation to monitor the Communication Services. However, Citizens' Hub reserves the right to review materials posted to a Communication Service and to remove any materials in its sole discretion. Citizens' Hub reserves the right to terminate your access to any or all of the Communication Services at any time without notice for any reason whatsoever.
+You are responsible for the content you submit and for complying with any posted limitations on use, reproduction or dissemination.
 
-Citizens' Hub reserves the right at all times to disclose any information as necessary to satisfy any applicable law, regulation, legal process or governmental request, or to edit, refuse to post or to remove any information or materials, in whole or in part, in Citizens' Hub's sole discretion.
+## Materials Provided to Citizens' Hub
 
-Always use caution when giving out any personally identifying information about yourself or your children in any Communication Service. Citizens' Hub does not control or endorse the content, messages or information found in any Communication Service and, therefore, Citizens' Hub specifically disclaims any liability with regard to the Communication Services and any actions resulting from your participation in any Communication Service. Managers and hosts are not authorized Citizens' Hub spokespersons, and their views do not necessarily reflect those of Citizens' Hub.
+Citizens' Hub does not claim ownership of feedback, suggestions, comments, files or other materials that you provide to us or post through the Services (Submissions).
 
-Materials uploaded to a Communication Service may be subject to posted limitations on usage, reproduction and/or dissemination. You are responsible for adhering to such limitations if you upload the materials.
+By providing a Submission, you grant Citizens' Hub, our affiliates and necessary service providers a worldwide, non-exclusive, royalty-free licence to use, copy, store, process, transmit, display, reproduce, edit, translate, reformat and publish the Submission as reasonably necessary to operate, improve, promote, protect and provide the Services.
 
-## Materials Provided to [https://citizenshub.app](https://citizenshub.app) or Posted on Any Citizens' Hub Web Page
+No compensation will be paid for use of your Submissions unless separately agreed in writing. We are not obligated to post or use any Submission and may remove any Submission at any time.
 
-Citizens' Hub does not claim ownership of the materials you provide to [https://citizenshub.app](https://citizenshub.app) (including feedback and suggestions) or post, upload, input or submit to any Citizens' Hub Site or our associated services (collectively Submissions). However, by posting, uploading, inputting, providing or submitting your Submission you are granting Citizens' Hub, our affiliated companies and necessary sublicensees permission to use your Submission in connection with the operation of their Internet businesses including, without limitation, the rights to: copy, distribute, transmit, publicly display, publicly perform, reproduce, edit, translate and reformat your Submission; and to publish your name in connection with your Submission.
+You represent that you own or control all rights necessary to provide the Submission and to grant the licence above.
 
-No compensation will be paid with respect to the use of your Submission, as provided herein. Citizens' Hub is under no obligation to post or use any Submission you may provide and may remove any Submission at any time in Citizens' Hub's sole discretion.
+## Third-Party Accounts
 
-By posting, uploading, inputting, providing or submitting your Submission you warrant and represent that you own or otherwise control all of the rights to your Submission as described in this section including, without limitation, all the rights necessary for you to provide, post, upload, input or submit the Submissions.
+You may be able to connect your Citizens' Hub account to third-party accounts or services. By doing so, you authorize us to access, receive, use and disclose information from or to those third-party accounts as reasonably necessary to provide the relevant feature and in accordance with your privacy settings, our Privacy Policy and applicable law.
 
-## Third Party Accounts
-
-You will be able to connect your Citizens' Hub account to third party accounts. By connecting your Citizens' Hub account to your third party account, you acknowledge and agree that you are consenting to the continuous release of information about you to others (in accordance with your privacy settings on those third party sites). If you do not want information about you to be shared in this manner, do not use this feature.
+If you do not want information to be shared in this way, do not use the relevant connection feature.
 
 ## International Users
 
-The Service is controlled, operated and administered by Citizens' Hub from our offices within the Hong Kong. If you access the Service from a location outside the Hong Kong, you are responsible for compliance with all local laws. You agree that you will not use the Citizens' Hub Content accessed through [https://citizenshub.app](https://citizenshub.app) in any country or in any manner prohibited by any applicable laws, restrictions or regulations.
+The Services are controlled, operated and administered by Citizens' Hub from Hong Kong. If you access the Services from outside Hong Kong, you are responsible for complying with local laws that apply to you.
+
+You must not use the Services in any country or in any manner prohibited by applicable laws, sanctions, restrictions or regulations.
 
 ## Indemnification
 
-You agree to indemnify, defend and hold harmless Citizens' Hub, its officers, directors, employees, agents and third parties, for any losses, costs, liabilities and expenses (including reasonable attorneys fees) relating to or arising out of your use of or inability to use the Site or services, any user postings made by you, your violation of any terms of this Agreement or your violation of any rights of a third party, or your violation of any applicable laws, rules or regulations. Citizens' Hub reserves the right, at its own cost, to assume the exclusive defense and control of any matter otherwise subject to indemnification by you, in which event you will fully cooperate with Citizens' Hub in asserting any available defenses.
+To the extent permitted by applicable law, you agree to indemnify and hold harmless Citizens' Hub, its officers, directors, employees, contractors, agents, affiliates and service providers from and against losses, liabilities, damages, costs and expenses, including reasonable legal fees, arising out of or related to:
 
-## Liability Disclaimer
+- Your breach of these Terms.
+- Your misuse of the Services.
+- Your violation of applicable law or third-party rights.
+- Your Submissions or user content.
+- Fraudulent, abusive or unauthorized activity under your account.
 
-THE INFORMATION, SOFTWARE, PRODUCTS, AND SERVICES INCLUDED IN OR AVAILABLE THROUGH THE SITE MAY INCLUDE INACCURACIES OR TYPOGRAPHICAL ERRORS. CHANGES ARE PERIODICALLY ADDED TO THE INFORMATION HEREIN. CITIZENS' HUB AND/OR ITS SUPPLIERS MAY MAKE IMPROVEMENTS AND/OR CHANGES IN THE SITE AT ANY TIME.
+We may assume control of the defence and settlement of any matter subject to indemnification, and you agree to cooperate with us in relation to that defence.
 
-CITIZENS' HUB AND/OR ITS SUPPLIERS MAKE NO REPRESENTATIONS ABOUT THE SUITABILITY, RELIABILITY, AVAILABILITY, TIMELINESS, AND ACCURACY OF THE INFORMATION, SOFTWARE, PRODUCTS, SERVICES AND RELATED GRAPHICS CONTAINED ON THE SITE FOR ANY PURPOSE. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ALL SUCH INFORMATION, SOFTWARE, PRODUCTS, SERVICES AND RELATED GRAPHICS ARE PROVIDED AS IS WITHOUT WARRANTY OR CONDITION OF ANY KIND. CITIZENS' HUB AND/OR ITS SUPPLIERS HEREBY DISCLAIM ALL WARRANTIES AND CONDITIONS WITH REGARD TO THIS INFORMATION, SOFTWARE, PRODUCTS, SERVICES AND RELATED GRAPHICS, INCLUDING ALL IMPLIED WARRANTIES OR CONDITIONS OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
+## Disclaimers and Limitation of Liability
 
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL CITIZENS' HUB AND/OR ITS SUPPLIERS BE LIABLE FOR ANY DIRECT, INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL, CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF USE, DATA OR PROFITS, ARISING OUT OF OR IN ANY WAY CONNECTED WITH THE USE OR PERFORMANCE OF THE SITE, WITH THE DELAY OR INABILITY TO USE THE SITE OR RELATED SERVICES, THE PROVISION OF OR FAILURE TO PROVIDE SERVICES, OR FOR ANY INFORMATION, SOFTWARE, PRODUCTS, SERVICES AND RELATED GRAPHICS OBTAINED THROUGH THE SITE, OR OTHERWISE ARISING OUT OF THE USE OF THE SITE, WHETHER BASED ON CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY OR OTHERWISE, EVEN IF CITIZENS' HUB OR ANY OF ITS SUPPLIERS HAS BEEN ADVISED OF THE POSSIBILITY OF DAMAGES. BECAUSE SOME STATES/JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF LIABILITY FOR CONSEQUENTIAL OR INCIDENTAL DAMAGES, THE ABOVE LIMITATION MAY NOT APPLY TO YOU. IF YOU ARE DISSATISFIED WITH ANY PORTION OF THE SITE, OR WITH ANY OF THESE TERMS OF USE, YOUR SOLE AND EXCLUSIVE REMEDY IS TO DISCONTINUE USING THE SITE.
+The Services, information, software, products and related materials are provided on an "as is" and "as available" basis. To the fullest extent permitted by applicable law, we disclaim all warranties, representations and conditions, whether express, implied or statutory, including warranties or conditions of merchantability, fitness for a particular purpose, title, non-infringement, accuracy, availability and uninterrupted operation.
 
-## Termination/Access Restriction
+To the fullest extent permitted by applicable law, Citizens' Hub and its suppliers will not be liable for indirect, incidental, special, consequential, exemplary or punitive damages, loss of profits, loss of data, loss of goodwill, loss of use, business interruption, or other similar losses arising out of or related to the Services, any order, or these Terms.
 
-Citizens' Hub reserves the right, in its sole discretion, to terminate your access to the Site and the related services or any portion thereof at any time, without notice.
+To the fullest extent permitted by applicable law, our total aggregate liability for claims arising out of or related to a specific order will not exceed the amount you paid to us for that order. For claims not related to a specific order, our total aggregate liability will not exceed USD 100.
 
-To the maximum extent permitted by law, this agreement is governed by the laws of the Commonwealth of Massachusetts and you hereby consent to the exclusive jurisdiction and venue of courts in Massachusetts in all disputes arising out of or relating to the use of the Site. Use of the Site is unauthorized in any jurisdiction that does not give effect to all provisions of these Terms, including, without limitation, this section.
+Nothing in these Terms excludes or limits liability for death or personal injury caused by negligence, fraud, fraudulent misrepresentation, or any other liability or right that cannot be excluded or limited under applicable law. The limitations and exclusions in these Terms apply only to the extent permitted by law, including the Control of Exemption Clauses Ordinance (Cap. 71), the Unconscionable Contracts Ordinance (Cap. 458), and other applicable Hong Kong laws.
 
-You agree that no joint venture, partnership, employment, or agency relationship exists between you and Citizens' Hub as a result of this agreement or use of the Site.
+If you are dissatisfied with any part of the Services or these Terms, your remedy is to stop using the Services, except for any remedy that cannot be excluded under applicable law.
 
-Citizens' Hub's performance of this agreement is subject to existing laws and legal process, and nothing contained in this agreement is in derogation of Citizens' Hub's right to comply with governmental, court and law enforcement requests or requirements relating to your use of the Site or information provided to or gathered by Citizens' Hub with respect to such use.
+## Termination and Access Restriction
 
-If any part of this agreement is determined to be invalid or unenforceable pursuant to applicable law including, but not limited to, the warranty disclaimers and liability limitations set forth above, then the invalid or unenforceable provision will be deemed superseded by a valid, enforceable provision that most closely matches the intent of the original provision and the remainder of the agreement shall continue in effect.
+We may suspend, restrict or terminate your access to the Services, accounts, orders, support channels or any part of them where we reasonably consider it necessary, including for breach of these Terms, fraud prevention, security, legal compliance, operational risk, payment disputes, abuse, or discontinuation of a Service.
 
-Unless otherwise specified herein, this agreement constitutes the entire agreement between the user and Citizens' Hub with respect to the Site and it supersedes all prior or contemporaneous communications and proposals, whether electronic, oral or written, between the user and Citizens' Hub with respect to the Site. A printed version of this agreement and of any notice given in electronic form shall be admissible in judicial or administrative proceedings based upon or relating to this agreement to the same extent and subject to the same conditions as other business documents and records originally generated and maintained in printed form. It is the express wish to the parties that this agreement and all related documents be written in English.
+Termination does not affect rights and obligations that accrued before termination, including payment obligations, refund obligations, intellectual property rights, limitations of liability, indemnities, governing law and dispute provisions.
 
-In the event that a buyer initiates a chargeback with their financial institution against Citizens' Hub without prior communication and attempt to resolve any issues directly with us, the buyer will be subject to an immediate and permanent ban from using any and all services provided by Citizens' Hub. This action is taken as chargebacks, regardless of their legitimacy, have a detrimental impact on our operations and reputation. Notwithstanding, Citizens' Hub may, in its sole discretion, review the circumstances surrounding the chargeback and the ban on a case-by-case basis, and may consider reversing the ban. To initiate this review, the buyer must contact our customer support and provide all relevant information regarding the chargeback and the efforts they made to resolve the issue before initiating the chargeback. The final decision to lift the ban lies solely with Citizens' Hub and will be communicated to the buyer once a determination has been made.
+## Governing Law and Dispute Resolution
+
+These Terms and any dispute or claim arising out of or relating to them, the Services, or any order are governed by the laws of the Hong Kong Special Administrative Region, without regard to conflict-of-law rules.
+
+Subject to any mandatory rights you may have under applicable consumer law, you and Citizens' Hub agree to submit to the exclusive jurisdiction of the courts of Hong Kong for disputes arising out of or relating to these Terms, the Services, or any order. Either party may seek interim, injunctive or enforcement relief in any court of competent jurisdiction where reasonably necessary.
 
 ## Changes to Terms
 
-Citizens' Hub reserves the right, in its sole discretion, to change the Terms under which https://citizenshub.app is offered. The most current version of the Terms will supersede all previous versions. Citizens' Hub encourages you to periodically review the Terms to stay informed of our updates.
+We may update these Terms from time to time. The most current version posted on the Site will supersede previous versions. If we make material changes, we may provide notice by posting on the Site, email, account notice, or other reasonable means.
+
+Your continued use of the Services after updated Terms become effective constitutes acceptance of the updated Terms. If you do not agree to updated Terms, you must stop using the Services.
+
+## Entire Agreement, Severability and Language
+
+These Terms, together with policies referenced in them, constitute the entire agreement between you and Citizens' Hub regarding the Services and supersede prior or contemporaneous communications and proposals regarding the Services.
+
+If any provision of these Terms is held invalid, unlawful or unenforceable, that provision will be interpreted or modified to the minimum extent necessary to make it valid and enforceable, and the remaining provisions will continue in full force and effect.
+
+The parties agree that these Terms and related documents may be written in English. If a translated version conflicts with the English version, the English version will prevail to the extent permitted by applicable law.
 
 ## Contact Us
 
-Citizens' Hub welcomes your questions or comments regarding the Terms:
+Citizens' Hub welcomes your questions or comments regarding these Terms:
 
 Email Address: support@citizenshub.app
 
-Effective as of May 11th 2026
+Effective as of May 24, 2026
