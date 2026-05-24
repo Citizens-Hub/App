@@ -41,6 +41,7 @@ const Share = lazy(() => import('./pages/Share/Share'));
 const Checkout = lazy(() => import('./pages/Checkout/Checkout'));
 const Market = lazy(() => import('./pages/Market/Market'));
 const MarketDetail = lazy(() => import('./pages/Market/MarketDetail'));
+const MarketShipFeature = lazy(() => import('./pages/Market/MarketShipFeature'));
 const AccountMarket = lazy(() => import('./pages/AccountMarket/AccountMarket'));
 const AccountMarketDetail = lazy(() => import('./pages/AccountMarket/AccountMarketDetail'));
 const MarketingOffer = lazy(() => import('./pages/MarketingOffer/MarketingOffer'));
@@ -458,6 +459,7 @@ function App() {
               <Route path="/share/hangar/:userId" element={<Share />} />
 
               <Route path="/market" element={<Market />} />
+              <Route path="/market/ships/:shipId" element={<MarketShipFeature />} />
               <Route path="/market/:skuId" element={<MarketDetail />} />
               <Route path="/account-market" element={<AccountMarket />} />
               <Route path="/account-market/:skuId" element={<AccountMarketDetail />} />

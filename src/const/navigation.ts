@@ -35,6 +35,11 @@ export const navigation = [
   },
   {
     name: "navigation.market",
+    path: "/market/ships/:shipId",
+    hidden: true,
+  },
+  {
+    name: "navigation.market",
     path: "/market/:item",
     hidden: true,
   },

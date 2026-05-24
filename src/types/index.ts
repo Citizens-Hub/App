@@ -966,6 +966,59 @@ export interface MarketListResponse {
   pagination: MarketListPagination;
 }
 
+export type MarketHomeHeroMediaType = 'image' | 'video';
+export type MarketHomeHeroLinkMode = 'ship';
+export type MarketHomeLocaleCode = 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE';
+
+export interface MarketHomeHeroTranslation {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+}
+
+export interface MarketHomeHeroSlide {
+  id: string;
+  enabled: boolean;
+  mediaType: MarketHomeHeroMediaType;
+  mediaUrl: string;
+  posterUrl: string;
+  shipId: number | null;
+  linkMode: MarketHomeHeroLinkMode;
+  translations: Partial<Record<MarketHomeLocaleCode, MarketHomeHeroTranslation>>;
+}
+
+export interface MarketHomeSettings {
+  enabled: boolean;
+  slides: MarketHomeHeroSlide[];
+  updatedAt: string | null;
+}
+
+export interface MarketHomeSettingsResponse {
+  success: boolean;
+  data: {
+    settings: MarketHomeSettings;
+  };
+}
+
+export interface MarketShipRelatedItemsResponse {
+  success: boolean;
+  data: {
+    ship: {
+      id: number;
+      name: string;
+    } | null;
+    items: ListingItem[];
+    counts: {
+      ccu: number;
+      ship: number;
+      package: number;
+      paint: number;
+      other: number;
+    };
+  };
+}
+
 export interface LowestMarketCcuGroup {
   key: string;
   fromShipId?: number;

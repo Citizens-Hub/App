@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  Switch,
   Badge,
   ButtonGroup,
   Chip,
@@ -18,8 +19,10 @@ import {
   Button,
   Divider,
   Drawer,
+  Stack,
   TablePagination,
   Tooltip,
+  Autocomplete,
 } from '@mui/material';
 import {
   ContentCopy,
@@ -35,21 +38,34 @@ import MarketItemMedia from './components/MarketItemMedia';
 import {
   ListingItem,
   CartItem as CartItemType,
+  CcuEdgeData,
   MarketBrowseCategory,
+  MarketHomeHeroSlide,
+  MarketHomeHeroTranslation,
+  MarketHomeLocaleCode,
   MarketItemType,
   MarketShipTraitFilter,
   MarketSortMode,
   Resource,
   NewUserCouponPreview,
+  CcusData,
+  CcuSourceType,
+  HangarItem,
+  LowestMarketCcuResponse,
+  MarketListResponse,
+  Ship,
 } from '@/types';
-import { Plus, ShoppingCart, Minus, X } from 'lucide-react';
-import { useAccountMarketData, useAuthApi, useMarketData } from '@/hooks';
+import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight } from 'lucide-react';
+import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings } from '@/hooks';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { buildMarketCartItem, buildMarketResource } from '@/components/marketItemDisplay';
+import { selectUsersHangarItems } from '@/store/upgradesStore';
+import { useLocale } from '@/contexts/LocaleContext';
+import { buildMarketCartItem, buildMarketResource, isLtiShipListing } from '@/components/marketItemDisplay';
+import Crawler from '@/components/Crawler';
 import { getAbsoluteAssetUrl, getAccountMarketListPath, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
@@ -64,6 +80,7 @@ import {
 } from './marketUtils';
 import {
   formatMarketDiscount,
+  formatMarketCreditResourceName,
   formatMarketPriceFrom,
   formatPackageContentsSummary,
   formatUsdPrice,
@@ -73,6 +90,19 @@ import {
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 import { getMarketImageAssetUrl } from '@/utils/marketImages';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
+import { findShipByIdOrName, getShipDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
+import { getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
+import {
+  buildCurrentMarketRoute,
+  buildSelectedCreditListing,
+  findMatchingCreditPoolOptions,
+  MarketRouteEdge,
+  MarketRouteResult,
+} from '@/pages/CCUPlanner/services/marketRoutePlanner';
+import ExtensionModal from '@/pages/CCUPlanner/components/ExtensionModal';
+import type { FlowData, PlannerWorkspaceData } from '@/pages/CCUPlanner/services/ImportExportService';
+import { getCompletedPathsStorageKeyForTab } from '@/pages/CCUPlanner/services/completedPathsStorage';
+import type { Edge, Node } from 'reactflow';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 
@@ -86,16 +116,382 @@ type MarketPageSearchState = {
   rowsPerPage: number;
 };
 
+interface LtiShipSku {
+  skuId: string;
+  url: string;
+  isWarbond: boolean;
+  price?: {
+    amount?: number;
+    formatted?: string | null;
+  } | null;
+  stock?: {
+    available?: boolean;
+  } | null;
+}
+
+interface LtiShipEntry {
+  shipId: number;
+  shipName: string;
+  shipTitle?: string;
+  skus: LtiShipSku[];
+}
+
+interface LtiShipsResponse {
+  success: boolean;
+  data?: {
+    updatedAt?: string;
+    ships?: LtiShipEntry[];
+  } | null;
+}
+
 const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
 const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'sortBy', 'page', 'limit'] as const;
+const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
+const MARKET_PLANNER_MAX_TARGET_MSRP_CENTS = 100_000;
+const MARKET_PLANNER_ROUTE_NODE_GAP_X = 420;
+const MARKET_PLANNER_ROUTE_NODE_Y = 120;
+const CCU_PLANNER_STORAGE_KEY = 'ccu-planner-data';
+const CCU_PLANNER_WORKSPACE_VERSION = 2;
 const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']);
 const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
 const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'non_oc', 'lti']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
+
+const MARKET_HOME_LOCALE_FALLBACKS: MarketHomeLocaleCode[] = ['zh-CN', 'en'];
+
+const DEFAULT_MARKET_HERO_SLIDES: MarketHomeHeroSlide[] = [
+  {
+    id: 'default-market-hero',
+    enabled: true,
+    mediaType: 'video',
+    mediaUrl: '/videos/bg.mp4',
+    posterUrl: '',
+    shipId: null,
+    linkMode: 'ship',
+    translations: {
+      'zh-CN': {
+        eyebrow: 'CitizensHub Market',
+        title: '星际公民舰船与升级市场',
+        subtitle: '浏览 CCU、独立船、船包、涂装和信用点',
+        ctaLabel: '浏览商品',
+      },
+      en: {
+        eyebrow: 'CitizensHub Market',
+        title: 'Star Citizen ships, upgrades, and paints',
+        subtitle: 'Browse CCUs, standalone ships, packages, paints, and store credit.',
+        ctaLabel: 'Browse listings',
+      },
+    },
+  },
+];
+
+function filterShipOptions(options: Ship[], inputValue: string) {
+  const query = inputValue.trim().toLowerCase();
+  if (!query) {
+    return options;
+  }
+
+  return options.filter((option) =>
+    matchesShipNameQuery(option, query)
+    || option.manufacturer.name.toLowerCase().includes(query)
+    || option.type.toLowerCase().includes(query),
+  );
+}
+
+function hasAvailableWarbondLtiSeedSku(entry: LtiShipEntry) {
+  return entry.skus.some((sku) => sku.isWarbond && Boolean(sku.url) && (sku.stock?.available ?? true));
+}
+
+function isListingForShip(item: ListingItem, targetShip: Ship, ships: Ship[]) {
+  if (item.shipId === targetShip.id) {
+    return true;
+  }
+
+  const directShip = findShipByIdOrName(ships, {
+    id: item.shipId,
+    name: item.shipName,
+  });
+  if (directShip?.id === targetShip.id) {
+    return true;
+  }
+
+  return (item.packageShips || []).some((packageShip) => {
+    if (packageShip.shipId === targetShip.id) {
+      return true;
+    }
+
+    const packageCatalogShip = findShipByIdOrName(ships, {
+      id: packageShip.shipId,
+      name: packageShip.shipName,
+    });
+    return packageCatalogShip?.id === targetShip.id;
+  });
+}
+
+function getCcuTypeStyle(sourceType: CcuSourceType): string {
+  switch (sourceType) {
+    case CcuSourceType.HANGER:
+      return 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700/70';
+    case CcuSourceType.AVAILABLE_WB:
+    case CcuSourceType.OFFICIAL_WB:
+      return 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700/70';
+    case CcuSourceType.THIRD_PARTY:
+      return 'bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-200 dark:border-cyan-700/70';
+    case CcuSourceType.OFFICIAL:
+    default:
+      return 'bg-gray-50 text-gray-700 border border-gray-200 dark:bg-neutral-900/50 dark:text-gray-200 dark:border-neutral-700';
+  }
+}
+
+function getMarketRouteTypeLabel(sourceType: CcuSourceType, intl: ReturnType<typeof useIntl>): string {
+  switch (sourceType) {
+    case CcuSourceType.THIRD_PARTY:
+      return intl.formatMessage({ id: 'pathBuilder.marketRouteStoreLabel', defaultMessage: 'Store' });
+    case CcuSourceType.HANGER:
+      return intl.formatMessage({ id: 'routeInfoPanel.hangar', defaultMessage: 'Hangar' });
+    case CcuSourceType.AVAILABLE_WB:
+    case CcuSourceType.OFFICIAL_WB:
+      return intl.formatMessage({ id: 'market.ccuPlanner.officialWbLabel', defaultMessage: 'RSI WB cash purchase' });
+    case CcuSourceType.OFFICIAL:
+      return intl.formatMessage({ id: 'market.ccuPlanner.officialCreditLabel', defaultMessage: 'Use Store Credit on RSI' });
+    default:
+      return sourceType;
+  }
+}
+
+function getDefaultRouteName(locale: string, index: number) {
+  switch (locale) {
+    case 'zh-CN':
+      return `路线 ${index}`;
+    case 'zh-HK':
+      return `路線 ${index}`;
+    case 'ja-JP':
+      return `ルート ${index}`;
+    default:
+      return `Route ${index}`;
+  }
+}
+
+function createMarketPlannerRouteId() {
+  return `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createFlowDataFromMarketRoute(route: MarketRouteResult): FlowData | null {
+  if (!route.edges.length) {
+    return null;
+  }
+
+  const nodeIds: string[] = [];
+  const routeShips: Ship[] = [route.edges[0].sourceShip];
+  route.edges.forEach((edge) => {
+    routeShips.push(edge.targetShip);
+  });
+
+  const nodes: Node[] = routeShips.map((ship, index) => {
+    const nodeId = `market-route-ship-${ship.id}-${Date.now()}-${index}`;
+    nodeIds.push(nodeId);
+
+    return {
+      id: nodeId,
+      type: 'ship',
+      position: {
+        x: index * MARKET_PLANNER_ROUTE_NODE_GAP_X,
+        y: MARKET_PLANNER_ROUTE_NODE_Y,
+      },
+      data: {
+        ship,
+        id: nodeId,
+      },
+    };
+  });
+
+  const edges: Edge<CcuEdgeData>[] = route.edges.map((edge, index) => ({
+    id: `market-route-edge-${edge.sourceShip.id}-${edge.targetShip.id}-${Date.now()}-${index}`,
+    source: nodeIds[index],
+    target: nodeIds[index + 1],
+    type: 'ccu',
+    data: {
+      price: edge.cost,
+      sourceShip: edge.sourceShip,
+      targetShip: edge.targetShip,
+      sourceType: edge.sourceType,
+    },
+  }));
+
+  return {
+    nodes,
+    edges,
+    startShipPrices: {},
+  };
+}
+
+function readPlannerWorkspace(): PlannerWorkspaceData | null {
+  const rawData = window.localStorage.getItem(CCU_PLANNER_STORAGE_KEY);
+  if (!rawData) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawData) as Partial<PlannerWorkspaceData>;
+    if (!parsed) {
+      return null;
+    }
+
+    if (Array.isArray((parsed as Partial<FlowData>).nodes) && Array.isArray((parsed as Partial<FlowData>).edges)) {
+      return {
+        version: CCU_PLANNER_WORKSPACE_VERSION,
+        activeTabId: 'legacy-route-1',
+        tabs: [
+          {
+            id: 'legacy-route-1',
+            name: 'Route 1',
+            flowData: {
+              nodes: (parsed as FlowData).nodes,
+              edges: (parsed as FlowData).edges,
+              startShipPrices: (parsed as FlowData).startShipPrices || {},
+            },
+            lastAutoSavedAt: null,
+          },
+        ],
+      };
+    }
+
+    if (!Array.isArray(parsed.tabs)) {
+      return null;
+    }
+
+    const tabs = parsed.tabs.filter((tab) => (
+      typeof tab?.id === 'string'
+      && typeof tab?.name === 'string'
+      && tab.flowData
+      && Array.isArray(tab.flowData.nodes)
+      && Array.isArray(tab.flowData.edges)
+    ));
+
+    if (!tabs.length) {
+      return null;
+    }
+
+    const activeTabId = tabs.some((tab) => tab.id === parsed.activeTabId)
+      ? parsed.activeTabId as string
+      : tabs[0].id;
+
+    return {
+      version: parsed.version || CCU_PLANNER_WORKSPACE_VERSION,
+      activeTabId,
+      tabs,
+    };
+  } catch (error) {
+    console.warn('Failed to read CCU Planner workspace before market checkout:', error);
+    return null;
+  }
+}
+
+function saveMarketRouteToPlannerWorkspace(route: MarketRouteResult, locale: string) {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const flowData = createFlowDataFromMarketRoute(route);
+  if (!flowData) {
+    return false;
+  }
+
+  const existingWorkspace = readPlannerWorkspace();
+  const existingTabs = existingWorkspace?.tabs || [];
+  const newTabId = createMarketPlannerRouteId();
+  const nextTabs = [
+    ...existingTabs,
+    {
+      id: newTabId,
+      name: getDefaultRouteName(locale, existingTabs.length + 1),
+      flowData,
+      lastAutoSavedAt: Date.now(),
+    },
+  ];
+
+  const workspace: PlannerWorkspaceData = {
+    version: CCU_PLANNER_WORKSPACE_VERSION,
+    activeTabId: newTabId,
+    tabs: nextTabs,
+  };
+
+  try {
+    window.localStorage.setItem(CCU_PLANNER_STORAGE_KEY, JSON.stringify(workspace));
+    const completedPathsStorageKey = getCompletedPathsStorageKeyForTab(newTabId);
+    if (window.localStorage.getItem(completedPathsStorageKey) === null) {
+      window.localStorage.setItem(completedPathsStorageKey, '[]');
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to save market route to CCU Planner workspace:', error);
+    return false;
+  }
+}
+
+function UpgradePreview({
+  fromShip,
+  toShip,
+  className,
+}: {
+  fromShip: Ship;
+  toShip: Ship;
+  className?: string;
+}) {
+  const intl = useIntl();
+  const fromImage = getShipThumbLarge(fromShip);
+  const toImage = getShipThumbLarge(toShip);
+
+  return (
+    <div className={`relative overflow-hidden border border-gray-200 bg-gray-100 dark:border-neutral-700 dark:bg-[#1b1b1b] ${className || 'h-[88px] w-full'}`}>
+      {fromImage ? (
+        <img src={fromImage} alt={fromShip.name} className="absolute left-0 top-0 h-full w-[35%] object-cover" />
+      ) : (
+        <div className="absolute left-0 top-0 flex h-full w-[35%] items-center justify-center bg-gray-200 text-[10px] text-gray-500 dark:bg-neutral-700 dark:text-gray-400">
+          {intl.formatMessage({ id: 'common.na', defaultMessage: 'N/A' })}
+        </div>
+      )}
+
+      {toImage ? (
+        <img src={toImage} alt={toShip.name} className="absolute right-0 top-0 h-full w-[65%] object-cover shadow-[0_0_20px_0_rgba(0,0,0,0.22)]" />
+      ) : (
+        <div className="absolute right-0 top-0 flex h-full w-[65%] items-center justify-center bg-gray-200 text-[10px] text-gray-500 dark:bg-neutral-700 dark:text-gray-400">
+          {intl.formatMessage({ id: 'common.na', defaultMessage: 'N/A' })}
+        </div>
+      )}
+
+      <div className="absolute left-[35%] top-1/2 -translate-x-1/2 -translate-y-1/2 text-white">
+        <ChevronsRight className="h-6 w-6 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
+      </div>
+    </div>
+  );
+}
+
+function getMarketHeroTranslation(
+  slide: MarketHomeHeroSlide,
+  locale: MarketHomeLocaleCode,
+): MarketHomeHeroTranslation {
+  const fallbacks = [locale, ...MARKET_HOME_LOCALE_FALLBACKS];
+  const matched = fallbacks
+    .map((candidate) => slide.translations[candidate])
+    .find((translation) => translation && (
+      translation.eyebrow
+      || translation.title
+      || translation.subtitle
+      || translation.ctaLabel
+    ));
+
+  return {
+    eyebrow: matched?.eyebrow || 'CitizensHub Market',
+    title: matched?.title || 'Star Citizen Market',
+    subtitle: matched?.subtitle || '',
+    ctaLabel: matched?.ctaLabel || 'View details',
+  };
+}
 
 function formatCouponCountdown(remainingMs: number) {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
@@ -203,31 +599,16 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
   return nextSearchParams;
 }
 
-function MarketTrustSection() {
-  return (
-    <>
-      <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
-        <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />
-      </div>
-      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-        <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        <FormattedMessage
-          id="market.trust.description"
-          defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
-        />
-      </Typography>
-    </>
-  );
-}
-
 const Market: React.FC = () => {
   const intl = useIntl();
+  const { locale } = useLocale();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
+  const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const lastCommittedSearchRef = useRef('');
+  const autoOpenedListingQueryRef = useRef<string | null>(null);
+  const suppressListingAutoOpenRef = useRef(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -236,12 +617,27 @@ const Market: React.FC = () => {
   const [couponPopupDismissed, setCouponPopupDismissed] = useState(false);
   const [couponNow, setCouponNow] = useState(Date.now());
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
+  const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [plannerStartShipId, setPlannerStartShipId] = useState<number | ''>('');
+  const [plannerTargetShipId, setPlannerTargetShipId] = useState<number | ''>('');
+  const [plannerIncludeHangarCcus, setPlannerIncludeHangarCcus] = useState(false);
+  const [plannerExtensionModalOpen, setPlannerExtensionModalOpen] = useState(false);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const autoClaimAttemptedRef = useRef<string | null>(null);
   const { data: couponPreview, mutate: mutateCouponPreview } = useAuthApi<NewUserCouponPreview>(
     user.token ? '/api/user/new-user-coupon' : null,
   );
+  const selectedHangarItems = useSelector(selectUsersHangarItems);
+  const plannerHangarItems = useMemo<HangarItem[]>(() => selectedHangarItems.ccus.map((upgrade, index) => ({
+    id: index,
+    name: upgrade.name,
+    type: 'ccu',
+    fromShip: upgrade.parsed.from,
+    toShip: upgrade.parsed.to,
+    price: upgrade.value,
+  })), [selectedHangarItems.ccus]);
   const {
     searchTerm,
     selectedItemFilter,
@@ -252,6 +648,7 @@ const Market: React.FC = () => {
     rowsPerPage,
   } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
   const [searchInput, setSearchInput] = useState(() => searchTerm);
+  const { data: marketHomeSettingsResponse } = useMarketHomeSettings();
   const showsShipTraitFilters = selectedItemFilter === 'all'
     || selectedItemFilter === 'standalone_ship'
     || selectedItemFilter === 'ship_package';
@@ -276,12 +673,55 @@ const Market: React.FC = () => {
     showsShipTraitFilters,
     sortBy,
   ]);
+  const hasActiveMarketSearchParams = useMemo(() => Boolean(
+    searchTerm.trim()
+    || selectedItemFilter !== 'all'
+    || (showsShipTraitFilters && selectedShipTraitFilter !== 'all')
+    || (showsManufacturerFilter && selectedManufacturerId)
+    || sortBy !== 'recommended'
+    || page > 0
+    || rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE,
+  ), [
+    page,
+    rowsPerPage,
+    searchTerm,
+    selectedItemFilter,
+    selectedManufacturerId,
+    selectedShipTraitFilter,
+    showsManufacturerFilter,
+    showsShipTraitFilters,
+    sortBy,
+  ]);
 
   useEffect(() => {
     if (normalizedSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(normalizedSearchParams, { replace: true });
     }
   }, [normalizedSearchParams, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const normalizedKey = normalizedSearchParams.toString();
+    if (!hasActiveMarketSearchParams) {
+      autoOpenedListingQueryRef.current = null;
+      suppressListingAutoOpenRef.current = false;
+      return;
+    }
+
+    if (normalizedKey !== searchParams.toString()) {
+      return;
+    }
+
+    if (suppressListingAutoOpenRef.current) {
+      return;
+    }
+
+    if (listingDrawerOpen || autoOpenedListingQueryRef.current === normalizedKey) {
+      return;
+    }
+
+    autoOpenedListingQueryRef.current = normalizedKey;
+    setListingDrawerOpen(true);
+  }, [hasActiveMarketSearchParams, listingDrawerOpen, normalizedSearchParams, searchParams]);
 
   useEffect(() => {
     if (searchTerm !== lastCommittedSearchRef.current) {
@@ -325,6 +765,23 @@ const Market: React.FC = () => {
       setSearchParams(nextSearchParams, { replace: true });
     }
   };
+
+  const clearMarketSearchParams = useCallback((options?: { keepDrawerClosed?: boolean }) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
+      nextSearchParams.delete(key);
+    });
+
+    const nextQueryKey = nextSearchParams.toString();
+    lastCommittedSearchRef.current = '';
+    autoOpenedListingQueryRef.current = options?.keepDrawerClosed ? nextQueryKey : null;
+    suppressListingAutoOpenRef.current = Boolean(options?.keepDrawerClosed);
+    setSearchInput('');
+
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
@@ -374,7 +831,314 @@ const Market: React.FC = () => {
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
   const { listingItems: featuredAccountItems } = useAccountMarketData({ limit: 3, page: 0 });
+  const {
+    data: ccusData,
+    error: ccusError,
+    isLoading: ccusLoading,
+  } = useApi<CcusData>('/api/ccus', {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const {
+    data: marketRouteData,
+    error: marketRouteError,
+    isLoading: marketRouteLoading,
+  } = useApi<LowestMarketCcuResponse>('/api/market/ccu/lowest', {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const { data: ltiShipsData } = useApi<LtiShipsResponse>('/api/lti-ships', {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const ccus = useMemo(() => ccusData?.data?.to?.ships || [], [ccusData]);
+  const plannerHangarStartShipIds = useMemo(() => {
+    const shipIds = new Set<number>();
+
+    selectedHangarItems.ships
+      .filter((item) => !item.isBuyBack && typeof item.id === 'number')
+      .forEach((item) => shipIds.add(item.id));
+
+    selectedHangarItems.bundles
+      .filter((bundle) => !bundle.isBuyBack)
+      .forEach((bundle) => {
+        (bundle.ships || []).forEach((bundleShip) => {
+          if (typeof bundleShip.id === 'number') {
+            shipIds.add(bundleShip.id);
+            return;
+          }
+
+          const matchedShip = findShipByIdOrName(ships, bundleShip.name || null);
+          if (matchedShip) {
+            shipIds.add(matchedShip.id);
+          }
+        });
+      });
+
+    return shipIds;
+  }, [selectedHangarItems.bundles, selectedHangarItems.ships, ships]);
+  const plannerLtiSeedShipIds = useMemo(() => {
+    const shipIds = new Set<number>();
+
+    (ltiShipsData?.data?.ships || []).forEach((entry) => {
+      if (!hasAvailableWarbondLtiSeedSku(entry)) {
+        return;
+      }
+
+      const matchedShip = findShipByIdOrName(ships, {
+        id: entry.shipId,
+        name: entry.shipName || entry.shipTitle,
+      });
+      if (matchedShip) {
+        shipIds.add(matchedShip.id);
+      }
+    });
+
+    return shipIds;
+  }, [ltiShipsData?.data?.ships, ships]);
+  const plannerStartShipOptions = useMemo(
+    () => ships
+      .filter((ship) => ship.msrp >= MARKET_PLANNER_MIN_START_MSRP_CENTS)
+      .sort((left, right) => {
+        const leftPriority = plannerHangarStartShipIds.has(left.id) ? 0 : plannerLtiSeedShipIds.has(left.id) ? 1 : 2;
+        const rightPriority = plannerHangarStartShipIds.has(right.id) ? 0 : plannerLtiSeedShipIds.has(right.id) ? 1 : 2;
+
+        return leftPriority - rightPriority || left.msrp - right.msrp || left.id - right.id;
+      }),
+    [plannerHangarStartShipIds, plannerLtiSeedShipIds, ships],
+  );
+  const plannerStartShip = useMemo(
+    () => plannerStartShipId ? ships.find((ship) => ship.id === plannerStartShipId) || null : null,
+    [plannerStartShipId, ships],
+  );
+  const plannerTargetShip = useMemo(
+    () => plannerTargetShipId ? ships.find((ship) => ship.id === plannerTargetShipId) || null : null,
+    [plannerTargetShipId, ships],
+  );
+  const plannerTargetShipOptions = useMemo(
+    () => ships
+      .filter((ship) => (
+        ship.msrp > 0
+        && ship.msrp <= MARKET_PLANNER_MAX_TARGET_MSRP_CENTS
+        && (!plannerStartShip || ship.msrp > plannerStartShip.msrp)
+      ))
+      .sort((left, right) => left.msrp - right.msrp || left.id - right.id),
+    [plannerStartShip, ships],
+  );
+  const targetShipListingSearchPath = useMemo(() => {
+    if (!plannerTargetShip) {
+      return null;
+    }
+
+    const params = new URLSearchParams({
+      search: plannerTargetShip.name || getShipDisplayName(plannerTargetShip),
+      shipTrait: 'lti',
+      sortBy: 'priceAsc',
+      page: '0',
+      limit: '12',
+    });
+    params.append('browseCategory', 'standalone_ship');
+    params.append('browseCategory', 'ship_package');
+
+    return `/api/market/search?${params.toString()}`;
+  }, [plannerTargetShip]);
+  const {
+    data: targetShipListingResponse,
+    isLoading: targetShipListingLoading,
+  } = useApi<MarketListResponse>(targetShipListingSearchPath, {
+    keepPreviousData: true,
+  });
+  const plannerRoute = useMemo(() => {
+    if (!plannerStartShip || !plannerTargetShip || plannerTargetShip.msrp <= plannerStartShip.msrp) {
+      return null;
+    }
+
+    return buildCurrentMarketRoute({
+      startShip: plannerStartShip,
+      targetShip: plannerTargetShip,
+      ships,
+      ccus,
+      hangarItems: plannerIncludeHangarCcus ? plannerHangarItems : [],
+      marketGroups: marketRouteData?.items || [],
+    });
+  }, [ccus, marketRouteData?.items, plannerHangarItems, plannerIncludeHangarCcus, plannerStartShip, plannerTargetShip, ships]);
+  const plannerRouteMarketEdges = useMemo(
+    () => plannerRoute?.edges.filter((edge) => edge.sourceType === CcuSourceType.THIRD_PARTY && edge.listing) || [],
+    [plannerRoute],
+  );
+  const plannerHangarEdgeCount = useMemo(
+    () => plannerRoute?.edges.filter((edge) => edge.sourceType === CcuSourceType.HANGER).length || 0,
+    [plannerRoute],
+  );
+  const plannerRoutePurchasableCcuCount = useMemo(
+    () => plannerRoute?.edges.filter((edge) => edge.sourceType !== CcuSourceType.HANGER).length || 0,
+    [plannerRoute],
+  );
+  const plannerOfficialCashSpend = useMemo(
+    () => Number((plannerRoute?.edges.reduce((sum, edge) => (
+      edge.sourceType === CcuSourceType.AVAILABLE_WB || edge.sourceType === CcuSourceType.OFFICIAL_WB
+        ? sum + edge.cost
+        : sum
+    ), 0) || 0).toFixed(2)),
+    [plannerRoute],
+  );
+  const plannerOfficialStoreCreditSpend = useMemo(
+    () => Number((plannerRoute?.edges.reduce((sum, edge) => (
+      edge.sourceType === CcuSourceType.OFFICIAL
+        ? sum + edge.cost
+        : sum
+    ), 0) || 0).toFixed(2)),
+    [plannerRoute],
+  );
+  const plannerMarketListingPrice = useMemo(
+    () => Number(plannerRouteMarketEdges.reduce((sum, edge) => sum + edge.cost, 0).toFixed(2)),
+    [plannerRouteMarketEdges],
+  );
+  const plannerHangarSpend = useMemo(
+    () => Number((plannerRoute?.edges.reduce((sum, edge) => (
+      edge.sourceType === CcuSourceType.HANGER
+        ? sum + edge.cost
+        : sum
+    ), 0) || 0).toFixed(2)),
+    [plannerRoute],
+  );
+  const {
+    data: plannerCreditListing,
+    error: plannerCreditError,
+    isLoading: plannerCreditLoading,
+  } = useApi<ListingItem>(plannerOfficialStoreCreditSpend > 0 ? '/api/market/item/credit-pool' : null, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+  const plannerSelectedCreditOptions = useMemo(
+    () => findMatchingCreditPoolOptions(plannerCreditListing, plannerOfficialStoreCreditSpend),
+    [plannerCreditListing, plannerOfficialStoreCreditSpend],
+  );
+  const plannerCreditFaceValue = useMemo(
+    () => plannerSelectedCreditOptions?.reduce((sum, option) => sum + option.amount, 0) || 0,
+    [plannerSelectedCreditOptions],
+  );
+  const plannerCreditPrice = useMemo(
+    () => plannerSelectedCreditOptions?.reduce((sum, option) => sum + option.price, 0) || 0,
+    [plannerSelectedCreditOptions],
+  );
+  const plannerOrderTotal = useMemo(
+    () => Number((plannerMarketListingPrice + plannerCreditPrice + plannerOfficialCashSpend + plannerHangarSpend).toFixed(2)),
+    [plannerCreditPrice, plannerHangarSpend, plannerMarketListingPrice, plannerOfficialCashSpend],
+  );
+  const plannerInstantSavings = useMemo(
+    () => plannerRoute && plannerStartShip && plannerTargetShip
+      ? Number(Math.max(0, ((plannerTargetShip.msrp - plannerStartShip.msrp) / 100) - plannerOrderTotal).toFixed(2))
+      : 0,
+    [plannerOrderTotal, plannerRoute, plannerStartShip, plannerTargetShip],
+  );
+  const plannerTargetShipListingRecommendation = useMemo(() => {
+    if (!plannerTargetShip) {
+      return null;
+    }
+
+    const listings = (targetShipListingResponse?.items || [])
+      .filter((item) => getAvailableStock(item) > 0)
+      .filter((item) => isLtiShipListing(item))
+      .filter((item) => isListingForShip(item, plannerTargetShip, ships))
+      .sort((left, right) => left.price - right.price || left.skuId.localeCompare(right.skuId));
+
+    const listing = listings[0];
+    if (!listing) {
+      return null;
+    }
+
+    if (!plannerRoute || !plannerStartShip) {
+      return {
+        item: listing,
+        mode: 'noRoute' as const,
+        difference: 0,
+      };
+    }
+
+    const priceDifference = Number((listing.price - plannerOrderTotal).toFixed(2));
+    if (priceDifference < 0) {
+      return {
+        item: listing,
+        mode: 'save' as const,
+        difference: Math.abs(priceDifference),
+      };
+    }
+
+    const startShipMsrp = plannerStartShip.msrp / 100;
+    if (priceDifference > 0 && priceDifference < startShipMsrp) {
+      return {
+        item: listing,
+        mode: 'spendMore' as const,
+        difference: priceDifference,
+      };
+    }
+
+    return null;
+  }, [plannerOrderTotal, plannerRoute, plannerStartShip, plannerTargetShip, ships, targetShipListingResponse?.items]);
+  const plannerTargetShipRecommendationText = useMemo(() => {
+    if (!plannerTargetShipListingRecommendation || !plannerTargetShip) {
+      return '';
+    }
+
+    const targetShipName = getShipDisplayName(plannerTargetShip);
+    const startShipName = plannerStartShip ? getShipDisplayName(plannerStartShip) : '';
+
+    if (plannerTargetShipListingRecommendation.mode === 'save') {
+      return intl.formatMessage(
+        {
+          id: 'market.ccuPlanner.targetShipListingSave',
+          defaultMessage: 'Save {amount} and keep your {startShip}, buy LTI {targetShip} now',
+        },
+        {
+          amount: formatUsdPrice(intl.locale, plannerTargetShipListingRecommendation.difference),
+          startShip: startShipName,
+          targetShip: targetShipName,
+        },
+      );
+    }
+
+    if (plannerTargetShipListingRecommendation.mode === 'spendMore') {
+      return intl.formatMessage(
+        {
+          id: 'market.ccuPlanner.targetShipListingSpendMore',
+          defaultMessage: 'Spend only {amount} more and keep your {startShip}, buy LTI {targetShip} now',
+        },
+        {
+          amount: formatUsdPrice(intl.locale, plannerTargetShipListingRecommendation.difference),
+          startShip: startShipName,
+          targetShip: targetShipName,
+        },
+      );
+    }
+
+    return intl.formatMessage(
+      {
+        id: 'market.ccuPlanner.targetShipListingNoRoute',
+        defaultMessage: 'Buy LTI {targetShip} now',
+      },
+      {
+        targetShip: targetShipName,
+      },
+    );
+  }, [intl, plannerStartShip, plannerTargetShip, plannerTargetShipListingRecommendation]);
   const accountCouponCode = getMonthlyAccountCouponCode();
+  const heroSlides = useMemo(() => {
+    const configuredSlides = marketHomeSettingsResponse?.data.settings.enabled === false
+      ? []
+      : (marketHomeSettingsResponse?.data.settings.slides || [])
+          .filter((slide) => slide.enabled && slide.mediaUrl.trim());
+
+    return configuredSlides.length > 0 ? configuredSlides : DEFAULT_MARKET_HERO_SLIDES;
+  }, [marketHomeSettingsResponse]);
+  const activeHeroSlide = heroSlides[Math.min(activeHeroIndex, Math.max(heroSlides.length - 1, 0))] || heroSlides[0];
+  const activeHeroTranslation = activeHeroSlide
+    ? getMarketHeroTranslation(activeHeroSlide, locale as MarketHomeLocaleCode)
+    : getMarketHeroTranslation(DEFAULT_MARKET_HERO_SLIDES[0], locale as MarketHomeLocaleCode);
+
+  useEffect(() => {
+    setActiveHeroIndex((current) => Math.min(current, Math.max(heroSlides.length - 1, 0)));
+  }, [heroSlides.length]);
 
   const handleCopyAccountCouponCode = useCallback(async () => {
     try {
@@ -461,6 +1225,7 @@ const Market: React.FC = () => {
 
   useEffect(() => {
     pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    listingDrawerContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [marketQuery]);
 
   const resolveDirectMarketItem = (item: ListingItem): ListingItem | null => {
@@ -527,6 +1292,115 @@ const Market: React.FC = () => {
     }
 
     const directCheckoutItems = [buildMarketCartItem(targetItem, 1, ships)];
+    saveDirectCheckoutItems(directCheckoutItems);
+    navigate(getDirectCheckoutPath(), {
+      state: {
+        directCheckoutItems,
+        ships,
+      },
+    });
+  };
+
+  const validateMarketRouteListingStock = (edges: MarketRouteEdge[]) => {
+    const plannedListingQuantities = new Map<string, number>();
+
+    for (const edge of edges) {
+      const listing = edge.listing;
+      if (!listing) {
+        continue;
+      }
+
+      const availableStock = getAvailableStock(listing);
+      const nextQuantity = (plannedListingQuantities.get(listing.skuId) || 0) + 1;
+      plannedListingQuantities.set(listing.skuId, nextQuantity);
+
+      if (availableStock < nextQuantity) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handlePlanRouteCheckout = () => {
+    if (!plannerRoute || !plannerStartShip || !plannerTargetShip) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.ccuPlanner.selectShipsFirst',
+        defaultMessage: 'Select a starting ship and target ship first.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!validateMarketRouteListingStock(plannerRouteMarketEdges)) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'cart.stockLimit',
+        defaultMessage: 'Cannot add more than available stock',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    const directCheckoutItems = plannerRouteMarketEdges
+      .flatMap((edge) => edge.listing ? [buildMarketCartItem(edge.listing, 1, ships)] : []);
+
+    if (plannerOfficialStoreCreditSpend > 0) {
+      if (plannerCreditLoading) {
+        setSnackbarMessage(intl.formatMessage({
+          id: 'pathBuilder.marketRouteCreditLoading',
+          defaultMessage: 'Store Credit options are still loading. Try again in a moment.',
+        }));
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+
+      if (!plannerSelectedCreditOptions?.length || !plannerCreditListing) {
+        setSnackbarMessage(intl.formatMessage(
+          {
+            id: 'pathBuilder.marketRouteCreditUnavailable',
+              defaultMessage: 'No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}.',
+            },
+            {
+              amount: formatUsdPrice(intl.locale, plannerOfficialStoreCreditSpend),
+            },
+          ));
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+
+      plannerSelectedCreditOptions.forEach((option) => {
+        const creditListing = buildSelectedCreditListing(plannerCreditListing, option);
+        directCheckoutItems.push(buildMarketCartItem({
+          ...creditListing,
+          name: formatMarketCreditResourceName(intl, option.amount),
+        }, 1, ships));
+      });
+    }
+
+    if (directCheckoutItems.length === 0) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.ccuPlanner.noPurchasableItems',
+        defaultMessage: 'This route has no market items to checkout.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!saveMarketRouteToPlannerWorkspace(plannerRoute, intl.locale)) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.ccuPlanner.routeSaveFailed',
+        defaultMessage: 'Could not add this route to CCU Planner. Please try again.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
     saveDirectCheckoutItems(directCheckoutItems);
     navigate(getDirectCheckoutPath(), {
       state: {
@@ -650,15 +1524,7 @@ const Market: React.FC = () => {
   const couponCountdownText = Number.isFinite(activeCouponExpiresAt)
     ? formatCouponCountdown(activeCouponExpiresAt - couponNow)
     : '';
-  const hasActiveFilters = Boolean(
-    searchTerm.trim()
-    || selectedItemFilter !== 'all'
-    || (showsShipTraitFilters && selectedShipTraitFilter !== 'all')
-    || (showsManufacturerFilter && selectedManufacturerId)
-    || sortBy !== 'recommended'
-    || page > 0
-    || rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE,
-  );
+  const hasActiveFilters = hasActiveMarketSearchParams;
   const pageUrl = typeof window !== 'undefined'
     ? window.location.href
     : getMarketListUrl();
@@ -922,13 +1788,734 @@ const Market: React.FC = () => {
       </Box>
     );
   };
-  if (loading && listingItems.length === 0 && pagination.total === 0) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-        <CircularProgress />
-      </Box>
+
+  const renderCcuRoutePlanner = () => {
+    const routeDataLoading = ccusLoading || marketRouteLoading;
+    const routeDataError = Boolean(ccusError || marketRouteError);
+    const invalidRange = Boolean(plannerStartShip && plannerTargetShip && plannerTargetShip.msrp <= plannerStartShip.msrp);
+    const needsCredit = plannerOfficialStoreCreditSpend > 0;
+    const creditUnavailable = needsCredit && !plannerCreditLoading && (!plannerSelectedCreditOptions?.length || !plannerCreditListing || Boolean(plannerCreditError));
+    const targetShipRecommendationItem = plannerTargetShipListingRecommendation?.item || null;
+    const targetShipRecommendationPrice = targetShipRecommendationItem
+      ? formatUsdPrice(intl.locale, targetShipRecommendationItem.price)
+      : '';
+    const canCheckout = Boolean(
+      plannerRoute
+      && (plannerRouteMarketEdges.length > 0 || needsCredit)
+      && !routeDataLoading
+      && !routeDataError
+      && !creditUnavailable
+      && (!needsCredit || !plannerCreditLoading),
     );
-  }
+
+    return (
+      <section className='grid gap-4 border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+        <div className='flex flex-col gap-2 md:flex-row md:items-end md:justify-between'>
+          <div>
+            <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300'>
+              <FormattedMessage id="market.ccuPlanner.eyebrow" defaultMessage="CCU route checkout" />
+            </div>
+            <Typography component="h2" sx={{ mt: 0.75, fontWeight: 900, fontSize: { xs: 22, md: 28 }, lineHeight: 1.15, color: 'text.primary' }}>
+              <FormattedMessage id="market.ccuPlanner.title" defaultMessage="CCU Chain Planner" />
+            </Typography>
+            <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+              <FormattedMessage
+                id="market.ccuPlanner.description"
+                defaultMessage="Use our CCU planner to save money and upgrade to your target ship now."
+              />
+            </Typography>
+          </div>
+
+          <Button
+            variant="contained"
+            disabled={!canCheckout}
+            onClick={handlePlanRouteCheckout}
+            sx={{ borderRadius: 0, minHeight: 42, flexShrink: 0 }}
+          >
+            <FormattedMessage id="market.ccuPlanner.checkout" defaultMessage="Add route to CCU Planner and checkout" />
+          </Button>
+        </div>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) minmax(0,1fr)' },
+            gap: 2,
+          }}
+        >
+          <Autocomplete
+            value={plannerStartShip}
+            options={plannerStartShipOptions}
+            loading={loading}
+            filterOptions={(options, state) => filterShipOptions(options, state.inputValue)}
+            getOptionLabel={(option) => getShipDisplayName(option)}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            onChange={(_event, value) => {
+              setPlannerStartShipId(value?.id || '');
+              if (value && plannerTargetShip && plannerTargetShip.msrp <= value.msrp) {
+                setPlannerTargetShipId('');
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'market.ccuPlanner.startShip', defaultMessage: 'Starting ship' })}
+                placeholder={intl.formatMessage({ id: 'market.ccuPlanner.shipSearch', defaultMessage: 'Search ships...' })}
+                size="small"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Box
+                  component="img"
+                  src={getShipThumbSmall(option) || '/rsi-icons/ship.svg'}
+                  alt=""
+                  sx={{ width: 42, height: 28, objectFit: 'cover', bgcolor: 'grey.200', flexShrink: 0 }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Box sx={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {getShipDisplayName(option)}
+                  </Box>
+                  <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                    {formatUsdPrice(intl.locale, option.msrp / 100)}
+                  </Box>
+                  {(plannerHangarStartShipIds.has(option.id) || plannerLtiSeedShipIds.has(option.id)) && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      {plannerHangarStartShipIds.has(option.id) && (
+                        <Chip
+                          size="small"
+                          label={intl.formatMessage({ id: 'market.ccuPlanner.hangarStartOption', defaultMessage: 'Hangar' })}
+                          sx={{ height: 18, fontSize: 11 }}
+                        />
+                      )}
+                      {plannerLtiSeedShipIds.has(option.id) && (
+                        <Chip
+                          size="small"
+                          color="success"
+                          label={intl.formatMessage({ id: 'market.ccuPlanner.ltiSeedStartOption', defaultMessage: 'RSI LTI seed' })}
+                          sx={{ height: 18, fontSize: 11 }}
+                        />
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            )}
+          />
+
+          <Autocomplete
+            value={plannerTargetShip}
+            options={plannerTargetShipOptions}
+            loading={loading}
+            filterOptions={(options, state) => filterShipOptions(options, state.inputValue)}
+            getOptionLabel={(option) => getShipDisplayName(option)}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            onChange={(_event, value) => setPlannerTargetShipId(value?.id || '')}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'market.ccuPlanner.targetShip', defaultMessage: 'Target ship' })}
+                placeholder={intl.formatMessage({ id: 'market.ccuPlanner.shipSearch', defaultMessage: 'Search ships...' })}
+                size="small"
+                error={invalidRange}
+                helperText={invalidRange
+                  ? intl.formatMessage({ id: 'market.ccuPlanner.invalidRange', defaultMessage: 'Target ship must have a higher MSRP than the starting ship.' })
+                  : undefined}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Box
+                  component="img"
+                  src={getShipThumbSmall(option) || '/rsi-icons/ship.svg'}
+                  alt=""
+                  sx={{ width: 42, height: 28, objectFit: 'cover', bgcolor: 'grey.200', flexShrink: 0 }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Box sx={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {getShipDisplayName(option)}
+                  </Box>
+                  <Box sx={{ fontSize: 12, color: 'text.secondary' }}>
+                    {formatUsdPrice(intl.locale, option.msrp / 100)}
+                  </Box>
+                </Box>
+              </Box>
+            )}
+          />
+        </Box>
+
+        <div className='flex flex-col gap-3 border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/60 dark:bg-blue-950/20 md:flex-row md:items-center md:justify-between'>
+          <div className='min-w-0'>
+            <FormControlLabel
+              control={(
+                <Switch
+                  size="small"
+                  checked={plannerIncludeHangarCcus}
+                  onChange={(event) => setPlannerIncludeHangarCcus(event.target.checked)}
+                />
+              )}
+              label={intl.formatMessage({
+                id: 'market.ccuPlanner.includeHangar',
+                defaultMessage: 'Include my hangar CCUs in planning',
+              })}
+            />
+            <Typography variant="body2" color="text.secondary">
+              <FormattedMessage
+                id="market.ccuPlanner.includeHangarHint"
+                defaultMessage="Hangar CCUs can reduce what you need to buy. Their cost is included in route totals."
+              />
+            </Typography>
+          </div>
+
+          <div className='flex shrink-0 flex-wrap items-center gap-2'>
+            <Crawler ships={ships} />
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setPlannerExtensionModalOpen(true)}
+              sx={{ borderRadius: 0 }}
+            >
+              <FormattedMessage id="ccuPlanner.downloadBrowserExtension" defaultMessage="Download Browser Extension" />
+            </Button>
+          </div>
+        </div>
+
+        <div className='grid gap-3 border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/30 md:grid-cols-[minmax(0,1fr)_auto] md:items-center'>
+          <div>
+            <div className='text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300'>
+              <FormattedMessage id="market.ccuPlanner.instantSavingsLabel" defaultMessage="Instant savings" />
+            </div>
+            <div className='mt-1 text-2xl font-black text-emerald-950 dark:text-emerald-50 md:text-3xl'>
+              {plannerRoute
+                ? intl.formatMessage(
+                    { id: 'market.ccuPlanner.instantSavings', defaultMessage: 'Order now and save {amount}' },
+                    { amount: formatUsdPrice(intl.locale, plannerInstantSavings) },
+                  )
+                : intl.formatMessage({ id: 'market.ccuPlanner.instantSavingsPending', defaultMessage: 'Select ships to calculate savings' })}
+            </div>
+          </div>
+          <div className='grid gap-2 text-sm text-emerald-950 dark:text-emerald-50 md:min-w-[300px]'>
+            <div className='flex items-center justify-between gap-4'>
+              <span><FormattedMessage id="market.ccuPlanner.requiredCcus" defaultMessage="CCUs to buy" /></span>
+              <strong>{plannerRoute ? plannerRoutePurchasableCcuCount : '-'}</strong>
+            </div>
+            <div className='flex items-center justify-between gap-4'>
+              <span><FormattedMessage id="market.ccuPlanner.requiredCredit" defaultMessage="Store Credit to buy" /></span>
+              <strong>{plannerRoute ? formatUsdPrice(intl.locale, plannerCreditFaceValue) : '-'}</strong>
+            </div>
+            <div className='flex items-center justify-between gap-4'>
+              <span><FormattedMessage id="market.ccuPlanner.totalSpend" defaultMessage="Total spend" /></span>
+              <strong>{plannerRoute ? formatUsdPrice(intl.locale, plannerOrderTotal) : '-'}</strong>
+            </div>
+            {plannerRoute && plannerHangarSpend > 0 && (
+              <div className='flex items-center justify-between gap-4 text-xs text-emerald-800 dark:text-emerald-100'>
+                <span><FormattedMessage id="market.ccuPlanner.hangarSpend" defaultMessage="Hangar CCU cost included" /></span>
+                <strong>{formatUsdPrice(intl.locale, plannerHangarSpend)}</strong>
+              </div>
+            )}
+            {plannerRoute && plannerHangarEdgeCount > 0 && (
+              <div className='text-xs text-emerald-800 dark:text-emerald-100'>
+                <FormattedMessage
+                  id="market.ccuPlanner.hangarUsed"
+                  defaultMessage="{count, plural, one {# hangar CCU is used} other {# hangar CCUs are used}} in this route."
+                  values={{ count: plannerHangarEdgeCount }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {routeDataLoading ? (
+          <div className='flex min-h-28 items-center justify-center gap-2 border border-dashed border-gray-300 text-sm text-slate-500 dark:border-neutral-700 dark:text-slate-400'>
+            <CircularProgress size={18} />
+            <FormattedMessage id="market.ccuPlanner.loading" defaultMessage="Loading CCU data..." />
+          </div>
+        ) : routeDataError ? (
+          <Alert severity="error" sx={{ borderRadius: 0 }}>
+            <FormattedMessage id="market.ccuPlanner.loadError" defaultMessage="Failed to load CCU route data." />
+          </Alert>
+        ) : plannerStartShip && plannerTargetShip && !plannerRoute && !invalidRange ? (
+          <Alert severity="warning" sx={{ borderRadius: 0 }}>
+            <FormattedMessage id="market.ccuPlanner.noRoute" defaultMessage="No route is available for this pair with current market and official CCU data." />
+          </Alert>
+        ) : plannerRoute ? (
+          <div className='grid gap-3'>
+            {creditUnavailable && (
+              <Alert severity="warning" sx={{ borderRadius: 0 }}>
+                <FormattedMessage
+                  id="pathBuilder.marketRouteCreditUnavailable"
+                  defaultMessage="No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}."
+                  values={{ amount: formatUsdPrice(intl.locale, plannerOfficialStoreCreditSpend) }}
+                />
+              </Alert>
+            )}
+
+            <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+              {plannerRoute.edges.map((edge, index) => (
+                <div key={`${edge.key}-${index}`} className='grid gap-3 border border-gray-200 bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-950'>
+                  <div className='text-sm font-semibold text-slate-900 dark:text-white'>
+                    {index + 1}. {getShipDisplayName(edge.sourceShip)} -&gt; {getShipDisplayName(edge.targetShip)}
+                  </div>
+                  <UpgradePreview fromShip={edge.sourceShip} toShip={edge.targetShip} className="h-[92px] w-full" />
+                  <div className='flex flex-wrap items-center gap-2'>
+                    <span className={`px-2 py-[2px] text-xs ${getCcuTypeStyle(edge.sourceType)}`}>
+                      {getMarketRouteTypeLabel(edge.sourceType, intl)}
+                    </span>
+                    <span className='border border-gray-200 bg-white px-2 py-[2px] text-xs text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'>
+                      {formatUsdPrice(intl.locale, edge.cost)}
+                    </span>
+                    {edge.listing && (
+                      <span className='border border-gray-200 bg-white px-2 py-[2px] text-xs text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'>
+                        <FormattedMessage id="market.ccuPlanner.stock" defaultMessage="Stock {count}" values={{ count: getAvailableStock(edge.listing) }} />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className='border border-dashed border-gray-300 p-5 text-center text-sm text-slate-500 dark:border-neutral-700 dark:text-slate-400'>
+            <FormattedMessage id="market.ccuPlanner.empty" defaultMessage="Select two ships to generate a checkout-ready CCU chain." />
+          </div>
+        )}
+
+        {plannerTargetShip && !targetShipListingLoading && targetShipRecommendationItem && (
+          <div className='grid gap-3 border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20 md:grid-cols-[minmax(0,1fr)_auto] md:items-center'>
+            <div className='min-w-0'>
+              <div className='text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300'>
+                <FormattedMessage id="market.ccuPlanner.targetShipListingEyebrow" defaultMessage="LTI whole ship option" />
+              </div>
+              <div className='mt-1 text-lg font-black text-amber-950 dark:text-amber-50 md:text-xl'>
+                {plannerTargetShipRecommendationText}
+              </div>
+              <div className='mt-2 flex flex-wrap items-center gap-2 text-sm text-amber-900 dark:text-amber-100'>
+                <span className='font-semibold'>{targetShipRecommendationPrice}</span>
+                <span>{getMarketItemDisplayName(intl, targetShipRecommendationItem, ships)}</span>
+              </div>
+            </div>
+
+            <div className='flex shrink-0 flex-wrap items-center gap-2'>
+              <Button
+                variant="outlined"
+                onClick={() => handleOpenDetails(targetShipRecommendationItem)}
+                sx={{ borderRadius: 0 }}
+              >
+                <FormattedMessage id="market.viewDetails" defaultMessage="View details" />
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => handleBuyNow(targetShipRecommendationItem)}
+                sx={{ borderRadius: 0 }}
+              >
+                <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const openListingDrawer = (options?: { focusSearch?: boolean }) => {
+    suppressListingAutoOpenRef.current = false;
+    setListingDrawerOpen(true);
+    if (options?.focusSearch) {
+      window.setTimeout(() => {
+        document.getElementById('market-listing-search-input')?.focus();
+      }, 80);
+    }
+  };
+
+  const closeListingDrawer = (options?: { clearFilters?: boolean }) => {
+    setListingDrawerOpen(false);
+    if (options?.clearFilters) {
+      clearMarketSearchParams({ keepDrawerClosed: true });
+    }
+  };
+
+  const handleHeroAction = (slide: MarketHomeHeroSlide) => {
+    if (slide.shipId) {
+      navigate(`/market/ships/${encodeURIComponent(String(slide.shipId))}`);
+      return;
+    }
+
+    openListingDrawer();
+  };
+
+  const renderHeroMedia = (slide: MarketHomeHeroSlide, eager = false) => {
+    if (slide.mediaType === 'video') {
+      return (
+        <video
+          className='absolute inset-0 h-full w-full object-cover'
+          src={slide.mediaUrl}
+          poster={slide.posterUrl || undefined}
+          muted
+          autoPlay
+          loop
+          playsInline
+        />
+      );
+    }
+
+    return (
+      <img
+        className='absolute inset-0 h-full w-full object-cover'
+        src={slide.mediaUrl}
+        alt=""
+        loading={eager ? 'eager' : 'lazy'}
+      />
+    );
+  };
+
+  const renderListingControls = () => (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', lg: 'minmax(0,1fr) 220px' },
+        gap: 2,
+        borderRadius: 0,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        backgroundColor: 'background.paper',
+        p: 2,
+      }}
+    >
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
+        value={searchInput}
+        id="market-listing-search-input"
+        onChange={(event) => {
+          setSearchInput(event.target.value);
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0 }
+        }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            )
+          }
+        }}
+        size="small"
+      />
+
+      <div className='grid gap-2 lg:hidden'>
+        <Button
+          variant="outlined"
+          fullWidth
+          startIcon={<FilterListOutlined />}
+          onClick={() => setMobileFilterDrawerOpen(true)}
+          sx={{
+            minHeight: 40,
+            borderRadius: 0,
+            justifyContent: 'space-between',
+            px: 1.5,
+            textTransform: 'none',
+          }}
+        >
+          <span>
+            <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
+          </span>
+          <span className='text-xs text-slate-500 dark:text-slate-400'>
+            {activeFilterCount > 0
+              ? `${activeFilterCount}`
+              : intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
+          </span>
+        </Button>
+      </div>
+
+      <TextField
+        select
+        fullWidth
+        size="small"
+        label={intl.formatMessage({ id: 'market.sort', defaultMessage: 'Sort' })}
+        value={sortBy}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0 }
+        }}
+        onChange={(event) => {
+          const nextSortBy = event.target.value as MarketSortMode;
+          updateMarketSearchParams((nextSearchParams) => {
+            nextSearchParams.delete('page');
+
+            if (nextSortBy === 'recommended') {
+              nextSearchParams.delete('sortBy');
+            } else {
+              nextSearchParams.set('sortBy', nextSortBy);
+            }
+          });
+        }}
+      >
+        <MenuItem value="recommended">
+          {intl.formatMessage({ id: 'market.sort.recommended', defaultMessage: 'Recommended' })}
+        </MenuItem>
+        <MenuItem value="newest">
+          {intl.formatMessage({ id: 'market.sort.newest', defaultMessage: 'Newest' })}
+        </MenuItem>
+        <MenuItem value="priceDesc">
+          {intl.formatMessage({ id: 'market.sort.priceDesc', defaultMessage: 'Price: High to Low' })}
+        </MenuItem>
+        <MenuItem value="priceAsc">
+          {intl.formatMessage({ id: 'market.sort.priceAsc', defaultMessage: 'Price: Low to High' })}
+        </MenuItem>
+      </TextField>
+    </Box>
+  );
+
+  const renderListingGrid = () => (
+    <Box sx={{ position: 'relative', p: 2 }}>
+      {refreshing && (
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            mb: 2,
+            display: 'flex',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 0.75,
+              border: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'background.paper',
+              boxShadow: 2,
+            }}
+          >
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              <FormattedMessage id="market.loading" defaultMessage="Loading..." />
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {loading && listingItems.length === 0 ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight={360}>
+          <CircularProgress />
+        </Box>
+      ) : listingItems.length === 0 ? (
+        <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
+          <Typography variant="h6">
+            <FormattedMessage id="market.noResults" defaultMessage="No products found" />
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4'>
+            {listingItems.map((item) => {
+              const directItem = resolveDirectMarketItem(item);
+              const directItemSkuId = directItem?.skuId || item.skuId;
+              const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
+              const inCartItem = directItem
+                ? cart.find((cartItem: CartItemType) => cartItem.resource.id === directItemSkuId)
+                : undefined;
+              const inCartQuantity = inCartItem?.quantity || 0;
+              const basePrice = getListingBasePrice(item, ships);
+              const discount = getListingDiscountPercent(item, ships);
+              const isCredit = item.itemType === 'credit';
+              const isCcu = item.itemType === 'ccu';
+              const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
+              const packageShips = item.packageShips || [];
+              const packageItems = item.packageItems || [];
+              const displayName = getMarketItemDisplayName(intl, item, ships);
+
+              return (
+                <div
+                  key={item.skuId}
+                  className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
+                >
+                  <div
+                    className='block w-full cursor-pointer text-left'
+                    onClick={() => handleOpenDetails(item)}
+                  >
+                    <MarketItemMedia
+                      item={item}
+                      ships={ships}
+                      height={220}
+                      badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
+                    />
+                  </div>
+
+                  <div className='flex flex-1 flex-col gap-4 p-4'>
+                    <div className='flex flex-wrap gap-2'>
+                      {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
+                      {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                      {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                    </div>
+
+                    <div className='flex flex-1 flex-col gap-2'>
+                      <div
+                        className='w-full cursor-pointer text-left text-inherit no-underline'
+                        onClick={() => handleOpenDetails(item)}
+                      >
+                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, fontSize: '1.05rem' }}>
+                          {displayName}
+                        </Typography>
+                      </div>
+                      <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
+                        {getMarketItemSummary(intl, item, ships)}
+                      </Typography>
+                      {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
+                        </Typography>
+                      )}
+                    </div>
+
+                    <div className='mt-auto flex flex-col gap-4'>
+                      <div className='flex flex-col gap-1'>
+                        <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+                          {isCredit || isVariantPriceRange
+                            ? formatMarketPriceFrom(intl, item.price)
+                            : formatUsdPrice(intl.locale, item.price)}
+                        </div>
+                        {discount && Number(discount) > 0 && (
+                          <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+                            {formatUsdPrice(intl.locale, basePrice)}
+                          </div>
+                        )}
+                        {typeof item.cost === 'number' && item.cost > 0 && (
+                          <div className='text-sm text-slate-500 dark:text-slate-400'>
+                            {intl.formatMessage(
+                              { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
+                              { value: formatUsdPrice(intl.locale, item.cost) },
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <Divider />
+
+                      <div className='flex items-center justify-between gap-3'>
+                        {isCredit ? (
+                          <Button
+                            variant="outlined"
+                            onClick={() => handleOpenDetails(item)}
+                            size="small"
+                          >
+                            <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
+                          </Button>
+                        ) : inCartItem ? (
+                          <ButtonGroup
+                            size="small"
+                            aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                if (inCartQuantity > 1) {
+                                  updateItemQuantity(directItemSkuId, inCartQuantity - 1);
+                                } else {
+                                  removeFromCart(directItemSkuId);
+                                }
+                              }}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </IconButton>
+                            <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+                              {inCartQuantity}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              disabled={inCartQuantity >= availableStock}
+                              onClick={() => {
+                                if (inCartQuantity < availableStock) {
+                                  updateItemQuantity(directItemSkuId, inCartQuantity + 1);
+                                }
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </IconButton>
+                          </ButtonGroup>
+                        ) : (
+                          <Button
+                            variant="outlined"
+                            onClick={() => handleAddToCart(item)}
+                            disabled={availableStock <= 0}
+                            size="small"
+                          >
+                            <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+                          </Button>
+                        )}
+                        {!isCredit && (
+                          <Button
+                            variant="contained"
+                            onClick={() => handleBuyNow(item)}
+                            disabled={availableStock <= 0}
+                            size="small"
+                          >
+                            <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
+            <TablePagination
+              rowsPerPageOptions={[12, 24, 36]}
+              component="div"
+              count={pagination.total}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_event, newPage) => {
+                updateMarketSearchParams((nextSearchParams) => {
+                  if (newPage > 0) {
+                    nextSearchParams.set('page', String(newPage));
+                  } else {
+                    nextSearchParams.delete('page');
+                  }
+                });
+              }}
+              onRowsPerPageChange={(event) => {
+                const nextRowsPerPage = parseInt(event.target.value, 10);
+                updateMarketSearchParams((nextSearchParams) => {
+                  nextSearchParams.delete('page');
+
+                  if (nextRowsPerPage === MARKET_DEFAULT_ROWS_PER_PAGE) {
+                    nextSearchParams.delete('limit');
+                  } else {
+                    nextSearchParams.set('limit', String(nextRowsPerPage));
+                  }
+                });
+              }}
+              labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
+            />
+          </Box>
+        </>
+      )}
+    </Box>
+  );
 
   if (error) {
     return (
@@ -958,7 +2545,7 @@ const Market: React.FC = () => {
       </Helmet>
       <div
         ref={pageContainerRef}
-        className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-white px-4 py-4 text-left md:px-8 dark:bg-transparent'
+        className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-slate-50 text-left text-slate-950 dark:bg-neutral-950 dark:text-white'
       >
         {showAlert && (
           <Alert
@@ -977,132 +2564,178 @@ const Market: React.FC = () => {
           </Alert>
         )}
 
-        <div className='mx-auto flex w-full max-w-[1280px] flex-col gap-4'>
-          <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-            <div className='flex items-center gap-3'>
-              <Link to="/orders" className='text-slate-700 transition dark:text-slate-200'>
-                <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
-              </Link>
-              <Link to="/tickets" className='text-slate-700 transition dark:text-slate-200'>
-                <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
-              </Link>
-              <IconButton
-                onClick={openCart}
-                sx={{ border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', borderRadius: 0 }}
-              >
-                <Badge badgeContent={cart.length} color="secondary" overlap="circular">
-                  <ShoppingCart className='h-6 w-6' />
-                </Badge>
-              </IconButton>
-            </div>
-          </Box>
+        <Button
+          variant="contained"
+          onClick={() => openListingDrawer()}
+          sx={{
+            position: 'fixed',
+            right: 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1200,
+            width: 68,
+            minWidth: 52,
+            minHeight: 196,
+            borderRadius: 0,
+            px: 0,
+            py: 1.5,
+            display: 'inline-flex',
+            flexDirection: 'column',
+            gap: 1,
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            letterSpacing: 0,
+            '& .market-listing-button-icon': {
+              writingMode: 'horizontal-tb',
+            },
+          }}
+        >
+          <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+          <span className="market-listing-button-icon">
+            <ListFilter className="h-4 w-4" />
+          </span>
+        </Button>
 
-          <div className='rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:hidden'>
-            <div className='flex flex-col gap-4'>
-              <MarketTrustSection />
-
-              <div className='grid gap-2 sm:grid-cols-3'>
-                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
-                  <div className='flex items-start gap-2'>
-                    <ShieldOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
-                    <div className='min-w-0'>
-                      <div className='text-sm font-semibold text-slate-900 dark:text-white'>
-                        <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
-                  <div className='flex items-start gap-2'>
-                    <LocalShippingOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
-                    <div className='min-w-0 text-sm leading-6 text-slate-700 dark:text-slate-300'>
-                      <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
-                    </div>
-                  </div>
-                </div>
-
-                <div className='border border-gray-200 bg-slate-50 p-3 dark:border-gray-800 dark:bg-neutral-950'>
-                  <div className='flex items-start gap-2'>
-                    <SupportAgentOutlined sx={{ fontSize: 18, color: 'text.secondary', mt: '2px' }} />
-                    <div className='min-w-0 text-sm leading-6 text-slate-700 dark:text-slate-300'>
-                      {renderProgressSupport()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className='flex items-center justify-between gap-3 border-t border-gray-200 pt-3 dark:border-gray-800'>
-                <div>
-                  <div className='text-sm font-medium text-slate-900 dark:text-white'>
-                    <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
-                  </div>
-                </div>
-                <img
-                  src="/stripe/Powered by Stripe - blurple.svg"
-                  alt="Powered by Stripe"
-                  className='h-7 w-auto shrink-0 opacity-80'
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className='hidden rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:block md:p-5'>
-            <div className='flex flex-col gap-3'>
-              <div className='flex flex-col gap-2'>
-                <MarketTrustSection />
-              </div>
-              <div className='border-t border-gray-200 pt-3 text-sm leading-7 text-slate-600 dark:border-gray-800 dark:text-slate-300'>
-                <div>
-                  <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
-                </div>
-                <div>
-                  <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
-                </div>
-                <div>
-                  {renderProgressSupport()}
-                </div>
-                <div className='pt-2'>
-                  <picture>
-                    <source
-                      srcSet="/stripe/Powered by Stripe - blurple.svg"
-                    />
-                    <img
-                      src="/stripe/Powered by Stripe - blurple.svg"
-                      alt="Powered by Stripe"
-                      className='h-8 w-auto opacity-80'
-                    />
-                  </picture>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className='grid items-start grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,_1fr)]'>
-            <div className='lg:sticky lg:top-4 lg:self-start'>
-              <div className='hidden lg:block'>
-                {renderFilterPanel()}
-              </div>
-
-              <div className='hidden lg:block'>
-                <Box sx={{ mt: 2 }}>
-                  {renderAccountMarketPanel()}
-                </Box>
-              </div>
-            </div>
-
-          <div className='min-w-0'>
-            <Box
+        <div className='relative mx-auto flex min-h-full w-full max-w-[1440px] flex-col gap-6 px-4 py-5 md:px-10 md:py-6'>
+          <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Link to="/orders" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+              <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+            </Link>
+            <Link to="/tickets" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+              <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
+            </Link>
+            <IconButton
+              onClick={openCart}
               sx={{
-                mb: 3,
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', lg: 'minmax(0,1fr) 220px' },
-                gap: 2,
-                borderRadius: 0,
                 border: '1px solid',
                 borderColor: 'divider',
                 backgroundColor: 'background.paper',
-                p: 2,
+                color: 'text.primary',
+                borderRadius: 0,
+                '&:hover': { backgroundColor: 'action.hover' },
+              }}
+            >
+              <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                <ShoppingCart className='h-6 w-6' />
+              </Badge>
+            </IconButton>
+          </Box>
+
+          <section className='relative min-h-[440px] overflow-hidden border border-gray-200 bg-slate-900 shadow-sm dark:border-gray-800 md:min-h-[560px]'>
+            {activeHeroSlide ? renderHeroMedia(activeHeroSlide, true) : null}
+            <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.48)_0%,rgba(15,23,42,0.22)_42%,rgba(15,23,42,0.08)_72%,rgba(15,23,42,0.02)_100%)]' />
+            <div className='absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/70 via-slate-950/36 to-transparent' />
+
+            {heroSlides.length > 1 && (
+              <>
+                <IconButton
+                  onClick={() => setActiveHeroIndex((current) => (current <= 0 ? heroSlides.length - 1 : current - 1))}
+                  sx={{
+                    position: 'absolute',
+                    left: 16,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 20,
+                    color: 'white',
+                    bgcolor: 'rgba(0,0,0,0.38)',
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
+                  }}
+                  aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
+                >
+                  <ChevronLeft className='h-5 w-5' />
+                </IconButton>
+                <IconButton
+                  onClick={() => setActiveHeroIndex((current) => (current >= heroSlides.length - 1 ? 0 : current + 1))}
+                  sx={{
+                    position: 'absolute',
+                    right: 16,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 20,
+                    color: 'white',
+                    bgcolor: 'rgba(0,0,0,0.38)',
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
+                  }}
+                  aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
+                >
+                  <ChevronRight className='h-5 w-5' />
+                </IconButton>
+              </>
+            )}
+
+            <div className='relative z-10 flex min-h-[440px] max-w-3xl flex-col justify-end px-6 py-8 md:min-h-[560px] md:px-14 md:py-14'>
+              <div className='text-xs font-semibold uppercase tracking-[0.18em] text-blue-200'>
+                {activeHeroTranslation.eyebrow}
+              </div>
+              <Typography
+                component="h1"
+                sx={{
+                  mt: 1.5,
+                  fontSize: { xs: 34, md: 56 },
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  letterSpacing: 0,
+                  textTransform: 'uppercase',
+                  color: 'white',
+                }}
+              >
+                {activeHeroTranslation.title}
+              </Typography>
+              {activeHeroTranslation.subtitle && (
+                <Typography sx={{ mt: 2, maxWidth: 620, color: 'rgba(255,255,255,0.78)', fontSize: { xs: 15, md: 18 }, lineHeight: 1.65 }}>
+                  {activeHeroTranslation.subtitle}
+                </Typography>
+              )}
+              <div className='mt-6 flex flex-wrap gap-3'>
+                <Button
+                  variant="contained"
+                  endIcon={<ArrowRight className='h-4 w-4' />}
+                  onClick={() => handleHeroAction(activeHeroSlide)}
+                  sx={{ borderRadius: 0 }}
+                >
+                  {activeHeroTranslation.ctaLabel}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<ListFilter className='h-4 w-4' />}
+                  onClick={() => openListingDrawer()}
+                  sx={{ borderRadius: 0, borderColor: 'rgba(255,255,255,0.55)', color: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}
+                >
+                  <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* {heroSlides.length > 1 && (
+            <div className='mx-auto w-full flex gap-8 justify-center'>
+              {heroSlides.map((slide, index) => {
+                const translation = getMarketHeroTranslation(slide, locale as MarketHomeLocaleCode);
+                const active = index === activeHeroIndex;
+
+                return (
+                  <div
+                    key={slide.id || index}
+                    onClick={() => setActiveHeroIndex(index)}
+                    className={`cursor-pointer min-h-12 border px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] transition ${active ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-slate-700 hover:border-blue-300 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200 dark:hover:border-blue-500'}`}
+                  >
+                    {translation.title || translation.eyebrow || `Hero ${index + 1}`}
+                  </div>
+                );
+              })}
+            </div>
+          )} */}
+
+          <section className='mx-auto grid w-full gap-4'>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) 180px' },
+                gap: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                p: 1.5,
               }}
             >
               <TextField
@@ -1110,11 +2743,14 @@ const Market: React.FC = () => {
                 variant="outlined"
                 placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
                 value={searchInput}
-                onChange={(event) => {
-                  setSearchInput(event.target.value);
+                onChange={(event) => setSearchInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    openListingDrawer();
+                  }
                 }}
                 sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                  '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: 'background.paper' }
                 }}
                 slotProps={{
                   input: {
@@ -1127,343 +2763,114 @@ const Market: React.FC = () => {
                 }}
                 size="small"
               />
-
-              <div className='grid gap-2 lg:hidden'>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<FilterListOutlined />}
-                  onClick={() => setMobileFilterDrawerOpen(true)}
-                  sx={{
-                    minHeight: 40,
-                    borderRadius: 0,
-                    justifyContent: 'space-between',
-                    px: 1.5,
-                    textTransform: 'none',
-                  }}
-                >
-                  <span>
-                    <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
-                  </span>
-                  <span className='text-xs text-slate-500 dark:text-slate-400'>
-                    {activeFilterCount > 0
-                      ? `${activeFilterCount}`
-                      : intl.formatMessage({ id: 'market.filter.all', defaultMessage: 'All' })}
-                  </span>
-                </Button>
-              </div>
-
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label={intl.formatMessage({ id: 'market.sort', defaultMessage: 'Sort' })}
-                value={sortBy}
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
-                }}
-                onChange={(event) => {
-                  const nextSortBy = event.target.value as MarketSortMode;
-                  updateMarketSearchParams((nextSearchParams) => {
-                    nextSearchParams.delete('page');
-
-                    if (nextSortBy === 'recommended') {
-                      nextSearchParams.delete('sortBy');
-                    } else {
-                      nextSearchParams.set('sortBy', nextSortBy);
-                    }
-                  });
-                }}
+              <Button
+                variant="contained"
+                onClick={() => openListingDrawer()}
+                sx={{ borderRadius: 0 }}
               >
-                <MenuItem value="recommended">
-                  {intl.formatMessage({ id: 'market.sort.recommended', defaultMessage: 'Recommended' })}
-                </MenuItem>
-                <MenuItem value="newest">
-                  {intl.formatMessage({ id: 'market.sort.newest', defaultMessage: 'Newest' })}
-                </MenuItem>
-                <MenuItem value="priceDesc">
-                  {intl.formatMessage({ id: 'market.sort.priceDesc', defaultMessage: 'Price: High to Low' })}
-                </MenuItem>
-                <MenuItem value="priceAsc">
-                  {intl.formatMessage({ id: 'market.sort.priceAsc', defaultMessage: 'Price: Low to High' })}
-                </MenuItem>
-              </TextField>
+                <FormattedMessage id="market.search" defaultMessage="Search" />
+              </Button>
             </Box>
 
-            <Box sx={{ position: 'relative' }}>
-              {refreshing && (
-                <Box
-                  sx={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 2,
-                    mb: 2,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    pointerEvents: 'none',
+            <div className='grid gap-3 md:grid-cols-5'>
+              {[
+                { value: 'standalone_ship' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' }) },
+                { value: 'ship_package' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' }) },
+                { value: 'ccu' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' }) },
+                { value: 'paint' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' }) },
+                { value: 'credit' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' }) },
+              ].map((entry) => (
+                <div
+                  key={entry.value}
+                  onClick={() => {
+                    updateMarketSearchParams((nextSearchParams) => {
+                      nextSearchParams.delete('itemType');
+                      nextSearchParams.delete('browseCategory');
+                      nextSearchParams.delete('shipTrait');
+                      nextSearchParams.delete('manufacturerId');
+                      nextSearchParams.delete('page');
+                      if (entry.value === 'ccu' || entry.value === 'credit') {
+                        nextSearchParams.set('itemType', entry.value);
+                      } else {
+                        nextSearchParams.set('browseCategory', entry.value);
+                      }
+                    });
+                    openListingDrawer();
                   }}
+                  className='cursor-pointer flex min-h-20 items-center justify-between border border-gray-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:border-blue-400 hover:bg-blue-50 dark:border-gray-800 dark:bg-neutral-900 dark:text-white dark:hover:border-blue-500 dark:hover:bg-neutral-800'
                 >
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      px: 1.5,
-                      py: 0.75,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      backgroundColor: 'background.paper',
-                      boxShadow: 2,
-                    }}
-                  >
-                    <CircularProgress size={16} />
-                    <Typography variant="body2" color="text.secondary">
-                      <FormattedMessage id="market.loading" defaultMessage="Loading..." />
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
+                  <span>{entry.label}</span>
+                  <ArrowRight className='h-4 w-4 text-blue-600 dark:text-blue-300' />
+                </div>
+              ))}
+            </div>
+          </section>
 
-              {listingItems.length === 0 ? (
-                <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
-                  <Typography variant="h6">
-                    <FormattedMessage id="market.noResults" defaultMessage="No products found" />
-                  </Typography>
-                </Box>
-              ) : (
-                <>
-                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3'>
-                    {listingItems.map((item) => {
-                      const directItem = resolveDirectMarketItem(item);
-                      const directItemSkuId = directItem?.skuId || item.skuId;
-                      const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
-                      const inCartItem = directItem
-                        ? cart.find((cartItem: CartItemType) => cartItem.resource.id === directItemSkuId)
-                        : undefined;
-                      const inCartQuantity = inCartItem?.quantity || 0;
-                      const basePrice = getListingBasePrice(item, ships);
-                      const discount = getListingDiscountPercent(item, ships);
-                      const isCredit = item.itemType === 'credit';
-                      const isCcu = item.itemType === 'ccu';
-                      const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
-                      const packageShips = item.packageShips || [];
-                      const packageItems = item.packageItems || [];
-                      const displayName = getMarketItemDisplayName(intl, item, ships);
+          {renderCcuRoutePlanner()}
 
-                      return (
-                        <div
-                          key={item.skuId}
-                          className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
-                        >
-                          <div
-                            className='block w-full cursor-pointer text-left'
-                            onClick={() => handleOpenDetails(item)}
-                          >
-                            <MarketItemMedia
-                              item={item}
-                              ships={ships}
-                              height={240}
-                              badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
-                            />
-                          </div>
+          <section className='grid gap-4 md:grid-cols-[minmax(0,1fr)_360px]'>
+            <div className='grid gap-4 md:grid-cols-3'>
+              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                <ShieldOutlined color="primary" />
+                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                  <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
+                </Typography>
+                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                  <FormattedMessage
+                    id="market.trust.description"
+                    defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
+                  />
+                </Typography>
+              </div>
+              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                <LocalShippingOutlined color="primary" />
+                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                  <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
+                </Typography>
+                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                  <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
+                </Typography>
+              </div>
+              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                <SupportAgentOutlined color="primary" />
+                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                  <FormattedMessage id="market.support.title" defaultMessage="Order support" />
+                </Typography>
+                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                  {renderProgressSupport()}
+                </Typography>
+              </div>
+            </div>
 
-                          <div className='flex flex-1 flex-col gap-4 p-5'>
-                            <div className='flex flex-wrap gap-2'>
-                              {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
-                              {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                              {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                            </div>
+            {renderAccountMarketPanel({ compact: true })}
+          </section>
 
-                            <div className='flex flex-1 flex-col gap-2'>
-                              <div
-                                className='w-full cursor-pointer text-left text-inherit no-underline'
-                                onClick={() => handleOpenDetails(item)}
-                              >
-                                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
-                                  {displayName}
-                                </Typography>
-                              </div>
-                              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
-                                {getMarketItemSummary(intl, item, ships)}
-                              </Typography>
-                              {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
-                                </Typography>
-                              )}
-                            </div>
-
-                            <div className='mt-auto flex flex-col gap-4'>
-                              <div className='flex flex-col gap-1'>
-                                <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                                  {isCredit || isVariantPriceRange
-                                    ? formatMarketPriceFrom(intl, item.price)
-                                    : formatUsdPrice(intl.locale, item.price)}
-                                </div>
-                                {discount && Number(discount) > 0 && (
-                                  <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                                    {formatUsdPrice(intl.locale, basePrice)}
-                                  </div>
-                                )}
-                                {typeof item.cost === 'number' && item.cost > 0 && (
-                                  <div className='text-sm text-slate-500 dark:text-slate-400'>
-                                    {intl.formatMessage(
-                                      { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
-                                      { value: formatUsdPrice(intl.locale, item.cost) },
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              <Divider />
-
-                              <div className='flex items-center justify-between gap-3'>
-                                {isCredit ? (
-                                  <Button
-                                    variant="outlined"
-                                    onClick={() => handleOpenDetails(item)}
-                                    size="small"
-                                  >
-                                    <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
-                                  </Button>
-                                ) : inCartItem ? (
-                                  <ButtonGroup
-                                    size="small"
-                                    aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
-                                  >
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => {
-                                        if (inCartQuantity > 1) {
-                                          updateItemQuantity(directItemSkuId, inCartQuantity - 1);
-                                        } else {
-                                          removeFromCart(directItemSkuId);
-                                        }
-                                      }}
-                                    >
-                                      <Minus className="h-4 w-4" />
-                                    </IconButton>
-                                    <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
-                                      {inCartQuantity}
-                                    </Typography>
-                                    <IconButton
-                                      size="small"
-                                      disabled={inCartQuantity >= availableStock}
-                                      onClick={() => {
-                                        if (inCartQuantity < availableStock) {
-                                          updateItemQuantity(directItemSkuId, inCartQuantity + 1);
-                                        }
-                                      }}
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </IconButton>
-                                  </ButtonGroup>
-                                ) : (
-                                  <Button
-                                    variant="outlined"
-                                    onClick={() => handleAddToCart(item)}
-                                    disabled={availableStock <= 0}
-                                    size="small"
-                                  >
-                                    <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
-                                  </Button>
-                                )}
-                                {!isCredit && (
-                                  <Button
-                                    variant="contained"
-                                    onClick={() => handleBuyNow(item)}
-                                    disabled={availableStock <= 0}
-                                    size="small"
-                                  >
-                                    <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
-                    <TablePagination
-                      rowsPerPageOptions={[12, 24, 36]}
-                      component="div"
-                      count={pagination.total}
-                      rowsPerPage={rowsPerPage}
-                      page={page}
-                      onPageChange={(_event, newPage) => {
-                        updateMarketSearchParams((nextSearchParams) => {
-                          if (newPage > 0) {
-                            nextSearchParams.set('page', String(newPage));
-                          } else {
-                            nextSearchParams.delete('page');
-                          }
-                        });
-                      }}
-                      onRowsPerPageChange={(event) => {
-                        const nextRowsPerPage = parseInt(event.target.value, 10);
-                        updateMarketSearchParams((nextSearchParams) => {
-                          nextSearchParams.delete('page');
-
-                          if (nextRowsPerPage === MARKET_DEFAULT_ROWS_PER_PAGE) {
-                            nextSearchParams.delete('limit');
-                          } else {
-                            nextSearchParams.set('limit', String(nextRowsPerPage));
-                          }
-                        });
-                      }}
-                      labelRowsPerPage={intl.formatMessage({ id: 'pagination.rowsPerPage', defaultMessage: 'Rows per page:' })}
-                      labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
-                    />
-                  </Box>
-                </>
-              )}
-            </Box>
-          </div>
-        </div>
-
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 1.5,
-            flexWrap: 'wrap',
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            pt: 3,
-            mt: 1,
-            color: 'text.secondary',
-          }}
-        >
-          {/* MARK: ABOUT US */}
-          {/* <Link to="/about-us" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
-            <FormattedMessage id="navigate.about" defaultMessage="About Us" />
-          </Link>
-          <span className='text-slate-400'>|</span> */}
-          <Link to="/terms-of-service" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
-            <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
-          </Link>
-          <span className='text-slate-400'>|</span>
-          <Link to="/refund-policy" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
-            <FormattedMessage id="navigate.refund" defaultMessage="Refund Policy" />
-          </Link>
-          <span className='text-slate-400'>|</span>
-          <Link to="/privacy" className='text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'>
-            <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
-          </Link>
-        </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1.5,
+              flexWrap: 'wrap',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              pt: 3,
+              pb: 2,
+              color: 'text.secondary',
+            }}
+          >
+            <Link to="/terms-of-service" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+              <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
+            </Link>
+            <span className='text-slate-500'>|</span>
+            <Link to="/refund-policy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+              <FormattedMessage id="navigate.refund" defaultMessage="Refund Policy" />
+            </Link>
+            <span className='text-slate-500'>|</span>
+            <Link to="/privacy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+              <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
+            </Link>
+          </Box>
         </div>
 
         <CartDrawer
@@ -1500,6 +2907,66 @@ const Market: React.FC = () => {
             {renderAccountMarketPanel({ compact: true, onNavigate: () => setMobileFilterDrawerOpen(false) })}
           </Box>
         </Drawer>
+
+        <Drawer
+          anchor="right"
+          open={listingDrawerOpen}
+          onClose={() => closeListingDrawer({ clearFilters: true })}
+          PaperProps={{
+            sx: {
+              width: '100vw',
+              maxWidth: '100vw',
+              height: '100%',
+              backgroundColor: 'background.default',
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                <FormattedMessage id="market.drawer.title" defaultMessage="Market listings" />
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <FormattedMessage
+                  id="market.drawer.summary"
+                  defaultMessage="{total} listings"
+                  values={{ total: pagination.total }}
+                />
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<FilterListOutlined />}
+                onClick={() => setMobileFilterDrawerOpen(true)}
+                sx={{ display: { xs: 'inline-flex', lg: 'none' }, borderRadius: 0 }}
+              >
+                <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
+              </Button>
+              <IconButton onClick={() => closeListingDrawer({ clearFilters: true })} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+                <X className="h-5 w-5" />
+              </IconButton>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '260px minmax(0,1fr)' }, minHeight: 0, flex: 1 }}>
+            <Box sx={{ display: { xs: 'none', lg: 'block' }, borderRight: '1px solid', borderColor: 'divider', p: 2, overflowY: 'auto' }}>
+              <Stack spacing={2}>
+                {renderFilterPanel()}
+                {renderAccountMarketPanel({ compact: true })}
+              </Stack>
+            </Box>
+            <Box ref={listingDrawerContentRef} sx={{ minWidth: 0, minHeight: 0, overflowY: 'auto' }}>
+              {renderListingControls()}
+              {renderListingGrid()}
+            </Box>
+          </Box>
+        </Drawer>
+
+        <ExtensionModal
+          open={plannerExtensionModalOpen}
+          onClose={() => setPlannerExtensionModalOpen(false)}
+        />
 
         <Snackbar
           open={snackbarOpen}

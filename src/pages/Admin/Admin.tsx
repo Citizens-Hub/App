@@ -20,6 +20,7 @@ import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
 import SiteNotificationManager from './components/SiteNotificationManager';
+import MarketHomeSettingsManager from './components/MarketHomeSettingsManager';
 import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import InvoiceSettingsManager from './components/InvoiceSettingsManager';
 import AdminMaintenanceManager from './components/AdminMaintenanceManager';
@@ -36,6 +37,7 @@ enum Page {
   WatermarkDebug = 'watermarkDebug',
   ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
+  MarketHome = 'marketHome',
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
@@ -132,6 +134,15 @@ export default function Admin() {
       groupLabel: groups.catalog,
       active: currentPage === Page.ConciergePaints,
       onSelect: () => setCurrentPage(Page.ConciergePaints),
+    },
+    {
+      id: Page.MarketHome,
+      title: <FormattedMessage id="admin.marketHome.title" defaultMessage="Market Home" />,
+      description: <FormattedMessage id="admin.marketHome.navDescription" defaultMessage="配置市场主页 Hero。" />,
+      groupId: 'catalog',
+      groupLabel: groups.catalog,
+      active: currentPage === Page.MarketHome,
+      onSelect: () => setCurrentPage(Page.MarketHome),
     },
     {
       id: Page.GameShops,
@@ -286,6 +297,7 @@ export default function Admin() {
         {currentPage === Page.ShipItemIds && <ShipItemIdMappingsManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
+        {currentPage === Page.MarketHome && <MarketHomeSettingsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
         {currentPage === Page.InvoiceSettings && <InvoiceSettingsManager />}
