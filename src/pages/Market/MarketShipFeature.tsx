@@ -335,15 +335,14 @@ export default function MarketShipFeature() {
           </div>
 
           <div className='flex flex-1 flex-col gap-2'>
-            <button
-              type="button"
-              className='w-full cursor-pointer text-left text-inherit'
+            <div
+              className='w-full cursor-pointer text-left text-inherit cursor-pointer'
               onClick={() => handleOpenDetails(item)}
             >
               <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, fontSize: '1.05rem' }}>
                 {displayName}
               </Typography>
-            </button>
+            </div>
             <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
               {getMarketItemSummary(intl, item, ships)}
             </Typography>
