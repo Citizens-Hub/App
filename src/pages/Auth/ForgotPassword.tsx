@@ -176,6 +176,7 @@ export default function ForgotPassword() {
           flexDirection: 'column',
           alignItems: 'center',
           marginBottom: 6,
+          minWidth: '460px'
         }}
       >
         <Paper
