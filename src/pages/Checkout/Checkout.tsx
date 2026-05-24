@@ -48,11 +48,17 @@ import {
 } from '@/pages/Market/marketI18n';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
+import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 import { getAccountMarketListPath } from '@/utils/marketLinks';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
   getMonthlyAccountCouponCode,
 } from '@/utils/accountMarketCoupon';
+import {
+  clearDirectCheckoutItems,
+  DIRECT_CHECKOUT_SEARCH_PARAM,
+  readDirectCheckoutItems,
+} from '@/utils/directCheckout';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
 const CHECKOUT_PENDING_REQUEST_TTL_MS = 15 * 60 * 1000;
@@ -218,7 +224,8 @@ export default function Checkout() {
   const [searchParams] = useSearchParams();
   const isAccountMarketCheckout = location.pathname.startsWith('/account-market/checkout');
   const accountSkuId = isAccountMarketCheckout ? searchParams.get('skuId')?.trim() || '' : '';
-  const locationState = location.state as { pendingOrder?: MarketOrder, ships?: Ship[] };
+  const isDirectCheckout = searchParams.get(DIRECT_CHECKOUT_SEARCH_PARAM) === '1';
+  const locationState = location.state as { pendingOrder?: MarketOrder, ships?: Ship[], directCheckoutItems?: MarketCartItem[] };
   // cartFromState 来自商城的Redux购物车，实际类型是CartItem[]
   // 注意：系统中有两种不同的购物车实现：
   // 1. ResourcesTable使用的CartItem（本地状态，不使用Redux）
@@ -231,7 +238,7 @@ export default function Checkout() {
     error: accountMarketItemError,
     notFound: accountMarketItemNotFound,
   } = useAccountMarketItemData(accountSkuId || undefined);
-  const { pendingOrder, ships: stateShips } = locationState || {};
+  const { pendingOrder, ships: stateShips, directCheckoutItems } = locationState || {};
   // 使用MarketCartItem类型来管理结账页面的购物车数据
   const [cart, setCart] = useState<MarketCartItem[]>([]);
   const { user } = useSelector((state: RootState) => state.user);
@@ -277,6 +284,21 @@ export default function Checkout() {
       return;
     }
 
+    const restoredDirectCheckoutItems = directCheckoutItems?.length
+      ? directCheckoutItems
+      : isDirectCheckout
+        ? readDirectCheckoutItems()
+        : [];
+    if (restoredDirectCheckoutItems.length) {
+      setCart(restoredDirectCheckoutItems);
+      return;
+    }
+
+    if (isDirectCheckout) {
+      setCart([]);
+      return;
+    }
+
     if (isAccountMarketCheckout) {
       if (accountMarketItem) {
         setCart([
@@ -304,7 +326,7 @@ export default function Checkout() {
     }
 
     setCart([]);
-  }, [accountMarketItem, cartFromState, effectiveShips, isAccountMarketCheckout, pendingOrder, user?.id]);
+  }, [accountMarketItem, cartFromState, directCheckoutItems, effectiveShips, isAccountMarketCheckout, isDirectCheckout, pendingOrder, user?.id]);
 
   const getItemPrice = (item: MarketCartItem) => {
     return item.price || 0;
@@ -526,7 +548,7 @@ export default function Checkout() {
   
   // 导航到登录页面
   const handleGoToLogin = () => {
-    navigate('/login', { state: { from: location.pathname } });
+    navigate('/login', { state: { from: `${location.pathname}${location.search}` } });
   };
   
   // 导航到邮箱验证页面
@@ -597,11 +619,11 @@ export default function Checkout() {
       `${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders`,
       {
         method: 'POST',
-          body: JSON.stringify({
-            items: checkoutSubmitCart.map(item => ({
-              skuId: item.skuId,
-              quantity: item.quantity
-            })),
+        body: JSON.stringify({
+          items: checkoutSubmitCart.map(item => ({
+            skuId: item.skuId,
+            quantity: item.quantity
+          })),
           selectedCouponId: isAccountMarketCart ? null : selectedCouponId || null,
           accountCouponCode: accountCouponApplied ? normalizedAccountCouponCode : null,
         }),
@@ -620,6 +642,7 @@ export default function Checkout() {
         return json;
       })
       .then((json) => {
+        clearDirectCheckoutItems();
         window.location.href = json.url;
       })
       .catch((err) => {
@@ -1063,6 +1086,8 @@ export default function Checkout() {
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
             </Typography>
+
+            <PaymentMethodMessaging amount={totalPrice} />
 
             {/* {excludedCartItems.length > 0 && (
               <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>

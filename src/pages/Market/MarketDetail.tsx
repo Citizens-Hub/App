@@ -34,6 +34,7 @@ import {
   ShipResponse,
 } from '@/types';
 import {
+  buildMarketCartItem,
   buildMarketResource,
   getMarketItemVisual,
   isOcShipListing,
@@ -70,6 +71,8 @@ import {
 import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 import { getAbsoluteAssetUrl, getMarketDetailUrl } from '@/utils/marketLinks';
 import MarketImageBadge from './components/MarketImageBadge';
+import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
+import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -922,6 +925,48 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     setSnackbarOpen(true);
   };
 
+  const handleBuyNow = () => {
+    if (!item) return;
+
+    if (item.itemType === 'credit') {
+      if (!selectedCreditOption) {
+        return;
+      }
+
+      const directCheckoutItems = [buildMarketCartItem({
+        ...item,
+        skuId: `credit-pool:${selectedCreditOption.amount}`,
+        name: formatMarketCreditResourceName(intl, selectedCreditOption.amount),
+        price: selectedCreditOption.price,
+        creditAmount: selectedCreditOption.amount,
+        discountRateBps: selectedCreditOption.discountRateBps,
+        sellerCount: selectedCreditOption.sellerCount,
+        creditOptions: undefined,
+      }, 1, ships)];
+      saveDirectCheckoutItems(directCheckoutItems);
+      navigate(getDirectCheckoutPath(), {
+        state: {
+          directCheckoutItems,
+          ships,
+        },
+      });
+      return;
+    }
+
+    if (!activeItem || getAvailableStock(activeItem) <= 0) {
+      return;
+    }
+
+    const directCheckoutItems = [buildMarketCartItem(activeItem, 1, ships)];
+    saveDirectCheckoutItems(directCheckoutItems);
+    navigate(getDirectCheckoutPath(), {
+      state: {
+        directCheckoutItems,
+        ships,
+      },
+    });
+  };
+
   const getAvailableStockByResourceId = (resourceId: string) => {
     if (item?.itemType === 'credit' && resourceId.startsWith('credit-pool:')) {
       return Number.MAX_SAFE_INTEGER;
@@ -1285,6 +1330,8 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         </TextField>
       )}
 
+      <PaymentMethodMessaging amount={displayPrice} />
+
       {isPrivateOfferOnlyListing ? (
         <Alert severity="info" sx={{ mb: 3 }}>
           <FormattedMessage
@@ -1294,6 +1341,13 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         </Alert>
       ) : item.itemType === 'credit' ? (
         <div className='flex flex-col gap-3'>
+          <Button
+            variant="contained"
+            onClick={handleBuyNow}
+            disabled={!selectedCreditOption}
+          >
+            <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+          </Button>
           <Button
             variant="outlined"
             onClick={handleAddToCart}
@@ -1342,9 +1396,23 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
           <Button variant="outlined" onClick={openCart}>
             <FormattedMessage id="market.openCart" defaultMessage="Open cart" />
           </Button>
+          <Button
+            variant="contained"
+            onClick={handleBuyNow}
+            disabled={availableStock <= 0}
+          >
+            <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+          </Button>
         </div>
       ) : (
         <div className='flex flex-col gap-3'>
+          <Button
+            variant="contained"
+            onClick={handleBuyNow}
+            disabled={availableStock <= 0}
+          >
+            <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+          </Button>
           <Button
             variant="outlined"
             onClick={handleAddToCart}

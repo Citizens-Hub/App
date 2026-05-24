@@ -44,12 +44,12 @@ import {
 } from '@/types';
 import { Plus, ShoppingCart, Minus, X } from 'lucide-react';
 import { useAccountMarketData, useAuthApi, useMarketData } from '@/hooks';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
 import { useCartStore } from '@/hooks/useCartStore';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { buildMarketResource } from '@/components/marketItemDisplay';
+import { buildMarketCartItem, buildMarketResource } from '@/components/marketItemDisplay';
 import { getAbsoluteAssetUrl, getAccountMarketListPath, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
@@ -60,6 +60,7 @@ import {
   getAvailableStock,
   getListingBasePrice,
   getListingDiscountPercent,
+  resolveLowestCcuVariant,
 } from './marketUtils';
 import {
   formatMarketDiscount,
@@ -71,6 +72,7 @@ import {
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 import { getMarketImageAssetUrl } from '@/utils/marketImages';
+import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 
@@ -93,6 +95,7 @@ const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']
 const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
 const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'non_oc', 'lti']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
+const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
 function formatCouponCountdown(remainingMs: number) {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
@@ -221,6 +224,7 @@ function MarketTrustSection() {
 
 const Market: React.FC = () => {
   const intl = useIntl();
+  const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const lastCommittedSearchRef = useRef('');
@@ -459,18 +463,47 @@ const Market: React.FC = () => {
     pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [marketQuery]);
 
-  const handleAddToCart = (item: ListingItem) => {
-    if (item.itemType === 'ccu') {
+  const resolveDirectMarketItem = (item: ListingItem): ListingItem | null => {
+    if (item.itemType === 'credit') {
+      return null;
+    }
+
+    return item.itemType === 'ccu' ? resolveLowestCcuVariant(item) : item;
+  };
+
+  const resolveDirectMarketItemForAction = async (item: ListingItem): Promise<ListingItem | null> => {
+    if (item.itemType !== 'ccu') {
+      return resolveDirectMarketItem(item);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/market/item/${encodeURIComponent(item.skuId)}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load CCU group ${item.skuId}`);
+      }
+
+      const groupedItem = await response.json() as ListingItem;
+      return resolveLowestCcuVariant(groupedItem);
+    } catch (error) {
+      console.error('Failed to resolve CCU group for direct market action:', error);
+      return resolveDirectMarketItem(item);
+    }
+  };
+
+  const handleAddToCart = async (item: ListingItem) => {
+    const targetItem = await resolveDirectMarketItemForAction(item);
+    if (!targetItem) {
+      handleOpenDetails(item);
       return;
     }
 
-    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
-    const availableStock = getAvailableStock(item);
+    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === targetItem.skuId);
+    const availableStock = getAvailableStock(targetItem);
 
     if (existingCartItem) {
       const currentQuantity = existingCartItem.quantity || 1;
       if (currentQuantity < availableStock) {
-        updateItemQuantity(item.skuId, currentQuantity + 1);
+        updateItemQuantity(targetItem.skuId, currentQuantity + 1);
         setSnackbarMessage(intl.formatMessage({ id: 'market.quantityUpdated', defaultMessage: 'Quantity updated' }));
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
@@ -478,12 +511,29 @@ const Market: React.FC = () => {
       return;
     }
 
-    const cartItem: Resource = buildMarketResource(item, ships);
+    const cartItem: Resource = buildMarketResource(targetItem, ships);
     addToCart(cartItem);
 
     setSnackbarMessage(intl.formatMessage({ id: 'market.addedToCart', defaultMessage: 'Added to cart' }));
     setSnackbarSeverity('success');
     setSnackbarOpen(true);
+  };
+
+  const handleBuyNow = async (item: ListingItem) => {
+    const targetItem = await resolveDirectMarketItemForAction(item);
+    if (!targetItem || getAvailableStock(targetItem) <= 0) {
+      handleOpenDetails(item);
+      return;
+    }
+
+    const directCheckoutItems = [buildMarketCartItem(targetItem, 1, ships)];
+    saveDirectCheckoutItems(directCheckoutItems);
+    navigate(getDirectCheckoutPath(), {
+      state: {
+        directCheckoutItems,
+        ships,
+      },
+    });
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
@@ -1184,8 +1234,12 @@ const Market: React.FC = () => {
                 <>
                   <div className='grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3'>
                     {listingItems.map((item) => {
-                      const availableStock = getAvailableStock(item);
-                      const inCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.skuId);
+                      const directItem = resolveDirectMarketItem(item);
+                      const directItemSkuId = directItem?.skuId || item.skuId;
+                      const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
+                      const inCartItem = directItem
+                        ? cart.find((cartItem: CartItemType) => cartItem.resource.id === directItemSkuId)
+                        : undefined;
                       const inCartQuantity = inCartItem?.quantity || 0;
                       const basePrice = getListingBasePrice(item, ships);
                       const discount = getListingDiscountPercent(item, ships);
@@ -1273,20 +1327,6 @@ const Market: React.FC = () => {
                               <Divider />
 
                               <div className='flex items-center justify-between gap-3'>
-                              {/* <Link
-                                to={getMarketDetailPath(item.skuId)}
-                                className='text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-                              >
-                                {isCcu ? (
-                                  <FormattedMessage
-                                    id="market.viewDetails"
-                                    defaultMessage="View details"
-                                  />
-                                ) : (
-                                  <FormattedMessage id="market.viewDetails" defaultMessage="View details" />
-                                )}
-                              </Link> */}
-
                                 {isCredit ? (
                                   <Button
                                     variant="outlined"
@@ -1294,17 +1334,6 @@ const Market: React.FC = () => {
                                     size="small"
                                   >
                                     <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
-                                  </Button>
-                                ) : isCcu ? (
-                                  <Button
-                                    variant="outlined"
-                                    onClick={() => handleOpenDetails(item)}
-                                    size="small"
-                                  >
-                                    <FormattedMessage
-                                      id="market.viewDetails"
-                                      defaultMessage="View details"
-                                    />
                                   </Button>
                                 ) : inCartItem ? (
                                   <ButtonGroup
@@ -1315,9 +1344,9 @@ const Market: React.FC = () => {
                                       size="small"
                                       onClick={() => {
                                         if (inCartQuantity > 1) {
-                                          updateItemQuantity(item.skuId, inCartQuantity - 1);
+                                          updateItemQuantity(directItemSkuId, inCartQuantity - 1);
                                         } else {
-                                          removeFromCart(item.skuId);
+                                          removeFromCart(directItemSkuId);
                                         }
                                       }}
                                     >
@@ -1331,7 +1360,7 @@ const Market: React.FC = () => {
                                       disabled={inCartQuantity >= availableStock}
                                       onClick={() => {
                                         if (inCartQuantity < availableStock) {
-                                          updateItemQuantity(item.skuId, inCartQuantity + 1);
+                                          updateItemQuantity(directItemSkuId, inCartQuantity + 1);
                                         }
                                       }}
                                     >
@@ -1346,6 +1375,16 @@ const Market: React.FC = () => {
                                     size="small"
                                   >
                                     <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+                                  </Button>
+                                )}
+                                {!isCredit && (
+                                  <Button
+                                    variant="contained"
+                                    onClick={() => handleBuyNow(item)}
+                                    disabled={availableStock <= 0}
+                                    size="small"
+                                  >
+                                    <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
                                   </Button>
                                 )}
                               </div>

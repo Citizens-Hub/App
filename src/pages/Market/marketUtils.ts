@@ -1,8 +1,80 @@
-import { ListingItem, Ship } from '@/types';
+import { ListingItem, MarketItemVariant, Ship } from '@/types';
 import { getMarketItemVisual } from '@/components/marketItemDisplay';
 
 export function getAvailableStock(item: ListingItem) {
   return Math.max(item.stock - item.lockedStock, 0);
+}
+
+function getAvailableVariantStock(item: MarketItemVariant) {
+  return Math.max(item.stock - item.lockedStock, 0);
+}
+
+export function resolveLowestCcuVariant(item: ListingItem): ListingItem | null {
+  if (item.itemType !== 'ccu') {
+    return item;
+  }
+
+  const variants = item.variants?.length
+    ? item.variants
+    : [{
+        skuId: item.skuId,
+        name: item.name,
+        price: item.price,
+        cost: item.cost,
+        itemType: 'ccu' as const,
+        stock: item.stock,
+        lockedStock: item.lockedStock,
+        sourceKind: item.sourceKind,
+        visibleInMarket: item.visibleInMarket,
+        belongsTo: item.belongsTo,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        deletedAt: item.deletedAt,
+        fromShipId: item.fromShipId,
+        toShipId: item.toShipId,
+        fromShipName: item.fromShipName,
+        toShipName: item.toShipName,
+        fromShipManufacturerId: item.fromShipManufacturerId,
+        toShipManufacturerId: item.toShipManufacturerId,
+        toSkuId: item.toSkuId,
+        imageUrl: item.imageUrl,
+        imageUrls: item.imageUrls,
+        fromImageUrl: item.fromImageUrl,
+        toImageUrl: item.toImageUrl,
+        seller: item.seller,
+      }];
+  const availableVariants = variants.filter((variant) => getAvailableVariantStock(variant) > 0);
+  const candidates = availableVariants.length ? availableVariants : variants;
+  const selectedVariant = [...candidates].sort((left, right) => {
+    if (left.price !== right.price) {
+      return left.price - right.price;
+    }
+
+    const leftCost = typeof left.cost === 'number' ? left.cost : Number.POSITIVE_INFINITY;
+    const rightCost = typeof right.cost === 'number' ? right.cost : Number.POSITIVE_INFINITY;
+    if (leftCost !== rightCost) {
+      return leftCost - rightCost;
+    }
+
+    const stockDiff = getAvailableVariantStock(right) - getAvailableVariantStock(left);
+    if (stockDiff !== 0) {
+      return stockDiff;
+    }
+
+    return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+  })[0];
+
+  if (!selectedVariant) {
+    return null;
+  }
+
+  return {
+    ...item,
+    ...selectedVariant,
+    name: item.name,
+    variantCount: item.variantCount,
+    variants: item.variants,
+  };
 }
 
 export function findShip(ships: Ship[], shipId?: number, shipName?: string) {

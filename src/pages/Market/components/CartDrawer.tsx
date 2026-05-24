@@ -23,6 +23,7 @@ import { useShipsData } from '@/hooks';
 import { useMarketCartValidation } from '@/hooks';
 import { getMarketItemVisual } from '@/components/marketItemDisplay';
 import { getShipDisplayName } from '@/utils/shipDisplay';
+import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 
 import {
   formatMarketCcuResourceName,
@@ -288,6 +289,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
             </List>
 
             <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <PaymentMethodMessaging amount={total} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <div className='text-gray-500 dark:text-gray-200'>
                   <FormattedMessage id="cart.total" defaultMessage="Total" />
