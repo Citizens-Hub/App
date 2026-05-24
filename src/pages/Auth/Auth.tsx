@@ -28,20 +28,22 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
 import { sendGoogleAdsSignupConversion } from '@/utils/googleAdsConversions';
+import Verify, { AUTH_FORM_PAPER_SX } from '@/pages/Verify/Verify';
 
 interface LoginResponse {
   success: boolean;
   message: string;
   user: User;
   token: string;
+  emailVerificationRequired?: boolean;
+  emailVerificationSent?: boolean;
 }
 
 const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  // @ts-ignore
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode] = useState('');
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
   const [marketingEmailConsent, setMarketingEmailConsent] = useState<boolean | null>(null);
   const [adsAudienceConsent, setAdsAudienceConsent] = useState(false);
@@ -53,6 +55,9 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [passwordError, setPasswordError] = useState(false);
   const [passwordStrengthError, setPasswordStrengthError] = useState(false);
   const [showAlert, setShowAlert] = useState(true);
+  const [registeredEmailVerificationRequired, setRegisteredEmailVerificationRequired] = useState(false);
+  const [registeredEmailVerificationSent, setRegisteredEmailVerificationSent] = useState(false);
+  const [registeredEmailVerificationExpiresInMinutes, setRegisteredEmailVerificationExpiresInMinutes] = useState(15);
   const captchaRef = useRef<CaptchaWidgetHandle>(null);
 
   const googleLogin = useGoogleLogin({
@@ -228,7 +233,24 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
       if (data.success) {
         void sendGoogleAdsSignupConversion();
-        navigate('/login');
+        dispatch(login({
+          ...data.user,
+          avatar: data.user.avatar || `https://www.gravatar.com/avatar/${md5(data.user.email)}`,
+          emailVerified: Boolean(data.user.emailVerified),
+          token: data.token,
+        }));
+        if (data.emailVerificationRequired ?? !data.user.emailVerified) {
+          setRegisteredEmailVerificationRequired(true);
+          setRegisteredEmailVerificationSent(Boolean(data.emailVerificationSent));
+          setRegisteredEmailVerificationExpiresInMinutes(15);
+          setOpenSnackbar(false);
+          return;
+        }
+
+        setOpenSnackbar(true);
+        setTimeout(() => {
+          navigate(redirectTo);
+        }, 500);
       } else {
         setError(data.message || '注册失败，请检查您的凭据');
         resetCaptcha();
@@ -264,19 +286,23 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          marginBottom: 6
+          marginBottom: 6,
+          minWidth: "460px"
         }}
       >
         <Paper
           elevation={3}
-          sx={{
-            p: 4,
-            width: '100%',
-            maxWidth: '460px',
-            borderRadius: 2,
-            zIndex: 1
-          }}
+          sx={{ ...AUTH_FORM_PAPER_SX, zIndex: 1 }}
         >
+          {action === 'register' && registeredEmailVerificationRequired ? (
+            <Verify
+              embedded
+              initialCodeSent={registeredEmailVerificationSent}
+              initialCodeExpiresInMinutes={registeredEmailVerificationExpiresInMinutes}
+              successRedirectTo={redirectTo}
+            />
+          ) : (
+          <>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
             {action === 'login' ? (<FormattedMessage id="login.title" defaultMessage="Login" />) : (<FormattedMessage id="register.title" defaultMessage="Register" />)}
           </Typography>
@@ -511,6 +537,13 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                 }} href="/register" className="underline text-blue-600">
                   <FormattedMessage id="login.register" defaultMessage="Register" />
                 </Link>
+                <br />
+                <Link onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/forgot-password');
+                }} href="/forgot-password" className="underline text-blue-600">
+                  <FormattedMessage id="login.forgotPassword" defaultMessage="Forgot password?" />
+                </Link>
               </Typography>) : (<Typography variant="body2" sx={{ mt: 2 }}>
                 <FormattedMessage id="login.haveAccount" defaultMessage="Have an account?" /> <Link onClick={(e) => {
                   e.preventDefault();
@@ -521,6 +554,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
               </Typography>)
             }
           </Box>
+          </>
+          )}
         </Paper>
       </Box>
 

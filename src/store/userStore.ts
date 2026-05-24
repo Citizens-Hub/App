@@ -7,28 +7,37 @@ export interface User {
   nickname: string,
   avatar: string,
   email: string,
+  emailVerified: boolean,
   token: string,
   role: UserRole,
 }
 
+const guestUser: User = {
+  id: '',
+  username: '',
+  nickname: '',
+  avatar: '',
+  email: '',
+  emailVerified: false,
+  token: '',
+  role: UserRole.Guest,
+};
+
 const getInitialState = () => {
   const user = localStorage.getItem('user');
   if (user) {
+    const parsedUser = JSON.parse(user) as Partial<User>;
     return {
-      user: JSON.parse(user) as User,
+      user: {
+        ...guestUser,
+        ...parsedUser,
+        emailVerified: Boolean(parsedUser.emailVerified),
+      },
     };
   }
 
   return {
-    user: {
-      id: '',
-      username: '',
-      nickname: '',
-      avatar: '',
-      email: '',
-      token: '',
-      role: UserRole.Guest,
-    } as User,
+    user: guestUser,
   }
 }
 

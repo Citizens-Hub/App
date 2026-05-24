@@ -529,9 +529,9 @@ export default function Checkout() {
     navigate('/login', { state: { from: location.pathname } });
   };
   
-  // 导航到个人资料页面进行邮箱验证
+  // 导航到邮箱验证页面
   const handleGoToVerifyEmail = () => {
-    navigate('/app-settings');
+    navigate('/app-settings?verifyEmail=1');
   };
 
   // 处理协议确认状态变更
@@ -1438,7 +1438,7 @@ export default function Checkout() {
             <Typography>
               <FormattedMessage 
                 id="checkout.verifyEmailMessage" 
-                defaultMessage="You need to verify your email address before making a purchase. Please check your email for a verification link or go to your profile to request a new verification email." 
+                defaultMessage="You need to verify your email address before making a purchase. Please check your email for a verification link or go to your profile to request a new verification email."
               />
             </Typography>
           </Box>
@@ -1453,7 +1453,7 @@ export default function Checkout() {
             variant="contained"
             startIcon={<Mail size={16} />}
           >
-            <FormattedMessage id="checkout.goToProfile" defaultMessage="Go to Settings" />
+            <FormattedMessage id="checkout.goToProfile" defaultMessage="Verify now" />
           </Button>
         </DialogActions>
       </Dialog>

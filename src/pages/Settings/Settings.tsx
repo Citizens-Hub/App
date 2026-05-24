@@ -1,6 +1,6 @@
 import { ChangeEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState, } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { clearUpgrades, setCurrency, setHangarSyncPreferences } from '@/store/upgradesStore';
 import { clearAllImportData } from '@/store/importStore';
 import { login } from '@/store/userStore';
@@ -27,6 +27,7 @@ import {
   Switch,
   FormControlLabel,
   Chip,
+  TextField,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ProfileData, UserRole } from '@/types';
@@ -212,6 +213,7 @@ export default function Settings() {
   const intl = useIntl();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const apiBaseUrl = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarCropFrameRef = useRef<HTMLDivElement | null>(null);
@@ -319,6 +321,14 @@ export default function Settings() {
   const [shipImageCacheSummary, setShipImageCacheSummary] = useState<ShipImageCacheListResult>(EMPTY_SHIP_IMAGE_CACHE_SUMMARY);
   const [isLoadingShipImageCache, setIsLoadingShipImageCache] = useState(false);
   const [shipImageCacheActionKey, setShipImageCacheActionKey] = useState<string | null>(null);
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [isSendingEmailVerificationCode, setIsSendingEmailVerificationCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const autoSendEmailVerificationCodeRef = useRef(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const avatarCropMetrics = avatarCropSource
     ? getAvatarCropMetrics(avatarCropSource, avatarCropPreviewSize, avatarCropZoom)
     : null;
@@ -328,6 +338,12 @@ export default function Settings() {
   const avatarCropImageTop = avatarCropMetrics
     ? (avatarCropPreviewSize - avatarCropMetrics.displayHeight) / 2 + avatarCropOffset.y
     : 0;
+
+  useEffect(() => {
+    if (searchParams.get('verifyEmail') === '1') {
+      setCurrentPage(Page.Profile);
+    }
+  }, [searchParams]);
 
   const loadMcpTokens = async () => {
     if (!user.token || !isAdmin) {
@@ -459,6 +475,214 @@ export default function Settings() {
   // 处理Snackbar关闭
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
+  };
+
+  const validatePassword = (value: string) => value.length >= 6 && !/^\d+$/.test(value);
+
+  const handleSendEmailVerificationCode = async () => {
+    setIsSendingEmailVerificationCode(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/verify`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+        expiresInMinutes?: number;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(resolveLocalizedMessage(
+          intl,
+          result?.message,
+          {
+            id: 'settings.verificationEmailFailed',
+            defaultMessage: 'Failed to send verification code.'
+          },
+        ));
+      }
+
+      showSuccessMessage(intl.formatMessage(
+        {
+          id: 'settings.verificationCodeSent',
+          defaultMessage: 'Verification code sent. It expires in {minutes} minutes.',
+        },
+        { minutes: result.expiresInMinutes || 15 },
+      ));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.verificationEmailFailed',
+              defaultMessage: 'Failed to send verification code.'
+            })
+      );
+    } finally {
+      setIsSendingEmailVerificationCode(false);
+    }
+  };
+
+  useEffect(() => {
+    if (
+      searchParams.get('verifyEmail') !== '1'
+      || autoSendEmailVerificationCodeRef.current
+      || !user.token
+      || loading
+      || profileData.emailVerified
+    ) {
+      return;
+    }
+
+    autoSendEmailVerificationCodeRef.current = true;
+    void handleSendEmailVerificationCode();
+    setSearchParams((next) => {
+      next.delete('verifyEmail');
+      return next;
+    }, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, profileData.emailVerified, searchParams, setSearchParams, user.token]);
+
+  const handleVerifyEmailCode = async () => {
+    setIsVerifyingEmailCode(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          code: emailVerificationCode,
+        }),
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+        user?: {
+          emailVerified?: boolean;
+        };
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(resolveLocalizedMessage(
+          intl,
+          result?.message,
+          {
+            id: 'settings.emailVerificationFailed',
+            defaultMessage: 'Failed to verify email.'
+          },
+        ));
+      }
+
+      setProfileData((prev) => ({
+        ...prev,
+        emailVerified: true,
+      }));
+      dispatch(login({
+        ...user,
+        emailVerified: true,
+      }));
+      setEmailVerificationCode('');
+      showSuccessMessage(intl.formatMessage({
+        id: 'settings.emailVerified',
+        defaultMessage: 'Email verified successfully.'
+      }));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.emailVerificationFailed',
+              defaultMessage: 'Failed to verify email.'
+            })
+      );
+    } finally {
+      setIsVerifyingEmailCode(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePassword(newPassword)) {
+      showErrorMessage(intl.formatMessage({
+        id: 'login.passwordStrengthError',
+        defaultMessage: 'Password must be at least 6 characters and not all numbers'
+      }));
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      showErrorMessage(intl.formatMessage({
+        id: 'login.passwordsNotMatch',
+        defaultMessage: 'Passwords do not match'
+      }));
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/password/change`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(resolveLocalizedMessage(
+          intl,
+          result?.message,
+          {
+            id: 'settings.passwordChangeFailed',
+            defaultMessage: 'Failed to change password.'
+          },
+        ));
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      showSuccessMessage(resolveLocalizedMessage(
+        intl,
+        result.message,
+        {
+          id: 'settings.passwordChanged',
+          defaultMessage: 'Password changed successfully.'
+        },
+      ));
+    } catch (error) {
+      console.error(error);
+      showErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : intl.formatMessage({
+              id: 'settings.passwordChangeFailed',
+              defaultMessage: 'Failed to change password.'
+            })
+      );
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   // 清除所有本地数据
@@ -1569,51 +1793,45 @@ export default function Settings() {
                         size='small'
                       />
                       {!profileData?.emailVerified && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          aria-label={intl.formatMessage({ id: "settings.sendVerification", defaultMessage: "Send Verification Email" })}
-                          onClick={() => {
-                            setIsSubmitting(true);
-                            fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/verify`, {
-                              method: 'GET',
-                              headers: {
-                                'Authorization': `Bearer ${user.token}`
-                              }
-                            })
-                            .then(res => {
-                              if (!res.ok) {
-                                throw new Error('发送验证邮件失败');
-                              }
-                              return res.json();
-                            })
-                            .then(() => {
-                              setSuccessMessage(intl.formatMessage({
-                                id: 'settings.verificationEmailSent',
-                                defaultMessage: 'Verification email has been sent, please check your inbox'
-                              }));
-                              setSnackbarOpen(true);
-                            })
-                            .catch(err => {
-                              setErrorMessage(intl.formatMessage({
-                                id: 'settings.verificationEmailFailed',
-                                defaultMessage: 'Failed to send verification email'
-                              }));
-                              setSnackbarOpen(true);
-                              console.error(err);
-                            })
-                            .finally(() => {
-                              setIsSubmitting(false);
-                            });
-                          }}
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <FormattedMessage id="settings.sendVerification" defaultMessage="Send Verification Email" />
-                          )}
-                        </Button>
+                        <div className="flex w-full max-w-[250px] flex-col gap-2">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            aria-label={intl.formatMessage({ id: "settings.sendVerification", defaultMessage: "Send Verification Code" })}
+                            onClick={() => void handleSendEmailVerificationCode()}
+                            disabled={isSendingEmailVerificationCode || isVerifyingEmailCode}
+                          >
+                            {isSendingEmailVerificationCode ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <FormattedMessage id="settings.sendVerification" defaultMessage="Send Verification Code" />
+                            )}
+                          </Button>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            label={<FormattedMessage id="verify.codeLabel" defaultMessage="6-digit code" />}
+                            value={emailVerificationCode}
+                            onChange={(event) => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputProps={{
+                              inputMode: 'numeric',
+                              pattern: '\\d{6}',
+                              maxLength: 6,
+                            }}
+                          />
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => void handleVerifyEmailCode()}
+                            disabled={isVerifyingEmailCode || emailVerificationCode.length !== 6}
+                          >
+                            {isVerifyingEmailCode ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              <FormattedMessage id="settings.verifyEmailCode" defaultMessage="Verify Code" />
+                            )}
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1700,6 +1918,58 @@ export default function Settings() {
                         }}
                       />
                     </Typography>
+                  </div>
+                  <div className='flex flex-col gap-3 rounded-md border border-gray-200 p-4 dark:border-gray-800'>
+                    <div>
+                      <FormattedMessage id="settings.password" defaultMessage="Password" />
+                      <Typography variant="body2" color='text.secondary'>
+                        <FormattedMessage
+                          id="settings.passwordDescription"
+                          defaultMessage="Change the password used for email login."
+                        />
+                      </Typography>
+                    </div>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      type="password"
+                      autoComplete="current-password"
+                      label={<FormattedMessage id="settings.currentPassword" defaultMessage="Current Password" />}
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                    />
+                    <TextField
+                      size="small"
+                      fullWidth
+                      type="password"
+                      autoComplete="new-password"
+                      label={<FormattedMessage id="settings.newPassword" defaultMessage="New Password" />}
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      helperText={<FormattedMessage id="login.passwordStrengthError" defaultMessage="Password must be at least 6 characters and not all numbers" />}
+                    />
+                    <TextField
+                      size="small"
+                      fullWidth
+                      type="password"
+                      autoComplete="new-password"
+                      label={<FormattedMessage id="settings.confirmNewPassword" defaultMessage="Confirm New Password" />}
+                      value={confirmNewPassword}
+                      onChange={(event) => setConfirmNewPassword(event.target.value)}
+                    />
+                    <div className='flex justify-end'>
+                      <Button
+                        variant="contained"
+                        onClick={() => void handleChangePassword()}
+                        disabled={isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                      >
+                        {isChangingPassword ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <FormattedMessage id="settings.changePassword" defaultMessage="Change Password" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className='flex flex-col gap-3 rounded-md border border-gray-200 p-4 dark:border-gray-800'>
                     <div>

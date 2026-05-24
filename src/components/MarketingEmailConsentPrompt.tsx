@@ -5,33 +5,62 @@ import {
   Typography,
 } from '@mui/material';
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router';
 import { RootState } from '@/store';
 import { useUserSession } from '@/hooks';
 import { UserRole } from '@/types';
 
+type ActivePrompt = 'emailVerification' | 'marketingEmailConsent';
+
 export default function MarketingEmailConsentPrompt() {
   const intl = useIntl();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user } = useSelector((state: RootState) => state.user);
   const { data: userSession, mutate } = useUserSession();
   const [submittingConsent, setSubmittingConsent] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [dismissedForPage, setDismissedForPage] = useState(false);
+  const [emailVerificationDismissedForPage, setEmailVerificationDismissedForPage] = useState(false);
+  const [marketingDismissedForPage, setMarketingDismissedForPage] = useState(false);
   const apiBaseUrl = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
   const region = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  const shouldVerifyEmail = Boolean(
+    user.token
+    && user.role !== UserRole.Guest
+    && userSession?.success
+    && userSession.user.emailVerified === false
+  );
   const shouldAskForConsent = Boolean(
     user.token
     && user.role !== UserRole.Guest
     && userSession?.success
     && userSession.user.marketingEmailConsent === null
   );
-  const open = shouldAskForConsent && !dismissedForPage;
+  const activePrompt: ActivePrompt | null = shouldVerifyEmail && !emailVerificationDismissedForPage
+    ? 'emailVerification'
+    : shouldAskForConsent && !marketingDismissedForPage
+      ? 'marketingEmailConsent'
+      : null;
+  const isEmailVerificationPrompt = activePrompt === 'emailVerification';
+  const isVerificationRoute = pathname === '/verify' || pathname.startsWith('/verify/');
+  const isSettingsRoute = pathname === '/app-settings';
 
   const closePrompt = () => {
-    setDismissedForPage(true);
+    if (isEmailVerificationPrompt) {
+      setEmailVerificationDismissedForPage(true);
+      return;
+    }
+
+    setMarketingDismissedForPage(true);
   };
+
+  useEffect(() => {
+    setErrorMessage(null);
+    setSubmittingConsent(null);
+  }, [activePrompt]);
 
   const saveConsent = async (marketingEmailConsent: boolean) => {
     setSubmittingConsent(marketingEmailConsent);
@@ -81,7 +110,7 @@ export default function MarketingEmailConsentPrompt() {
     }
   };
 
-  if (!open) {
+  if (isVerificationRoute || (isSettingsRoute && shouldVerifyEmail) || !activePrompt) {
     return null;
   }
 
@@ -129,17 +158,31 @@ export default function MarketingEmailConsentPrompt() {
                 textTransform: 'uppercase',
               }}
             >
-              <FormattedMessage
-                id="settings.marketingEmailPromptTitle"
-                defaultMessage="Marketing email preference"
-              />
+              {isEmailVerificationPrompt ? (
+                <FormattedMessage
+                  id="app.emailVerification.title"
+                  defaultMessage="Email verification"
+                />
+              ) : (
+                <FormattedMessage
+                  id="settings.marketingEmailPromptTitle"
+                  defaultMessage="Marketing email preference"
+                />
+              )}
             </Box>
 
             <Typography variant="h6" sx={{ mt: 1.5, fontWeight: 800, lineHeight: 1.45 }}>
-              <FormattedMessage
-                id="settings.marketingEmailPromptDescription"
-                defaultMessage="Would you like to receive Citizens Hub marketing broadcast emails, including product updates, offers, and announcements?"
-              />
+              {isEmailVerificationPrompt ? (
+                <FormattedMessage
+                  id="app.emailVerification.prompt"
+                  defaultMessage="Please verify your email to avoid affecting your future use of features."
+                />
+              ) : (
+                <FormattedMessage
+                  id="settings.marketingEmailPromptDescription"
+                  defaultMessage="Would you like to receive Citizens Hub marketing broadcast emails, including product updates, offers, and announcements?"
+                />
+              )}
             </Typography>
           </Box>
 
@@ -170,55 +213,82 @@ export default function MarketingEmailConsentPrompt() {
             {errorMessage}
           </Typography>
         )}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 1,
-            flexWrap: 'wrap',
-            mt: 2.25,
-          }}
-        >
-          <Button
-            size="small"
-            variant="outlined"
-            color="inherit"
-            disabled={submittingConsent !== null}
-            onClick={() => void saveConsent(false)}
+        {isEmailVerificationPrompt ? (
+          <Box
             sx={{
-              borderRadius: 0,
-              borderColor: 'divider',
-              color: 'text.secondary',
-              fontWeight: 700,
-              '&:hover': {
-                borderColor: 'text.primary',
-                backgroundColor: 'transparent',
-              },
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 1,
+              flexWrap: 'wrap',
+              mt: 2.25,
             }}
           >
-            {submittingConsent === false ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <FormattedMessage id="settings.marketingEmailPromptDecline" defaultMessage="No thanks" />
-            )}
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            disabled={submittingConsent !== null}
-            onClick={() => void saveConsent(true)}
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => {
+                setEmailVerificationDismissedForPage(true);
+                navigate('/app-settings?verifyEmail=1');
+              }}
+              sx={{
+                borderRadius: 0,
+                fontWeight: 800,
+              }}
+            >
+              <FormattedMessage id="app.emailVerification.action" defaultMessage="Verify now" />
+            </Button>
+          </Box>
+        ) : (
+          <Box
             sx={{
-              borderRadius: 0,
-              fontWeight: 800,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 1,
+              flexWrap: 'wrap',
+              mt: 2.25,
             }}
           >
-            {submittingConsent === true ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <FormattedMessage id="settings.marketingEmailPromptAccept" defaultMessage="Receive emails" />
-            )}
-          </Button>
-        </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              disabled={submittingConsent !== null}
+              onClick={() => void saveConsent(false)}
+              sx={{
+                borderRadius: 0,
+                borderColor: 'divider',
+                color: 'text.secondary',
+                fontWeight: 700,
+                '&:hover': {
+                  borderColor: 'text.primary',
+                  backgroundColor: 'transparent',
+                },
+              }}
+            >
+              {submittingConsent === false ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <FormattedMessage id="settings.marketingEmailPromptDecline" defaultMessage="No thanks" />
+              )}
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={submittingConsent !== null}
+              onClick={() => void saveConsent(true)}
+              sx={{
+                borderRadius: 0,
+                fontWeight: 800,
+              }}
+            >
+              {submittingConsent === true ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <FormattedMessage id="settings.marketingEmailPromptAccept" defaultMessage="Receive emails" />
+              )}
+            </Button>
+          </Box>
+        )}
       </Box>
     </Box>
   );

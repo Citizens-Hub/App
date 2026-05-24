@@ -29,6 +29,7 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService/TermsOfService'
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy/RefundPolicy'));
 const ChangeLogs = lazy(() => import('./pages/ChangeLogs/ChangeLogs'));
 const Auth = lazy(() => import('./pages/Auth/Auth'));
+const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
 const Admin = lazy(() => import('./pages/Admin/Admin'));
 const Navigate = lazy(() => import('./pages/Navigate/Navigate'));
 const Hangar = lazy(() => import('./pages/Hangar/Hangar'));
@@ -290,7 +291,6 @@ function App() {
   // }, []);
 
   const { user } = useSelector((state: RootState) => state.user);
-  // const { data: userSession } = useUserSession();
   const dispatch = useDispatch();
 
   // 使用SWR检查用户会话
@@ -501,6 +501,8 @@ function App() {
               <Route path="/admin/tickets/:ticketId/reply" element={<RequireAuth allowedRoles={[UserRole.Admin]}><AdminTicketReplyPage /></RequireAuth>} />
               <Route path="/login" element={<Auth action="login" />} />
               <Route path="/register" element={<Auth action="register" />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/verify" element={<Verify />} />
               <Route path="/verify/:token" element={<Verify />} />
             </Routes>
           </Suspense>
