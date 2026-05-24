@@ -11,6 +11,7 @@ import {
   selectCartItemsCount 
 } from '@/store/cartStore';
 import { Resource } from '@/types';
+import { sendGoogleAdsAddToCartConversion } from '@/utils/googleAdsConversions';
 
 type CartNamespace = 'market' | 'accountMarket';
 
@@ -22,6 +23,7 @@ export function useCartStore(namespace: CartNamespace = 'market') {
 
   const addToCart = (resource: Resource) => {
     dispatch(addItem({ namespace, resource }));
+    void sendGoogleAdsAddToCartConversion();
   };
 
   const updateItemQuantity = (resourceId: string, quantity: number) => {

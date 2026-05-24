@@ -34,33 +34,14 @@ import {
   formatOrderUsdPrice,
   getOrderItemDisplayName,
 } from './orderI18n';
+import { sendGoogleAdsPurchaseConversion } from '@/utils/googleAdsConversions';
 // import {
 //   formatGoogleCustomerReviewsDate,
 //   getGoogleCustomerReviewsDeliveryDays,
 //   renderGoogleCustomerReviewsOptIn,
 // } from '@/utils/googleCustomerReviews';
 
-const GOOGLE_ADS_PURCHASE_SEND_TO = (
-  import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO
-  || 'AW-17708781265/ydRzCJftvakcENGdmvxB'
-).trim();
 const GOOGLE_ADS_TRACKED_SESSION_PREFIX = 'google-ads:purchase:';
-
-async function waitForGoogleTag(timeoutMs = 3000) {
-  const startedAt = Date.now();
-
-  while ((Date.now() - startedAt) < timeoutMs) {
-    if (typeof window.gtag === 'function') {
-      return true;
-    }
-
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 50);
-    });
-  }
-
-  return typeof window.gtag === 'function';
-}
 
 function getGoogleAdsTrackedSessionKey(sessionId: string) {
   return `${GOOGLE_ADS_TRACKED_SESSION_PREFIX}${sessionId}`;
@@ -72,35 +53,6 @@ function hasTrackedGoogleAdsPurchase(sessionId: string) {
 
 function markGoogleAdsPurchaseTracked(sessionId: string) {
   window.sessionStorage.setItem(getGoogleAdsTrackedSessionKey(sessionId), '1');
-}
-
-async function sendGoogleAdsPurchaseConversion(checkoutSessionStatus: OrderCheckoutSessionStatus) {
-  const amount = checkoutSessionStatus.paymentInfo?.amountTotal ?? checkoutSessionStatus.paymentInfo?.amountCaptured;
-  const currency = checkoutSessionStatus.paymentInfo?.currency || 'USD';
-
-  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
-    return false;
-  }
-
-  if (!GOOGLE_ADS_PURCHASE_SEND_TO || GOOGLE_ADS_PURCHASE_SEND_TO === '-') {
-    console.warn('Google Ads conversion send_to is not configured.');
-    return false;
-  }
-
-  const isGoogleTagReady = await waitForGoogleTag();
-  if (!isGoogleTagReady || !window.gtag) {
-    console.warn('Google Ads conversion skipped because gtag is not ready.');
-    return false;
-  }
-
-  window.gtag('event', 'conversion', {
-    send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
-    value: amount,
-    currency,
-    transaction_id: checkoutSessionStatus.orderId,
-  });
-
-  return true;
 }
 
 // function resolveGoogleCustomerReviewsEstimatedDeliveryDate(

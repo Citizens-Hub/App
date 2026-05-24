@@ -27,6 +27,7 @@ import GoogleIcon from '@/icons/GoogleIcon';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
+import { sendGoogleAdsSignupConversion } from '@/utils/googleAdsConversions';
 
 interface LoginResponse {
   success: boolean;
@@ -226,6 +227,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       const data: LoginResponse = await response.json();
 
       if (data.success) {
+        void sendGoogleAdsSignupConversion();
         navigate('/login');
       } else {
         setError(data.message || '注册失败，请检查您的凭据');
