@@ -16,7 +16,8 @@ import { ArrowDown, ArrowUp, Image as ImageIcon, Plus, Trash2, Upload, X } from 
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useDeleteResellerMedia, useResellerMedia, useUploadResellerMedia } from '@/hooks';
-import { getMarketImageAssetUrl } from '@/utils/marketImages';
+import { Ship } from '@/types';
+import { getMarketImageDisplayUrl } from '@/utils/marketImages';
 
 function normalizeImageUrl(value: string) {
   return value.trim();
@@ -25,6 +26,7 @@ function normalizeImageUrl(value: string) {
 interface ResellerImagePickerProps {
   imageUrls: string[];
   onChange: (imageUrls: string[]) => void;
+  ships?: Ship[];
   label?: string;
   helperText?: string;
 }
@@ -32,6 +34,7 @@ interface ResellerImagePickerProps {
 export default function ResellerImagePicker({
   imageUrls,
   onChange,
+  ships,
   label,
   helperText,
 }: ResellerImagePickerProps) {
@@ -176,7 +179,7 @@ export default function ResellerImagePicker({
               <Box sx={{ position: 'relative', pt: '62.5%', bgcolor: 'action.hover' }}>
                 <Box
                   component="img"
-                  src={getMarketImageAssetUrl(url)}
+                  src={getMarketImageDisplayUrl(url, { ships, variant: 'thumbLarge' })}
                   alt={intl.formatMessage({ id: 'reseller.imagePicker.previewAlt', defaultMessage: 'Listing image {index}' }, { index: index + 1 })}
                   sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -271,7 +274,7 @@ export default function ResellerImagePicker({
                     <Box sx={{ position: 'relative', pt: '68%', bgcolor: 'action.hover' }}>
                       <Box
                         component="img"
-                        src={getMarketImageAssetUrl(attachment.url)}
+                        src={getMarketImageDisplayUrl(attachment.url, { ships, variant: 'thumbLarge' })}
                         alt={attachment.fileName}
                         sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                       />

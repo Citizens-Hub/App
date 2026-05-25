@@ -1212,6 +1212,7 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
               <ResellerImagePicker
                 imageUrls={listingImageUrls}
                 onChange={setListingImageUrls}
+                ships={ships}
                 label={intl.formatMessage({ id: 'reseller.imagePicker.label', defaultMessage: 'Listing images' })}
               />
             </Box>

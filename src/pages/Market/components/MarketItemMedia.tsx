@@ -19,7 +19,7 @@ export default function MarketItemMedia({
   badgeText,
 }: MarketItemMediaProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const visual = getMarketItemVisual(item, ships);
+  const visual = getMarketItemVisual(item, ships, { imageVariant: 'thumbLarge' });
   const imageBadgeKind = resolveMarketImageBadgeKind(item);
 
   if (item.itemType === 'ccu') {

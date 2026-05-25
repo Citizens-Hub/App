@@ -11,8 +11,8 @@ const FONT_FILE_PATHS = [
   '/fonts/Quantico-Italic.ttf',
   '/fonts/Quantico-BoldItalic.ttf',
   '/fonts/NotoSansSC-VariableFont_wght.ttf',
-  '/fonts/NotoSansJP-Regular.ttf',
-  '/fonts/ZhuoJianGanLanJianTi-Regular.ttf',
+  '/fonts/NotoSansTC-VariableFont_wght.ttf',
+  '/fonts/NotoSansJP-VariableFont_wght.ttf',
 ];
 
 const MODEL_CACHE_PARAMS = {

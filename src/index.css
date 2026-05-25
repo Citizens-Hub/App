@@ -25,12 +25,22 @@
 @font-face{
   font-family: 'NotoSansSC';
   src : url('/fonts/NotoSansSC-VariableFont_wght.ttf');
-  font-weight: variable;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face{
+  font-family: 'NotoSansTC';
+  src : url('/fonts/NotoSansTC-VariableFont_wght.ttf');
+  font-weight: 100 900;
+  font-display: swap;
 }
 
 @font-face{
   font-family: 'NotoSansJP';
-  src : url('/fonts/NotoSansJP-Regular.ttf');
+  src : url('/fonts/NotoSansJP-VariableFont_wght.ttf');
+  font-weight: 100 900;
+  font-display: swap;
 }
 
 
@@ -65,7 +75,24 @@ a:hover {
 }
 
 * {
-  font-family: 'Quantico', 'NotoSansSC', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-family: 'Quantico', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+}
+
+:lang(ja) {
+  font-family: 'Quantico', 'NotoSansJP', 'NotoSansSC', 'NotoSansTC', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+}
+
+:lang(zh-CN),
+:lang(zh-SG),
+:lang(zh-Hans) {
+  font-family: 'Quantico', 'NotoSansSC', 'NotoSansTC', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+}
+
+:lang(zh-HK),
+:lang(zh-TW),
+:lang(zh-MO),
+:lang(zh-Hant) {
+  font-family: 'Quantico', 'NotoSansTC', 'NotoSansSC', 'NotoSansJP', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
 .hide-scrollbar {

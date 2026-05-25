@@ -545,7 +545,7 @@ export default function OrderDetail() {
                   {orderItems.map((item: DetailedOrderItem, index: number) => {
                     const marketItem = item.marketItem;
                     const itemName = getOrderItemDisplayName(intl, marketItem, ships);
-                    const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+                    const visual = marketItem ? getMarketItemVisual(marketItem, ships, { imageVariant: 'thumbLarge' }) : null;
                     const { shipName } = getLocalizedOrderItemShipNames(marketItem, ships);
                     const isCCU = marketItem?.itemType === 'ccu';
                     const isPackage = marketItem?.itemType === 'package';

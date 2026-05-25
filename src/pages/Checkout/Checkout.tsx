@@ -720,10 +720,10 @@ export default function Checkout() {
       imageUrl: item.imageUrl,
       fromImageUrl: item.fromImageUrl,
       toImageUrl: item.toImageUrl,
-    }, effectiveShips);
+    }, effectiveShips, { imageVariant: 'thumbLarge' });
 
     return {
-      thumbnail: item.media?.thumbnail?.storeSmall || visual.thumbnail || MARKET_ITEM_PLACEHOLDER,
+      thumbnail: visual.thumbnail || item.media?.thumbnail?.storeSmall || MARKET_ITEM_PLACEHOLDER,
       fromImage: visual.fromImage,
       toImage: visual.toImage,
       shipName: visual.shipName,
@@ -748,7 +748,7 @@ export default function Checkout() {
       imageUrl: item.imageUrl,
       fromImageUrl: item.fromImageUrl,
       toImageUrl: item.toImageUrl,
-    }, effectiveShips);
+    }, effectiveShips, { imageVariant: 'thumbLarge' });
 
     return {
       fromShipName: getShipDisplayName(visual.fromShip) || visual.fromShipName || item.fromShipName || '',

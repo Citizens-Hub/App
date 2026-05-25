@@ -29,7 +29,7 @@ import {
   getAccountMarketDetailUrl,
   getAccountMarketListPath,
 } from '@/utils/marketLinks';
-import { getMarketImageAssetUrl, resolveMarketImageUrls } from '@/utils/marketImages';
+import { getMarketImageDisplayUrl, resolveMarketImageUrls } from '@/utils/marketImages';
 
 function getEntryKindLabel(kind: string) {
   switch (kind) {
@@ -100,8 +100,10 @@ function getAccountListingImages(item: NonNullable<ReturnType<typeof useAccountM
 
 function AccountListingHeroGallery({
   item,
+  ships,
 }: {
   item: NonNullable<ReturnType<typeof useAccountMarketItemData>['item']>;
+  ships: NonNullable<ReturnType<typeof useAccountMarketItemData>['ships']>;
 }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const images = getAccountListingImages(item);
@@ -112,7 +114,7 @@ function AccountListingHeroGallery({
     <div className='overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'>
       <div className='relative h-[420px] bg-slate-100 dark:bg-neutral-800'>
         <img
-          src={getMarketImageAssetUrl(selectedImage)}
+          src={getMarketImageDisplayUrl(selectedImage, { ships, variant: 'slideshow' })}
           alt={item.name}
           className='h-full w-full object-cover'
         />
@@ -132,7 +134,7 @@ function AccountListingHeroGallery({
               aria-label={`Show account listing image ${index + 1}`}
             >
               <img
-                src={getMarketImageAssetUrl(imageUrl)}
+                src={getMarketImageDisplayUrl(imageUrl, { ships, variant: 'thumbLarge' })}
                 alt={`${item.name} ${index + 1}`}
                 className='h-full w-full object-cover'
               />
@@ -196,8 +198,8 @@ function GroupCard({
       <div className='flex flex-col gap-4 md:flex-row md:items-start'>
         {imageUrl ? (
           <div className='h-[120px] w-full overflow-hidden border border-gray-200 bg-slate-100 md:h-[92px] md:w-[164px] dark:border-gray-800 dark:bg-neutral-800'>
-              <img
-              src={getMarketImageAssetUrl(imageUrl)}
+            <img
+              src={getMarketImageDisplayUrl(imageUrl, { ships, variant: 'thumbLarge' })}
               alt={title}
               className='h-full w-full object-cover'
             />
@@ -233,7 +235,11 @@ function GroupCard({
                 <div className='flex gap-3'>
                   {previewImage ? (
                     <div className='h-16 w-16 shrink-0 overflow-hidden bg-slate-100 dark:bg-neutral-800'>
-                      <img src={getMarketImageAssetUrl(previewImage)} alt={nestedEntry.name} className='h-full w-full object-cover' />
+                      <img
+                        src={getMarketImageDisplayUrl(previewImage, { ships, variant: 'thumbLarge' })}
+                        alt={nestedEntry.name}
+                        className='h-full w-full object-cover'
+                      />
                     </div>
                   ) : null}
                   <div className='min-w-0 flex-1'>
@@ -345,7 +351,7 @@ export default function AccountMarketDetail() {
 
           <div className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,_1fr)_360px]'>
             <div className='flex flex-col gap-6'>
-              <AccountListingHeroGallery item={item} />
+              <AccountListingHeroGallery item={item} ships={ships} />
 
               <div className='grid grid-cols-2 gap-4 md:grid-cols-4'>
                 <MetricCard label={intl.formatMessage({ id: 'accountMarket.detail.metricShips', defaultMessage: 'Ships' })} value={item.shipCount} />

@@ -9,6 +9,8 @@ import { ArrowBackIosNew, ArrowForwardIos } from '@mui/icons-material';
 import { Resource } from '@/types';
 import { useState } from 'react';
 import ImageModal from './ImageModal';
+import { getMarketImageDisplayUrl } from '@/utils/marketImages';
+import { useShipsData } from '@/hooks';
 
 interface ImageSlideshowProps {
   resource: Resource;
@@ -27,6 +29,7 @@ export default function ImageSlideshow({
 }: ImageSlideshowProps) {
   const { id, name, media } = resource;
   const [modalOpen, setModalOpen] = useState(false);
+  const { ships } = useShipsData();
 
   // 决定图片容器的大小
   const containerSize = isMobile ? 
@@ -43,16 +46,18 @@ export default function ImageSlideshow({
   const prepareImageUrls = () => {
     if (media.list.length === 0) {
       // 如果没有幻灯片列表，则只包含缩略图
-      const thumbnailUrl = media.thumbnail.storeSmall.startsWith('http') ? 
-        media.thumbnail.storeSmall : 
-        `https://robertsspaceindustries.com/${media.thumbnail.storeSmall}`;
+      const thumbnailUrl = getMarketImageDisplayUrl(media.thumbnail.storeSmall, {
+        ships,
+        variant: isMobile ? 'slideshow' : 'thumbLarge',
+      });
       return [thumbnailUrl];
     } else {
       // 否则使用幻灯片列表中的图片
       return media.list.map(item => {
-        return item.slideshow.startsWith('http') ? 
-          item.slideshow : 
-          `https://robertsspaceindustries.com/${item.slideshow}`;
+        return getMarketImageDisplayUrl(item.slideshow, {
+          ships,
+          variant: isMobile ? 'slideshow' : 'thumbLarge',
+        });
       });
     }
   };
@@ -70,9 +75,10 @@ export default function ImageSlideshow({
 
   // 如果没有幻灯片列表，则显示缩略图
   if (media.list.length === 0) {
-    const thumbnailUrl = media.thumbnail.storeSmall.startsWith('http') ? 
-      media.thumbnail.storeSmall : 
-      `https://robertsspaceindustries.com/${media.thumbnail.storeSmall}`;
+    const thumbnailUrl = getMarketImageDisplayUrl(media.thumbnail.storeSmall, {
+      ships,
+      variant: isMobile ? 'slideshow' : 'thumbLarge',
+    });
       
     return (
       <>
@@ -126,9 +132,10 @@ export default function ImageSlideshow({
     <>
       <Box sx={{ position: 'relative', ...containerSize }} className="image-slideshow">
         {media.list.map((mediaItem, index) => {
-          const imageUrl = mediaItem.slideshow.startsWith('http') ? 
-            mediaItem.slideshow : 
-            `https://robertsspaceindustries.com/${mediaItem.slideshow}`;
+          const imageUrl = getMarketImageDisplayUrl(mediaItem.slideshow, {
+            ships,
+            variant: isMobile ? 'slideshow' : 'thumbLarge',
+          });
           
           return isMobile ? (
             <CardMedia

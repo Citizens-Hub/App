@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, ReactNode } from 'react';
+import { createContext, useEffect, useState, useContext, ReactNode } from 'react';
 import { IntlProvider } from 'react-intl';
 import zhCNMessages from '../locales/zh-CN.json';
 import zhTraditionalMessages from '../locales/zh-HK.json';
@@ -11,6 +11,13 @@ export type Locale = 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE';
 const SUPPORTED_LOCALES: Locale[] = ['zh-CN', 'zh-HK', 'en', 'ja-JP', 'de-DE'];
 const LOCALE_STORAGE_KEY = 'locale';
 const SHIP_NAME_TRANSLATION_STORAGE_KEY = 'ship-name-translation-enabled';
+const DOCUMENT_LANG_BY_LOCALE: Record<Locale, string> = {
+  'en': 'en',
+  'zh-CN': 'zh-CN',
+  'zh-HK': 'zh-HK',
+  'ja-JP': 'ja-JP',
+  'de-DE': 'de-DE',
+};
 
 const messages: Record<Locale, Record<string, string>> = {
   'en': enMessages,
@@ -75,6 +82,10 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
 
   const [locale, setLocale] = useState<Locale>(getSavedLocale);
   const [shipNameTranslationEnabled, setShipNameTranslationEnabled] = useState<boolean>(getSavedShipNameTranslationEnabled);
+
+  useEffect(() => {
+    document.documentElement.lang = DOCUMENT_LANG_BY_LOCALE[locale];
+  }, [locale]);
 
   const handleSetLocale = (newLocale: Locale) => {
     setLocale(newLocale);

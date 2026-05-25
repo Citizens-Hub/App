@@ -311,7 +311,7 @@ export default function MarketShipFeature() {
     const packageShips = item.packageShips || [];
     const packageItems = item.packageItems || [];
     const displayName = getMarketItemDisplayName(intl, item, ships);
-    const visual = getMarketItemVisual(item, ships);
+    const visual = getMarketItemVisual(item, ships, { imageVariant: 'thumbLarge' });
 
     return (
       <div

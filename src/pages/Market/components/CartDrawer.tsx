@@ -86,7 +86,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       imageUrl: item.resource.imageUrl,
       fromImageUrl: item.resource.fromImageUrl,
       toImageUrl: item.resource.toImageUrl,
-    }, ships);
+    }, ships, { imageVariant: 'thumbLarge' });
 
     const fromShipName = getShipDisplayName(visual.fromShip) || visual.fromShipName || item.resource.fromShipName || '';
     const toShipName = getShipDisplayName(visual.toShip) || visual.toShipName || item.resource.toShipName || '';
@@ -127,7 +127,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       imageUrl: item.resource.imageUrl,
       fromImageUrl: item.resource.fromImageUrl,
       toImageUrl: item.resource.toImageUrl,
-    }, ships);
+    }, ships, { imageVariant: 'thumbLarge' });
 
     return visual.thumbnail || item.resource.imageUrl || '';
   };

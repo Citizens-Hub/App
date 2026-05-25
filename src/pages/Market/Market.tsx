@@ -88,7 +88,7 @@ import {
   getMarketItemTypeLabel,
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
-import { getMarketImageAssetUrl } from '@/utils/marketImages';
+import { getMarketImageDisplayUrl } from '@/utils/marketImages';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 import { findShipByIdOrName, getShipDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
 import { getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
@@ -144,8 +144,8 @@ interface LtiShipsResponse {
   } | null;
 }
 
-const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
-const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
+const MARKET_DEFAULT_ROWS_PER_PAGE = 15;
+const MARKET_ROWS_PER_PAGE_OPTIONS = [15, 30] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
@@ -162,7 +162,7 @@ const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'n
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
-const MARKET_HOME_LOCALE_FALLBACKS: MarketHomeLocaleCode[] = ['zh-CN', 'en'];
+const MARKET_HOME_LOCALE_FALLBACKS: MarketHomeLocaleCode[] = ['en'];
 
 const DEFAULT_MARKET_HERO_SLIDES: MarketHomeHeroSlide[] = [
   {
@@ -174,12 +174,6 @@ const DEFAULT_MARKET_HERO_SLIDES: MarketHomeHeroSlide[] = [
     shipId: null,
     linkMode: 'ship',
     translations: {
-      'zh-CN': {
-        eyebrow: 'CitizensHub Market',
-        title: '星际公民舰船与升级市场',
-        subtitle: '浏览 CCU、独立船、船包、涂装和信用点',
-        ctaLabel: '浏览商品',
-      },
       en: {
         eyebrow: 'CitizensHub Market',
         title: 'Star Citizen ships, upgrades, and paints',
@@ -476,21 +470,24 @@ function getMarketHeroTranslation(
   slide: MarketHomeHeroSlide,
   locale: MarketHomeLocaleCode,
 ): MarketHomeHeroTranslation {
-  const fallbacks = [locale, ...MARKET_HOME_LOCALE_FALLBACKS];
-  const matched = fallbacks
-    .map((candidate) => slide.translations[candidate])
-    .find((translation) => translation && (
-      translation.eyebrow
-      || translation.title
-      || translation.subtitle
-      || translation.ctaLabel
-    ));
+  const fallbacks = Array.from(new Set([locale, ...MARKET_HOME_LOCALE_FALLBACKS]));
+  const resolveText = (field: keyof MarketHomeHeroTranslation, fallback: string) => {
+    for (const candidate of fallbacks) {
+      const value = slide.translations[candidate]?.[field]?.trim();
+
+      if (value) {
+        return value;
+      }
+    }
+
+    return fallback;
+  };
 
   return {
-    eyebrow: matched?.eyebrow || 'CitizensHub Market',
-    title: matched?.title || 'Star Citizen Market',
-    subtitle: matched?.subtitle || '',
-    ctaLabel: matched?.ctaLabel || 'View details',
+    eyebrow: resolveText('eyebrow', 'CitizensHub Market'),
+    title: resolveText('title', 'Star Citizen Market'),
+    subtitle: resolveText('subtitle', ''),
+    ctaLabel: resolveText('ctaLabel', 'View details'),
   };
 }
 
@@ -937,7 +934,7 @@ const Market: React.FC = () => {
       shipTrait: 'lti',
       sortBy: 'priceAsc',
       page: '0',
-      limit: '12',
+      limit: '15',
     });
     params.append('browseCategory', 'standalone_ship');
     params.append('browseCategory', 'ship_package');
@@ -1793,7 +1790,10 @@ const Market: React.FC = () => {
                 className='flex gap-3 border border-gray-200 p-3 transition hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600'
               >
                 <img
-                  src={getMarketImageAssetUrl(featuredAccountItems[0].imageUrl || featuredAccountItems[0].entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp')}
+                  src={getMarketImageDisplayUrl(
+                    featuredAccountItems[0].imageUrl || featuredAccountItems[0].entries.find((entry) => entry.imageUrl)?.imageUrl || '/imgs/credit.webp',
+                    { ships, variant: 'thumbLarge' },
+                  )}
                   alt={featuredAccountItems[0].name}
                   className='h-20 w-20 shrink-0 object-cover'
                 />
@@ -2352,7 +2352,7 @@ const Market: React.FC = () => {
         </Box>
       ) : (
         <>
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4'>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5'>
             {listingItems.map((item) => {
               const directItem = resolveDirectMarketItem(item);
               const directItemSkuId = directItem?.skuId || item.skuId;
@@ -2517,7 +2517,7 @@ const Market: React.FC = () => {
 
           <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
             <TablePagination
-              rowsPerPageOptions={[12, 24, 36]}
+              rowsPerPageOptions={[15, 30]}
               component="div"
               count={pagination.total}
               rowsPerPage={rowsPerPage}

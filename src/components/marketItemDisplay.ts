@@ -1,5 +1,10 @@
 import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, Resource, Ship } from '@/types';
-import { getMarketImageAssetUrl, resolveMarketImageUrls } from '@/utils/marketImages';
+import {
+  getMarketImageAssetUrl,
+  getMarketImageDisplayUrl,
+  MarketImageDisplayVariant,
+  resolveMarketImageUrls,
+} from '@/utils/marketImages';
 import { getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 
 type MarketDisplayItem = {
@@ -39,6 +44,10 @@ type MarketDisplayItem = {
 
 export const MARKET_ITEM_PLACEHOLDER = '/imgs/credit.webp';
 
+type MarketVisualOptions = {
+  imageVariant?: MarketImageDisplayVariant;
+};
+
 function upgradeToLargeImageVariant(url: string) {
   return url
     .replace('/thumb-small', '/thumb-large')
@@ -50,6 +59,16 @@ export function toLargeRsiImage(url?: string) {
   const normalizedUrl = url?.trim();
   if (!normalizedUrl) return '';
   return getMarketImageAssetUrl(upgradeToLargeImageVariant(normalizedUrl));
+}
+
+function getCatalogShipImage(ship: Ship | undefined, variant: MarketImageDisplayVariant) {
+  if (!ship) {
+    return '';
+  }
+
+  return variant === 'thumbLarge'
+    ? getShipThumbLarge(ship) || getShipSlideshowImage(ship)
+    : getShipSlideshowImage(ship) || getShipThumbLarge(ship);
 }
 
 function normalizeShipName(value?: string) {
@@ -90,7 +109,8 @@ export function getShipById(ships: Ship[] | undefined, shipId?: number, shipName
   ].some((candidate) => normalizeShipName(candidate) === normalizedShipName));
 }
 
-export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
+export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[], options?: MarketVisualOptions) {
+  const imageVariant = options?.imageVariant || 'slideshow';
   const parsedCcuPair = item.itemType === 'ccu' ? parseCcuPairFromDisplayName(item.name) : null;
   const resolvedFromShipName = item.fromShipName || parsedCcuPair?.fromShipName;
   const resolvedToShipName = item.toShipName || parsedCcuPair?.toShipName;
@@ -103,11 +123,18 @@ export function getMarketItemVisual(item: MarketDisplayItem, ships?: Ship[]) {
   const shipName = item.shipName || ship?.name || '';
 
   const manualImages = resolveMarketImageUrls(item.imageUrl, item.imageUrls)
-    .map(toLargeRsiImage)
+    .map((imageUrl) => getMarketImageDisplayUrl(upgradeToLargeImageVariant(imageUrl), {
+      ships,
+      variant: imageVariant,
+    }))
     .filter(Boolean);
-  const fromImage = getShipSlideshowImage(fromShip) || getShipThumbLarge(fromShip) || toLargeRsiImage(item.fromImageUrl) || '';
-  const toImage = getShipSlideshowImage(toShip) || getShipThumbLarge(toShip) || toLargeRsiImage(item.toImageUrl) || '';
-  const shipImage = getShipSlideshowImage(ship) || getShipThumbLarge(ship) || '';
+  const fromImage = getCatalogShipImage(fromShip, imageVariant)
+    || getMarketImageDisplayUrl(upgradeToLargeImageVariant(item.fromImageUrl || ''), { ships, variant: imageVariant })
+    || '';
+  const toImage = getCatalogShipImage(toShip, imageVariant)
+    || getMarketImageDisplayUrl(upgradeToLargeImageVariant(item.toImageUrl || ''), { ships, variant: imageVariant })
+    || '';
+  const shipImage = getCatalogShipImage(ship, imageVariant);
   const primaryImage = item.itemType === 'ccu'
     ? shipImage || manualImages[0] || ''
     : manualImages[0] || shipImage || '';

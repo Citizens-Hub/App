@@ -189,7 +189,7 @@ function MarketItemMedia({
   height?: number;
   showNameOverlay?: boolean;
 }) {
-  const visual = getMarketItemVisual(item, ships);
+  const visual = getMarketItemVisual(item, ships, { imageVariant: compact ? "thumbLarge" : "slideshow" });
 
   if (item.itemType === "ccu") {
     return (
@@ -1670,6 +1670,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                 <ResellerImagePicker
                   imageUrls={manualImageUrls}
                   onChange={setManualImageUrls}
+                  ships={ships}
                   label={intl.formatMessage({ id: "reseller.imagePicker.label", defaultMessage: "Listing images" })}
                 />
               </Box>

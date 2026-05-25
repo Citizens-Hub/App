@@ -200,7 +200,7 @@ function getPaymentMethodLabel(paymentInfo?: OrderPaymentInfo | null) {
 }
 
 function renderOrderItemVisual(item: DetailedOrderItem, itemName: string, ships: Ship[]) {
-  const visual = getMarketItemVisual(item.marketItem, ships);
+  const visual = getMarketItemVisual(item.marketItem, ships, { imageVariant: 'thumbLarge' });
 
   if (item.marketItem.itemType === 'ccu' && (visual.fromImage || visual.toImage)) {
     return (

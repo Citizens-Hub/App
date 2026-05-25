@@ -21,14 +21,14 @@ import { Link, useSearchParams } from 'react-router';
 import { ShoppingBag } from 'lucide-react';
 
 import { useAccountMarketData } from '@/hooks';
-import { AccountListingItem } from '@/types';
+import { AccountListingItem, Ship } from '@/types';
 import {
   getAccountMarketCheckoutPath,
   getAccountMarketDetailPath,
   getAccountMarketListUrl,
   getMarketListPath,
 } from '@/utils/marketLinks';
-import { getMarketImageAssetUrl, resolveMarketImageUrls } from '@/utils/marketImages';
+import { getMarketImageDisplayUrl, resolveMarketImageUrls } from '@/utils/marketImages';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
   getMonthlyAccountCouponCode,
@@ -66,8 +66,10 @@ function getAccountListingImages(item: AccountListingItem) {
 
 function AccountListingCardImage({
   item,
+  ships,
 }: {
   item: AccountListingItem;
+  ships: Ship[];
 }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const images = getAccountListingImages(item);
@@ -77,7 +79,7 @@ function AccountListingCardImage({
   return (
     <div className='relative h-[240px] w-full overflow-hidden bg-slate-100 dark:bg-neutral-800'>
       <img
-        src={getMarketImageAssetUrl(selectedImage)}
+        src={getMarketImageDisplayUrl(selectedImage, { ships, variant: 'thumbLarge' })}
         alt={item.name}
         className='h-full w-full object-cover'
       />
@@ -183,7 +185,7 @@ export default function AccountMarket() {
   const pageUrl = typeof window !== 'undefined' ? window.location.href : getAccountMarketListUrl();
   const canonicalUrl = getAccountMarketListUrl();
 
-  const { listingItems, pagination, loading, refreshing, error } = useAccountMarketData({
+  const { ships, listingItems, pagination, loading, refreshing, error } = useAccountMarketData({
     search: searchTerm,
     page,
     limit: rowsPerPage,
@@ -485,7 +487,7 @@ export default function AccountMarket() {
                             className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
                           >
                             <Link to={detailPath} className='block'>
-                              <AccountListingCardImage item={item} />
+                              <AccountListingCardImage item={item} ships={ships} />
                             </Link>
 
                               <div className='flex flex-1 flex-col gap-4 p-5'>

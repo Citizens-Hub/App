@@ -411,7 +411,7 @@ export default function Orders() {
               const firstItem = orderItems.length > 0 ? orderItems[0] : null;
               const marketItem = firstItem?.marketItem;
               const firstItemName = getOrderItemDisplayName(intl, marketItem, ships);
-              const visual = marketItem ? getMarketItemVisual(marketItem, ships) : null;
+              const visual = marketItem ? getMarketItemVisual(marketItem, ships, { imageVariant: 'thumbLarge' }) : null;
               const isCCU = marketItem?.itemType === 'ccu';
               const totalItemsCount = orderItems.reduce((acc, item) => acc + item.quantity, 0);
               // const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);

@@ -68,6 +68,7 @@ import {
   getMarketItemDisplayName,
   getMarketItemSummary,
 } from './marketDisplayI18n';
+import { getMarketImageDisplayUrl } from '@/utils/marketImages';
 import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 import { getAbsoluteAssetUrl, getMarketDetailUrl } from '@/utils/marketLinks';
 import MarketImageBadge from './components/MarketImageBadge';
@@ -155,7 +156,7 @@ function resolveShipImage(ship?: Ship | null, fallbackImage?: string) {
 }
 
 function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading: boolean) {
-  const visual = getMarketItemVisual(item, ships);
+  const visual = getMarketItemVisual(item, ships, { imageVariant: 'slideshow' });
 
   if (item.itemType === 'ccu') {
     const fromShip = findShip(ships, item.fromShipId, item.fromShipName);
@@ -195,7 +196,12 @@ function resolveMarketDetailHeroImage(item: ListingItem, ships: Ship[], loading:
     toImage: '',
     fromAlt: '',
     toAlt: '',
-    thumbnail: resolveShipImage(primaryShip, visual.thumbnail || toLargeRsiImage(item.imageUrl) || MARKET_ITEM_PLACEHOLDER)
+    thumbnail: resolveShipImage(
+      primaryShip,
+      getMarketImageDisplayUrl(visual.thumbnail || item.imageUrl, { ships, variant: 'slideshow' })
+        || toLargeRsiImage(item.imageUrl)
+        || MARKET_ITEM_PLACEHOLDER,
+    )
   };
 }
 
@@ -1037,7 +1043,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
 
   const displayItem = activeItem || item;
   const isPrivateOfferOnlyListing = displayItem.visibleInMarket === false;
-  const visual = getMarketItemVisual(displayItem, ships);
+  const visual = getMarketItemVisual(displayItem, ships, { imageVariant: 'slideshow' });
   const heroVisual = resolveMarketDetailHeroImage(displayItem, ships, loading);
   const availableStock = item.itemType === 'credit' ? 1 : getAvailableStock(displayItem);
   const displayPrice = item.itemType === 'credit'
@@ -1671,7 +1677,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                             return (
                               <PackageContentCard
                                 key={`${item.skuId}-${ship.sortOrder}-${ship.shipName}`}
-                                imageUrl={shipImage}
+                                imageUrl={getMarketImageDisplayUrl(shipImage, { ships, variant: 'thumbLarge' }) || shipImage}
                                 eyebrow={intl.formatMessage({ id: 'market.detail.ship', defaultMessage: 'Ship' })}
                                 title={ship.shipName}
                                 subtitle={shipInfo?.manufacturer?.name || localizeShipType(locale, shipInfo?.type) || null}
@@ -1696,7 +1702,11 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
                           {packageItemsWithImage.map((entry) => (
                             <PackageContentCard
                               key={`${item.skuId}-${entry.sortOrder}-${entry.itemName}`}
-                              imageUrl={entry.imageUrl ? toLargeRsiImage(entry.imageUrl) || entry.imageUrl : null}
+                              imageUrl={entry.imageUrl
+                                ? getMarketImageDisplayUrl(toLargeRsiImage(entry.imageUrl) || entry.imageUrl, { ships, variant: 'thumbLarge' })
+                                  || toLargeRsiImage(entry.imageUrl)
+                                  || entry.imageUrl
+                                : null}
                               eyebrow={entry.itemKind || intl.formatMessage({ id: 'market.detail.extra', defaultMessage: 'Extra' })}
                               title={entry.itemName}
                               subtitle={entry.itemKind || null}
