@@ -336,7 +336,7 @@ export default function MarketShipFeature() {
 
           <div className='flex flex-1 flex-col gap-2'>
             <div
-              className='w-full cursor-pointer text-left text-inherit cursor-pointer'
+              className='w-full cursor-pointer text-left text-inherit'
               onClick={() => handleOpenDetails(item)}
             >
               <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, fontSize: '1.05rem' }}>

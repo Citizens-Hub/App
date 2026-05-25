@@ -147,6 +147,7 @@ interface LtiShipsResponse {
 const MARKET_DEFAULT_ROWS_PER_PAGE = 12;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [12, 24, 36] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
+const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
 const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'sortBy', 'page', 'limit'] as const;
 const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
@@ -619,6 +620,7 @@ const Market: React.FC = () => {
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
   const [plannerStartShipId, setPlannerStartShipId] = useState<number | ''>('');
   const [plannerTargetShipId, setPlannerTargetShipId] = useState<number | ''>('');
   const [plannerIncludeHangarCcus, setPlannerIncludeHangarCcus] = useState(false);
@@ -1139,6 +1141,39 @@ const Market: React.FC = () => {
   useEffect(() => {
     setActiveHeroIndex((current) => Math.min(current, Math.max(heroSlides.length - 1, 0)));
   }, [heroSlides.length]);
+
+  const goToPreviousHeroSlide = useCallback(() => {
+    setActiveHeroIndex((current) => (current <= 0 ? heroSlides.length - 1 : current - 1));
+  }, [heroSlides.length]);
+
+  const goToNextHeroSlide = useCallback(() => {
+    setActiveHeroIndex((current) => (current >= heroSlides.length - 1 ? 0 : current + 1));
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1 || heroAutoplayPaused) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
+      goToNextHeroSlide();
+    }, MARKET_HERO_AUTOPLAY_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [goToNextHeroSlide, heroAutoplayPaused, heroSlides.length]);
+
+  const handleHeroBlur = useCallback((event: React.FocusEvent<HTMLElement>) => {
+    const nextFocusedElement = event.relatedTarget;
+    if (!(nextFocusedElement instanceof globalThis.Node) || !event.currentTarget.contains(nextFocusedElement)) {
+      setHeroAutoplayPaused(false);
+    }
+  }, []);
 
   const handleCopyAccountCouponCode = useCallback(async () => {
     try {
@@ -2621,7 +2656,13 @@ const Market: React.FC = () => {
             </IconButton>
           </Box>
 
-          <section className='relative min-h-[440px] overflow-hidden border border-gray-200 bg-slate-900 shadow-sm dark:border-gray-800 md:min-h-[560px]'>
+          <section
+            className='relative min-h-[440px] overflow-hidden border border-gray-200 bg-slate-900 shadow-sm dark:border-gray-800 md:min-h-[560px]'
+            onMouseEnter={() => setHeroAutoplayPaused(true)}
+            onMouseLeave={() => setHeroAutoplayPaused(false)}
+            onFocus={() => setHeroAutoplayPaused(true)}
+            onBlur={handleHeroBlur}
+          >
             {activeHeroSlide ? renderHeroMedia(activeHeroSlide, true) : null}
             <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.48)_0%,rgba(15,23,42,0.22)_42%,rgba(15,23,42,0.08)_72%,rgba(15,23,42,0.02)_100%)]' />
             <div className='absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/70 via-slate-950/36 to-transparent' />
@@ -2629,7 +2670,7 @@ const Market: React.FC = () => {
             {heroSlides.length > 1 && (
               <>
                 <IconButton
-                  onClick={() => setActiveHeroIndex((current) => (current <= 0 ? heroSlides.length - 1 : current - 1))}
+                  onClick={goToPreviousHeroSlide}
                   sx={{
                     position: 'absolute',
                     left: 16,
@@ -2645,7 +2686,7 @@ const Market: React.FC = () => {
                   <ChevronLeft className='h-5 w-5' />
                 </IconButton>
                 <IconButton
-                  onClick={() => setActiveHeroIndex((current) => (current >= heroSlides.length - 1 ? 0 : current + 1))}
+                  onClick={goToNextHeroSlide}
                   sx={{
                     position: 'absolute',
                     right: 16,
