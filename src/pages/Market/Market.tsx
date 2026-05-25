@@ -648,6 +648,7 @@ const Market: React.FC = () => {
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
+  const starterPackScrollFrameRef = useRef<number | null>(null);
   const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
@@ -2020,6 +2021,52 @@ const Market: React.FC = () => {
     });
   };
 
+  const syncActiveStarterPackFromScroll = () => {
+    const scroller = starterPackScrollerRef.current;
+    if (!scroller) {
+      return;
+    }
+
+    const cards = Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'));
+    if (cards.length === 0) {
+      return;
+    }
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const scrollerCenter = scrollerRect.left + scrollerRect.width / 2;
+    const closestCard = cards.reduce((closest, card) => {
+      const cardRect = card.getBoundingClientRect();
+      const cardCenter = cardRect.left + cardRect.width / 2;
+      const distance = Math.abs(cardCenter - scrollerCenter);
+      return distance < closest.distance ? { card, distance } : closest;
+    }, {
+      card: cards[0],
+      distance: Number.POSITIVE_INFINITY,
+    });
+    const nextSkuId = closestCard.card.dataset.starterPackSkuId || null;
+
+    if (nextSkuId) {
+      setActiveStarterPackSkuId((currentSkuId) => currentSkuId === nextSkuId ? currentSkuId : nextSkuId);
+    }
+  };
+
+  const handleStarterPackScroll = () => {
+    if (starterPackScrollFrameRef.current != null) {
+      return;
+    }
+
+    starterPackScrollFrameRef.current = window.requestAnimationFrame(() => {
+      starterPackScrollFrameRef.current = null;
+      syncActiveStarterPackFromScroll();
+    });
+  };
+
+  useEffect(() => () => {
+    if (starterPackScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(starterPackScrollFrameRef.current);
+    }
+  }, []);
+
   const getStarterPackVisual = (item: ListingItem) => {
     const shipCandidates = [
       { id: item.shipId, name: item.shipName },
@@ -2102,6 +2149,7 @@ const Market: React.FC = () => {
       ) : starterPackItems.length > 0 ? (
         <div
           ref={starterPackScrollerRef}
+          onScroll={handleStarterPackScroll}
           className='mt-5 flex gap-3 overflow-x-auto pb-3 [scrollbar-width:thin]'
         >
           {starterPackItems.map((item) => {
@@ -2113,9 +2161,18 @@ const Market: React.FC = () => {
             return (
               <div
                 key={item.skuId}
+                data-starter-pack-sku-id={item.skuId}
                 onClick={() => handleOpenDetails(item)}
-                onMouseEnter={() => setActiveStarterPackSkuId(item.skuId)}
-                onFocus={() => setActiveStarterPackSkuId(item.skuId)}
+                onMouseEnter={() => {
+                  if (!isActive) {
+                    setActiveStarterPackSkuId(item.skuId);
+                  }
+                }}
+                onFocus={() => {
+                  if (!isActive) {
+                    setActiveStarterPackSkuId(item.skuId);
+                  }
+                }}
                 tabIndex={0}
                 role="button"
                 onKeyDown={(event) => {
@@ -2124,12 +2181,13 @@ const Market: React.FC = () => {
                     handleOpenDetails(item);
                   }
                 }}
-                className={`cursor-pointer relative h-[300px] shrink-0 overflow-hidden bg-neutral-900 text-left text-white outline-none transition-[width,transform] duration-300 ease-out focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
+                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
               >
                 <img
                   src={visual.imageUrl}
                   alt=""
                   loading="lazy"
+                  decoding="async"
                   className='absolute inset-0 h-full w-full object-cover'
                 />
                 <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.16)_42%,rgba(0,0,0,0.82)_100%)]' />
