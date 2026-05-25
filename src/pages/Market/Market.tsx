@@ -649,6 +649,7 @@ const Market: React.FC = () => {
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollFrameRef = useRef<number | null>(null);
+  const starterPackVisibilityFrameRef = useRef<number | null>(null);
   const starterPackRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
@@ -2091,6 +2092,46 @@ const Market: React.FC = () => {
     setActiveStarterPackSkuId(skuId);
   };
 
+  const ensureStarterPackVisible = (skuId: string) => {
+    if (starterPackVisibilityFrameRef.current != null) {
+      window.cancelAnimationFrame(starterPackVisibilityFrameRef.current);
+    }
+
+    starterPackVisibilityFrameRef.current = window.requestAnimationFrame(() => {
+      starterPackVisibilityFrameRef.current = null;
+
+      const scroller = starterPackScrollerRef.current;
+      const card = scroller?.querySelector<HTMLElement>(`[data-starter-pack-sku-id="${CSS.escape(skuId)}"]`);
+      if (!scroller || !card) {
+        return;
+      }
+
+      const scrollerRect = scroller.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const edgePadding = 16;
+
+      if (cardRect.left < scrollerRect.left + edgePadding) {
+        scroller.scrollBy({
+          left: cardRect.left - scrollerRect.left - edgePadding,
+          behavior: 'smooth',
+        });
+        return;
+      }
+
+      if (cardRect.right > scrollerRect.right - edgePadding) {
+        scroller.scrollBy({
+          left: cardRect.right - scrollerRect.right + edgePadding,
+          behavior: 'smooth',
+        });
+      }
+    });
+  };
+
+  const activateStarterPackFromPointer = (skuId: string) => {
+    setActiveStarterPack(skuId);
+    ensureStarterPackVisible(skuId);
+  };
+
   const syncActiveStarterPackFromScroll = () => {
     const scroller = starterPackScrollerRef.current;
     if (!scroller) {
@@ -2134,6 +2175,9 @@ const Market: React.FC = () => {
   useEffect(() => () => {
     if (starterPackScrollFrameRef.current != null) {
       window.cancelAnimationFrame(starterPackScrollFrameRef.current);
+    }
+    if (starterPackVisibilityFrameRef.current != null) {
+      window.cancelAnimationFrame(starterPackVisibilityFrameRef.current);
     }
   }, []);
 
@@ -2220,7 +2264,7 @@ const Market: React.FC = () => {
         <div
           ref={starterPackScrollerRef}
           onScroll={handleStarterPackScroll}
-          className='mt-5 flex gap-3 overflow-x-auto pb-3 [scrollbar-width:thin]'
+          className='mt-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         >
           {starterPackItems.map((item) => {
             const visual = getStarterPackVisual(item);
@@ -2235,12 +2279,12 @@ const Market: React.FC = () => {
                 onClick={() => handleOpenDetails(item)}
                 onMouseEnter={() => {
                   if (!isActive) {
-                    setActiveStarterPack(item.skuId);
+                    activateStarterPackFromPointer(item.skuId);
                   }
                 }}
                 onFocus={() => {
                   if (!isActive) {
-                    setActiveStarterPack(item.skuId);
+                    activateStarterPackFromPointer(item.skuId);
                   }
                 }}
                 tabIndex={0}
