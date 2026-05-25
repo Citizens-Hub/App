@@ -9,6 +9,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Divider,
   IconButton,
@@ -357,6 +358,10 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
   const [isListingLoading, setIsListingLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
+  const [adjustStockTarget, setAdjustStockTarget] = useState<AccountListingItem | null>(null);
+  const [adjustStockDeltaInput, setAdjustStockDeltaInput] = useState('0');
+  const [isAdjustStockDialogOpen, setIsAdjustStockDialogOpen] = useState(false);
+  const [isAdjustStockSubmitting, setIsAdjustStockSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -396,6 +401,7 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
 
       const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/account-market/my/search?${searchParams.toString()}`, {
         signal,
+        cache: 'no-store',
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -491,7 +497,7 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
     setListingName(item.name);
     setListingPrice(item.price);
     setListingCost(item.cost || item.price);
-    setListingStock(Math.max(item.stock, 1));
+    setListingStock(Math.max(item.stock - item.lockedStock, 0));
     setListingDescription(item.description || '');
     setListingImageUrls(resolveMarketImageUrls(item.imageUrl, item.imageUrls));
     setHasLoadedDraft(true);
@@ -520,6 +526,34 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
   );
 
   const unresolvedBlockingIssues = draft.issues.filter((issue) => issue.resolution === 'pending');
+
+  const handleOpenAdjustStockDialog = useCallback((item: AccountListingItem) => {
+    setAdjustStockTarget(item);
+    setAdjustStockDeltaInput('0');
+    setIsAdjustStockDialogOpen(true);
+  }, []);
+
+  const handleCloseAdjustStockDialog = useCallback(() => {
+    if (isAdjustStockSubmitting) {
+      return;
+    }
+
+    setIsAdjustStockDialogOpen(false);
+    setAdjustStockTarget(null);
+    setAdjustStockDeltaInput('0');
+  }, [isAdjustStockSubmitting]);
+
+  const adjustStockDelta = Number(adjustStockDeltaInput);
+  const projectedStock = adjustStockTarget ? adjustStockTarget.stock + adjustStockDelta : null;
+  const canSubmitStockAdjustment = Boolean(
+    token
+    && adjustStockTarget
+    && Number.isInteger(adjustStockDelta)
+    && adjustStockDelta !== 0
+    && projectedStock !== null
+    && projectedStock >= 0
+    && projectedStock >= adjustStockTarget.lockedStock,
+  );
 
   const handleEntryFieldChange = useCallback((entryId: string, updater: (entry: AccountMarketEntry) => AccountMarketEntry) => {
     setDraft((current) => {
@@ -576,14 +610,27 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
 
   const handleRemoveEntry = useCallback((entryId: string) => {
     setDraft((current) => {
-      const removedEntries = [
+      const allEntries = [
         ...current.shipEntries,
         ...current.ccuEntries,
         ...current.bundleEntries,
         ...current.extraEntries,
-      ].filter((entry) => entry.id === entryId);
+      ];
+      const targetEntry = allEntries.find((entry) => entry.id === entryId);
+      const entryIdsToRemove = new Set([entryId]);
 
-      const removeEntry = (entries: AccountMarketEntry[]) => entries.filter((entry) => entry.id !== entryId);
+      if (targetEntry?.kind === 'bundle' && targetEntry.groupId) {
+        const targetSource = targetEntry.source || 'hangar';
+        allEntries.forEach((entry) => {
+          if (entry.groupId === targetEntry.groupId && (entry.source || 'hangar') === targetSource) {
+            entryIdsToRemove.add(entry.id);
+          }
+        });
+      }
+
+      const removedEntries = allEntries.filter((entry) => entryIdsToRemove.has(entry.id));
+
+      const removeEntry = (entries: AccountMarketEntry[]) => entries.filter((entry) => !entryIdsToRemove.has(entry.id));
 
       return {
         ...current,
@@ -601,13 +648,26 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
 
   const handleRemoveEntries = useCallback((entryIds: string[], expandedIdToClear?: string) => {
     setDraft((current) => {
-      const entryIdSet = new Set(entryIds);
-      const removedEntries = [
+      const allEntries = [
         ...current.shipEntries,
         ...current.ccuEntries,
         ...current.bundleEntries,
         ...current.extraEntries,
-      ].filter((entry) => entryIdSet.has(entry.id));
+      ];
+      const entryIdSet = new Set(entryIds);
+
+      allEntries
+        .filter((entry) => entryIdSet.has(entry.id) && entry.kind === 'bundle' && entry.groupId)
+        .forEach((bundleEntry) => {
+          const bundleSource = bundleEntry.source || 'hangar';
+          allEntries.forEach((entry) => {
+            if (entry.groupId === bundleEntry.groupId && (entry.source || 'hangar') === bundleSource) {
+              entryIdSet.add(entry.id);
+            }
+          });
+        });
+
+      const removedEntries = allEntries.filter((entry) => entryIdSet.has(entry.id));
 
       const removeEntries = (entries: AccountMarketEntry[]) => entries.filter((entry) => !entryIdSet.has(entry.id));
 
@@ -720,7 +780,9 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
           name: listingName.trim() || draft.name,
           price: listingPrice,
           cost: listingCost,
-          stock: Math.max(1, Math.floor(listingStock)),
+          stock: editingListing
+            ? Math.max(0, Math.floor(Number.isFinite(listingStock) ? listingStock : 0))
+            : Math.max(1, Math.floor(Number.isFinite(listingStock) ? listingStock : 1)),
           replaceSkuId: editingListing?.skuId,
           visibleInMarket: true,
           imageUrl: listingImageUrls[0] || undefined,
@@ -757,6 +819,19 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
         throw new Error(typeof responsePayload?.error === 'string' ? responsePayload.error : `Unexpected response: ${response.status}`);
       }
 
+      const savedItem = responsePayload?.item as AccountListingItem | undefined;
+      if (savedItem?.skuId) {
+        setListingItems((current) => {
+          const replacedSkuId = typeof responsePayload?.replacedSkuId === 'string'
+            ? responsePayload.replacedSkuId
+            : editingListing?.skuId;
+          const withoutReplaced = current.filter((item) => (
+            item.skuId !== savedItem.skuId && item.skuId !== replacedSkuId
+          ));
+          return [savedItem, ...withoutReplaced];
+        });
+      }
+
       await fetchListingItems();
       closeDialog();
     } catch (error) {
@@ -785,6 +860,88 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
     listingName,
     listingPrice,
     listingStock,
+    token,
+  ]);
+
+  const handleAdjustStock = useCallback(async () => {
+    if (!token || !adjustStockTarget) {
+      return;
+    }
+
+    const delta = Number(adjustStockDeltaInput);
+    if (!Number.isInteger(delta) || delta === 0) {
+      return;
+    }
+
+    setIsAdjustStockSubmitting(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/account-market/item`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          skuId: adjustStockTarget.skuId,
+          delta,
+        }),
+      });
+
+      const responsePayload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          typeof responsePayload?.error === 'string'
+            ? responsePayload.error
+            : intl.formatMessage({
+              id: 'market.adjustStockFailed',
+              defaultMessage: 'Failed to adjust stock',
+            }),
+        );
+      }
+
+      const nextStock = typeof responsePayload?.stock === 'number'
+        ? responsePayload.stock
+        : adjustStockTarget.stock + delta;
+      const nextLockedStock = typeof responsePayload?.reservedQuantity === 'number'
+        ? responsePayload.reservedQuantity
+        : adjustStockTarget.lockedStock;
+      const updatedAt = typeof responsePayload?.updatedAt === 'string'
+        ? responsePayload.updatedAt
+        : new Date().toISOString();
+
+      setListingItems((current) => current.map((item) => (
+        item.skuId === adjustStockTarget.skuId
+          ? {
+              ...item,
+              stock: nextStock,
+              lockedStock: nextLockedStock,
+              updatedAt,
+            }
+          : item
+      )));
+      setListingFetchError(null);
+      handleCloseAdjustStockDialog();
+      await fetchListingItems();
+    } catch (error) {
+      console.error('Failed to adjust account listing stock:', error);
+      setListingFetchError(
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({
+            id: 'market.adjustStockFailed',
+            defaultMessage: 'Failed to adjust stock',
+          }),
+      );
+    } finally {
+      setIsAdjustStockSubmitting(false);
+    }
+  }, [
+    adjustStockDeltaInput,
+    adjustStockTarget,
+    fetchListingItems,
+    handleCloseAdjustStockDialog,
+    intl,
     token,
   ]);
 
@@ -929,12 +1086,28 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
                   </Box>
                 </TableCell>
                 <TableCell align="right">${item.price.toFixed(2)}</TableCell>
-                <TableCell align="right">{Math.max(item.stock - item.lockedStock, 0)}</TableCell>
                 <TableCell align="right">
-                  <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {Math.max(item.stock - item.lockedStock, 0)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      <FormattedMessage
+                        id="market.listingStockBreakdown"
+                        defaultMessage="Total {stock} / Locked {lockedStock}"
+                        values={{ stock: item.stock, lockedStock: item.lockedStock }}
+                      />
+                    </Typography>
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Box sx={{ display: 'inline-flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <IconButton size="small" onClick={() => openEditDialog(item)}>
                       <Pencil size={16} />
                     </IconButton>
+                    <Button size="small" variant="outlined" onClick={() => handleOpenAdjustStockDialog(item)}>
+                      <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
+                    </Button>
                     <IconButton
                       size="small"
                       color="error"
@@ -1593,6 +1766,98 @@ export default function AccountStoreTable({ ships }: { ships: Ship[] }) {
             {editingListing
               ? <FormattedMessage id="accountMarket.publishDialog.save" defaultMessage="Save changes" />
               : <FormattedMessage id="accountMarket.publishDialog.publish" defaultMessage="Publish listing" />}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isAdjustStockDialogOpen}
+        onClose={handleCloseAdjustStockDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            <FormattedMessage
+              id="market.adjustStockDescription"
+              defaultMessage="Enter a positive number to add stock or a negative number to reduce stock. The server applies this as an atomic stock delta update."
+            />
+          </DialogContentText>
+
+          {adjustStockTarget && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  {adjustStockTarget.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <FormattedMessage
+                    id="market.listingStockBreakdown"
+                    defaultMessage="Total {stock} / Locked {lockedStock}"
+                    values={{ stock: adjustStockTarget.stock, lockedStock: adjustStockTarget.lockedStock }}
+                  />
+                </Typography>
+                {projectedStock !== null && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                    <FormattedMessage
+                      id="market.adjustStockProjected"
+                      defaultMessage="Projected total stock: {stock}"
+                      values={{ stock: projectedStock }}
+                    />
+                  </Typography>
+                )}
+              </Box>
+
+              <TextField
+                label={intl.formatMessage({ id: 'market.stockDelta', defaultMessage: 'Stock Delta' })}
+                type="number"
+                value={adjustStockDeltaInput}
+                onChange={(event) => setAdjustStockDeltaInput(event.target.value)}
+                slotProps={{
+                  htmlInput: {
+                    step: 1,
+                    min: -Math.max(adjustStockTarget.stock - adjustStockTarget.lockedStock, 0),
+                  },
+                }}
+                helperText={intl.formatMessage({
+                  id: 'market.stockDeltaHelp',
+                  defaultMessage: 'For example: 3 adds three units, -2 removes two units.',
+                })}
+              />
+
+              {projectedStock !== null && projectedStock < 0 && (
+                <Alert severity="warning">
+                  <FormattedMessage
+                    id="market.adjustStockNegativeWarning"
+                    defaultMessage="Projected stock cannot be less than 0."
+                  />
+                </Alert>
+              )}
+
+              {projectedStock !== null && projectedStock < adjustStockTarget.lockedStock && (
+                <Alert severity="warning">
+                  <FormattedMessage
+                    id="market.adjustStockLockedWarning"
+                    defaultMessage="Projected stock cannot be lower than the currently locked quantity."
+                  />
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAdjustStockDialog} disabled={isAdjustStockSubmitting}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button
+            onClick={() => void handleAdjustStock()}
+            disabled={!canSubmitStockAdjustment || isAdjustStockSubmitting}
+            variant="contained"
+          >
+            <FormattedMessage id="market.adjustStock" defaultMessage="Adjust Stock" />
           </Button>
         </DialogActions>
       </Dialog>
