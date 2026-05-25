@@ -678,6 +678,8 @@ export interface CcuEdgeData {
   customPrice?: number;
   selectedTargetPriceCents?: number;
   selectedSourcePriceCents?: number;
+  sourceHasCurrentOfficialSku?: boolean;
+  targetHasCurrentOfficialSku?: boolean;
   validityWindows?: CcuValidityWindow[];
   // ccus: Ccu[];
   // wbHistory: WbHistoryData[];

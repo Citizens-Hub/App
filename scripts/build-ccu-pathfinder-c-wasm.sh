@@ -45,7 +45,7 @@ emcc "${PATHBUILDER_C_SRCS[@]}" \
   -s EXPORT_ES6=0 \
   -s ENVIRONMENT=web \
   -s EXPORT_NAME=createCcuPathbuilderCModule \
-  -s EXPORTED_FUNCTIONS='["_malloc","_free","_pbReset","_pbAddNode","_pbAddNodeBatch","_pbAddEdgeByIndex","_pbAddEdgeBatch","_pbAddEdge","_pbSetEdgeReviewBitsBatch","_pbSetEdgeActiveMaskBatch","_pbRun","_pbFreeCString"]' \
+  -s EXPORTED_FUNCTIONS='["_malloc","_free","_pbReset","_pbAddNode","_pbAddNodeBatch","_pbAddEdgeByIndex","_pbAddEdgeBatch","_pbAddEdge","_pbSetEdgePathPriorityBatch","_pbSetEdgeReviewPriorityBatch","_pbSetEdgeReviewBitsBatch","_pbSetEdgeActiveMaskBatch","_pbRun","_pbFreeCString"]' \
   -s EXPORTED_RUNTIME_METHODS='["ccall","UTF8ToString"]' \
   -o "$OUT_DIR/ccu-pathbuilder-c.js"
 

@@ -222,6 +222,8 @@ int pbAddEdgeByIndex(int source_idx, int target_idx, double actual_cost, double 
   edge->target_idx = target_idx;
   edge->actual_cost = actual_cost;
   edge->official_cost = official_cost;
+  edge->path_priority = 0.0;
+  edge->review_priority = 0.0;
   edge->review_required_bit = 0;
 
   g_ctx.edge_count++;
@@ -271,6 +273,8 @@ int pbAddEdgeBatch(
     edge->target_idx = read_i32_at(target_idx_bytes, i);
     edge->actual_cost = read_f64_at(actual_cost_bytes, i);
     edge->official_cost = read_f64_at(official_cost_bytes, i);
+    edge->path_priority = 0.0;
+    edge->review_priority = 0.0;
     edge->review_required_bit = 0;
   }
 
@@ -283,6 +287,48 @@ int pbAddEdge(const char *source_node_id, const char *target_node_id, double act
   int source_idx = find_node_idx_by_id(source_node_id);
   int target_idx = find_node_idx_by_id(target_node_id);
   return pbAddEdgeByIndex(source_idx, target_idx, actual_cost, official_cost);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int pbSetEdgePathPriorityBatch(const unsigned char *path_priority_bytes, int count) {
+  if (count < 0 || count != g_ctx.edge_count) {
+    return -1;
+  }
+
+  if (count == 0) {
+    return 0;
+  }
+
+  if (!path_priority_bytes) {
+    return -1;
+  }
+
+  for (int i = 0; i < count; i++) {
+    g_ctx.edges[i].path_priority = read_f64_at(path_priority_bytes, i);
+  }
+
+  return count;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int pbSetEdgeReviewPriorityBatch(const unsigned char *review_priority_bytes, int count) {
+  if (count < 0 || count != g_ctx.edge_count) {
+    return -1;
+  }
+
+  if (count == 0) {
+    return 0;
+  }
+
+  if (!review_priority_bytes) {
+    return -1;
+  }
+
+  for (int i = 0; i < count; i++) {
+    g_ctx.edges[i].review_priority = read_f64_at(review_priority_bytes, i);
+  }
+
+  return count;
 }
 
 EMSCRIPTEN_KEEPALIVE

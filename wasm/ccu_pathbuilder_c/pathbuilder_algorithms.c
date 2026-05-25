@@ -8,17 +8,21 @@
 static const double *g_edge_sort_scores = NULL;
 static const double *g_edge_sort_savings = NULL;
 static const PbEdge *g_edge_sort_edges = NULL;
+static const int *g_edge_sort_selected_order = NULL;
 
-static int compare_target_cost(const void *left, const void *right) {
-  const TargetCost *a = (const TargetCost *)left;
-  const TargetCost *b = (const TargetCost *)right;
-  if (a->cost < b->cost) {
-    return -1;
+static int selected_order_for_edge(int edge_idx) {
+  if (!g_edge_sort_selected_order) {
+    return edge_idx;
   }
-  if (a->cost > b->cost) {
-    return 1;
-  }
-  return a->idx - b->idx;
+
+  int selected_order = g_edge_sort_selected_order[edge_idx];
+  return selected_order >= 0 ? selected_order : edge_idx;
+}
+
+static int compare_edges_by_selected_order(const void *left, const void *right) {
+  int edge_a = *(const int *)left;
+  int edge_b = *(const int *)right;
+  return selected_order_for_edge(edge_a) - selected_order_for_edge(edge_b);
 }
 
 static int compare_edges_for_source(const void *left, const void *right) {
@@ -31,6 +35,15 @@ static int compare_edges_for_source(const void *left, const void *right) {
     return -1;
   }
   if (score_a > score_b) {
+    return 1;
+  }
+
+  double priority_a = g_edge_sort_edges[edge_a].path_priority;
+  double priority_b = g_edge_sort_edges[edge_b].path_priority;
+  if (priority_a > priority_b) {
+    return -1;
+  }
+  if (priority_a < priority_b) {
     return 1;
   }
 
@@ -68,6 +81,15 @@ static int compare_edges_global(const void *left, const void *right) {
     return 1;
   }
 
+  double priority_a = g_edge_sort_edges[edge_a].path_priority;
+  double priority_b = g_edge_sort_edges[edge_b].path_priority;
+  if (priority_a > priority_b) {
+    return -1;
+  }
+  if (priority_a < priority_b) {
+    return 1;
+  }
+
   double savings_a = g_edge_sort_savings[edge_a];
   double savings_b = g_edge_sort_savings[edge_b];
   if (savings_a > savings_b) {
@@ -77,7 +99,7 @@ static int compare_edges_global(const void *left, const void *right) {
     return 1;
   }
 
-  return edge_a - edge_b;
+  return selected_order_for_edge(edge_a) - selected_order_for_edge(edge_b);
 }
 
 static int compare_edges_by_score_only(const void *left, const void *right) {
@@ -93,7 +115,16 @@ static int compare_edges_by_score_only(const void *left, const void *right) {
     return 1;
   }
 
-  return edge_a - edge_b;
+  double priority_a = g_edge_sort_edges[edge_a].path_priority;
+  double priority_b = g_edge_sort_edges[edge_b].path_priority;
+  if (priority_a > priority_b) {
+    return -1;
+  }
+  if (priority_a < priority_b) {
+    return 1;
+  }
+
+  return selected_order_for_edge(edge_a) - selected_order_for_edge(edge_b);
 }
 
 static void heap_init(MinHeap *heap) {
@@ -109,7 +140,59 @@ static void heap_free(MinHeap *heap) {
   heap->cap = 0;
 }
 
-static bool heap_push(MinHeap *heap, int state_idx, double cost) {
+static bool heap_item_is_before(HeapItem left, HeapItem right) {
+  if (left.cost < right.cost - 1e-6) {
+    return true;
+  }
+  if (left.cost > right.cost + 1e-6) {
+    return false;
+  }
+
+  if (left.preference > right.preference + 1e-6) {
+    return true;
+  }
+  if (left.preference < right.preference - 1e-6) {
+    return false;
+  }
+
+  if (left.step_count < right.step_count) {
+    return true;
+  }
+  if (left.step_count > right.step_count) {
+    return false;
+  }
+
+  return left.state_idx < right.state_idx;
+}
+
+static bool is_better_route(double cost, double preference, int step_count, double best_cost, double best_preference, int best_step_count) {
+  if (cost < best_cost - 1e-6) {
+    return true;
+  }
+  if (cost > best_cost + 1e-6) {
+    return false;
+  }
+
+  if (preference > best_preference + 1e-6) {
+    return true;
+  }
+  if (preference < best_preference - 1e-6) {
+    return false;
+  }
+
+  return step_count < best_step_count;
+}
+
+static double edge_review_preference(PbEdge edge) {
+  double savings = edge.official_cost - edge.actual_cost;
+  if (savings <= 1e-6 || edge.review_priority <= 0.0) {
+    return 0.0;
+  }
+
+  return edge.review_priority;
+}
+
+static bool heap_push(MinHeap *heap, int state_idx, double cost, double preference, int step_count) {
   if (!ensure_capacity((void **)&heap->items, &heap->cap, heap->len, sizeof(HeapItem))) {
     return false;
   }
@@ -117,10 +200,12 @@ static bool heap_push(MinHeap *heap, int state_idx, double cost) {
   int idx = heap->len++;
   heap->items[idx].state_idx = state_idx;
   heap->items[idx].cost = cost;
+  heap->items[idx].preference = preference;
+  heap->items[idx].step_count = step_count;
 
   while (idx > 0) {
     int parent = (idx - 1) / 2;
-    if (heap->items[parent].cost <= heap->items[idx].cost) {
+    if (heap_item_is_before(heap->items[parent], heap->items[idx])) {
       break;
     }
     HeapItem tmp = heap->items[parent];
@@ -151,10 +236,10 @@ static bool heap_pop(MinHeap *heap, HeapItem *out_item) {
     int right = idx * 2 + 2;
     int smallest = idx;
 
-    if (left < heap->len && heap->items[left].cost < heap->items[smallest].cost) {
+    if (left < heap->len && heap_item_is_before(heap->items[left], heap->items[smallest])) {
       smallest = left;
     }
-    if (right < heap->len && heap->items[right].cost < heap->items[smallest].cost) {
+    if (right < heap->len && heap_item_is_before(heap->items[right], heap->items[smallest])) {
       smallest = right;
     }
     if (smallest == idx) {
@@ -242,14 +327,16 @@ bool compute_best_review_route(
   }
 
   double *dist = (double *)malloc((size_t)state_count * sizeof(double));
+  double *route_preference = (double *)malloc((size_t)state_count * sizeof(double));
+  int *route_step_count = (int *)malloc((size_t)state_count * sizeof(int));
   int *prev_state = (int *)malloc((size_t)state_count * sizeof(int));
   int *prev_edge = (int *)malloc((size_t)state_count * sizeof(int));
-  unsigned char *settled = (unsigned char *)calloc((size_t)state_count, sizeof(unsigned char));
-  if (!dist || !prev_state || !prev_edge || !settled) {
+  if (!dist || !route_preference || !route_step_count || !prev_state || !prev_edge) {
     free(dist);
+    free(route_preference);
+    free(route_step_count);
     free(prev_state);
     free(prev_edge);
-    free(settled);
     free(target_node_mask);
     free(start_node_ids);
     free_graph_adj(&adj);
@@ -258,6 +345,8 @@ bool compute_best_review_route(
 
   for (int i = 0; i < state_count; i++) {
     dist[i] = INFINITY;
+    route_preference[i] = -INFINITY;
+    route_step_count[i] = INT32_MAX;
     prev_state[i] = -1;
     prev_edge[i] = -1;
   }
@@ -272,12 +361,15 @@ bool compute_best_review_route(
     }
     if (0.0 < dist[start_state]) {
       dist[start_state] = 0.0;
-      if (!heap_push(&heap, start_state, 0.0)) {
+      route_preference[start_state] = 0.0;
+      route_step_count[start_state] = 0;
+      if (!heap_push(&heap, start_state, 0.0, 0.0, 0)) {
         heap_free(&heap);
         free(dist);
+        free(route_preference);
+        free(route_step_count);
         free(prev_state);
         free(prev_edge);
-        free(settled);
         free(target_node_mask);
         free(start_node_ids);
         free_graph_adj(&adj);
@@ -288,6 +380,8 @@ bool compute_best_review_route(
 
   int best_target_state = -1;
   double best_target_cost = INFINITY;
+  double best_target_preference = -INFINITY;
+  int best_target_step_count = INT32_MAX;
   HeapItem current_item = {0};
 
   // Dijkstra over state graph; edge transition merges review bits via OR.
@@ -302,18 +396,44 @@ bool compute_best_review_route(
       continue;
     }
 
-    if (settled[state_idx]) {
+    double known_preference = route_preference[state_idx];
+    int known_step_count = route_step_count[state_idx];
+    if (
+      fabs(current_item.cost - known_cost) <= 1e-6 &&
+      current_item.preference < known_preference - 1e-6
+    ) {
       continue;
     }
-    settled[state_idx] = 1;
+    if (
+      fabs(current_item.cost - known_cost) <= 1e-6 &&
+      fabs(current_item.preference - known_preference) <= 1e-6 &&
+      current_item.step_count > known_step_count
+    ) {
+      continue;
+    }
+
+    if (current_item.cost > best_target_cost + 1e-6) {
+      break;
+    }
 
     int node_idx = state_idx / mask_count;
     uint32_t mask = (uint32_t)(state_idx % mask_count);
 
     if (target_node_mask[node_idx] && mask == all_required_mask) {
-      best_target_state = state_idx;
-      best_target_cost = known_cost;
-      break;
+      if (is_better_route(
+        known_cost,
+        known_preference,
+        known_step_count,
+        best_target_cost,
+        best_target_preference,
+        best_target_step_count
+      )) {
+        best_target_state = state_idx;
+        best_target_cost = known_cost;
+        best_target_preference = known_preference;
+        best_target_step_count = known_step_count;
+      }
+      continue;
     }
 
     int begin = adj.out_offsets[node_idx];
@@ -340,16 +460,28 @@ bool compute_best_review_route(
       }
 
       double candidate_cost = known_cost + edge.actual_cost;
-      if (candidate_cost < dist[next_state] - 1e-6) {
+      double candidate_preference = fmax(known_preference, edge_review_preference(edge));
+      int candidate_step_count = known_step_count >= INT32_MAX ? INT32_MAX : known_step_count + 1;
+      if (is_better_route(
+        candidate_cost,
+        candidate_preference,
+        candidate_step_count,
+        dist[next_state],
+        route_preference[next_state],
+        route_step_count[next_state]
+      )) {
         dist[next_state] = candidate_cost;
+        route_preference[next_state] = candidate_preference;
+        route_step_count[next_state] = candidate_step_count;
         prev_state[next_state] = state_idx;
         prev_edge[next_state] = edge_idx;
-        if (!heap_push(&heap, next_state, candidate_cost)) {
+        if (!heap_push(&heap, next_state, candidate_cost, candidate_preference, candidate_step_count)) {
           heap_free(&heap);
           free(dist);
+          free(route_preference);
+          free(route_step_count);
           free(prev_state);
           free(prev_edge);
-          free(settled);
           free(target_node_mask);
           free(start_node_ids);
           free_graph_adj(&adj);
@@ -368,8 +500,17 @@ bool compute_best_review_route(
       if (state_idx < 0 || state_idx >= state_count) {
         continue;
       }
-      if (dist[state_idx] < best_target_cost) {
+      if (is_better_route(
+        dist[state_idx],
+        route_preference[state_idx],
+        route_step_count[state_idx],
+        best_target_cost,
+        best_target_preference,
+        best_target_step_count
+      )) {
         best_target_cost = dist[state_idx];
+        best_target_preference = route_preference[state_idx];
+        best_target_step_count = route_step_count[state_idx];
         best_target_state = state_idx;
       }
     }
@@ -391,9 +532,10 @@ bool compute_best_review_route(
         free(route_rev);
         heap_free(&heap);
         free(dist);
+        free(route_preference);
+        free(route_step_count);
         free(prev_state);
         free(prev_edge);
-        free(settled);
         free(target_node_mask);
         free(start_node_ids);
         free_graph_adj(&adj);
@@ -411,9 +553,10 @@ bool compute_best_review_route(
       free(route_rev);
       heap_free(&heap);
       free(dist);
+      free(route_preference);
+      free(route_step_count);
       free(prev_state);
       free(prev_edge);
-      free(settled);
       free(target_node_mask);
       free(start_node_ids);
       free_graph_adj(&adj);
@@ -431,9 +574,10 @@ bool compute_best_review_route(
   free(route_rev);
   heap_free(&heap);
   free(dist);
+  free(route_preference);
+  free(route_step_count);
   free(prev_state);
   free(prev_edge);
-  free(settled);
   free(target_node_mask);
   free(start_node_ids);
   free_graph_adj(&adj);
@@ -601,11 +745,22 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
 
   int *topo_nodes = (int *)malloc((size_t)node_count * sizeof(int));
   double *dist_from_start = (double *)malloc((size_t)node_count * sizeof(double));
+  double *route_preference_from_start = (double *)malloc((size_t)node_count * sizeof(double));
+  int *step_count_from_start = (int *)malloc((size_t)node_count * sizeof(int));
   double *dist_to_target = (double *)malloc((size_t)node_count * sizeof(double));
   int *best_prev_edge = (int *)malloc((size_t)node_count * sizeof(int));
-  if (!topo_nodes || !dist_from_start || !dist_to_target || !best_prev_edge) {
+  if (
+    !topo_nodes ||
+    !dist_from_start ||
+    !route_preference_from_start ||
+    !step_count_from_start ||
+    !dist_to_target ||
+    !best_prev_edge
+  ) {
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -617,6 +772,8 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   for (int i = 0; i < node_count; i++) {
     topo_nodes[i] = i;
     dist_from_start[i] = INFINITY;
+    route_preference_from_start[i] = -INFINITY;
+    step_count_from_start[i] = INT32_MAX;
     dist_to_target[i] = INFINITY;
     best_prev_edge[i] = -1;
   }
@@ -628,6 +785,8 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   for (int i = 0; i < node_count; i++) {
     if (start_mask[i]) {
       dist_from_start[i] = 0.0;
+      route_preference_from_start[i] = 0.0;
+      step_count_from_start[i] = 0;
     }
   }
 
@@ -640,6 +799,8 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
 
     int begin = adj_all.out_offsets[node_idx];
     int end = adj_all.out_offsets[node_idx + 1];
+    double current_preference = route_preference_from_start[node_idx];
+    int current_step_count = step_count_from_start[node_idx];
 
     for (int i = begin; i < end; i++) {
       int edge_idx = adj_all.out_edge_indices[i];
@@ -650,8 +811,19 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
       }
 
       double next_cost = current_cost + edge_cost;
-      if (next_cost < dist_from_start[edge.target_idx] - 1e-6) {
+      double next_preference = fmax(current_preference, edge_review_preference(edge));
+      int next_step_count = current_step_count >= INT32_MAX ? INT32_MAX : current_step_count + 1;
+      if (is_better_route(
+        next_cost,
+        next_preference,
+        next_step_count,
+        dist_from_start[edge.target_idx],
+        route_preference_from_start[edge.target_idx],
+        step_count_from_start[edge.target_idx]
+      )) {
         dist_from_start[edge.target_idx] = next_cost;
+        route_preference_from_start[edge.target_idx] = next_preference;
+        step_count_from_start[edge.target_idx] = next_step_count;
         best_prev_edge[edge.target_idx] = edge_idx;
       }
     }
@@ -684,42 +856,34 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     }
   }
 
-  TargetCost *target_costs = (TargetCost *)malloc((size_t)target_count * sizeof(TargetCost));
-  if (!target_costs) {
-    free(topo_nodes);
-    free(dist_from_start);
-    free(dist_to_target);
-    free(best_prev_edge);
-    free(start_mask);
-    free(target_mask);
-    free_graph_adj(&adj_all);
-    return false;
-  }
-
-  int target_pos = 0;
+  int best_target_idx = -1;
+  double best_target_cost = INFINITY;
+  double best_target_preference = -INFINITY;
+  int best_target_step_count = INT32_MAX;
   for (int i = 0; i < node_count; i++) {
     if (!target_mask[i]) {
       continue;
     }
-
-    target_costs[target_pos].idx = i;
-    target_costs[target_pos].cost = dist_from_start[i];
-    target_pos++;
-  }
-
-  qsort(target_costs, (size_t)target_pos, sizeof(TargetCost), compare_target_cost);
-
-  int best_target_idx = -1;
-  double best_target_cost = INFINITY;
-  if (target_pos > 0) {
-    best_target_idx = target_costs[0].idx;
-    best_target_cost = target_costs[0].cost;
+    if (is_better_route(
+      dist_from_start[i],
+      route_preference_from_start[i],
+      step_count_from_start[i],
+      best_target_cost,
+      best_target_preference,
+      best_target_step_count
+    )) {
+      best_target_idx = i;
+      best_target_cost = dist_from_start[i];
+      best_target_preference = route_preference_from_start[i];
+      best_target_step_count = step_count_from_start[i];
+    }
   }
 
   if (!isfinite(best_target_cost) || best_target_cost >= direct_upgrade_cost || best_target_idx < 0) {
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -733,9 +897,10 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   if (!mandatory_edge || !visited_backtrack_nodes) {
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -766,9 +931,10 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -837,9 +1003,10 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -854,18 +1021,21 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   const int max_no_saving_edges_total = (int)fmax(20.0, floor((double)max_total_edges * 0.16));
 
   unsigned char *selected_edge = (unsigned char *)calloc((size_t)edge_count, sizeof(unsigned char));
+  int *selected_order = (int *)malloc((size_t)edge_count * sizeof(int));
   int *source_edge_buffer = (int *)malloc((size_t)candidate_count * sizeof(int));
-  if (!selected_edge || !source_edge_buffer) {
+  if (!selected_edge || !selected_order || !source_edge_buffer) {
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -874,9 +1044,14 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     return false;
   }
 
+  for (int i = 0; i < edge_count; i++) {
+    selected_order[i] = -1;
+  }
+
   g_edge_sort_scores = edge_score;
   g_edge_sort_savings = edge_savings;
   g_edge_sort_edges = g_ctx.edges;
+  g_edge_sort_selected_order = selected_order;
 
   int selected_count = 0;
   // Per-source quota: keep mandatory edges first, then best saving/no-saving options.
@@ -903,6 +1078,7 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
       int edge_idx = source_edge_buffer[i];
       if (mandatory_edge[edge_idx] && !selected_edge[edge_idx]) {
         selected_edge[edge_idx] = 1;
+        selected_order[edge_idx] = selected_count;
         selected_count++;
         mandatory_in_source++;
       }
@@ -921,6 +1097,7 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
 
       if (edge_savings[edge_idx] > 1e-6) {
         selected_edge[edge_idx] = 1;
+        selected_order[edge_idx] = selected_count;
         selected_count++;
         slots_left--;
       }
@@ -930,6 +1107,7 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     if (no_saving_slots > slots_left) {
       no_saving_slots = slots_left;
     }
+    int preferred_no_saving_overflow_slots = no_saving_slots > 0 ? 0 : max_no_saving_per_source;
 
     for (int i = 0; i < source_edge_count && no_saving_slots > 0; i++) {
       int edge_idx = source_edge_buffer[i];
@@ -939,8 +1117,23 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
 
       if (edge_savings[edge_idx] <= 1e-6) {
         selected_edge[edge_idx] = 1;
+        selected_order[edge_idx] = selected_count;
         selected_count++;
         no_saving_slots--;
+      }
+    }
+
+    for (int i = 0; i < source_edge_count && preferred_no_saving_overflow_slots > 0; i++) {
+      int edge_idx = source_edge_buffer[i];
+      if (selected_edge[edge_idx]) {
+        continue;
+      }
+
+      if (edge_savings[edge_idx] <= 1e-6 && g_ctx.edges[edge_idx].path_priority > 0.0) {
+        selected_edge[edge_idx] = 1;
+        selected_order[edge_idx] = selected_count;
+        selected_count++;
+        preferred_no_saving_overflow_slots--;
       }
     }
   }
@@ -953,15 +1146,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
       free(mandatory_list);
       free(non_mandatory_list);
       free(selected_edge);
+      free(selected_order);
       free(source_edge_buffer);
       free(edge_score);
       free(edge_savings);
       free(candidate_edge);
       free(mandatory_edge);
       free(visited_backtrack_nodes);
-      free(target_costs);
       free(topo_nodes);
       free(dist_from_start);
+      free(route_preference_from_start);
+      free(step_count_from_start);
       free(dist_to_target);
       free(best_prev_edge);
       free(start_mask);
@@ -983,14 +1178,19 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
       }
     }
 
+    qsort(mandatory_list, (size_t)mandatory_count, sizeof(int), compare_edges_by_selected_order);
     qsort(non_mandatory_list, (size_t)non_mandatory_count, sizeof(int), compare_edges_global);
 
     memset(selected_edge, 0, (size_t)edge_count * sizeof(unsigned char));
+    for (int i = 0; i < edge_count; i++) {
+      selected_order[i] = -1;
+    }
     selected_count = 0;
 
     for (int i = 0; i < mandatory_count; i++) {
       int edge_idx = mandatory_list[i];
       selected_edge[edge_idx] = 1;
+      selected_order[edge_idx] = selected_count;
       selected_count++;
     }
 
@@ -1003,6 +1203,7 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     for (int i = 0; i < keep_count; i++) {
       int edge_idx = non_mandatory_list[i];
       selected_edge[edge_idx] = 1;
+      selected_order[edge_idx] = selected_count;
       selected_count++;
     }
 
@@ -1028,15 +1229,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     int *no_saving_list = (int *)malloc((size_t)no_saving_selected_count * sizeof(int));
     if (!no_saving_list) {
       free(selected_edge);
+      free(selected_order);
       free(source_edge_buffer);
       free(edge_score);
       free(edge_savings);
       free(candidate_edge);
       free(mandatory_edge);
       free(visited_backtrack_nodes);
-      free(target_costs);
       free(topo_nodes);
       free(dist_from_start);
+      free(route_preference_from_start);
+      free(step_count_from_start);
       free(dist_to_target);
       free(best_prev_edge);
       free(start_mask);
@@ -1055,10 +1258,12 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
       }
     }
 
+    g_edge_sort_selected_order = selected_order;
     qsort(no_saving_list, (size_t)pos, sizeof(int), compare_edges_by_score_only);
 
     for (int i = max_no_saving_edges_total; i < pos; i++) {
       selected_edge[no_saving_list[i]] = 0;
+      selected_order[no_saving_list[i]] = -1;
     }
 
     free(no_saving_list);
@@ -1067,15 +1272,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   unsigned char *pre_kept_edge = (unsigned char *)calloc((size_t)edge_count, sizeof(unsigned char));
   if (!pre_kept_edge) {
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1095,15 +1302,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   if (pre_kept_edge_count == 0) {
     free(pre_kept_edge);
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1116,15 +1325,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   if (!build_graph_adj(pre_kept_edge, &adj_kept)) {
     free(pre_kept_edge);
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1141,15 +1352,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     free(can_reach_target);
     free(pre_kept_edge);
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1166,15 +1379,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     free(can_reach_target);
     free(pre_kept_edge);
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1216,15 +1431,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
     free(can_reach_target);
     free(pre_kept_edge);
     free(selected_edge);
+    free(selected_order);
     free(source_edge_buffer);
     free(edge_score);
     free(edge_savings);
     free(candidate_edge);
     free(mandatory_edge);
     free(visited_backtrack_nodes);
-    free(target_costs);
     free(topo_nodes);
     free(dist_from_start);
+    free(route_preference_from_start);
+    free(step_count_from_start);
     free(dist_to_target);
     free(best_prev_edge);
     free(start_mask);
@@ -1240,15 +1457,17 @@ bool compute_keep_saving(int start_ship_id, int target_ship_id, double direct_up
   free(can_reach_target);
   free(pre_kept_edge);
   free(selected_edge);
+  free(selected_order);
   free(source_edge_buffer);
   free(edge_score);
   free(edge_savings);
   free(candidate_edge);
   free(mandatory_edge);
   free(visited_backtrack_nodes);
-  free(target_costs);
   free(topo_nodes);
   free(dist_from_start);
+  free(route_preference_from_start);
+  free(step_count_from_start);
   free(dist_to_target);
   free(best_prev_edge);
   free(start_mask);

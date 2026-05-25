@@ -100,6 +100,27 @@ function getOfficialEdgeCost(edge: Edge<CcuEdgeData>): number {
   return (targetPrice - sourcePrice) / 100;
 }
 
+function getEdgeBridgePriority(edge: Edge<CcuEdgeData>): number {
+  const sourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
+  const targetMsrp = edge.data?.targetShip?.msrp || 0;
+  if (sourceType !== CcuSourceType.OFFICIAL || targetMsrp <= 0) {
+    return 0;
+  }
+
+  return (edge.data?.targetHasCurrentOfficialSku ? 2_000_000_000 : 1_000_000_000) + targetMsrp;
+}
+
+function getEdgeReviewPriority(edge: Edge<CcuEdgeData>): number {
+  const officialCost = getOfficialEdgeCost(edge);
+  const actualCost = getEdgeCost(edge);
+  if (!Number.isFinite(officialCost) || !Number.isFinite(actualCost) || officialCost - actualCost <= 1e-6) {
+    return 0;
+  }
+
+  const sourceMsrp = edge.data?.sourceShip?.msrp || 0;
+  return (edge.data?.sourceHasCurrentOfficialSku ? 1_000_000_000 : 0) + sourceMsrp;
+}
+
 function getHangarRequirementKeyFromEdge(edge: Edge<CcuEdgeData>): string | null {
   if (edge.data?.sourceType !== CcuSourceType.HANGER) {
     return null;
@@ -199,7 +220,11 @@ class PathBuilderCWasmService {
 
   private _invokeWasmBytesBatch(params: {
     module: CPathBuilderModule;
-    ident: 'pbSetEdgeActiveMaskBatch' | 'pbSetEdgeReviewBitsBatch';
+    ident:
+      | 'pbSetEdgeActiveMaskBatch'
+      | 'pbSetEdgeReviewBitsBatch'
+      | 'pbSetEdgePathPriorityBatch'
+      | 'pbSetEdgeReviewPriorityBatch';
     bytes: Uint8Array;
     count: number;
     errorMessage: string;
@@ -296,6 +321,8 @@ class PathBuilderCWasmService {
       const targetIdx = new Int32Array(edgeCapacity);
       const actualCosts = new Float64Array(edgeCapacity);
       const officialCosts = new Float64Array(edgeCapacity);
+      const edgeBridgePriorities = new Float64Array(edgeCapacity);
+      const edgeReviewPriorities = new Float64Array(edgeCapacity);
 
       let edgeCount = 0;
       edges.forEach((edge, originalIndex) => {
@@ -309,6 +336,8 @@ class PathBuilderCWasmService {
         targetIdx[edgeCount] = targetIndex;
         actualCosts[edgeCount] = toFiniteNumber(getEdgeCost(edge), 0);
         officialCosts[edgeCount] = toFiniteNumber(getOfficialEdgeCost(edge), 0);
+        edgeBridgePriorities[edgeCount] = toFiniteNumber(getEdgeBridgePriority(edge), 0);
+        edgeReviewPriorities[edgeCount] = toFiniteNumber(getEdgeReviewPriority(edge), 0);
         loadedEdgeOriginalIndices.push(originalIndex);
         edgeCount++;
       });
@@ -332,6 +361,22 @@ class PathBuilderCWasmService {
             throw new Error('failed to add edge batch to C-WASM path builder');
           }
         }
+
+        this._invokeWasmBytesBatch({
+          module,
+          ident: 'pbSetEdgePathPriorityBatch',
+          bytes: toBytes(edgeBridgePriorities.subarray(0, edgeCount)),
+          count: edgeCount,
+          errorMessage: 'failed to set C-WASM edge path priorities'
+        });
+
+        this._invokeWasmBytesBatch({
+          module,
+          ident: 'pbSetEdgeReviewPriorityBatch',
+          bytes: toBytes(edgeReviewPriorities.subarray(0, edgeCount)),
+          count: edgeCount,
+          errorMessage: 'failed to set C-WASM edge review priorities'
+        });
       }
     }
 

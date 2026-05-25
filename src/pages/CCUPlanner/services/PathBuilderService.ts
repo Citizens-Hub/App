@@ -1149,16 +1149,34 @@ export class PathBuilderService {
 
     const stateKey = (nodeId: string, mask: bigint) => `${nodeId}|${mask.toString()}`;
     const dist = new Map<string, number>();
+    const routePreference = new Map<string, number>();
+    const routeStepCount = new Map<string, number>();
     const prevState = new Map<string, { prevNodeId: string; prevMask: bigint; edge: Edge<CcuEdgeData> }>();
-    const queue: Array<{ nodeId: string; mask: bigint; cost: number }> = [];
+    const queue: Array<{ nodeId: string; mask: bigint; cost: number; preference: number; stepCount: number }> = [];
 
     startNodeIds.forEach(nodeId => {
       dist.set(stateKey(nodeId, 0n), 0);
-      queue.push({ nodeId, mask: 0n, cost: 0 });
+      routePreference.set(stateKey(nodeId, 0n), 0);
+      routeStepCount.set(stateKey(nodeId, 0n), 0);
+      queue.push({ nodeId, mask: 0n, cost: 0, preference: 0, stepCount: 0 });
     });
 
+    let bestTargetId = '';
+    let bestCost = Number.POSITIVE_INFINITY;
+    let bestPreference = Number.NEGATIVE_INFINITY;
+    let bestStepCount = Number.POSITIVE_INFINITY;
+    let bestMask = allRequiredMask;
+
     while (queue.length > 0) {
-      queue.sort((a, b) => a.cost - b.cost);
+      queue.sort((a, b) => {
+        if (Math.abs(a.cost - b.cost) > 1e-6) {
+          return a.cost - b.cost;
+        }
+        if (Math.abs(a.preference - b.preference) > 1e-6) {
+          return b.preference - a.preference;
+        }
+        return a.stepCount - b.stepCount;
+      });
       const current = queue.shift()!;
       const currentStateKey = stateKey(current.nodeId, current.mask);
       const knownCost = dist.get(currentStateKey);
@@ -1166,8 +1184,27 @@ export class PathBuilderService {
         continue;
       }
 
-      if (targetNodeIds.has(current.nodeId) && current.mask === allRequiredMask) {
+      if (current.cost > bestCost + 1e-6) {
         break;
+      }
+
+      if (targetNodeIds.has(current.nodeId) && current.mask === allRequiredMask) {
+        const knownPreference = routePreference.get(currentStateKey) ?? Number.NEGATIVE_INFINITY;
+        const knownStepCount = routeStepCount.get(currentStateKey) ?? Number.POSITIVE_INFINITY;
+        const hasLowerCost = current.cost < bestCost - 1e-6;
+        const hasSameCost = Math.abs(current.cost - bestCost) <= 1e-6;
+        const hasBetterPreference = knownPreference > bestPreference + 1e-6;
+        const hasSamePreference = Math.abs(knownPreference - bestPreference) <= 1e-6;
+        const hasFewerSteps = knownStepCount < bestStepCount;
+
+        if (hasLowerCost || (hasSameCost && (hasBetterPreference || (hasSamePreference && hasFewerSteps)))) {
+          bestTargetId = current.nodeId;
+          bestCost = current.cost;
+          bestPreference = knownPreference;
+          bestStepCount = knownStepCount;
+          bestMask = current.mask;
+        }
+        continue;
       }
 
       const outgoingEdges = outgoingMap.get(current.nodeId) || [];
@@ -1181,25 +1218,52 @@ export class PathBuilderService {
         const requiredBit = hangarKey ? (requiredBitByKey.get(hangarKey) || 0n) : 0n;
         const nextMask = current.mask | requiredBit;
         const candidateCost = current.cost + edgeCost;
+        const candidatePreference = Math.max(
+          routePreference.get(currentStateKey) ?? 0,
+          this._getEdgeRoutePreference(edge)
+        );
+        const candidateStepCount = (routeStepCount.get(currentStateKey) ?? 0) + 1;
         const nextStateKey = stateKey(edge.target, nextMask);
         const currentTargetCost = dist.get(nextStateKey) ?? Number.POSITIVE_INFINITY;
+        const currentTargetPreference = routePreference.get(nextStateKey) ?? Number.NEGATIVE_INFINITY;
+        const currentTargetStepCount = routeStepCount.get(nextStateKey) ?? Number.POSITIVE_INFINITY;
+        const hasLowerCost = candidateCost < currentTargetCost - 1e-6;
+        const hasSameCost = Math.abs(candidateCost - currentTargetCost) <= 1e-6;
+        const hasBetterPreference = candidatePreference > currentTargetPreference + 1e-6;
+        const hasSamePreference = Math.abs(candidatePreference - currentTargetPreference) <= 1e-6;
+        const hasFewerSteps = candidateStepCount < currentTargetStepCount;
 
-        if (candidateCost < currentTargetCost - 1e-6) {
+        if (hasLowerCost || (hasSameCost && (hasBetterPreference || (hasSamePreference && hasFewerSteps)))) {
           dist.set(nextStateKey, candidateCost);
+          routePreference.set(nextStateKey, candidatePreference);
+          routeStepCount.set(nextStateKey, candidateStepCount);
           prevState.set(nextStateKey, { prevNodeId: current.nodeId, prevMask: current.mask, edge });
-          queue.push({ nodeId: edge.target, mask: nextMask, cost: candidateCost });
+          queue.push({
+            nodeId: edge.target,
+            mask: nextMask,
+            cost: candidateCost,
+            preference: candidatePreference,
+            stepCount: candidateStepCount
+          });
         }
       });
     }
 
-    let bestTargetId = '';
-    let bestCost = Number.POSITIVE_INFINITY;
-    let bestMask = allRequiredMask;
-
     targetNodeIds.forEach(targetNodeId => {
-      const targetCost = dist.get(stateKey(targetNodeId, allRequiredMask)) ?? Number.POSITIVE_INFINITY;
-      if (targetCost < bestCost) {
+      const targetStateKey = stateKey(targetNodeId, allRequiredMask);
+      const targetCost = dist.get(targetStateKey) ?? Number.POSITIVE_INFINITY;
+      const targetPreference = routePreference.get(targetStateKey) ?? Number.NEGATIVE_INFINITY;
+      const targetStepCount = routeStepCount.get(targetStateKey) ?? Number.POSITIVE_INFINITY;
+      const hasLowerCost = targetCost < bestCost - 1e-6;
+      const hasSameCost = Math.abs(targetCost - bestCost) <= 1e-6;
+      const hasBetterPreference = targetPreference > bestPreference + 1e-6;
+      const hasSamePreference = Math.abs(targetPreference - bestPreference) <= 1e-6;
+      const hasFewerSteps = targetStepCount < bestStepCount;
+
+      if (hasLowerCost || (hasSameCost && (hasBetterPreference || (hasSamePreference && hasFewerSteps)))) {
         bestCost = targetCost;
+        bestPreference = targetPreference;
+        bestStepCount = targetStepCount;
         bestTargetId = targetNodeId;
         bestMask = allRequiredMask;
       }
@@ -2008,6 +2072,15 @@ export class PathBuilderService {
     );
   }
 
+  private _hasCurrentOfficialSku(ship: Ship, ccus: Ccu[]): boolean {
+    const ccuTarget = ccus.find(entry => entry.id === ship.id);
+    if (ccuTarget?.skus.some(sku => sku.available && sku.price === ship.msrp)) {
+      return true;
+    }
+
+    return Boolean(ship.skus?.some(sku => sku.available && sku.price === ship.msrp));
+  }
+
   private _getShipPrice(
     ship: Ship,
     ccus: Ccu[],
@@ -2144,7 +2217,9 @@ export class PathBuilderService {
       price: priceDifference,
       sourceShip: sourceShipNode.data.ship,
       targetShip: targetShipNode.data.ship,
-      sourceType: CcuSourceType.OFFICIAL
+      sourceType: CcuSourceType.OFFICIAL,
+      sourceHasCurrentOfficialSku: this._hasCurrentOfficialSku(sourceShipNode.data.ship, ccus),
+      targetHasCurrentOfficialSku: this._hasCurrentOfficialSku(targetShipNode.data.ship, ccus)
     };
 
     const targetShipInPath = stepShips[1].find(ship => this._getShipVariantKey(ship) === targetShipNode.data.plannerShipKey);
@@ -2436,6 +2511,26 @@ export class PathBuilderService {
     return officialCost - actualCost;
   }
 
+  private _getEdgeBridgePriority(edge: Edge<CcuEdgeData>): number {
+    const sourceType = edge.data?.sourceType || CcuSourceType.OFFICIAL;
+    const targetMsrp = edge.data?.targetShip?.msrp || 0;
+    if (sourceType !== CcuSourceType.OFFICIAL || targetMsrp <= 0) {
+      return 0;
+    }
+
+    return (edge.data?.targetHasCurrentOfficialSku ? 2_000_000_000 : 1_000_000_000) + targetMsrp;
+  }
+
+  private _getEdgeRoutePreference(edge: Edge<CcuEdgeData>): number {
+    if (this._getEdgeSavings(edge) <= 1e-6) {
+      return 0;
+    }
+
+    const sourceMsrp = edge.data?.sourceShip?.msrp || 0;
+    const currentOfficialBonus = edge.data?.sourceHasCurrentOfficialSku ? 1_000_000_000 : 0;
+    return currentOfficialBonus + sourceMsrp;
+  }
+
   private _keepOnlySavingPaths(params: {
     nodes: Node<ShipNodeData>[];
     edges: Edge<CcuEdgeData>[];
@@ -2470,27 +2565,49 @@ export class PathBuilderService {
     });
 
     const distFromStart = new Map<string, number>();
+    const routePreferenceFromStart = new Map<string, number>();
+    const stepCountFromStart = new Map<string, number>();
     const distToTarget = new Map<string, number>();
     const bestPrevEdgeId = new Map<string, string>();
     const edgeById = new Map<string, Edge<CcuEdgeData>>();
     nodes.forEach(node => {
       distFromStart.set(node.id, Number.POSITIVE_INFINITY);
+      routePreferenceFromStart.set(node.id, Number.NEGATIVE_INFINITY);
+      stepCountFromStart.set(node.id, Number.POSITIVE_INFINITY);
       distToTarget.set(node.id, Number.POSITIVE_INFINITY);
     });
     edges.forEach(edge => edgeById.set(edge.id, edge));
 
-    startNodes.forEach(node => distFromStart.set(node.id, 0));
+    startNodes.forEach(node => {
+      distFromStart.set(node.id, 0);
+      routePreferenceFromStart.set(node.id, 0);
+      stepCountFromStart.set(node.id, 0);
+    });
     topoNodes.forEach(node => {
       const currentCost = distFromStart.get(node.id) ?? Number.POSITIVE_INFINITY;
       if (!Number.isFinite(currentCost)) return;
+      const currentPreference = routePreferenceFromStart.get(node.id) ?? Number.NEGATIVE_INFINITY;
+      const currentStepCount = stepCountFromStart.get(node.id) ?? Number.POSITIVE_INFINITY;
       const nextEdges = outgoingMap.get(node.id) || [];
       nextEdges.forEach(edge => {
         const edgeCost = this._getEdgeCost(edge);
         if (!Number.isFinite(edgeCost) || edgeCost < 0) return;
         const nextCost = currentCost + edgeCost;
         const currentTargetCost = distFromStart.get(edge.target) ?? Number.POSITIVE_INFINITY;
-        if (nextCost < currentTargetCost - 1e-6) {
+        const nextPreference = Math.max(currentPreference, this._getEdgeRoutePreference(edge));
+        const currentTargetPreference = routePreferenceFromStart.get(edge.target) ?? Number.NEGATIVE_INFINITY;
+        const nextStepCount = currentStepCount + 1;
+        const currentTargetStepCount = stepCountFromStart.get(edge.target) ?? Number.POSITIVE_INFINITY;
+        const hasLowerCost = nextCost < currentTargetCost - 1e-6;
+        const hasSameCost = Math.abs(nextCost - currentTargetCost) <= 1e-6;
+        const hasBetterPreference = nextPreference > currentTargetPreference + 1e-6;
+        const hasSamePreference = Math.abs(nextPreference - currentTargetPreference) <= 1e-6;
+        const hasFewerSteps = nextStepCount < currentTargetStepCount;
+
+        if (hasLowerCost || (hasSameCost && (hasBetterPreference || (hasSamePreference && hasFewerSteps)))) {
           distFromStart.set(edge.target, nextCost);
+          routePreferenceFromStart.set(edge.target, nextPreference);
+          stepCountFromStart.set(edge.target, nextStepCount);
           bestPrevEdgeId.set(edge.target, edge.id);
         }
       });
@@ -2514,9 +2631,19 @@ export class PathBuilderService {
     const sortedTargets = Array.from(targetNodes)
       .map(nodeId => ({
         nodeId,
-        cost: distFromStart.get(nodeId) ?? Number.POSITIVE_INFINITY
+        cost: distFromStart.get(nodeId) ?? Number.POSITIVE_INFINITY,
+        preference: routePreferenceFromStart.get(nodeId) ?? Number.NEGATIVE_INFINITY,
+        stepCount: stepCountFromStart.get(nodeId) ?? Number.POSITIVE_INFINITY
       }))
-      .sort((a, b) => a.cost - b.cost);
+      .sort((a, b) => {
+        if (Math.abs(a.cost - b.cost) > 1e-6) {
+          return a.cost - b.cost;
+        }
+        if (Math.abs(a.preference - b.preference) > 1e-6) {
+          return b.preference - a.preference;
+        }
+        return a.stepCount - b.stepCount;
+      });
 
     const bestTarget = sortedTargets[0];
     const bestTargetCost = bestTarget?.cost ?? Number.POSITIVE_INFINITY;
@@ -2539,6 +2666,7 @@ export class PathBuilderService {
 
     const edgeScore = new Map<string, number>();
     const edgeSavings = new Map<string, number>();
+    const edgeBridgePriority = new Map<string, number>();
     const candidateEdges = edges.filter(edge => {
       const sourceCost = distFromStart.get(edge.source) ?? Number.POSITIVE_INFINITY;
       const targetRemainCost = distToTarget.get(edge.target) ?? Number.POSITIVE_INFINITY;
@@ -2551,6 +2679,7 @@ export class PathBuilderService {
       edgeScore.set(edge.id, lowerBound);
       const savings = this._getEdgeSavings(edge);
       edgeSavings.set(edge.id, savings);
+      edgeBridgePriority.set(edge.id, this._getEdgeBridgePriority(edge));
       if (mandatoryEdgeIds.has(edge.id)) {
         return true;
       }
@@ -2587,6 +2716,9 @@ export class PathBuilderService {
         const scoreA = edgeScore.get(a.id) ?? Number.POSITIVE_INFINITY;
         const scoreB = edgeScore.get(b.id) ?? Number.POSITIVE_INFINITY;
         if (scoreA !== scoreB) return scoreA - scoreB;
+        const priorityA = edgeBridgePriority.get(a.id) ?? 0;
+        const priorityB = edgeBridgePriority.get(b.id) ?? 0;
+        if (priorityA !== priorityB) return priorityB - priorityA;
         const savingsA = edgeSavings.get(a.id) ?? 0;
         const savingsB = edgeSavings.get(b.id) ?? 0;
         if (savingsA !== savingsB) return savingsB - savingsA;
@@ -2611,8 +2743,16 @@ export class PathBuilderService {
       });
 
       let noSavingSlots = Math.min(maxNoSavingPerSource, slotsLeft);
+      let preferredNoSavingOverflowSlots = noSavingSlots > 0 ? 0 : maxNoSavingPerSource;
       noSavingEdges.forEach(edge => {
-        if (noSavingSlots <= 0) return;
+        if (noSavingSlots <= 0) {
+          if ((edgeBridgePriority.get(edge.id) ?? 0) <= 0 || preferredNoSavingOverflowSlots <= 0) {
+            return;
+          }
+          selectedEdgeIds.add(edge.id);
+          preferredNoSavingOverflowSlots--;
+          return;
+        }
         selectedEdgeIds.add(edge.id);
         noSavingSlots--;
       });
@@ -2625,6 +2765,8 @@ export class PathBuilderService {
         .sort((a, b) => {
           const scoreDiff = (edgeScore.get(a) ?? Number.POSITIVE_INFINITY) - (edgeScore.get(b) ?? Number.POSITIVE_INFINITY);
           if (scoreDiff !== 0) return scoreDiff;
+          const priorityDiff = (edgeBridgePriority.get(b) ?? 0) - (edgeBridgePriority.get(a) ?? 0);
+          if (priorityDiff !== 0) return priorityDiff;
           const savingsDiff = (edgeSavings.get(b) ?? 0) - (edgeSavings.get(a) ?? 0);
           if (savingsDiff !== 0) return savingsDiff;
           return 0;
@@ -2641,9 +2783,11 @@ export class PathBuilderService {
       !mandatoryEdgeIds.has(id) && (edgeSavings.get(id) ?? 0) <= 1e-6
     );
     if (noSavingSelected.length > maxNoSavingEdgesTotal) {
-      const noSavingSorted = [...noSavingSelected].sort((a, b) =>
-        (edgeScore.get(a) ?? Number.POSITIVE_INFINITY) - (edgeScore.get(b) ?? Number.POSITIVE_INFINITY)
-      );
+      const noSavingSorted = [...noSavingSelected].sort((a, b) => {
+        const scoreDiff = (edgeScore.get(a) ?? Number.POSITIVE_INFINITY) - (edgeScore.get(b) ?? Number.POSITIVE_INFINITY);
+        if (scoreDiff !== 0) return scoreDiff;
+        return (edgeBridgePriority.get(b) ?? 0) - (edgeBridgePriority.get(a) ?? 0);
+      });
       const keepNoSaving = new Set(noSavingSorted.slice(0, maxNoSavingEdgesTotal));
       noSavingSelected.forEach(id => {
         if (!keepNoSaving.has(id)) {

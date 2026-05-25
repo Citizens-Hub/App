@@ -24,6 +24,8 @@ typedef struct {
   int target_idx;
   double actual_cost;
   double official_cost;
+  double path_priority;
+  double review_priority;
   uint64_t review_required_bit;
 } PbEdge;
 
@@ -58,13 +60,10 @@ typedef struct {
 } StrBuilder;
 
 typedef struct {
-  int idx;
-  double cost;
-} TargetCost;
-
-typedef struct {
   int state_idx;
   double cost;
+  double preference;
+  int step_count;
 } HeapItem;
 
 typedef struct {
