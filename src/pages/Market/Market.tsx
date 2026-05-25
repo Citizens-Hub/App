@@ -91,8 +91,8 @@ import {
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
 import { getMarketImageDisplayUrl } from '@/utils/marketImages';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
-import { findShipByIdOrName, getShipDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
-import { getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
+import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
+import { getShipSlideshowImage, getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
 import {
   buildCurrentMarketRoute,
   buildSelectedCreditListing,
@@ -112,6 +112,7 @@ type MarketPageSearchState = {
   selectedItemFilter: MarketItemFilterOption;
   selectedShipTraitFilter: MarketShipTraitFilter | 'all';
   selectedManufacturerId: number | null;
+  packageItems: string[];
   sortBy: MarketSortMode;
   page: number;
   rowsPerPage: number;
@@ -159,7 +160,8 @@ const MARKET_ROWS_PER_PAGE_OPTIONS = [15, 30] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
-const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'sortBy', 'page', 'limit'] as const;
+const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'packageItem', 'sortBy', 'page', 'limit'] as const;
+const STARTER_PACK_GAME_DOWNLOAD_ITEM = 'Star Citizen Digital Download';
 const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
 const MARKET_PLANNER_MAX_TARGET_MSRP_CENTS = 100_000;
 const MARKET_PLANNER_ROUTE_NODE_GAP_X = 420;
@@ -584,6 +586,7 @@ function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSe
     selectedItemFilter: itemTypeFilter || browseCategoryFilter || 'all',
     selectedShipTraitFilter: shipTraitFilter || (legacyOcTagSelected ? 'oc' : 'all'),
     selectedManufacturerId: parsePositiveInteger(searchParams.get('manufacturerId')),
+    packageItems: parseMarketSearchParamList(searchParams, 'packageItem'),
     sortBy: VALID_MARKET_SORT_MODES.has(sortByParam as MarketSortMode)
       ? sortByParam as MarketSortMode
       : 'recommended',
@@ -618,6 +621,10 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
     nextSearchParams.set('manufacturerId', String(state.selectedManufacturerId));
   }
 
+  state.packageItems.forEach((packageItem) => {
+    nextSearchParams.append('packageItem', packageItem);
+  });
+
   if (state.sortBy !== 'recommended') {
     nextSearchParams.set('sortBy', state.sortBy);
   }
@@ -640,6 +647,7 @@ const Market: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
+  const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
@@ -652,6 +660,7 @@ const Market: React.FC = () => {
   const [couponNow, setCouponNow] = useState(Date.now());
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
+  const [activeStarterPackSkuId, setActiveStarterPackSkuId] = useState<string | null>(null);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
   const [plannerStartShipId, setPlannerStartShipId] = useState<number | ''>('');
@@ -678,6 +687,7 @@ const Market: React.FC = () => {
     selectedItemFilter,
     selectedShipTraitFilter,
     selectedManufacturerId,
+    packageItems,
     sortBy,
     page,
     rowsPerPage,
@@ -693,6 +703,7 @@ const Market: React.FC = () => {
     selectedItemFilter,
     selectedShipTraitFilter: showsShipTraitFilters ? selectedShipTraitFilter : 'all',
     selectedManufacturerId: showsManufacturerFilter ? selectedManufacturerId : null,
+    packageItems,
     sortBy,
     page,
     rowsPerPage,
@@ -701,6 +712,7 @@ const Market: React.FC = () => {
     rowsPerPage,
     searchParams,
     searchTerm,
+    packageItems,
     selectedManufacturerId,
     selectedItemFilter,
     selectedShipTraitFilter,
@@ -713,11 +725,13 @@ const Market: React.FC = () => {
     || selectedItemFilter !== 'all'
     || (showsShipTraitFilters && selectedShipTraitFilter !== 'all')
     || (showsManufacturerFilter && selectedManufacturerId)
+    || packageItems.length > 0
     || sortBy !== 'recommended'
     || page > 0
     || rowsPerPage !== MARKET_DEFAULT_ROWS_PER_PAGE,
   ), [
     page,
+    packageItems.length,
     rowsPerPage,
     searchTerm,
     selectedItemFilter,
@@ -848,6 +862,7 @@ const Market: React.FC = () => {
       itemTypes,
       browseCategories,
       shipTraits,
+      packageItems,
       manufacturerIds,
       sortBy,
       page,
@@ -855,6 +870,7 @@ const Market: React.FC = () => {
     };
   }, [
     page,
+    packageItems,
     rowsPerPage,
     searchTerm,
     selectedManufacturerId,
@@ -866,6 +882,18 @@ const Market: React.FC = () => {
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
   const { listingItems: featuredAccountItems } = useAccountMarketData({ limit: 3, page: 0 });
+  const {
+    ships: starterPackShips,
+    listingItems: starterPackItems,
+    loading: starterPackLoading,
+  } = useMarketData({
+    browseCategories: ['ship_package'],
+    shipTraits: ['lti'],
+    packageItems: [STARTER_PACK_GAME_DOWNLOAD_ITEM],
+    sortBy: 'priceAsc',
+    page: 0,
+    limit: 12,
+  });
   const {
     data: ccusData,
     error: ccusError,
@@ -886,6 +914,20 @@ const Market: React.FC = () => {
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
   });
+
+  useEffect(() => {
+    if (starterPackItems.length === 0) {
+      setActiveStarterPackSkuId(null);
+      return;
+    }
+
+    setActiveStarterPackSkuId((currentSkuId) => (
+      currentSkuId && starterPackItems.some((item) => item.skuId === currentSkuId)
+        ? currentSkuId
+        : starterPackItems[0].skuId
+    ));
+  }, [starterPackItems]);
+
   const ccus = useMemo(() => ccusData?.data?.to?.ships || [], [ccusData]);
   const plannerHangarStartShipIds = useMemo(() => {
     const shipIds = new Set<number>();
@@ -1278,6 +1320,9 @@ const Market: React.FC = () => {
     if (showsManufacturerFilter && selectedManufacturerId) {
       count += 1;
     }
+    if (packageItems.length > 0) {
+      count += 1;
+    }
     if (sortBy !== 'recommended') {
       count += 1;
     }
@@ -1287,6 +1332,7 @@ const Market: React.FC = () => {
     selectedItemFilter,
     selectedManufacturerId,
     selectedShipTraitFilter,
+    packageItems.length,
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
@@ -1749,6 +1795,7 @@ const Market: React.FC = () => {
             nextSearchParams.delete('tag');
             nextSearchParams.delete('shipTrait');
             nextSearchParams.delete('manufacturerId');
+            nextSearchParams.delete('packageItem');
             nextSearchParams.delete('page');
 
             if (nextFilter === 'ccu' || nextFilter === 'credit') {
@@ -1797,6 +1844,7 @@ const Market: React.FC = () => {
                   updateMarketSearchParams((nextSearchParams) => {
                     nextSearchParams.delete('tag');
                     nextSearchParams.delete('shipTrait');
+                    nextSearchParams.delete('packageItem');
                     nextSearchParams.delete('page');
 
                     if (nextShipTrait !== 'all') {
@@ -1952,13 +2000,237 @@ const Market: React.FC = () => {
             )
           )}
 
-          <Button component={Link} to={getAccountMarketListPath()} onClick={onNavigate} variant="contained" fullWidth>
+          <Button component={Link} to={getAccountMarketListPath()} onClick={onNavigate} variant="contained" fullWidth sx={{ borderRadius: 0 }}>
             <FormattedMessage id="accountMarket.panel.cta" defaultMessage="Browse Accounts" />
           </Button>
         </div>
       </Box>
     );
   };
+
+  const scrollStarterPacks = (direction: 'left' | 'right') => {
+    const scroller = starterPackScrollerRef.current;
+    if (!scroller) {
+      return;
+    }
+
+    scroller.scrollBy({
+      left: direction === 'left' ? -420 : 420,
+      behavior: 'smooth',
+    });
+  };
+
+  const getStarterPackVisual = (item: ListingItem) => {
+    const shipCandidates = [
+      { id: item.shipId, name: item.shipName },
+      ...(item.packageShips || []).map((packageShip) => ({
+        id: packageShip.shipId,
+        name: packageShip.shipName,
+      })),
+    ];
+    const sourceShips = starterPackShips.length > 0 ? starterPackShips : ships;
+    const ship = shipCandidates.reduce<Ship | null>((matchedShip, candidate) => (
+      matchedShip || findShipByIdOrName(sourceShips, candidate)
+    ), null);
+    const manufacturerName = getShipManufacturerDisplayName(ship);
+    const logoPath = getManufacturerLogoPath(ship?.manufacturer);
+    const imageUrl = getShipSlideshowImage(ship) || getShipThumbLarge(ship) || getMarketImageDisplayUrl(item.imageUrl, {
+      ships: sourceShips,
+      variant: 'slideshow',
+    });
+
+    return {
+      ship,
+      manufacturerName,
+      logoPath,
+      imageUrl: imageUrl || '/imgs/credit.webp',
+    };
+  };
+
+  const renderStarterPackSection = () => (
+    <section className='py-1'>
+      <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300'>
+            <FormattedMessage id="market.starterPack.eyebrow" defaultMessage="New to Star Citizen?" />
+          </div>
+          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+            <FormattedMessage id="market.starterPack.title" defaultMessage="Start with an LTI starter pack" />
+          </Typography>
+          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+            <FormattedMessage
+              id="market.starterPack.description"
+              defaultMessage="Get game access while securing your first LTI ship. We selected LTI ship packs that make a strong starting point for new players."
+            />
+          </Typography>
+        </div>
+
+        <div className='flex shrink-0 items-center gap-2'>
+          <Tooltip title={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}>
+            <IconButton
+              onClick={() => scrollStarterPacks('left')}
+              aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+            >
+              <ChevronLeft className='h-5 w-5' />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}>
+            <IconButton
+              onClick={() => scrollStarterPacks('right')}
+              aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+            >
+              <ChevronRight className='h-5 w-5' />
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="outlined"
+            endIcon={<ArrowRight className='h-4 w-4' />}
+            onClick={openStarterPackListings}
+            sx={{ borderRadius: 0 }}
+          >
+            <FormattedMessage id="market.starterPack.cta" defaultMessage="Browse Starter Packs" />
+          </Button>
+        </div>
+      </div>
+
+      {starterPackLoading && starterPackItems.length === 0 ? (
+        <div className='mt-4 flex min-h-48 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+          <CircularProgress size={22} />
+        </div>
+      ) : starterPackItems.length > 0 ? (
+        <div
+          ref={starterPackScrollerRef}
+          className='mt-5 flex gap-3 overflow-x-auto pb-3 [scrollbar-width:thin]'
+        >
+          {starterPackItems.map((item) => {
+            const visual = getStarterPackVisual(item);
+            const displayName = getMarketItemDisplayName(intl, item, ships);
+            const availableStock = getAvailableStock(item);
+            const isActive = activeStarterPackSkuId === item.skuId;
+
+            return (
+              <div
+                key={item.skuId}
+                onClick={() => handleOpenDetails(item)}
+                onMouseEnter={() => setActiveStarterPackSkuId(item.skuId)}
+                onFocus={() => setActiveStarterPackSkuId(item.skuId)}
+                tabIndex={0}
+                role="button"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleOpenDetails(item);
+                  }
+                }}
+                className={`cursor-pointer relative h-[300px] shrink-0 overflow-hidden bg-neutral-900 text-left text-white outline-none transition-[width,transform] duration-300 ease-out focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
+              >
+                <img
+                  src={visual.imageUrl}
+                  alt=""
+                  loading="lazy"
+                  className='absolute inset-0 h-full w-full object-cover'
+                />
+                <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.16)_42%,rgba(0,0,0,0.82)_100%)]' />
+                <div className='absolute left-0 top-0 p-4'>
+                  {visual.logoPath ? (
+                    <img
+                      src={visual.logoPath}
+                      alt={visual.manufacturerName}
+                      loading="lazy"
+                      className='h-10 w-10 object-contain brightness-0 invert drop-shadow-[0_1px_6px_rgba(0,0,0,0.45)]'
+                    />
+                  ) : (
+                    <span className='flex h-10 w-10 items-center justify-center border border-white/35 bg-black/35 text-xs font-black uppercase text-white'>
+                      {(visual.manufacturerName || displayName).slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+                <div className='absolute inset-x-0 bottom-0 flex min-h-28 flex-col justify-end p-4'>
+                  <div className={`max-w-[360px] text-base font-black leading-tight transition duration-300 sm:text-xl ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}>
+                    {displayName}
+                  </div>
+                  <div className='mt-3 flex items-end justify-between gap-3'>
+                    <div className='text-xl font-black tabular-nums text-white sm:text-2xl'>
+                      {formatUsdPrice(intl.locale, item.price)}
+                    </div>
+                    {availableStock <= 0 && (
+                      <span className='border border-white/25 bg-black/40 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85'>
+                        <FormattedMessage id="market.outOfStock" defaultMessage="Out of stock" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className='mt-4 border border-dashed border-gray-300 p-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
+          <FormattedMessage id="market.starterPack.empty" defaultMessage="Starter packs will appear here when available." />
+        </div>
+      )}
+    </section>
+  );
+
+  const openManufacturerListings = (manufacturerId: number) => {
+    updateMarketSearchParams((nextSearchParams) => {
+      MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
+        nextSearchParams.delete(key);
+      });
+      nextSearchParams.set('manufacturerId', String(manufacturerId));
+    });
+    openListingDrawer();
+  };
+
+  const renderManufacturerBrowseSection = () => (
+    <section className='border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+      <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+            <FormattedMessage id="market.brandBrowse.eyebrow" defaultMessage="Browse by brand" />
+          </div>
+          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+            <FormattedMessage id="market.brandBrowse.title" defaultMessage="Find ships and packs by manufacturer" />
+          </Typography>
+          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+            <FormattedMessage
+              id="market.brandBrowse.description"
+              defaultMessage="Jump straight to listings from the manufacturers you care about, then refine by ships, packages, CCUs, or LTI."
+            />
+          </Typography>
+        </div>
+      </div>
+
+      <div className='mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'>
+        {manufacturerOptions.map((manufacturer) => (
+          <div
+            key={manufacturer.id}
+            onClick={() => openManufacturerListings(manufacturer.id)}
+            className='flex min-h-20 cursor-pointer items-center gap-3 border border-gray-200 bg-white p-3 text-left transition hover:border-blue-400 hover:bg-blue-50 dark:border-gray-800 dark:bg-neutral-950 dark:hover:border-blue-600 dark:hover:bg-neutral-900'
+          >
+            {manufacturer.logoPath ? (
+              <img
+                src={manufacturer.logoPath}
+                alt=""
+                loading="lazy"
+                className='h-9 w-9 shrink-0 object-contain [filter:var(--market-manufacturer-logo-filter,none)]'
+              />
+            ) : (
+              <span className='flex h-9 w-9 shrink-0 items-center justify-center border border-gray-200 text-xs font-black uppercase text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+                {manufacturer.name.slice(0, 2)}
+              </span>
+            )}
+            <span className='min-w-0 flex-1 truncate text-sm font-bold text-slate-950 dark:text-white'>
+              {manufacturer.name}
+            </span>
+            <ArrowRight className='h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300' />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 
   const renderCcuRoutePlanner = () => {
     const routeDataLoading = ccusLoading || marketRouteLoading;
@@ -2316,6 +2588,19 @@ const Market: React.FC = () => {
     if (options?.clearFilters) {
       clearMarketSearchParams({ keepDrawerClosed: true });
     }
+  };
+
+  const openStarterPackListings = () => {
+    updateMarketSearchParams((nextSearchParams) => {
+      MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
+        nextSearchParams.delete(key);
+      });
+      nextSearchParams.set('browseCategory', 'ship_package');
+      nextSearchParams.set('shipTrait', 'lti');
+      nextSearchParams.set('packageItem', STARTER_PACK_GAME_DOWNLOAD_ITEM);
+      nextSearchParams.set('sortBy', 'priceAsc');
+    });
+    openListingDrawer();
   };
 
   const handleHeroAction = (slide: MarketHomeHeroSlide) => {
@@ -2706,6 +2991,14 @@ const Market: React.FC = () => {
       >
         <style>
           {`
+            :root {
+              --market-manufacturer-logo-filter: none;
+            }
+
+            :root.dark {
+              --market-manufacturer-logo-filter: brightness(0) invert(1);
+            }
+
             @keyframes marketHeroCopyIn {
               from {
                 opacity: 0;
@@ -2973,6 +3266,7 @@ const Market: React.FC = () => {
                       nextSearchParams.delete('browseCategory');
                       nextSearchParams.delete('shipTrait');
                       nextSearchParams.delete('manufacturerId');
+                      nextSearchParams.delete('packageItem');
                       nextSearchParams.delete('page');
                       if (entry.value === 'ccu' || entry.value === 'credit') {
                         nextSearchParams.set('itemType', entry.value);
@@ -2992,6 +3286,8 @@ const Market: React.FC = () => {
           </section>
 
           {renderCcuRoutePlanner()}
+
+          {renderStarterPackSection()}
 
           <section className='grid gap-4 md:grid-cols-[minmax(0,1fr)_360px]'>
             <div className='grid gap-4 md:grid-cols-3'>
@@ -3030,6 +3326,8 @@ const Market: React.FC = () => {
             {renderAccountMarketPanel({ compact: true })}
           </section>
 
+          {renderManufacturerBrowseSection()}
+
           <Box
             sx={{
               display: 'flex',
@@ -3057,15 +3355,6 @@ const Market: React.FC = () => {
             </Link>
           </Box>
         </div>
-
-        <CartDrawer
-          open={cartOpen}
-          cart={cart}
-          onClose={closeCart}
-          onRemoveFromCart={removeFromCart}
-          onUpdateQuantity={updateItemQuantity}
-          getAvailableStock={getAvailableStockByResourceId}
-        />
 
         <Drawer
           anchor="right"
@@ -3128,6 +3417,24 @@ const Market: React.FC = () => {
               >
                 <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
               </Button>
+              <Tooltip title={intl.formatMessage({ id: 'market.openCart', defaultMessage: 'Open cart' })}>
+                <IconButton
+                  onClick={openCart}
+                  aria-label={intl.formatMessage({ id: 'market.openCart', defaultMessage: 'Open cart' })}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: 'background.paper',
+                    color: 'text.primary',
+                    borderRadius: 0,
+                    '&:hover': { backgroundColor: 'action.hover' },
+                  }}
+                >
+                  <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                    <ShoppingCart className="h-5 w-5" />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
               <IconButton onClick={() => closeListingDrawer({ clearFilters: true })} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
                 <X className="h-5 w-5" />
               </IconButton>
@@ -3147,6 +3454,15 @@ const Market: React.FC = () => {
             </Box>
           </Box>
         </Drawer>
+
+        <CartDrawer
+          open={cartOpen}
+          cart={cart}
+          onClose={closeCart}
+          onRemoveFromCart={removeFromCart}
+          onUpdateQuantity={updateItemQuantity}
+          getAvailableStock={getAvailableStockByResourceId}
+        />
 
         <ExtensionModal
           open={plannerExtensionModalOpen}

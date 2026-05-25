@@ -18,6 +18,7 @@ export interface UseMarketDataParams {
   groupCcus?: boolean;
   itemTypes?: MarketItemType[];
   packageKinds?: MarketPackageKind[];
+  packageItems?: string[];
   browseCategories?: MarketBrowseCategory[];
   tags?: string[];
   shipTraits?: MarketShipTraitFilter[];
@@ -49,6 +50,13 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
 
   (params.packageKinds || []).forEach((packageKind) => {
     searchParams.append('packageKind', packageKind);
+  });
+
+  (params.packageItems || []).forEach((packageItem) => {
+    const trimmed = packageItem.trim();
+    if (trimmed) {
+      searchParams.append('packageItem', trimmed);
+    }
   });
 
   (params.browseCategories || []).forEach((browseCategory) => {
@@ -88,6 +96,7 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
 export default function useMarketData(params: UseMarketDataParams = {}) {
   const itemTypesKey = (params.itemTypes || []).join(',');
   const packageKindsKey = (params.packageKinds || []).join(',');
+  const packageItemsKey = (params.packageItems || []).join(',');
   const browseCategoriesKey = (params.browseCategories || []).join(',');
   const tagsKey = (params.tags || []).join(',');
   const shipTraitsKey = (params.shipTraits || []).join(',');
@@ -96,6 +105,7 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     browseCategoriesKey,
     itemTypesKey,
     packageKindsKey,
+    packageItemsKey,
     manufacturerIdsKey,
     params.inStockOnly,
     params.groupCcus,
