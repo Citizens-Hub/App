@@ -2251,7 +2251,7 @@ const Market: React.FC = () => {
                     handleOpenDetails(item);
                   }
                 }}
-                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none [will-change:transform] focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
+                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none [will-change:transform] focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[200px] sm:w-[220px]'}`}
               >
                 <img
                   src={visual.imageUrl}
