@@ -491,6 +491,32 @@ function getMarketHeroTranslation(
   };
 }
 
+function renderMarketHeroMedia(slide: MarketHomeHeroSlide, eager = false) {
+  if (slide.mediaType === 'video') {
+    return (
+      <video
+        className='absolute inset-0 h-full w-full object-cover'
+        src={slide.mediaUrl}
+        poster={slide.posterUrl || undefined}
+        muted
+        autoPlay
+        loop
+        playsInline
+      />
+    );
+  }
+
+  return (
+    <img
+      className='absolute inset-0 h-full w-full object-cover'
+      src={slide.mediaUrl}
+      alt=""
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+    />
+  );
+}
+
 function formatCouponCountdown(remainingMs: number) {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -1130,7 +1156,8 @@ const Market: React.FC = () => {
 
     return configuredSlides.length > 0 ? configuredSlides : DEFAULT_MARKET_HERO_SLIDES;
   }, [marketHomeSettingsResponse]);
-  const activeHeroSlide = heroSlides[Math.min(activeHeroIndex, Math.max(heroSlides.length - 1, 0))] || heroSlides[0];
+  const activeHeroSlideIndex = Math.min(activeHeroIndex, Math.max(heroSlides.length - 1, 0));
+  const activeHeroSlide = heroSlides[activeHeroSlideIndex] || heroSlides[0];
   const activeHeroTranslation = activeHeroSlide
     ? getMarketHeroTranslation(activeHeroSlide, locale as MarketHomeLocaleCode)
     : getMarketHeroTranslation(DEFAULT_MARKET_HERO_SLIDES[0], locale as MarketHomeLocaleCode);
@@ -2180,31 +2207,6 @@ const Market: React.FC = () => {
     openListingDrawer();
   };
 
-  const renderHeroMedia = (slide: MarketHomeHeroSlide, eager = false) => {
-    if (slide.mediaType === 'video') {
-      return (
-        <video
-          className='absolute inset-0 h-full w-full object-cover'
-          src={slide.mediaUrl}
-          poster={slide.posterUrl || undefined}
-          muted
-          autoPlay
-          loop
-          playsInline
-        />
-      );
-    }
-
-    return (
-      <img
-        className='absolute inset-0 h-full w-full object-cover'
-        src={slide.mediaUrl}
-        alt=""
-        loading={eager ? 'eager' : 'lazy'}
-      />
-    );
-  };
-
   const renderListingControls = () => (
     <Box
       sx={{
@@ -2582,6 +2584,20 @@ const Market: React.FC = () => {
         ref={pageContainerRef}
         className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-slate-50 text-left text-slate-950 dark:bg-neutral-950 dark:text-white'
       >
+        <style>
+          {`
+            @keyframes marketHeroCopyIn {
+              from {
+                opacity: 0;
+                transform: translateY(10px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}
+        </style>
         {showAlert && (
           <Alert
             severity="warning"
@@ -2663,7 +2679,12 @@ const Market: React.FC = () => {
             onFocus={() => setHeroAutoplayPaused(true)}
             onBlur={handleHeroBlur}
           >
-            {activeHeroSlide ? renderHeroMedia(activeHeroSlide, true) : null}
+            <div
+              key={activeHeroSlide ? `${activeHeroSlide.id || activeHeroSlideIndex}:${activeHeroSlide.mediaType}:${activeHeroSlide.mediaUrl}` : 'empty-hero-media'}
+              className='absolute inset-0 bg-slate-900'
+            >
+              {activeHeroSlide ? renderMarketHeroMedia(activeHeroSlide, true) : null}
+            </div>
             <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.48)_0%,rgba(15,23,42,0.22)_42%,rgba(15,23,42,0.08)_72%,rgba(15,23,42,0.02)_100%)]' />
             <div className='absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/70 via-slate-950/36 to-transparent' />
 
@@ -2704,7 +2725,10 @@ const Market: React.FC = () => {
               </>
             )}
 
-            <div className='relative z-10 flex min-h-[440px] max-w-3xl flex-col justify-end px-6 py-8 md:min-h-[560px] md:px-14 md:py-14'>
+            <div
+              key={activeHeroSlide?.id || activeHeroSlideIndex}
+              className='relative z-10 flex min-h-[440px] max-w-3xl animate-[marketHeroCopyIn_360ms_ease-out] flex-col justify-end px-6 py-8 md:min-h-[560px] md:px-14 md:py-14 motion-reduce:animate-none'
+            >
               <div className='text-xs font-semibold uppercase tracking-[0.18em] text-blue-200'>
                 {activeHeroTranslation.eyebrow}
               </div>
