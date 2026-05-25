@@ -42,6 +42,8 @@ interface HistoricalUpgradePricingOption {
   validityWindows: CcuValidityWindow[];
 }
 
+type CcuSku = Ccu['skus'][number];
+
 interface PathLayoutOptions {
   startPosition?: { x: number; y: number };
   levelSpacing?: number;
@@ -2081,6 +2083,58 @@ export class PathBuilderService {
     return Boolean(ship.skus?.some(sku => sku.available && sku.price === ship.msrp));
   }
 
+  private _getCurrentAvailableWbSkus(ship: Ship, ccus: Ccu[]): CcuSku[] {
+    const ccuTarget = ccus.find(entry => entry.id === ship.id);
+    return (ccuTarget?.skus || []).filter(sku =>
+      sku.available &&
+      sku.price > 0 &&
+      sku.price < ship.msrp
+    );
+  }
+
+  private _hasCurrentAvailableWbSkuForHistoricalWindows(params: {
+    targetShip: Ship;
+    targetPriceCents: number;
+    validityWindows?: CcuValidityWindow[];
+    ccus: Ccu[];
+  }): boolean {
+    const { targetShip, targetPriceCents, validityWindows, ccus } = params;
+    const matchingCurrentSkus = this._getCurrentAvailableWbSkus(targetShip, ccus)
+      .filter(sku => sku.price === targetPriceCents);
+
+    if (!matchingCurrentSkus.length) {
+      return false;
+    }
+
+    if (!validityWindows?.length) {
+      return true;
+    }
+
+    const matchingCurrentSkuIds = new Set(matchingCurrentSkus.map(sku => sku.id));
+    return validityWindows.some(window => matchingCurrentSkuIds.has(window.sku));
+  }
+
+  private _shouldTreatHistoricalWbOptionAsCurrentAvailableWb(params: {
+    sourceShip: Ship;
+    targetShip: Ship;
+    targetPriceCents: number;
+    sourcePriceCents: number;
+    validityWindows?: CcuValidityWindow[];
+    ccus: Ccu[];
+  }): boolean {
+    const { sourceShip, targetShip, targetPriceCents, sourcePriceCents, validityWindows, ccus } = params;
+    if (Math.abs(sourcePriceCents - sourceShip.msrp) > 0.5) {
+      return false;
+    }
+
+    return this._hasCurrentAvailableWbSkuForHistoricalWindows({
+      targetShip,
+      targetPriceCents,
+      validityWindows,
+      ccus
+    });
+  }
+
   private _getShipPrice(
     ship: Ship,
     ccus: Ccu[],
@@ -2094,7 +2148,7 @@ export class PathBuilderService {
     }
 
     if (this._isWbVariantName(ship.name)) {
-      return ccus.find(c => c.id === ship.id)?.skus.find(sku => sku.price !== ship.msrp && sku.available)?.price || ship.msrp;
+      return this._getCurrentAvailableWbSkus(ship, ccus)[0]?.price || ship.msrp;
     }
 
     if (this._isPriceIncreaseVariantName(ship.name)) {
@@ -2245,10 +2299,24 @@ export class PathBuilderService {
             return [];
           }
 
+          const sourceType = (
+            specialPricing.sourceType === CcuSourceType.HISTORICAL &&
+            this._shouldTreatHistoricalWbOptionAsCurrentAvailableWb({
+              sourceShip: sourceShipNode.data.ship,
+              targetShip: targetShipNode.data.ship,
+              targetPriceCents: specialPricing.priceCents,
+              sourcePriceCents: pricingOption.sourcePriceCents,
+              validityWindows: pricingOption.validityWindows,
+              ccus
+            })
+          )
+            ? CcuSourceType.AVAILABLE_WB
+            : specialPricing.sourceType;
+
           return [{
             ...edgeData,
-            validityWindows: pricingOption.validityWindows,
-            sourceType: specialPricing.sourceType,
+            validityWindows: sourceType === CcuSourceType.AVAILABLE_WB ? undefined : pricingOption.validityWindows,
+            sourceType,
             customPrice: Math.max(0, actualPrice)
           }];
         });
@@ -2259,11 +2327,27 @@ export class PathBuilderService {
         return [];
       }
 
+      const sourceType = (
+        specialPricing.sourceType === CcuSourceType.HISTORICAL &&
+        this._shouldTreatHistoricalWbOptionAsCurrentAvailableWb({
+          sourceShip: sourceShipNode.data.ship,
+          targetShip: targetShipNode.data.ship,
+          targetPriceCents: specialPricing.priceCents,
+          sourcePriceCents: sourceShipNode.data.ship.msrp,
+          validityWindows: specialPricing.validityWindows,
+          ccus
+        })
+      )
+        ? CcuSourceType.AVAILABLE_WB
+        : specialPricing.sourceType;
+
       return [{
         ...edgeData,
-        sourceType: specialPricing.sourceType,
+        sourceType,
         customPrice: Math.max(0, actualPrice),
-        validityWindows: specialPricing.validityWindows?.length ? specialPricing.validityWindows : undefined
+        validityWindows: sourceType === CcuSourceType.AVAILABLE_WB
+          ? undefined
+          : (specialPricing.validityWindows?.length ? specialPricing.validityWindows : undefined)
       }];
     }
 
@@ -2289,8 +2373,7 @@ export class PathBuilderService {
     }
 
     if (targetShipNameInPath && this._isWbVariantName(targetShipNameInPath)) {
-      const wbPrice = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus.find(sku =>
-        sku.price !== targetShipNode.data.ship.msrp && sku.available)?.price || targetShipNode.data.ship.msrp;
+      const wbPrice = this._getCurrentAvailableWbSkus(targetShipNode.data.ship, ccus)[0]?.price || targetShipNode.data.ship.msrp;
 
       if (wbPrice && wbPrice !== targetShipNode.data.ship.msrp) {
         const actualPrice = wbPrice / 100 - sourceShipNode.data.ship.msrp / 100;
@@ -2304,7 +2387,11 @@ export class PathBuilderService {
     }
 
     const targetShipSkus = ccus.find(c => c.id === targetShipNode.data.ship.id)?.skus;
-    const targetWb = targetShipSkus?.find(sku => sku.price !== targetShipNode.data.ship.msrp && sku.available);
+    const targetWb = targetShipSkus?.find(sku =>
+      sku.available &&
+      sku.price > sourceShipNode.data.ship.msrp &&
+      sku.price < targetShipNode.data.ship.msrp
+    );
 
     if (targetWb && sourceShipNode.data.ship.msrp < targetWb.price) {
       const actualPrice = targetWb.price / 100 - sourceShipNode.data.ship.msrp / 100;

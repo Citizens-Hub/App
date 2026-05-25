@@ -271,7 +271,7 @@ function ShipSelector({
                       {hasAvailableWb ? (
                         <div className="text-xs text-white bg-orange-400 rounded-sm px-1">WB</div>
                       ) : hasHistoricalWb ? (
-                        <div className="text-xs text-white bg-orange-300 rounded-sm px-1">WB</div>
+                        <div className="text-xs text-white bg-slate-500 rounded-sm px-1">WB</div>
                       ) : null}
                       {ship.flyableStatus !== 'Flyable' && <div className="text-xs text-white bg-sky-400 dark:bg-sky-600 rounded-sm px-1">{localizeShipStatus(locale, ship)}</div>}
                       <h3 className="font-medium">{ship.localizedName || ship.name}</h3>
