@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -649,6 +649,7 @@ const Market: React.FC = () => {
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollFrameRef = useRef<number | null>(null);
+  const starterPackRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
@@ -928,6 +929,50 @@ const Market: React.FC = () => {
         : starterPackItems[0].skuId
     ));
   }, [starterPackItems]);
+
+  useLayoutEffect(() => {
+    const previousRects = starterPackRectsRef.current;
+    const scroller = starterPackScrollerRef.current;
+    if (!scroller) {
+      starterPackRectsRef.current = new Map();
+      return;
+    }
+
+    const cards = Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'));
+    const nextRects = new Map<string, DOMRect>();
+
+    cards.forEach((card) => {
+      const skuId = card.dataset.starterPackSkuId;
+      if (!skuId) {
+        return;
+      }
+
+      const nextRect = card.getBoundingClientRect();
+      nextRects.set(skuId, nextRect);
+
+      const previousRect = previousRects.get(skuId);
+      if (!previousRect) {
+        return;
+      }
+
+      const deltaX = previousRect.left - nextRect.left;
+      const scaleX = nextRect.width > 0 ? previousRect.width / nextRect.width : 1;
+      if (Math.abs(deltaX) < 0.5 && Math.abs(scaleX - 1) < 0.002) {
+        return;
+      }
+
+      card.style.transformOrigin = 'left center';
+      card.style.transform = `translateX(${deltaX}px) scaleX(${scaleX})`;
+      card.style.transition = 'transform 0s';
+
+      window.requestAnimationFrame(() => {
+        card.style.transition = 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+        card.style.transform = '';
+      });
+    });
+
+    starterPackRectsRef.current = nextRects;
+  }, [activeStarterPackSkuId, starterPackItems]);
 
   const ccus = useMemo(() => ccusData?.data?.to?.ships || [], [ccusData]);
   const plannerHangarStartShipIds = useMemo(() => {
@@ -2021,6 +2066,31 @@ const Market: React.FC = () => {
     });
   };
 
+  const captureStarterPackRects = () => {
+    const scroller = starterPackScrollerRef.current;
+    if (!scroller) {
+      starterPackRectsRef.current = new Map();
+      return;
+    }
+
+    starterPackRectsRef.current = new Map(
+      Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'))
+        .flatMap((card) => {
+          const skuId = card.dataset.starterPackSkuId;
+          return skuId ? [[skuId, card.getBoundingClientRect()] as const] : [];
+        }),
+    );
+  };
+
+  const setActiveStarterPack = (skuId: string) => {
+    if (activeStarterPackSkuId === skuId) {
+      return;
+    }
+
+    captureStarterPackRects();
+    setActiveStarterPackSkuId(skuId);
+  };
+
   const syncActiveStarterPackFromScroll = () => {
     const scroller = starterPackScrollerRef.current;
     if (!scroller) {
@@ -2046,7 +2116,7 @@ const Market: React.FC = () => {
     const nextSkuId = closestCard.card.dataset.starterPackSkuId || null;
 
     if (nextSkuId) {
-      setActiveStarterPackSkuId((currentSkuId) => currentSkuId === nextSkuId ? currentSkuId : nextSkuId);
+      setActiveStarterPack(nextSkuId);
     }
   };
 
@@ -2165,12 +2235,12 @@ const Market: React.FC = () => {
                 onClick={() => handleOpenDetails(item)}
                 onMouseEnter={() => {
                   if (!isActive) {
-                    setActiveStarterPackSkuId(item.skuId);
+                    setActiveStarterPack(item.skuId);
                   }
                 }}
                 onFocus={() => {
                   if (!isActive) {
-                    setActiveStarterPackSkuId(item.skuId);
+                    setActiveStarterPack(item.skuId);
                   }
                 }}
                 tabIndex={0}
@@ -2181,7 +2251,7 @@ const Market: React.FC = () => {
                     handleOpenDetails(item);
                   }
                 }}
-                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
+                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none [will-change:transform] focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[152px] sm:w-[180px]'}`}
               >
                 <img
                   src={visual.imageUrl}
