@@ -52,6 +52,7 @@ import {
   CcuSourceType,
   HangarItem,
   LowestMarketCcuResponse,
+  MarketCartItem,
   MarketListResponse,
   Ship,
 } from '@/types';
@@ -142,6 +143,15 @@ interface LtiShipsResponse {
     updatedAt?: string;
     ships?: LtiShipEntry[];
   } | null;
+}
+
+interface PlannerRoutePurchaseItems {
+  checkoutItems: MarketCartItem[];
+  cartItems: Array<{
+    resource: Resource;
+    quantity: number;
+    availableStock: number;
+  }>;
 }
 
 const MARKET_DEFAULT_ROWS_PER_PAGE = 15;
@@ -1381,7 +1391,18 @@ const Market: React.FC = () => {
     return true;
   };
 
-  const handlePlanRouteCheckout = () => {
+  const validatePlannerCartStock = (items: PlannerRoutePurchaseItems['cartItems']) => {
+    for (const item of items) {
+      const existingQuantity = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.resource.id)?.quantity || 0;
+      if (existingQuantity + item.quantity > item.availableStock) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const buildPlannerRoutePurchaseItems = (): PlannerRoutePurchaseItems | null => {
     if (!plannerRoute || !plannerStartShip || !plannerTargetShip) {
       setSnackbarMessage(intl.formatMessage({
         id: 'market.ccuPlanner.selectShipsFirst',
@@ -1389,7 +1410,7 @@ const Market: React.FC = () => {
       }));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
-      return;
+      return null;
     }
 
     if (!validateMarketRouteListingStock(plannerRouteMarketEdges)) {
@@ -1399,11 +1420,38 @@ const Market: React.FC = () => {
       }));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
-      return;
+      return null;
     }
 
-    const directCheckoutItems = plannerRouteMarketEdges
+    const checkoutItems = plannerRouteMarketEdges
       .flatMap((edge) => edge.listing ? [buildMarketCartItem(edge.listing, 1, ships)] : []);
+    const cartItemMap = new Map<string, {
+      resource: Resource;
+      quantity: number;
+      availableStock: number;
+    }>();
+    const addCartListing = (listing: ListingItem, quantity = 1) => {
+      const resource = buildMarketResource(listing, ships);
+      const availableStock = listing.itemType === 'credit' ? Number.MAX_SAFE_INTEGER : getAvailableStock(listing);
+      const existingItem = cartItemMap.get(resource.id);
+      if (existingItem) {
+        existingItem.quantity += quantity;
+        existingItem.availableStock = Math.min(existingItem.availableStock, availableStock);
+        return;
+      }
+
+      cartItemMap.set(resource.id, {
+        resource,
+        quantity,
+        availableStock,
+      });
+    };
+
+    plannerRouteMarketEdges.forEach((edge) => {
+      if (edge.listing) {
+        addCartListing(edge.listing);
+      }
+    });
 
     if (plannerOfficialStoreCreditSpend > 0) {
       if (plannerCreditLoading) {
@@ -1413,7 +1461,7 @@ const Market: React.FC = () => {
         }));
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
-        return;
+        return null;
       }
 
       if (!plannerSelectedCreditOptions?.length || !plannerCreditListing) {
@@ -1428,22 +1476,71 @@ const Market: React.FC = () => {
           ));
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
-        return;
+        return null;
       }
 
       plannerSelectedCreditOptions.forEach((option) => {
         const creditListing = buildSelectedCreditListing(plannerCreditListing, option);
-        directCheckoutItems.push(buildMarketCartItem({
+        const namedCreditListing = {
           ...creditListing,
           name: formatMarketCreditResourceName(intl, option.amount),
-        }, 1, ships));
+        };
+        checkoutItems.push(buildMarketCartItem(namedCreditListing, 1, ships));
+        addCartListing(namedCreditListing);
       });
     }
 
-    if (directCheckoutItems.length === 0) {
+    if (checkoutItems.length === 0) {
       setSnackbarMessage(intl.formatMessage({
         id: 'market.ccuPlanner.noPurchasableItems',
         defaultMessage: 'This route has no market items to checkout.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return null;
+    }
+
+    return {
+      checkoutItems,
+      cartItems: Array.from(cartItemMap.values()),
+    };
+  };
+
+  const handlePlanRouteCheckout = () => {
+    const purchaseItems = buildPlannerRoutePurchaseItems();
+    if (!purchaseItems || !plannerRoute) {
+      return;
+    }
+
+    if (!saveMarketRouteToPlannerWorkspace(plannerRoute, intl.locale)) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.ccuPlanner.routeSaveFailed',
+        defaultMessage: 'Could not add this route to CCU Planner. Please try again.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    saveDirectCheckoutItems(purchaseItems.checkoutItems);
+    navigate(getDirectCheckoutPath(), {
+      state: {
+        directCheckoutItems: purchaseItems.checkoutItems,
+        ships,
+      },
+    });
+  };
+
+  const handlePlanRouteAddToCart = () => {
+    const purchaseItems = buildPlannerRoutePurchaseItems();
+    if (!purchaseItems || !plannerRoute) {
+      return;
+    }
+
+    if (!validatePlannerCartStock(purchaseItems.cartItems)) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'cart.stockLimit',
+        defaultMessage: 'Cannot add more than available stock',
       }));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
@@ -1460,13 +1557,25 @@ const Market: React.FC = () => {
       return;
     }
 
-    saveDirectCheckoutItems(directCheckoutItems);
-    navigate(getDirectCheckoutPath(), {
-      state: {
-        directCheckoutItems,
-        ships,
-      },
+    purchaseItems.cartItems.forEach((item) => {
+      const existingQuantity = cart.find((cartItem: CartItemType) => cartItem.resource.id === item.resource.id)?.quantity || 0;
+      if (existingQuantity > 0) {
+        updateItemQuantity(item.resource.id, existingQuantity + item.quantity);
+      } else {
+        addToCart(item.resource);
+        if (item.quantity > 1) {
+          updateItemQuantity(item.resource.id, item.quantity);
+        }
+      }
     });
+
+    setSnackbarMessage(intl.formatMessage({
+      id: 'market.ccuPlanner.addedToCart',
+      defaultMessage: 'Route items added to cart',
+    }));
+    setSnackbarSeverity('success');
+    setSnackbarOpen(true);
+    openCart();
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
@@ -1888,14 +1997,25 @@ const Market: React.FC = () => {
             </Typography>
           </div>
 
-          <Button
-            variant="contained"
-            disabled={!canCheckout}
-            onClick={handlePlanRouteCheckout}
-            sx={{ borderRadius: 0, minHeight: 42, flexShrink: 0 }}
-          >
-            <FormattedMessage id="market.ccuPlanner.checkout" defaultMessage="Add route to CCU Planner and checkout" />
-          </Button>
+          <div className='flex shrink-0 flex-wrap items-center gap-2'>
+            <Button
+              variant="outlined"
+              disabled={!canCheckout}
+              onClick={handlePlanRouteAddToCart}
+              startIcon={<ShoppingCart className="h-4 w-4" />}
+              sx={{ borderRadius: 0, minHeight: 42 }}
+            >
+              <FormattedMessage id="market.ccuPlanner.addToCart" defaultMessage="Add route to cart" />
+            </Button>
+            <Button
+              variant="contained"
+              disabled={!canCheckout}
+              onClick={handlePlanRouteCheckout}
+              sx={{ borderRadius: 0, minHeight: 42 }}
+            >
+              <FormattedMessage id="market.ccuPlanner.checkout" defaultMessage="Add route to CCU Planner and checkout" />
+            </Button>
+          </div>
         </div>
 
         <Box

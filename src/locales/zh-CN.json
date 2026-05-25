@@ -1773,6 +1773,8 @@
   "market.backToMarket": "返回市场",
   "market.betaNotice": "此页面是一个测试部署且订单运行在测试环境， 所有上架内容均为测试物品，请勿进行下单",
   "market.ccu.resourceName": "升级 - {fromShipName} 到 {toShipName}",
+  "market.ccuPlanner.addedToCart": "路线商品已加入购物车",
+  "market.ccuPlanner.addToCart": "将路线加入购物车",
   "market.ccuPlanner.checkout": "将路线加入 CCU Planner 并下单",
   "market.ccuPlanner.description": "使用我们的ccu规划器，节约金钱并立即升级到你的目标飞船",
   "market.ccuPlanner.empty": "选择两艘舰船后生成可下单的 CCU 链。",

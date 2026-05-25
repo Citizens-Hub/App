@@ -1773,6 +1773,8 @@
   "market.backToMarket": "マーケットに戻る",
   "market.betaNotice": "このページはテスト環境向けのデプロイで、注文もテスト環境で処理されます。掲載中の商品はすべてテスト用のため、注文しないでください。",
   "market.ccu.resourceName": "アップグレード - {fromShipName} から {toShipName}",
+  "market.ccuPlanner.addedToCart": "ルート商品をカートに追加しました",
+  "market.ccuPlanner.addToCart": "ルートをカートに追加",
   "market.ccuPlanner.checkout": "ルートを CCU Planner に追加してチェックアウト",
   "market.ccuPlanner.description": "CCU プランナーで費用を節約し、目標艦船へすぐにアップグレードできます。",
   "market.ccuPlanner.empty": "2つの艦船を選択すると、チェックアウト可能な CCU チェーンを生成します。",

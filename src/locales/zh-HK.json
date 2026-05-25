@@ -1773,6 +1773,8 @@
   "market.backToMarket": "返回市場",
   "market.betaNotice": "此頁面為測試部署，訂單運作於測試環境，所有上架內容皆為測試物品，請勿下訂",
   "market.ccu.resourceName": "升級 - {fromShipName} 到 {toShipName}",
+  "market.ccuPlanner.addedToCart": "路線商品已加入購物車",
+  "market.ccuPlanner.addToCart": "將路線加入購物車",
   "market.ccuPlanner.checkout": "將路線加入 CCU Planner 並下單",
   "market.ccuPlanner.description": "使用我們的 CCU 規劃器，節省金錢並立即升級到你的目標飛船",
   "market.ccuPlanner.empty": "選擇兩艘艦船後生成可下單的 CCU 鏈。",

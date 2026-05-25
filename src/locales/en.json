@@ -1773,6 +1773,8 @@
   "market.backToMarket": "Back to market",
   "market.betaNotice": "This page is a test deployment and orders run in a test environment. All listed items are test items. Please do not place an order.",
   "market.ccu.resourceName": "Upgrade - {fromShipName} to {toShipName}",
+  "market.ccuPlanner.addedToCart": "Route items added to cart",
+  "market.ccuPlanner.addToCart": "Add route to cart",
   "market.ccuPlanner.checkout": "Add route to CCU Planner and checkout",
   "market.ccuPlanner.description": "Use our CCU planner to save money and upgrade to your target ship now.",
   "market.ccuPlanner.empty": "Select two ships to generate a checkout-ready CCU chain.",

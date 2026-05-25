@@ -1773,6 +1773,8 @@
   "market.backToMarket": "Zurück zum Marktplatz",
   "market.betaNotice": "Diese Seite ist eine Testbereitstellung, und Bestellungen laufen in einer Testumgebung. Alle gelisteten Artikel sind Testartikel. Bitte geben Sie keine Bestellung auf.",
   "market.ccu.resourceName": "Upgrade - {fromShipName} zu {toShipName}",
+  "market.ccuPlanner.addedToCart": "Routenartikel wurden zum Warenkorb hinzugefügt",
+  "market.ccuPlanner.addToCart": "Route in den Warenkorb",
   "market.ccuPlanner.checkout": "Route zum CCU Planner hinzufügen und kaufen",
   "market.ccuPlanner.description": "Nutze unseren CCU-Planer, spare Geld und upgrade sofort auf dein Zielschiff.",
   "market.ccuPlanner.empty": "Wähle zwei Schiffe, um eine kaufbereite CCU-Kette zu erstellen.",

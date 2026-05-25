@@ -58,6 +58,7 @@ import {
   clearDirectCheckoutItems,
   DIRECT_CHECKOUT_SEARCH_PARAM,
   readDirectCheckoutItems,
+  saveDirectCheckoutItems,
 } from '@/utils/directCheckout';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
@@ -561,6 +562,47 @@ export default function Checkout() {
     setAgreementChecked(event.target.checked);
   };
 
+  const handleRemoveCheckoutItem = (skuId: string, itemIndex: number) => {
+    if (pendingOrder || loading) {
+      return;
+    }
+
+    const nextCart = isDirectCheckout
+      ? cart.filter((_, index) => index !== itemIndex)
+      : cart.filter((item) => item.skuId !== skuId);
+
+    clearPendingCheckoutRequest(user?.id);
+    setError(null);
+    setCart(nextCart);
+
+    if (accountCouponValidation) {
+      setAccountCouponValidation(null);
+      setAccountCouponError(null);
+    }
+
+    if (isDirectCheckout) {
+      if (nextCart.length > 0) {
+        saveDirectCheckoutItems(nextCart);
+      } else {
+        clearDirectCheckoutItems();
+      }
+
+      navigate(`${location.pathname}${location.search}`, {
+        replace: true,
+        state: {
+          ...(locationState || {}),
+          directCheckoutItems: nextCart,
+          ships: stateShips,
+        },
+      });
+      return;
+    }
+
+    if (!isAccountMarketCheckout) {
+      removeFromCart(skuId);
+    }
+  };
+
   // 处理订单确认
   const handleConfirmOrder = () => {
     handleOpenConfirmDialog();
@@ -850,13 +892,14 @@ export default function Checkout() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cart.map((item) => {
+                  {cart.map((item, itemIndex) => {
                     const isCCU = item.itemType === 'ccu';
                     const isPackage = item.itemType === 'package';
                     const validation = !pendingOrder && !isAccountMarketCart
                       ? cartValidation.itemMap.get(item.skuId)
                       : undefined;
                     const isInvalid = validation?.valid === false;
+                    const canRemoveItem = !pendingOrder && (isDirectCheckout || isInvalid);
                     const media = getItemMedia(item);
                     const localizedShipNames = getLocalizedItemShipNames(item);
                     const name = getItemName(item, localizedShipNames);
@@ -867,7 +910,7 @@ export default function Checkout() {
                     
                     return (
                       <TableRow
-                        key={item.skuId}
+                        key={`${item.skuId}:${itemIndex}`}
                         sx={{
                           '&:last-child td, &:last-child th': { border: 0 },
                           opacity: isInvalid ? 0.62 : 1,
@@ -1011,12 +1054,13 @@ export default function Checkout() {
                                 {formatCheckoutPrice(item.discounted + price)}
                               </span>
                             )}
-                            {isInvalid && !pendingOrder && (
+                            {canRemoveItem && (
                               <Button
                                 size="small"
                                 variant="outlined"
-                                color="warning"
-                                onClick={() => removeFromCart(item.skuId)}
+                                color={isInvalid ? 'warning' : 'error'}
+                                disabled={loading}
+                                onClick={() => handleRemoveCheckoutItem(item.skuId, itemIndex)}
                               >
                                 <FormattedMessage id="checkout.removeUnavailableItem" defaultMessage="Remove" />
                               </Button>
