@@ -48,7 +48,7 @@ import {
 } from '@/pages/Market/marketI18n';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import OrderPaymentDeadline from '@/components/OrderPaymentDeadline';
-import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
+// import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 import { getAccountMarketListPath } from '@/utils/marketLinks';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
@@ -1087,7 +1087,7 @@ export default function Checkout() {
               <FormattedMessage id="checkout.summary" defaultMessage="Summary" />
             </Typography>
 
-            <PaymentMethodMessaging amount={totalPrice} />
+            {/* <PaymentMethodMessaging amount={totalPrice} /> */}
 
             {/* {excludedCartItems.length > 0 && (
               <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>

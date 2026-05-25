@@ -72,7 +72,7 @@ import { getMarketImageDisplayUrl } from '@/utils/marketImages';
 import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage, getShipThumbLarge } from '@/utils/shipImage';
 import { getAbsoluteAssetUrl, getMarketDetailUrl } from '@/utils/marketLinks';
 import MarketImageBadge from './components/MarketImageBadge';
-import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
+// import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -1336,7 +1336,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         </TextField>
       )}
 
-      <PaymentMethodMessaging amount={displayPrice} />
+      {/* <PaymentMethodMessaging amount={displayPrice} /> */}
 
       {isPrivateOfferOnlyListing ? (
         <Alert severity="info" sx={{ mb: 3 }}>
