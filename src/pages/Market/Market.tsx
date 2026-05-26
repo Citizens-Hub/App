@@ -2761,7 +2761,7 @@ const Market: React.FC = () => {
             <FormattedMessage id="market.roleBrowse.eyebrow" defaultMessage="Browse by role" />
           </div>
           <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
-            <FormattedMessage id="market.roleBrowse.title" defaultMessage="Find ships and packs by ship role" />
+            <FormattedMessage id="market.roleBrowse.title" defaultMessage="Get Into A New Profession" />
           </Typography>
           {/* <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
             <FormattedMessage

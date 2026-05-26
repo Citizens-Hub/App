@@ -1778,7 +1778,7 @@
   "market.roleBrowse.description": "選擇戰鬥、貨運、採礦、醫療、探索、旅行等艦船定位，快速瀏覽對應商品。",
   "market.roleBrowse.eyebrow": "按定位 / 職能瀏覽",
   "market.roleBrowse.shipCount": "{count} 艘艦船",
-  "market.roleBrowse.title": "按艦船定位 / 職能查找艦船與船包",
+  "market.roleBrowse.title": "Get Into A New Profession",
   "market.reviews.eyebrow": "用戶評價",
   "market.reviews.morePurchasedItems": "另有 {count} 件",
   "market.reviews.noRsiAccount": "未綁定 RSI 帳號",
