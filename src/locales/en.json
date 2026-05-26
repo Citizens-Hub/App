@@ -1486,6 +1486,8 @@
   "extensionModal.step6": "After installation, refresh this page to use the extension",
   "extensionModal.title": "Install Extension Instructions",
   "extensionModal.understood": "Got it",
+  "floatingDiscord.join": "Join Discord",
+  "floatingDiscord.tooltip": "Join our Discord server",
   "fleetview.card.insurance": "Insurance",
   "fleetview.card.msrp": "MSRP",
   "fleetview.card.openViewer": "Open Fleet 3D View",

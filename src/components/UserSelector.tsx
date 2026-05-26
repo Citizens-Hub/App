@@ -30,6 +30,11 @@ export default function UserSelector({
   const selectableUsers = users.filter((user) => !user.isAnonymous);
   const selectedUserEntry = users.find((user) => user.id === selectedUser);
   const isEmbedded = variant === 'embedded';
+  const hasActiveSelection = selectedUser !== -1;
+  const clearSelectionLabel = intl.formatMessage({
+    id: 'userSelector.clearSelection',
+    defaultMessage: 'Clear user selection',
+  });
 
   if (selectableUsers.length === 0 && !preserveSpace) {
     return null;
@@ -37,6 +42,10 @@ export default function UserSelector({
 
   const handleUserSelect = (userId: number) => {
     dispatch(setSelectedUser(userId));
+  };
+
+  const handleClearSelection = () => {
+    dispatch(setSelectedUser(-1));
   };
 
   return (
@@ -128,9 +137,39 @@ export default function UserSelector({
                 </Tooltip>
               );
             })}
+            {!showActiveUser && hasActiveSelection && (
+              <Tooltip title={clearSelectionLabel} arrow>
+                <IconButton
+                  size="small"
+                  onClick={handleClearSelection}
+                  aria-label={clearSelectionLabel}
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: '999px',
+                    color: 'text.secondary',
+                    bgcolor: 'background.paper',
+                    transition: 'color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease',
+                    '&:hover': {
+                      color: '#2563eb',
+                      borderColor: '#2563eb',
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                    },
+                    '&:focus-visible': {
+                      outline: '2px solid #2563eb',
+                      outlineOffset: 2,
+                    },
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Stack>
 
-          {showActiveUser && selectedUser !== -1 && selectedUserEntry && (
+          {showActiveUser && hasActiveSelection && selectedUserEntry && (
             <Box
               sx={{
                 display: 'flex',
@@ -149,8 +188,8 @@ export default function UserSelector({
               </Typography>
               <IconButton
                 size="small"
-                onClick={() => handleUserSelect(-1)}
-                aria-label={intl.formatMessage({ id: 'userSelector.clearSelection', defaultMessage: 'Clear user selection' })}
+                onClick={handleClearSelection}
+                aria-label={clearSelectionLabel}
                 sx={{
                   borderRadius: '4px',
                   color: 'text.secondary',

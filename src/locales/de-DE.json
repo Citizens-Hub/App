@@ -1486,6 +1486,8 @@
   "extensionModal.step6": "Nach der Installation diese Seite aktualisieren, um die Erweiterung zu nutzen",
   "extensionModal.title": "Erweiterungs-Installationsanleitung",
   "extensionModal.understood": "Verstanden",
+  "floatingDiscord.join": "Discord beitreten",
+  "floatingDiscord.tooltip": "Unserem Discord-Server beitreten",
   "fleetview.card.insurance": "Versicherung",
   "fleetview.card.msrp": "MSRP",
   "fleetview.card.openViewer": "3D-Ansicht öffnen",

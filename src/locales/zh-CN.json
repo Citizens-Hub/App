@@ -1486,6 +1486,8 @@
   "extensionModal.step6": "安装完成后，刷新本页面即可使用扩展功能",
   "extensionModal.title": "安装扩展说明",
   "extensionModal.understood": "了解了",
+  "floatingDiscord.join": "加入 Discord",
+  "floatingDiscord.tooltip": "加入我们的 Discord 服务器",
   "fleetview.card.insurance": "保险",
   "fleetview.card.msrp": "MSRP",
   "fleetview.card.openViewer": "打开舰队 3D 查看",

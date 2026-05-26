@@ -15,6 +15,7 @@ import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
 import MarketingEmailConsentPrompt from '@/components/MarketingEmailConsentPrompt'
+import FloatingDiscordButton from '@/components/FloatingDiscordButton'
 import { useIntl } from 'react-intl'
 import { SiteNotification } from '@/types'
 // import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
@@ -360,6 +361,7 @@ function App() {
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
           <SupportPrompt />
           <MarketingEmailConsentPrompt />
+          <FloatingDiscordButton />
           <Snackbar
             key={visibleSiteNotification?.id || 'site-notification-empty'}
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}

@@ -1486,6 +1486,8 @@
   "extensionModal.step6": "インストール後、このページを更新して拡張機能を使用します",
   "extensionModal.title": "拡張機能のインストール手順",
   "extensionModal.understood": "了解しました",
+  "floatingDiscord.join": "Discord に参加",
+  "floatingDiscord.tooltip": "Discord サーバーに参加",
   "fleetview.card.insurance": "保険",
   "fleetview.card.msrp": "MSRP",
   "fleetview.card.openViewer": "3D 表示を開く",

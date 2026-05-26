@@ -55,7 +55,7 @@ export default function SupportPrompt() {
       sx={{
         position: 'fixed',
         right: 16,
-        bottom: 24,
+        bottom: { xs: 88, sm: 104 },
         width: {
           xs: 'calc(100vw - 32px)',
           sm: 360

@@ -1486,6 +1486,8 @@
   "extensionModal.step6": "安裝完成後，重新整理此頁面即可使用擴充功能",
   "extensionModal.title": "安裝擴充功能說明",
   "extensionModal.understood": "瞭解了",
+  "floatingDiscord.join": "加入 Discord",
+  "floatingDiscord.tooltip": "加入我們的 Discord 伺服器",
   "fleetview.card.insurance": "保險",
   "fleetview.card.msrp": "MSRP",
   "fleetview.card.openViewer": "開啟 3D 檢視",
