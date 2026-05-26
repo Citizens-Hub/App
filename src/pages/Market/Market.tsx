@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -55,6 +55,7 @@ import {
   MarketCartItem,
   MarketListResponse,
   Ship,
+  AccountListingItem,
 } from '@/types';
 import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight } from 'lucide-react';
 import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings } from '@/hooks';
@@ -67,7 +68,7 @@ import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useLocale } from '@/contexts/LocaleContext';
 import { buildMarketCartItem, buildMarketResource, isLtiShipListing } from '@/components/marketItemDisplay';
 import Crawler from '@/components/Crawler';
-import { getAbsoluteAssetUrl, getAccountMarketListPath, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
+import { getAbsoluteAssetUrl, getAccountMarketDetailPath, getAccountMarketListPath, getMarketDetailUrl, getMarketListUrl } from '@/utils/marketLinks';
 import {
   ACCOUNT_MARKET_COUPON_PERCENT_OFF,
   getMonthlyAccountCouponCode,
@@ -89,7 +90,7 @@ import {
   getMarketItemTypeLabel,
 } from './marketI18n';
 import { getMarketItemDisplayName, getMarketItemSummary } from './marketDisplayI18n';
-import { getMarketImageDisplayUrl } from '@/utils/marketImages';
+import { getMarketImageDisplayUrl, resolveMarketImageUrls } from '@/utils/marketImages';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
 import { getShipSlideshowImage, getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
@@ -648,9 +649,9 @@ const Market: React.FC = () => {
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
-  const starterPackScrollFrameRef = useRef<number | null>(null);
+  const featuredAccountScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackVisibilityFrameRef = useRef<number | null>(null);
-  const starterPackRectsRef = useRef<Map<string, DOMRect>>(new Map());
+  const featuredAccountVisibilityFrameRef = useRef<number | null>(null);
   const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
@@ -663,7 +664,6 @@ const Market: React.FC = () => {
   const [couponNow, setCouponNow] = useState(Date.now());
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
-  const [activeStarterPackSkuId, setActiveStarterPackSkuId] = useState<string | null>(null);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
   const [plannerStartShipId, setPlannerStartShipId] = useState<number | ''>('');
@@ -884,7 +884,11 @@ const Market: React.FC = () => {
     sortBy,
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
-  const { listingItems: featuredAccountItems } = useAccountMarketData({ limit: 3, page: 0 });
+  const {
+    ships: accountMarketShips,
+    listingItems: featuredAccountItems,
+    loading: featuredAccountLoading,
+  } = useAccountMarketData({ limit: 12, page: 0 });
   const {
     ships: starterPackShips,
     listingItems: starterPackItems,
@@ -917,63 +921,6 @@ const Market: React.FC = () => {
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
   });
-
-  useEffect(() => {
-    if (starterPackItems.length === 0) {
-      setActiveStarterPackSkuId(null);
-      return;
-    }
-
-    setActiveStarterPackSkuId((currentSkuId) => (
-      currentSkuId && starterPackItems.some((item) => item.skuId === currentSkuId)
-        ? currentSkuId
-        : starterPackItems[0].skuId
-    ));
-  }, [starterPackItems]);
-
-  useLayoutEffect(() => {
-    const previousRects = starterPackRectsRef.current;
-    const scroller = starterPackScrollerRef.current;
-    if (!scroller) {
-      starterPackRectsRef.current = new Map();
-      return;
-    }
-
-    const cards = Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'));
-    const nextRects = new Map<string, DOMRect>();
-
-    cards.forEach((card) => {
-      const skuId = card.dataset.starterPackSkuId;
-      if (!skuId) {
-        return;
-      }
-
-      const nextRect = card.getBoundingClientRect();
-      nextRects.set(skuId, nextRect);
-
-      const previousRect = previousRects.get(skuId);
-      if (!previousRect) {
-        return;
-      }
-
-      const deltaX = previousRect.left - nextRect.left;
-      const scaleX = nextRect.width > 0 ? previousRect.width / nextRect.width : 1;
-      if (Math.abs(deltaX) < 0.5 && Math.abs(scaleX - 1) < 0.002) {
-        return;
-      }
-
-      card.style.transformOrigin = 'left center';
-      card.style.transform = `translateX(${deltaX}px) scaleX(${scaleX})`;
-      card.style.transition = 'transform 0s';
-
-      window.requestAnimationFrame(() => {
-        card.style.transition = 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
-        card.style.transform = '';
-      });
-    });
-
-    starterPackRectsRef.current = nextRects;
-  }, [activeStarterPackSkuId, starterPackItems]);
 
   const ccus = useMemo(() => ccusData?.data?.to?.ships || [], [ccusData]);
   const plannerHangarStartShipIds = useMemo(() => {
@@ -2067,29 +2014,16 @@ const Market: React.FC = () => {
     });
   };
 
-  const captureStarterPackRects = () => {
-    const scroller = starterPackScrollerRef.current;
+  const scrollFeaturedAccounts = (direction: 'left' | 'right') => {
+    const scroller = featuredAccountScrollerRef.current;
     if (!scroller) {
-      starterPackRectsRef.current = new Map();
       return;
     }
 
-    starterPackRectsRef.current = new Map(
-      Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'))
-        .flatMap((card) => {
-          const skuId = card.dataset.starterPackSkuId;
-          return skuId ? [[skuId, card.getBoundingClientRect()] as const] : [];
-        }),
-    );
-  };
-
-  const setActiveStarterPack = (skuId: string) => {
-    if (activeStarterPackSkuId === skuId) {
-      return;
-    }
-
-    captureStarterPackRects();
-    setActiveStarterPackSkuId(skuId);
+    scroller.scrollBy({
+      left: direction === 'left' ? -420 : 420,
+      behavior: 'smooth',
+    });
   };
 
   const ensureStarterPackVisible = (skuId: string) => {
@@ -2108,6 +2042,10 @@ const Market: React.FC = () => {
 
       const scrollerRect = scroller.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
+      const activeWidth = Number.parseFloat(getComputedStyle(scroller).getPropertyValue('--starter-pack-card-active-width'));
+      const targetCardWidth = Number.isFinite(activeWidth) && activeWidth > 0
+        ? Math.max(cardRect.width, activeWidth)
+        : cardRect.width;
       const edgePadding = 16;
 
       if (cardRect.left < scrollerRect.left + edgePadding) {
@@ -2118,66 +2056,62 @@ const Market: React.FC = () => {
         return;
       }
 
-      if (cardRect.right > scrollerRect.right - edgePadding) {
+      const targetCardRight = cardRect.left + targetCardWidth;
+      if (targetCardRight > scrollerRect.right - edgePadding) {
         scroller.scrollBy({
-          left: cardRect.right - scrollerRect.right + edgePadding,
+          left: targetCardRight - scrollerRect.right + edgePadding,
           behavior: 'smooth',
         });
       }
     });
   };
 
-  const activateStarterPackFromPointer = (skuId: string) => {
-    setActiveStarterPack(skuId);
-    ensureStarterPackVisible(skuId);
-  };
-
-  const syncActiveStarterPackFromScroll = () => {
-    const scroller = starterPackScrollerRef.current;
-    if (!scroller) {
-      return;
+  const ensureFeaturedAccountVisible = (skuId: string) => {
+    if (featuredAccountVisibilityFrameRef.current != null) {
+      window.cancelAnimationFrame(featuredAccountVisibilityFrameRef.current);
     }
 
-    const cards = Array.from(scroller.querySelectorAll<HTMLElement>('[data-starter-pack-sku-id]'));
-    if (cards.length === 0) {
-      return;
-    }
+    featuredAccountVisibilityFrameRef.current = window.requestAnimationFrame(() => {
+      featuredAccountVisibilityFrameRef.current = null;
 
-    const scrollerRect = scroller.getBoundingClientRect();
-    const scrollerCenter = scrollerRect.left + scrollerRect.width / 2;
-    const closestCard = cards.reduce((closest, card) => {
+      const scroller = featuredAccountScrollerRef.current;
+      const card = scroller?.querySelector<HTMLElement>(`[data-featured-account-sku-id="${CSS.escape(skuId)}"]`);
+      if (!scroller || !card) {
+        return;
+      }
+
+      const scrollerRect = scroller.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
-      const cardCenter = cardRect.left + cardRect.width / 2;
-      const distance = Math.abs(cardCenter - scrollerCenter);
-      return distance < closest.distance ? { card, distance } : closest;
-    }, {
-      card: cards[0],
-      distance: Number.POSITIVE_INFINITY,
-    });
-    const nextSkuId = closestCard.card.dataset.starterPackSkuId || null;
+      const activeWidth = Number.parseFloat(getComputedStyle(scroller).getPropertyValue('--starter-pack-card-active-width'));
+      const targetCardWidth = Number.isFinite(activeWidth) && activeWidth > 0
+        ? Math.max(cardRect.width, activeWidth)
+        : cardRect.width;
+      const edgePadding = 16;
 
-    if (nextSkuId) {
-      setActiveStarterPack(nextSkuId);
-    }
-  };
+      if (cardRect.left < scrollerRect.left + edgePadding) {
+        scroller.scrollBy({
+          left: cardRect.left - scrollerRect.left - edgePadding,
+          behavior: 'smooth',
+        });
+        return;
+      }
 
-  const handleStarterPackScroll = () => {
-    if (starterPackScrollFrameRef.current != null) {
-      return;
-    }
-
-    starterPackScrollFrameRef.current = window.requestAnimationFrame(() => {
-      starterPackScrollFrameRef.current = null;
-      syncActiveStarterPackFromScroll();
+      const targetCardRight = cardRect.left + targetCardWidth;
+      if (targetCardRight > scrollerRect.right - edgePadding) {
+        scroller.scrollBy({
+          left: targetCardRight - scrollerRect.right + edgePadding,
+          behavior: 'smooth',
+        });
+      }
     });
   };
 
   useEffect(() => () => {
-    if (starterPackScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(starterPackScrollFrameRef.current);
-    }
     if (starterPackVisibilityFrameRef.current != null) {
       window.cancelAnimationFrame(starterPackVisibilityFrameRef.current);
+    }
+    if (featuredAccountVisibilityFrameRef.current != null) {
+      window.cancelAnimationFrame(featuredAccountVisibilityFrameRef.current);
     }
   }, []);
 
@@ -2263,30 +2197,20 @@ const Market: React.FC = () => {
       ) : starterPackItems.length > 0 ? (
         <div
           ref={starterPackScrollerRef}
-          onScroll={handleStarterPackScroll}
-          className='mt-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          className='starter-pack-carousel mt-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         >
           {starterPackItems.map((item) => {
             const visual = getStarterPackVisual(item);
             const displayName = getMarketItemDisplayName(intl, item, ships);
             const availableStock = getAvailableStock(item);
-            const isActive = activeStarterPackSkuId === item.skuId;
 
             return (
               <div
                 key={item.skuId}
                 data-starter-pack-sku-id={item.skuId}
                 onClick={() => handleOpenDetails(item)}
-                onMouseEnter={() => {
-                  if (!isActive) {
-                    activateStarterPackFromPointer(item.skuId);
-                  }
-                }}
-                onFocus={() => {
-                  if (!isActive) {
-                    activateStarterPackFromPointer(item.skuId);
-                  }
-                }}
+                onMouseEnter={() => ensureStarterPackVisible(item.skuId)}
+                onFocus={() => ensureStarterPackVisible(item.skuId)}
                 tabIndex={0}
                 role="button"
                 onKeyDown={(event) => {
@@ -2295,7 +2219,7 @@ const Market: React.FC = () => {
                     handleOpenDetails(item);
                   }
                 }}
-                className={`relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none [will-change:transform] focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px] ${isActive ? 'w-[420px] sm:w-[500px]' : 'w-[200px] sm:w-[220px]'}`}
+                className='starter-pack-card relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px]'
               >
                 <img
                   src={visual.imageUrl}
@@ -2320,7 +2244,7 @@ const Market: React.FC = () => {
                   )}
                 </div>
                 <div className='absolute inset-x-0 bottom-0 flex min-h-28 flex-col justify-end p-4'>
-                  <div className={`max-w-[360px] text-base font-black leading-tight transition duration-300 sm:text-xl ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}>
+                  <div className='starter-pack-title max-w-[360px] text-base font-black leading-tight sm:text-xl'>
                     {displayName}
                   </div>
                   <div className='mt-3 flex items-end justify-between gap-3'>
@@ -2341,6 +2265,138 @@ const Market: React.FC = () => {
       ) : (
         <div className='mt-4 border border-dashed border-gray-300 p-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
           <FormattedMessage id="market.starterPack.empty" defaultMessage="Starter packs will appear here when available." />
+        </div>
+      )}
+    </section>
+  );
+
+  const getFeaturedAccountImageUrl = (item: AccountListingItem) => {
+    const listingImages = resolveMarketImageUrls(item.imageUrl, item.imageUrls);
+    const entryImage = item.entries.find((entry) => entry.imageUrl)?.imageUrl;
+    const imageUrl = listingImages[0] || entryImage || '/imgs/credit.webp';
+    return getMarketImageDisplayUrl(imageUrl, {
+      ships: accountMarketShips.length > 0 ? accountMarketShips : ships,
+      variant: 'slideshow',
+    }) || '/imgs/credit.webp';
+  };
+
+  const renderFeaturedAccountsSection = () => (
+    <section className='py-1'>
+      <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300'>
+            <FormattedMessage id="accountMarket.panel.eyebrow" defaultMessage="Looking for a Star Citizen account?" />
+          </div>
+          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+            <FormattedMessage id="accountMarket.panel.title" defaultMessage="Premium Star Citizen accounts on sale now" />
+          </Typography>
+          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+            <FormattedMessage
+              id="accountMarket.panel.description"
+              defaultMessage="Browse our accounts for sale, including limited ships, retired items, buyback access, and extras. If you need something specific, contact us about a custom account."
+            />
+          </Typography>
+        </div>
+
+        <div className='flex shrink-0 items-center gap-2'>
+          <Tooltip title={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}>
+            <IconButton
+              onClick={() => scrollFeaturedAccounts('left')}
+              aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+            >
+              <ChevronLeft className='h-5 w-5' />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}>
+            <IconButton
+              onClick={() => scrollFeaturedAccounts('right')}
+              aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+            >
+              <ChevronRight className='h-5 w-5' />
+            </IconButton>
+          </Tooltip>
+          <Button
+            component={Link}
+            to={getAccountMarketListPath()}
+            variant="outlined"
+            endIcon={<ArrowRight className='h-4 w-4' />}
+            sx={{ borderRadius: 0 }}
+          >
+            <FormattedMessage id="accountMarket.panel.cta" defaultMessage="Browse Accounts" />
+          </Button>
+        </div>
+      </div>
+
+      {featuredAccountLoading && featuredAccountItems.length === 0 ? (
+        <div className='mt-4 flex min-h-48 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+          <CircularProgress size={22} />
+        </div>
+      ) : featuredAccountItems.length > 0 ? (
+        <div
+          ref={featuredAccountScrollerRef}
+          className='starter-pack-carousel mt-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        >
+          {featuredAccountItems.map((item) => {
+            const availableStock = Math.max(item.stock - item.lockedStock, 0);
+            const extraSummaryCount = item.extraCount + item.bundleCount + item.highlightCount;
+
+            return (
+              <Link
+                key={item.skuId}
+                to={getAccountMarketDetailPath(item.skuId)}
+                data-featured-account-sku-id={item.skuId}
+                onMouseEnter={() => ensureFeaturedAccountVisible(item.skuId)}
+                onFocus={() => ensureFeaturedAccountVisible(item.skuId)}
+                className='starter-pack-card relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white no-underline outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px]'
+              >
+                <img
+                  src={getFeaturedAccountImageUrl(item)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className='absolute inset-0 h-full w-full object-cover'
+                />
+                <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.16)_42%,rgba(0,0,0,0.84)_100%)]' />
+                <div className='absolute left-0 top-0 p-4'>
+                  <span className='flex h-10 w-10 items-center justify-center border border-white/35 bg-black/45 text-xs font-black uppercase text-white shadow-[0_1px_10px_rgba(0,0,0,0.35)]'>
+                    AC
+                  </span>
+                </div>
+                <div className='absolute inset-x-0 bottom-0 flex min-h-32 flex-col justify-end p-4'>
+                  <div className='starter-pack-title max-w-[380px] text-base font-black leading-tight sm:text-xl'>
+                    {item.name}
+                  </div>
+                  <div className='starter-pack-title mt-2 flex flex-wrap gap-2 text-xs font-semibold text-white/80'>
+                    <span>
+                      {intl.formatMessage({ id: 'accountMarket.card.ships', defaultMessage: '{count} ships' }, { count: item.shipCount })}
+                    </span>
+                    <span>
+                      {intl.formatMessage({ id: 'accountMarket.card.ccus', defaultMessage: '{count} CCUs' }, { count: item.ccuCount })}
+                    </span>
+                    <span>
+                      {intl.formatMessage({ id: 'accountMarket.card.extras', defaultMessage: '{count} extras' }, { count: extraSummaryCount })}
+                    </span>
+                  </div>
+                  <div className='mt-3 flex items-end justify-between gap-3'>
+                    <div className='text-xl font-black tabular-nums text-white sm:text-2xl'>
+                      {intl.formatNumber(item.price, { style: 'currency', currency: 'USD' })}
+                    </div>
+                    {availableStock <= 0 && (
+                      <span className='border border-white/25 bg-black/40 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85'>
+                        <FormattedMessage id="market.outOfStock" defaultMessage="Out of stock" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div className='mt-4 border border-dashed border-gray-300 p-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-slate-400'>
+          <FormattedMessage id="accountMarket.panel.empty" defaultMessage="Account listings will appear here when available." />
         </div>
       )}
     </section>
@@ -3171,6 +3227,70 @@ const Market: React.FC = () => {
               --market-manufacturer-logo-filter: brightness(0) invert(1);
             }
 
+            .starter-pack-carousel {
+              --starter-pack-card-active-width: min(420px, calc(100vw - 32px));
+              --starter-pack-card-width: var(--starter-pack-card-active-width);
+            }
+
+            @media (min-width: 640px) {
+              .starter-pack-carousel {
+                --starter-pack-card-active-width: 500px;
+              }
+            }
+
+            .starter-pack-card {
+              width: var(--starter-pack-card-width);
+              transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+            }
+
+            .starter-pack-title {
+              opacity: 1;
+              transform: translateY(0);
+              transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+            }
+
+            @media (min-width: 640px) and (hover: hover) and (pointer: fine) {
+              .starter-pack-carousel {
+                --starter-pack-card-width: 220px;
+              }
+
+              .starter-pack-card:first-child {
+                width: var(--starter-pack-card-active-width);
+              }
+
+              .starter-pack-carousel:has(.starter-pack-card:not(:first-child):hover) .starter-pack-card:first-child,
+              .starter-pack-carousel:has(.starter-pack-card:not(:first-child):focus-visible) .starter-pack-card:first-child {
+                width: var(--starter-pack-card-width);
+              }
+
+              .starter-pack-card:hover,
+              .starter-pack-card:focus-visible {
+                width: var(--starter-pack-card-active-width);
+              }
+
+              .starter-pack-title {
+                opacity: 0;
+                transform: translateY(12px);
+              }
+
+              .starter-pack-card:first-child .starter-pack-title {
+                opacity: 1;
+                transform: translateY(0);
+              }
+
+              .starter-pack-carousel:has(.starter-pack-card:not(:first-child):hover) .starter-pack-card:first-child .starter-pack-title,
+              .starter-pack-carousel:has(.starter-pack-card:not(:first-child):focus-visible) .starter-pack-card:first-child .starter-pack-title {
+                opacity: 0;
+                transform: translateY(12px);
+              }
+
+              .starter-pack-card:hover .starter-pack-title,
+              .starter-pack-card:focus-visible .starter-pack-title {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+
             @keyframes marketHeroCopyIn {
               from {
                 opacity: 0;
@@ -3461,7 +3581,7 @@ const Market: React.FC = () => {
 
           {renderStarterPackSection()}
 
-          <section className='grid gap-4 md:grid-cols-[minmax(0,1fr)_360px]'>
+          <section className='grid gap-4'>
             <div className='grid gap-4 md:grid-cols-3'>
               <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
                 <ShieldOutlined color="primary" />
@@ -3494,9 +3614,9 @@ const Market: React.FC = () => {
                 </Typography>
               </div>
             </div>
-
-            {renderAccountMarketPanel({ compact: true })}
           </section>
+
+          {renderFeaturedAccountsSection()}
 
           {renderManufacturerBrowseSection()}
 
