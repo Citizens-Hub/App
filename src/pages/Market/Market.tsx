@@ -2613,12 +2613,12 @@ const Market: React.FC = () => {
           <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
             <FormattedMessage id="market.brandBrowse.title" defaultMessage="Find ships and packs by manufacturer" />
           </Typography>
-          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+          {/* <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
             <FormattedMessage
               id="market.brandBrowse.description"
               defaultMessage="Jump straight to listings from the manufacturers you care about, then refine by ships, packages, CCUs, or LTI."
             />
-          </Typography>
+          </Typography> */}
         </div>
       </div>
 
@@ -2661,12 +2661,12 @@ const Market: React.FC = () => {
           <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
             <FormattedMessage id="market.roleBrowse.title" defaultMessage="Find ships and packs by ship role" />
           </Typography>
-          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+          {/* <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
             <FormattedMessage
               id="market.roleBrowse.description"
               defaultMessage="Choose a ship focus such as fighter, freight, mining, medical, exploration, or touring to browse matching listings."
             />
-          </Typography>
+          </Typography> */}
         </div>
       </div>
 
