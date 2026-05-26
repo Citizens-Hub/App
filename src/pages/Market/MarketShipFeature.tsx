@@ -628,7 +628,7 @@ export default function MarketShipFeature() {
                 <FormattedMessage id="market.ship.noRelatedProducts" defaultMessage="No related products are currently available." />
               </div>
             ) : (
-              ['ccu', 'ship', 'package', 'paint', 'other'].map((groupKey) => {
+              ['ship', 'package', 'ccu', 'paint', 'other'].map((groupKey) => {
                 const items = groupedItems.get(groupKey) || [];
                 if (!items.length) {
                   return null;

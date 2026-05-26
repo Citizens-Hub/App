@@ -177,6 +177,7 @@ const MARKET_MOBILE_ROWS_PER_BATCH = 15;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
+const MARKET_HOME_OTHER_ITEMS_LIMIT = 12;
 const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'shipFocus', 'manufacturerId', 'packageItem', 'sortBy', 'page', 'limit'] as const;
 const STARTER_PACK_GAME_DOWNLOAD_ITEM = 'Star Citizen Digital Download';
 const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
@@ -710,6 +711,7 @@ const Market: React.FC = () => {
   const listingDrawerInfiniteSentinelRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const featuredAccountScrollerRef = useRef<HTMLDivElement | null>(null);
+  const otherGearScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackVisibilityFrameRef = useRef<number | null>(null);
   const featuredAccountVisibilityFrameRef = useRef<number | null>(null);
   const lastCommittedSearchRef = useRef('');
@@ -1006,6 +1008,15 @@ const Market: React.FC = () => {
     sortBy: 'priceAsc',
     page: 0,
     limit: 12,
+  });
+  const {
+    listingItems: otherGearItems,
+    loading: otherGearLoading,
+  } = useMarketData({
+    browseCategories: ['other'],
+    sortBy: 'newest',
+    page: 0,
+    limit: MARKET_HOME_OTHER_ITEMS_LIMIT,
   });
   const {
     data: marketReviewsResponse,
@@ -2292,6 +2303,18 @@ const Market: React.FC = () => {
     });
   };
 
+  const scrollOtherGear = (direction: 'left' | 'right') => {
+    const scroller = otherGearScrollerRef.current;
+    if (!scroller) {
+      return;
+    }
+
+    scroller.scrollBy({
+      left: direction === 'left' ? -360 : 360,
+      behavior: 'smooth',
+    });
+  };
+
   const ensureStarterPackVisible = (skuId: string) => {
     if (starterPackVisibilityFrameRef.current != null) {
       window.cancelAnimationFrame(starterPackVisibilityFrameRef.current);
@@ -2833,7 +2856,7 @@ const Market: React.FC = () => {
     }
 
     return (
-      <section className='border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+      <section className='min-w-0 max-w-full overflow-hidden border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
         <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
           <div className='min-w-0'>
             <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
@@ -2850,7 +2873,7 @@ const Market: React.FC = () => {
             <CircularProgress size={22} />
           </div>
         ) : (
-          <div className='mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+          <div className='mt-4 grid min-w-0 max-w-full gap-3 md:grid-cols-2 xl:grid-cols-3'>
             {marketReviews.map((review) => {
               const rsiName = review.user.rsiDisplayName || review.user.rsiHandle;
               const visiblePurchasedItems = review.purchasedItems || [];
@@ -2860,9 +2883,9 @@ const Market: React.FC = () => {
               return (
                 <article
                   key={review.id}
-                  className='flex min-h-64 flex-col border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
+                  className='flex min-w-0 max-w-full flex-col overflow-hidden border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
                 >
-                  <div className='flex items-start gap-3'>
+                  <div className='flex min-w-0 items-start gap-3'>
                     {review.user.avatar ? (
                       <img
                         src={review.user.avatar}
@@ -2902,8 +2925,8 @@ const Market: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className='mt-4 flex items-center gap-2'>
-                    <Rating value={review.rating} readOnly size="small" />
+                  <div className='mt-4 flex min-w-0 flex-wrap items-center gap-2'>
+                    <Rating value={review.rating} readOnly size="small" sx={{ flexShrink: 0 }} />
                     <span className='text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300'>
                       {intl.formatMessage(
                         { id: 'market.reviews.ratingValue', defaultMessage: '{rating}/5' },
@@ -2912,7 +2935,7 @@ const Market: React.FC = () => {
                     </span>
                   </div>
 
-                  <p className='mt-3 line-clamp-5 flex-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200'>
+                  <p className='mt-3 line-clamp-5 min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-200'>
                     {review.feedback || intl.formatMessage({ id: 'orders.reviewNoComment', defaultMessage: 'No written review provided.' })}
                   </p>
 
@@ -2939,15 +2962,15 @@ const Market: React.FC = () => {
                   )}
 
                   {visiblePurchasedItems.length > 0 && (
-                    <div className='mt-4 border-t border-gray-200 pt-3 dark:border-gray-800'>
+                    <div className='mt-4 min-w-0 border-t border-gray-200 pt-3 dark:border-gray-800'>
                       <div className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
                         <FormattedMessage id="market.reviews.purchased" defaultMessage="Purchased" />
                       </div>
-                      <div className='mt-2 flex flex-wrap gap-2'>
+                      <div className='mt-2 flex min-w-0 flex-wrap gap-2'>
                         {visiblePurchasedItems.map((item, index) => (
                           <span
                             key={`${review.id}-${item.name}-${index}`}
-                            className='max-w-full truncate border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200'
+                            className='max-w-full break-words border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200'
                           >
                             {item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name}
                           </span>
@@ -2964,6 +2987,196 @@ const Market: React.FC = () => {
                       </div>
                     </div>
                   )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const openOtherGearListings = () => {
+    updateMarketSearchParams((nextSearchParams) => {
+      nextSearchParams.delete('itemType');
+      nextSearchParams.delete('tag');
+      nextSearchParams.delete('shipTrait');
+      nextSearchParams.delete('shipFocus');
+      nextSearchParams.delete('manufacturerId');
+      nextSearchParams.delete('packageItem');
+      nextSearchParams.delete('page');
+      nextSearchParams.set('browseCategory', 'other');
+      nextSearchParams.set('sortBy', 'newest');
+    });
+    openListingDrawer();
+  };
+
+  const renderOtherGearSection = () => {
+    if (!otherGearLoading && otherGearItems.length === 0) {
+      return null;
+    }
+
+    return (
+      <section className='border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+        <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+          <div className='min-w-0'>
+            <div className='text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300'>
+              <FormattedMessage id="market.otherGear.eyebrow" defaultMessage="Gear drop" />
+            </div>
+            <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+              <FormattedMessage id="market.otherGear.title" defaultMessage="Grab Some New Gears" />
+            </Typography>
+            <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+              <FormattedMessage
+                id="market.otherGear.description"
+                defaultMessage="Pick up fresh extras, equipment, and other marketplace finds for your next run."
+              />
+            </Typography>
+          </div>
+
+          <div className='flex shrink-0 items-center gap-2'>
+            <Tooltip title={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}>
+              <IconButton
+                onClick={() => scrollOtherGear('left')}
+                aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+              >
+                <ChevronLeft className='h-5 w-5' />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}>
+              <IconButton
+                onClick={() => scrollOtherGear('right')}
+                aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0 }}
+              >
+                <ChevronRight className='h-5 w-5' />
+              </IconButton>
+            </Tooltip>
+            <Button
+              variant="outlined"
+              endIcon={<ArrowRight className='h-4 w-4' />}
+              onClick={openOtherGearListings}
+              sx={{ borderRadius: 0 }}
+            >
+              <FormattedMessage id="market.otherGear.cta" defaultMessage="Browse all gear" />
+            </Button>
+          </div>
+        </div>
+
+        {otherGearLoading && otherGearItems.length === 0 ? (
+          <div className='mt-4 flex min-h-48 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+            <CircularProgress size={22} />
+          </div>
+        ) : (
+          <div
+            ref={otherGearScrollerRef}
+            className='mt-5 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          >
+            {otherGearItems.map((item) => {
+              const directItem = resolveDirectMarketItem(item);
+              const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
+              const basePrice = getListingBasePrice(item, ships);
+              const discount = getListingDiscountPercent(item, ships);
+              const displayName = getMarketItemDisplayName(intl, item, ships);
+              const isCcu = item.itemType === 'ccu';
+              const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
+
+              return (
+                <article
+                  key={item.skuId}
+                  className='cursor-pointer flex min-h-[390px] w-[min(82vw,280px)] shrink-0 flex-col overflow-hidden border border-gray-200 bg-slate-50 text-left transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-950 dark:hover:border-gray-700'
+                >
+                  <div
+                    onClick={() => handleOpenDetails(item)}
+                    className='block w-full border-0 bg-transparent p-0 text-left'
+                    aria-label={displayName}
+                  >
+                    <MarketItemMedia
+                      item={item}
+                      ships={ships}
+                      height={170}
+                      badgeText={discount ? formatMarketDiscount(intl, discount) : null}
+                    />
+                  </div>
+
+                  <div className='flex flex-1 flex-col gap-3 p-4'>
+                    <div className='flex flex-wrap gap-2'>
+                      {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
+                      {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                      {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+                    </div>
+
+                    <div
+                      onClick={() => handleOpenDetails(item)}
+                      className='border-0 bg-transparent p-0 text-left text-inherit'
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          fontWeight: 800,
+                          lineHeight: 1.3,
+                          fontSize: '1rem',
+                        }}
+                      >
+                        {displayName}
+                      </Typography>
+                    </div>
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        minHeight: 40,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {getMarketItemSummary(intl, item, ships)}
+                    </Typography>
+
+                    <div className='mt-auto flex flex-col gap-3'>
+                      <div>
+                        <div className='text-xl font-black text-slate-900 dark:text-slate-100'>
+                          {isVariantPriceRange
+                            ? formatMarketPriceFrom(intl, item.price)
+                            : formatUsdPrice(intl.locale, item.price)}
+                        </div>
+                        {discount && Number(discount) > 0 && (
+                          <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+                            {formatUsdPrice(intl.locale, basePrice)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className='flex items-center justify-between gap-2'>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleAddToCart(item)}
+                          disabled={availableStock <= 0}
+                          size="small"
+                          sx={{ borderRadius: 0 }}
+                        >
+                          <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+                        </Button>
+                        <Button
+                          variant="contained"
+                          onClick={() => handleBuyNow(item)}
+                          disabled={availableStock <= 0}
+                          size="small"
+                          sx={{ borderRadius: 0 }}
+                        >
+                          <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </article>
               );
             })}
@@ -3918,12 +4131,12 @@ const Market: React.FC = () => {
           sx={{
             position: 'fixed',
             right: 0,
-            top: '50%',
+            top: '30%',
             transform: 'translateY(-50%)',
             zIndex: 1200,
-            width: 68,
-            minWidth: 52,
-            minHeight: 196,
+            width: 48,
+            minWidth: 42,
+            minHeight: 156,
             borderRadius: 0,
             px: 0,
             py: 1.5,
@@ -3939,9 +4152,9 @@ const Market: React.FC = () => {
           }}
         >
           <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
-          <span className="market-listing-button-icon">
+          {/* <span className="market-listing-button-icon">
             <ListFilter className="h-4 w-4" />
-          </span>
+          </span> */}
         </Button>
 
         <div className='relative mx-auto flex min-h-full w-full max-w-[1440px] flex-col gap-6 px-4 py-5 md:px-10 md:py-6'>
@@ -4209,13 +4422,15 @@ const Market: React.FC = () => {
             </div>
           </section>
 
+          {renderMarketReviewsSection()}
+
           {renderFeaturedAccountsSection()}
 
           {renderManufacturerBrowseSection()}
 
           {renderShipFocusBrowseSection()}
 
-          {renderMarketReviewsSection()}
+          {renderOtherGearSection()}
 
           <Box
             sx={{
