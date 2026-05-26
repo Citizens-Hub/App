@@ -975,6 +975,41 @@ export interface MarketListResponse {
   pagination: MarketListPagination;
 }
 
+export interface MarketReviewProductSummary {
+  name: string;
+  quantity: number;
+}
+
+export interface MarketReviewAttachmentSummary {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface MarketReviewItem {
+  id: string;
+  rating: number;
+  feedback: string | null;
+  feedbackAt: string;
+  purchasedItems: MarketReviewProductSummary[];
+  purchasedItemCount: number;
+  reviewAttachments: MarketReviewAttachmentSummary[];
+  user: {
+    displayName: string;
+    avatar: string | null;
+    rsiHandle: string | null;
+    rsiDisplayName: string | null;
+    rsiProfileUrl: string | null;
+  };
+}
+
+export interface MarketReviewsResponse {
+  items: MarketReviewItem[];
+}
+
 export type MarketHomeHeroMediaType = 'image' | 'video';
 export type MarketHomeHeroLinkMode = 'ship';
 export type MarketHomeLocaleCode = 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE';

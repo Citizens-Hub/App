@@ -23,6 +23,7 @@ import {
   TablePagination,
   Tooltip,
   Autocomplete,
+  Rating,
 } from '@mui/material';
 import {
   ContentCopy,
@@ -59,7 +60,7 @@ import {
   AccountListingItem,
 } from '@/types';
 import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight } from 'lucide-react';
-import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings } from '@/hooks';
+import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings, useMarketReviews } from '@/hooks';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
 import { useCartStore } from '@/hooks/useCartStore';
@@ -967,11 +968,16 @@ const Market: React.FC = () => {
     limit: 12,
   });
   const {
+    data: marketReviewsResponse,
+    isLoading: marketReviewsLoading,
+  } = useMarketReviews(12);
+  const {
     data: availableShipIdsResponse,
   } = useApi<MarketAvailableShipIdsResponse>('/api/market/available-ship-ids', {
     revalidateOnFocus: false,
     dedupingInterval: 300_000,
   });
+  const marketReviews = marketReviewsResponse?.items || [];
   const availableShipIds = useMemo(
     () => new Set(availableShipIdsResponse?.data?.shipIds || []),
     [availableShipIdsResponse?.data?.shipIds],
@@ -2724,6 +2730,152 @@ const Market: React.FC = () => {
     </section>
   );
 
+  const renderMarketReviewsSection = () => {
+    if (!marketReviewsLoading && marketReviews.length === 0) {
+      return null;
+    }
+
+    return (
+      <section className='border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
+        <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+          <div className='min-w-0'>
+            <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+              <FormattedMessage id="market.reviews.eyebrow" defaultMessage="Customer reviews" />
+            </div>
+            <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+              <FormattedMessage id="market.reviews.title" defaultMessage="Reviews from verified purchases" />
+            </Typography>
+          </div>
+        </div>
+
+        {marketReviewsLoading && marketReviews.length === 0 ? (
+          <div className='mt-4 flex min-h-32 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+            <CircularProgress size={22} />
+          </div>
+        ) : (
+          <div className='mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+            {marketReviews.map((review) => {
+              const rsiName = review.user.rsiDisplayName || review.user.rsiHandle;
+              const visiblePurchasedItems = review.purchasedItems || [];
+              const hiddenPurchasedItemCount = Math.max(review.purchasedItemCount - visiblePurchasedItems.length, 0);
+              const reviewAttachments = review.reviewAttachments || [];
+
+              return (
+                <article
+                  key={review.id}
+                  className='flex min-h-64 flex-col border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
+                >
+                  <div className='flex items-start gap-3'>
+                    {review.user.avatar ? (
+                      <img
+                        src={review.user.avatar}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className='h-11 w-11 shrink-0 rounded-full object-cover'
+                      />
+                    ) : (
+                      <span className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-black uppercase text-slate-600 dark:bg-neutral-800 dark:text-slate-300'>
+                        {review.user.displayName.slice(0, 2)}
+                      </span>
+                    )}
+
+                    <div className='min-w-0 flex-1'>
+                      <div className='truncate text-sm font-black text-slate-950 dark:text-white'>
+                        {review.user.displayName}
+                      </div>
+                      {review.user.rsiProfileUrl && rsiName ? (
+                        <a
+                          href={review.user.rsiProfileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className='mt-0.5 block truncate text-xs font-semibold text-blue-700 no-underline hover:underline dark:text-blue-300'
+                        >
+                          <FormattedMessage
+                            id="market.reviews.rsiAccount"
+                            defaultMessage="RSI: {handle}"
+                            values={{ handle: rsiName }}
+                          />
+                        </a>
+                      ) : (
+                        <div className='mt-0.5 truncate text-xs font-semibold text-slate-500 dark:text-slate-400'>
+                          <FormattedMessage id="market.reviews.noRsiAccount" defaultMessage="RSI Account not provided" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className='mt-4 flex items-center gap-2'>
+                    <Rating value={review.rating} readOnly size="small" />
+                    <span className='text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300'>
+                      {intl.formatMessage(
+                        { id: 'market.reviews.ratingValue', defaultMessage: '{rating}/5' },
+                        { rating: review.rating },
+                      )}
+                    </span>
+                  </div>
+
+                  <p className='mt-3 line-clamp-5 flex-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200'>
+                    {review.feedback || intl.formatMessage({ id: 'orders.reviewNoComment', defaultMessage: 'No written review provided.' })}
+                  </p>
+
+                  {reviewAttachments.length > 0 && (
+                    <div className='mt-4 grid grid-cols-3 gap-2'>
+                      {reviewAttachments.slice(0, 3).map((attachment) => (
+                        <a
+                          key={attachment.id}
+                          href={attachment.imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className='block overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'
+                        >
+                          <img
+                            src={attachment.imageUrl}
+                            alt={attachment.fileName}
+                            loading="lazy"
+                            decoding="async"
+                            className='aspect-square w-full object-cover'
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {visiblePurchasedItems.length > 0 && (
+                    <div className='mt-4 border-t border-gray-200 pt-3 dark:border-gray-800'>
+                      <div className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
+                        <FormattedMessage id="market.reviews.purchased" defaultMessage="Purchased" />
+                      </div>
+                      <div className='mt-2 flex flex-wrap gap-2'>
+                        {visiblePurchasedItems.map((item, index) => (
+                          <span
+                            key={`${review.id}-${item.name}-${index}`}
+                            className='max-w-full truncate border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200'
+                          >
+                            {item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name}
+                          </span>
+                        ))}
+                        {hiddenPurchasedItemCount > 0 && (
+                          <span className='border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-300'>
+                            <FormattedMessage
+                              id="market.reviews.morePurchasedItems"
+                              defaultMessage="+{count} more"
+                              values={{ count: hiddenPurchasedItemCount }}
+                            />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  };
+
   const renderCcuRoutePlanner = () => {
     const routeDataLoading = ccusLoading || marketRouteLoading;
     const routeDataError = Boolean(ccusError || marketRouteError);
@@ -3923,6 +4075,8 @@ const Market: React.FC = () => {
           {renderManufacturerBrowseSection()}
 
           {renderShipFocusBrowseSection()}
+
+          {renderMarketReviewsSection()}
 
           <Box
             sx={{

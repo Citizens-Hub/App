@@ -17,6 +17,7 @@ export { default as useMarketData } from './market/useMarketData';
 export { default as useMarketItemData } from './market/useMarketItemData';
 export { useMarketCartValidation } from './market/useMarketCartValidation';
 export { useMarketHomeSettings, useAdminMarketHomeSettings } from './market/useMarketHomeSettings';
+export { useMarketReviews } from './market/useMarketReviews';
 export { default as useAccountMarketData } from './accountMarket/useAccountMarketData';
 export { default as useAccountMarketItemData } from './accountMarket/useAccountMarketItemData';
 export { useResellerMedia } from './resellerMedia/useResellerMedia';
