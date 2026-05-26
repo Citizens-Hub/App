@@ -721,6 +721,7 @@ export type MarketPackageKind = 'standalone_ship' | 'bundle';
 export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'other';
 export type MarketSkuTagCode = 'oc' | 'concierge';
 export type MarketShipTraitFilter = 'oc' | 'non_oc' | 'lti';
+export type MarketShipFocusFilter = string;
 export type MarketSortMode = 'recommended' | 'newest' | 'priceDesc' | 'priceAsc';
 export type AccountMarketEntryKind = 'ship' | 'ccu' | 'bundle' | 'extra' | 'highlight';
 export type AccountMarketEntrySource = 'hangar' | 'buyback';
@@ -854,6 +855,7 @@ export interface AccountMarketDraft {
 export interface MarketPackageShip {
   shipId?: number;
   shipName: string;
+  focus?: string | null;
   manufacturerId?: number;
   sortOrder: number;
 }
@@ -893,6 +895,8 @@ export interface MarketItemVariant {
   toShipId?: number;
   fromShipName?: string;
   toShipName?: string;
+  fromShipFocus?: string;
+  toShipFocus?: string;
   fromShipManufacturerId?: number;
   toShipManufacturerId?: number;
   toSkuId?: number;
@@ -917,6 +921,9 @@ export interface ListingItem {
   fromShipName?: string;
   toShipName?: string;
   shipName?: string;
+  fromShipFocus?: string;
+  toShipFocus?: string;
+  shipFocus?: string;
   fromShipManufacturerId?: number;
   toShipManufacturerId?: number;
   shipManufacturerId?: number;

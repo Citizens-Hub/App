@@ -5,6 +5,7 @@ import {
   ListingItem,
   MarketListResponse,
   MarketPackageKind,
+  MarketShipFocusFilter,
   MarketShipTraitFilter,
   MarketSortMode,
   MarketItemType,
@@ -22,6 +23,7 @@ export interface UseMarketDataParams {
   browseCategories?: MarketBrowseCategory[];
   tags?: string[];
   shipTraits?: MarketShipTraitFilter[];
+  shipFocuses?: MarketShipFocusFilter[];
   manufacturerIds?: number[];
   sortBy?: MarketSortMode;
   page?: number;
@@ -71,6 +73,13 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
     searchParams.append('shipTrait', shipTrait);
   });
 
+  (params.shipFocuses || []).forEach((shipFocus) => {
+    const trimmed = shipFocus.trim();
+    if (trimmed) {
+      searchParams.append('shipFocus', trimmed);
+    }
+  });
+
   (params.manufacturerIds || []).forEach((manufacturerId) => {
     if (Number.isInteger(manufacturerId) && manufacturerId > 0) {
       searchParams.append('manufacturerId', String(manufacturerId));
@@ -100,6 +109,7 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
   const browseCategoriesKey = (params.browseCategories || []).join(',');
   const tagsKey = (params.tags || []).join(',');
   const shipTraitsKey = (params.shipTraits || []).join(',');
+  const shipFocusesKey = (params.shipFocuses || []).join(',');
   const manufacturerIdsKey = (params.manufacturerIds || []).join(',');
   const marketPath = useMemo(() => buildMarketSearchPath(params), [
     browseCategoriesKey,
@@ -113,6 +123,7 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     params.page,
     params.search,
     params.sortBy,
+    shipFocusesKey,
     shipTraitsKey,
     tagsKey,
   ]);

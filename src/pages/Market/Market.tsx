@@ -44,6 +44,7 @@ import {
   MarketHomeHeroTranslation,
   MarketHomeLocaleCode,
   MarketItemType,
+  MarketShipFocusFilter,
   MarketShipTraitFilter,
   MarketSortMode,
   Resource,
@@ -94,6 +95,7 @@ import { getMarketImageDisplayUrl, resolveMarketImageUrls } from '@/utils/market
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
 import { findShipByIdOrName, getShipDisplayName, getShipManufacturerDisplayName, matchesShipNameQuery } from '@/utils/shipDisplay';
 import { getShipSlideshowImage, getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
+import { localizeShipFocus } from '@/data/shipMetadataI18n';
 import {
   buildCurrentMarketRoute,
   buildSelectedCreditListing,
@@ -112,6 +114,7 @@ type MarketPageSearchState = {
   searchTerm: string;
   selectedItemFilter: MarketItemFilterOption;
   selectedShipTraitFilter: MarketShipTraitFilter | 'all';
+  selectedShipFocus: MarketShipFocusFilter | 'all';
   selectedManufacturerId: number | null;
   packageItems: string[];
   sortBy: MarketSortMode;
@@ -147,6 +150,14 @@ interface LtiShipsResponse {
   } | null;
 }
 
+interface MarketAvailableShipIdsResponse {
+  success: boolean;
+  data?: {
+    shipIds?: number[];
+    updatedAt?: string;
+  };
+}
+
 interface PlannerRoutePurchaseItems {
   checkoutItems: MarketCartItem[];
   cartItems: Array<{
@@ -161,7 +172,7 @@ const MARKET_ROWS_PER_PAGE_OPTIONS = [15, 30] as const;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
-const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'manufacturerId', 'packageItem', 'sortBy', 'page', 'limit'] as const;
+const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'shipFocus', 'manufacturerId', 'packageItem', 'sortBy', 'page', 'limit'] as const;
 const STARTER_PACK_GAME_DOWNLOAD_ITEM = 'Star Citizen Digital Download';
 const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
 const MARKET_PLANNER_MAX_TARGET_MSRP_CENTS = 100_000;
@@ -572,6 +583,41 @@ function parsePositiveInteger(value: string | null): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function normalizeShipFocusFilter(value?: string | null): string {
+  return (value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeShipFocusParam(value?: string | null): string {
+  return (value || '')
+    .trim()
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getShipFocusSearchParams(searchParams: URLSearchParams): string[] {
+  const values = parseMarketSearchParamList(searchParams, 'shipFocus')
+    .flatMap((value) => value.split(','))
+    .map(normalizeShipFocusParam)
+    .filter(Boolean);
+
+  return Array.from(new Set(values));
+}
+
+function getShipImageForRoleCard(ship: Ship) {
+  return getShipSlideshowImage(ship)
+    || getShipThumbLarge(ship)
+    || getShipThumbSmall(ship)
+    || '';
+}
+
 function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSearchState {
   const itemTypeFilter = parseMarketSearchParamList(searchParams, 'itemType')
     .find((value): value is MarketItemType => VALID_MARKET_ITEM_TYPE_FILTERS.has(value as MarketItemType));
@@ -586,6 +632,7 @@ function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSe
     searchTerm: searchParams.get('search') || '',
     selectedItemFilter: itemTypeFilter || browseCategoryFilter || 'all',
     selectedShipTraitFilter: shipTraitFilter || (legacyOcTagSelected ? 'oc' : 'all'),
+    selectedShipFocus: getShipFocusSearchParams(searchParams)[0] || 'all',
     selectedManufacturerId: parsePositiveInteger(searchParams.get('manufacturerId')),
     packageItems: parseMarketSearchParamList(searchParams, 'packageItem'),
     sortBy: VALID_MARKET_SORT_MODES.has(sortByParam as MarketSortMode)
@@ -616,6 +663,10 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
 
   if (state.selectedShipTraitFilter !== 'all') {
     nextSearchParams.set('shipTrait', state.selectedShipTraitFilter);
+  }
+
+  if (state.selectedShipFocus !== 'all') {
+    nextSearchParams.set('shipFocus', state.selectedShipFocus);
   }
 
   if (state.selectedManufacturerId) {
@@ -689,6 +740,7 @@ const Market: React.FC = () => {
     searchTerm,
     selectedItemFilter,
     selectedShipTraitFilter,
+    selectedShipFocus,
     selectedManufacturerId,
     packageItems,
     sortBy,
@@ -701,10 +753,12 @@ const Market: React.FC = () => {
     || selectedItemFilter === 'standalone_ship'
     || selectedItemFilter === 'ship_package';
   const showsManufacturerFilter = showsShipTraitFilters || selectedItemFilter === 'ccu';
+  const showsShipFocusFilter = showsShipTraitFilters || selectedItemFilter === 'ccu';
   const normalizedSearchParams = useMemo(() => buildMarketPageSearchParams(searchParams, {
     searchTerm,
     selectedItemFilter,
     selectedShipTraitFilter: showsShipTraitFilters ? selectedShipTraitFilter : 'all',
+    selectedShipFocus: showsShipFocusFilter ? selectedShipFocus : 'all',
     selectedManufacturerId: showsManufacturerFilter ? selectedManufacturerId : null,
     packageItems,
     sortBy,
@@ -718,7 +772,9 @@ const Market: React.FC = () => {
     packageItems,
     selectedManufacturerId,
     selectedItemFilter,
+    selectedShipFocus,
     selectedShipTraitFilter,
+    showsShipFocusFilter,
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
@@ -727,6 +783,7 @@ const Market: React.FC = () => {
     searchTerm.trim()
     || selectedItemFilter !== 'all'
     || (showsShipTraitFilters && selectedShipTraitFilter !== 'all')
+    || (showsShipFocusFilter && selectedShipFocus !== 'all')
     || (showsManufacturerFilter && selectedManufacturerId)
     || packageItems.length > 0
     || sortBy !== 'recommended'
@@ -738,8 +795,10 @@ const Market: React.FC = () => {
     rowsPerPage,
     searchTerm,
     selectedItemFilter,
+    selectedShipFocus,
     selectedManufacturerId,
     selectedShipTraitFilter,
+    showsShipFocusFilter,
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
@@ -841,6 +900,9 @@ const Market: React.FC = () => {
     const shipTraits = showsShipTraitFilters && selectedShipTraitFilter !== 'all'
       ? [selectedShipTraitFilter]
       : [];
+    const shipFocuses = showsShipFocusFilter && selectedShipFocus !== 'all'
+      ? [selectedShipFocus]
+      : [];
     const manufacturerIds = showsManufacturerFilter && selectedManufacturerId
       ? [selectedManufacturerId]
       : [];
@@ -865,6 +927,7 @@ const Market: React.FC = () => {
       itemTypes,
       browseCategories,
       shipTraits,
+      shipFocuses,
       packageItems,
       manufacturerIds,
       sortBy,
@@ -878,7 +941,9 @@ const Market: React.FC = () => {
     searchTerm,
     selectedManufacturerId,
     selectedItemFilter,
+    selectedShipFocus,
     selectedShipTraitFilter,
+    showsShipFocusFilter,
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
@@ -901,6 +966,16 @@ const Market: React.FC = () => {
     page: 0,
     limit: 12,
   });
+  const {
+    data: availableShipIdsResponse,
+  } = useApi<MarketAvailableShipIdsResponse>('/api/market/available-ship-ids', {
+    revalidateOnFocus: false,
+    dedupingInterval: 300_000,
+  });
+  const availableShipIds = useMemo(
+    () => new Set(availableShipIdsResponse?.data?.shipIds || []),
+    [availableShipIdsResponse?.data?.shipIds],
+  );
   const {
     data: ccusData,
     error: ccusError,
@@ -1302,6 +1377,46 @@ const Market: React.FC = () => {
     return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name));
   }, [listingItems, ships]);
 
+  const shipFocusOptions = useMemo(() => {
+    const options = new Map<string, {
+      focus: string;
+      label: string;
+      shipCount: number;
+      imageUrl: string;
+      sampleShipName: string;
+    }>();
+
+    const availableShips = ships.filter((ship) => availableShipIds.has(ship.id));
+
+    availableShips.forEach((ship) => {
+      const focus = normalizeShipFocusParam(ship.focus);
+      const key = normalizeShipFocusFilter(focus);
+      if (!focus || !key) {
+        return;
+      }
+
+      if (!options.has(key)) {
+        const focusShips = availableShips.filter((candidate) => normalizeShipFocusFilter(candidate.focus) === key);
+        const imageShips = focusShips.filter((candidate) => getShipImageForRoleCard(candidate));
+        const samplePool = imageShips.length ? imageShips : focusShips;
+        const sampleShip = samplePool[Math.floor(Math.random() * samplePool.length)] || ship;
+
+        options.set(key, {
+          focus,
+          label: localizeShipFocus(locale, focus),
+          shipCount: focusShips.length,
+          imageUrl: getShipImageForRoleCard(sampleShip),
+          sampleShipName: getShipDisplayName(sampleShip),
+        });
+      }
+    });
+
+    return Array.from(options.values()).sort((left, right) => (
+      right.shipCount - left.shipCount
+      || left.label.localeCompare(right.label)
+    ));
+  }, [availableShipIds, locale, ships]);
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
 
@@ -1309,6 +1424,9 @@ const Market: React.FC = () => {
       count += 1;
     }
     if (showsShipTraitFilters && selectedShipTraitFilter !== 'all') {
+      count += 1;
+    }
+    if (showsShipFocusFilter && selectedShipFocus !== 'all') {
       count += 1;
     }
     if (showsManufacturerFilter && selectedManufacturerId) {
@@ -1324,9 +1442,11 @@ const Market: React.FC = () => {
     return count;
   }, [
     selectedItemFilter,
+    selectedShipFocus,
     selectedManufacturerId,
     selectedShipTraitFilter,
     packageItems.length,
+    showsShipFocusFilter,
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
@@ -1788,6 +1908,7 @@ const Market: React.FC = () => {
             nextSearchParams.delete('browseCategory');
             nextSearchParams.delete('tag');
             nextSearchParams.delete('shipTrait');
+            nextSearchParams.delete('shipFocus');
             nextSearchParams.delete('manufacturerId');
             nextSearchParams.delete('packageItem');
             nextSearchParams.delete('page');
@@ -1802,9 +1923,14 @@ const Market: React.FC = () => {
               || nextFilter === 'standalone_ship'
               || nextFilter === 'ship_package';
             const nextShowsManufacturerFilter = nextShowsShipTraitFilters || nextFilter === 'ccu';
+            const nextShowsShipFocusFilter = nextShowsShipTraitFilters || nextFilter === 'ccu';
 
             if (nextShowsShipTraitFilters && selectedShipTraitFilter !== 'all') {
               nextSearchParams.set('shipTrait', selectedShipTraitFilter);
+            }
+
+            if (nextShowsShipFocusFilter && selectedShipFocus !== 'all') {
+              nextSearchParams.set('shipFocus', selectedShipFocus);
             }
 
             if (nextShowsManufacturerFilter && selectedManufacturerId) {
@@ -1822,7 +1948,7 @@ const Market: React.FC = () => {
         <FormControlLabel control={<Radio size="small" />} value="credit" label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })} />
       </RadioGroup>
 
-      {(showsShipTraitFilters || showsManufacturerFilter) && (
+      {(showsShipTraitFilters || showsShipFocusFilter || showsManufacturerFilter) && (
         <>
           {showsShipTraitFilters && (
             <>
@@ -1856,6 +1982,43 @@ const Market: React.FC = () => {
                 <FormControlLabel control={<Radio size="small" />} value="non_oc" label={intl.formatMessage({ id: 'market.tag.nonOc', defaultMessage: 'Non-OC' })} />
                 <FormControlLabel control={<Radio size="small" />} value="lti" label={intl.formatMessage({ id: 'market.tag.lti', defaultMessage: 'LTI' })} />
               </RadioGroup>
+            </>
+          )}
+
+          {showsShipFocusFilter && shipFocusOptions.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label={intl.formatMessage({ id: 'market.filter.shipFocus', defaultMessage: 'Ship Role' })}
+                value={selectedShipFocus}
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 0 }
+                }}
+                onChange={(event) => {
+                  const nextShipFocus = normalizeShipFocusParam(event.target.value);
+                  updateMarketSearchParams((nextSearchParams) => {
+                    nextSearchParams.delete('shipFocus');
+                    nextSearchParams.delete('page');
+
+                    if (nextShipFocus && nextShipFocus !== 'all') {
+                      nextSearchParams.set('shipFocus', nextShipFocus);
+                    }
+                  });
+                }}
+              >
+                <MenuItem value="all">
+                  {intl.formatMessage({ id: 'market.filter.shipFocus.all', defaultMessage: 'All roles' })}
+                </MenuItem>
+                {shipFocusOptions.map((shipFocus) => (
+                  <MenuItem key={shipFocus.focus} value={shipFocus.focus}>
+                    {shipFocus.label}
+                  </MenuItem>
+                ))}
+              </TextField>
             </>
           )}
 
@@ -2430,6 +2593,16 @@ const Market: React.FC = () => {
     openListingDrawer();
   };
 
+  const openShipFocusListings = (shipFocus: string) => {
+    updateMarketSearchParams((nextSearchParams) => {
+      MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
+        nextSearchParams.delete(key);
+      });
+      nextSearchParams.set('shipFocus', shipFocus);
+    });
+    openListingDrawer();
+  };
+
   const renderManufacturerBrowseSection = () => (
     <section className='border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
       <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
@@ -2474,6 +2647,79 @@ const Market: React.FC = () => {
             <ArrowRight className='h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300' />
           </div>
         ))}
+      </div>
+    </section>
+  );
+
+  const renderShipFocusBrowseSection = () => (
+    <section>
+      <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
+            <FormattedMessage id="market.roleBrowse.eyebrow" defaultMessage="Browse by role" />
+          </div>
+          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+            <FormattedMessage id="market.roleBrowse.title" defaultMessage="Find ships and packs by ship role" />
+          </Typography>
+          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+            <FormattedMessage
+              id="market.roleBrowse.description"
+              defaultMessage="Choose a ship focus such as fighter, freight, mining, medical, exploration, or touring to browse matching listings."
+            />
+          </Typography>
+        </div>
+      </div>
+
+      <div className='market-role-marquee relative left-1/2 mt-4 flex w-[100dvw] max-w-[100dvw] -translate-x-1/2 flex-col gap-4 overflow-hidden px-4 md:px-10'>
+        {[0, 1].map((rowIndex) => {
+          const rowItems = shipFocusOptions.filter((_, index) => index % 2 === rowIndex);
+          const marqueeItems = rowItems.length ? [...rowItems, ...rowItems] : [];
+
+          return (
+            <div
+              key={rowIndex}
+              className={`market-role-marquee-row flex w-max gap-3 ${rowIndex === 1 ? 'market-role-marquee-row-reverse' : ''}`}
+            >
+              {marqueeItems.map((shipFocus, index) => (
+                <div
+                  key={`${shipFocus.focus}-${index}`}
+                  onClick={() => openShipFocusListings(shipFocus.focus)}
+                  className='group relative flex h-44 w-80 shrink-0 cursor-pointer overflow-hidden border border-gray-200 bg-slate-900 text-left transition hover:border-blue-400 dark:border-gray-800 dark:hover:border-blue-600 sm:h-52 sm:w-[420px]'
+                >
+                  {shipFocus.imageUrl ? (
+                    <img
+                      src={shipFocus.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className='absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]'
+                    />
+                  ) : (
+                    <div className='absolute inset-0 bg-slate-900' />
+                  )}
+                  <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.78)_0%,rgba(2,6,23,0.46)_54%,rgba(2,6,23,0.18)_100%)]' />
+                  <div className='relative z-10 flex h-full w-full flex-col justify-end p-5 text-white'>
+                    {/* <div className='truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-200'>
+                      {shipFocus.sampleShipName}
+                    </div> */}
+                    <div className='mt-1 truncate text-2xl font-black leading-tight'>
+                      {shipFocus.label}
+                    </div>
+                    <div className='mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-white/80'>
+                      <span>
+                        {intl.formatMessage(
+                          { id: 'market.roleBrowse.shipCount', defaultMessage: '{count} ships' },
+                          { count: shipFocus.shipCount },
+                        )}
+                      </span>
+                      <ArrowRight className='h-4 w-4 shrink-0 text-blue-200' />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -3233,7 +3479,7 @@ const Market: React.FC = () => {
       </Helmet>
       <div
         ref={pageContainerRef}
-        className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-slate-50 text-left text-slate-950 dark:bg-neutral-950 dark:text-white'
+        className='absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-x-hidden overflow-y-auto bg-slate-50 text-left text-slate-950 dark:bg-neutral-950 dark:text-white'
       >
         <style>
           {`
@@ -3317,6 +3563,43 @@ const Market: React.FC = () => {
               to {
                 opacity: 1;
                 transform: translateY(0);
+              }
+            }
+
+            .market-role-marquee:hover .market-role-marquee-row {
+              animation-play-state: paused;
+            }
+
+            .market-role-marquee-row {
+              animation: marketRoleMarquee 512s linear infinite;
+            }
+
+            .market-role-marquee-row-reverse {
+              animation-direction: reverse;
+            }
+
+            @keyframes marketRoleMarquee {
+              from {
+                transform: translateX(0);
+              }
+              to {
+                transform: translateX(calc(-50% - 0.5rem));
+              }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+              .market-role-marquee {
+                overflow-x: auto;
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+
+              .market-role-marquee::-webkit-scrollbar {
+                display: none;
+              }
+
+              .market-role-marquee-row {
+                animation: none;
               }
             }
           `}
@@ -3575,6 +3858,7 @@ const Market: React.FC = () => {
                       nextSearchParams.delete('itemType');
                       nextSearchParams.delete('browseCategory');
                       nextSearchParams.delete('shipTrait');
+                      nextSearchParams.delete('shipFocus');
                       nextSearchParams.delete('manufacturerId');
                       nextSearchParams.delete('packageItem');
                       nextSearchParams.delete('page');
@@ -3637,6 +3921,8 @@ const Market: React.FC = () => {
           {renderFeaturedAccountsSection()}
 
           {renderManufacturerBrowseSection()}
+
+          {renderShipFocusBrowseSection()}
 
           <Box
             sx={{
