@@ -2359,11 +2359,6 @@ const Market: React.FC = () => {
                   className='absolute inset-0 h-full w-full object-cover'
                 />
                 <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.16)_42%,rgba(0,0,0,0.84)_100%)]' />
-                <div className='absolute left-0 top-0 p-4'>
-                  <span className='flex h-10 w-10 items-center justify-center border border-white/35 bg-black/45 text-xs font-black uppercase text-white shadow-[0_1px_10px_rgba(0,0,0,0.35)]'>
-                    AC
-                  </span>
-                </div>
                 <div className='absolute inset-x-0 bottom-0 flex min-h-32 flex-col justify-end p-4'>
                   <div className='starter-pack-title max-w-[380px] text-base font-black leading-tight sm:text-xl'>
                     {item.name}
