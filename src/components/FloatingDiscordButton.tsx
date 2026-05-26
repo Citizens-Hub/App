@@ -32,7 +32,7 @@ export default function FloatingDiscordButton() {
             xs: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
             sm: 'calc(env(safe-area-inset-bottom, 0px) + 32px)',
           },
-          zIndex: 1250,
+          zIndex: 1,
           display: 'inline-flex',
           alignItems: 'center',
           gap: { xs: 1, sm: 1.25 },
