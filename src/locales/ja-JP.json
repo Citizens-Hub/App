@@ -1913,6 +1913,8 @@
   "market.listing.visibleInMarket": "マーケット一覧に表示",
   "market.listingStockBreakdown": "Total {stock} / Locked {lockedStock}",
   "market.loading": "読み込み中...",
+  "market.mobileScrollEnd": "All listings loaded",
+  "market.mobileScrollMore": "Scroll for more listings",
   "market.myOrders": "注文一覧",
   "market.myTickets": "チケット一覧",
   "market.newUserCoupon.active": "Active coupon: ${amountOff} off, minimum spend ${minimumAmount}, expires at {expiresAt}.",

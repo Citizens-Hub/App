@@ -1913,6 +1913,8 @@
   "market.listing.visibleInMarket": "In Marktliste anzeigen",
   "market.listingStockBreakdown": "Total {stock} / Locked {lockedStock}",
   "market.loading": "Wird geladen...",
+  "market.mobileScrollEnd": "All listings loaded",
+  "market.mobileScrollMore": "Scroll for more listings",
   "market.myOrders": "Meine Bestellungen",
   "market.myTickets": "Meine Tickets",
   "market.newUserCoupon.active": "Active coupon: ${amountOff} off, minimum spend ${minimumAmount}, expires at {expiresAt}.",

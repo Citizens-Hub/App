@@ -24,6 +24,8 @@ import {
   Tooltip,
   Autocomplete,
   Rating,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   ContentCopy,
@@ -170,6 +172,7 @@ interface PlannerRoutePurchaseItems {
 
 const MARKET_DEFAULT_ROWS_PER_PAGE = 15;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [15, 30] as const;
+const MARKET_MOBILE_ROWS_PER_BATCH = 15;
 const MARKET_SEARCH_DEBOUNCE_MS = 300;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
@@ -697,9 +700,12 @@ const Market: React.FC = () => {
   const intl = useIntl();
   const { locale } = useLocale();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobileListingDrawer = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
+  const listingDrawerInfiniteSentinelRef = useRef<HTMLDivElement | null>(null);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const featuredAccountScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackVisibilityFrameRef = useRef<number | null>(null);
@@ -716,6 +722,8 @@ const Market: React.FC = () => {
   const [couponNow, setCouponNow] = useState(Date.now());
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
+  const [mobileListingPage, setMobileListingPage] = useState(0);
+  const [mobileListingItems, setMobileListingItems] = useState<ListingItem[]>([]);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
   const [plannerStartShipId, setPlannerStartShipId] = useState<number | ''>('');
@@ -755,6 +763,12 @@ const Market: React.FC = () => {
     || selectedItemFilter === 'ship_package';
   const showsManufacturerFilter = showsShipTraitFilters || selectedItemFilter === 'ccu';
   const showsShipFocusFilter = showsShipTraitFilters || selectedItemFilter === 'ccu';
+  const listingSearchKey = useMemo(() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('page');
+    params.delete('limit');
+    return params.toString();
+  }, [searchParams]);
   const normalizedSearchParams = useMemo(() => buildMarketPageSearchParams(searchParams, {
     searchTerm,
     selectedItemFilter,
@@ -841,6 +855,12 @@ const Market: React.FC = () => {
       lastCommittedSearchRef.current = searchTerm;
     }
   }, [searchTerm]);
+
+  useEffect(() => {
+    setMobileListingPage(0);
+    setMobileListingItems([]);
+    listingDrawerContentRef.current?.scrollTo({ top: 0 });
+  }, [listingSearchKey]);
 
   useEffect(() => {
     if (searchInput === searchTerm) {
@@ -932,10 +952,13 @@ const Market: React.FC = () => {
       packageItems,
       manufacturerIds,
       sortBy,
-      page,
-      limit: rowsPerPage,
+      page: isMobileListingDrawer && listingDrawerOpen ? mobileListingPage : page,
+      limit: isMobileListingDrawer && listingDrawerOpen ? MARKET_MOBILE_ROWS_PER_BATCH : rowsPerPage,
     };
   }, [
+    isMobileListingDrawer,
+    listingDrawerOpen,
+    mobileListingPage,
     page,
     packageItems,
     rowsPerPage,
@@ -950,6 +973,20 @@ const Market: React.FC = () => {
     sortBy,
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
+  const visibleListingItems = isMobileListingDrawer && listingDrawerOpen ? mobileListingItems : listingItems;
+  const mobileHasMoreListings = isMobileListingDrawer
+    && listingDrawerOpen
+    && mobileListingItems.length < pagination.total;
+  const mobileLoadingNextPage = isMobileListingDrawer
+    && listingDrawerOpen
+    && refreshing
+    && mobileListingPage > 0;
+  const listingGridInitialLoading = loading || (
+    isMobileListingDrawer
+    && listingDrawerOpen
+    && refreshing
+    && mobileListingItems.length === 0
+  );
   const {
     ships: accountMarketShips,
     listingItems: featuredAccountItems,
@@ -1459,9 +1496,59 @@ const Market: React.FC = () => {
   ]);
 
   useEffect(() => {
+    if (!isMobileListingDrawer || !listingDrawerOpen) {
+      return;
+    }
+
+    setMobileListingItems((currentItems) => {
+      if (mobileListingPage === 0) {
+        return listingItems;
+      }
+
+      const existingSkuIds = new Set(currentItems.map((item) => item.skuId));
+      const nextItems = listingItems.filter((item) => !existingSkuIds.has(item.skuId));
+      return nextItems.length ? [...currentItems, ...nextItems] : currentItems;
+    });
+  }, [isMobileListingDrawer, listingDrawerOpen, listingItems, mobileListingPage]);
+
+  useEffect(() => {
+    if (!isMobileListingDrawer || !listingDrawerOpen || !mobileHasMoreListings) {
+      return;
+    }
+
+    const root = listingDrawerContentRef.current;
+    const sentinel = listingDrawerInfiniteSentinelRef.current;
+    if (!root || !sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (!entry?.isIntersecting || loading || refreshing) {
+        return;
+      }
+
+      setMobileListingPage((currentPage) => currentPage + 1);
+    }, {
+      root,
+      rootMargin: '360px 0px',
+    });
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    isMobileListingDrawer,
+    listingDrawerOpen,
+    loading,
+    mobileHasMoreListings,
+    refreshing,
+  ]);
+
+  useEffect(() => {
     pageContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     listingDrawerContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [marketQuery]);
+  }, [listingSearchKey]);
 
   const resolveDirectMarketItem = (item: ListingItem): ListingItem | null => {
     if (item.itemType === 'credit') {
@@ -3391,11 +3478,11 @@ const Market: React.FC = () => {
         </Box>
       )}
 
-      {loading && listingItems.length === 0 ? (
+      {loading && visibleListingItems.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" minHeight={360}>
           <CircularProgress />
         </Box>
-      ) : listingItems.length === 0 ? (
+      ) : visibleListingItems.length === 0 ? (
         <Box sx={{ borderRadius: 0, border: '1px dashed', borderColor: 'divider', backgroundColor: 'background.paper', p: 6, textAlign: 'center' }}>
           <Typography variant="h6">
             <FormattedMessage id="market.noResults" defaultMessage="No products found" />
@@ -3404,7 +3491,7 @@ const Market: React.FC = () => {
       ) : (
         <>
           <div className='grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5'>
-            {listingItems.map((item) => {
+            {visibleListingItems.map((item) => {
               const directItem = resolveDirectMarketItem(item);
               const directItemSkuId = directItem?.skuId || item.skuId;
               const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
@@ -3566,7 +3653,37 @@ const Market: React.FC = () => {
             })}
           </div>
 
-          <Box sx={{ mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
+          {isMobileListingDrawer && listingDrawerOpen && (
+            <Box
+              ref={listingDrawerInfiniteSentinelRef}
+              sx={{
+                minHeight: 72,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.secondary',
+              }}
+            >
+              {mobileLoadingNextPage ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={18} />
+                  <Typography variant="body2">
+                    <FormattedMessage id="market.loading" defaultMessage="Loading..." />
+                  </Typography>
+                </Stack>
+              ) : mobileHasMoreListings ? (
+                <Typography variant="body2">
+                  <FormattedMessage id="market.mobileScrollMore" defaultMessage="Scroll for more listings" />
+                </Typography>
+              ) : (
+                <Typography variant="body2">
+                  <FormattedMessage id="market.mobileScrollEnd" defaultMessage="All listings loaded" />
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <Box sx={{ display: { xs: 'none', md: 'block' }, mt: 2, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
             <TablePagination
               rowsPerPageOptions={[15, 30]}
               component="div"

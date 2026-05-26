@@ -1913,6 +1913,8 @@
   "market.listing.visibleInMarket": "顯示在商城列表中",
   "market.listingStockBreakdown": "總量 {stock} / 已鎖定 {lockedStock}",
   "market.loading": "載入中...",
+  "market.mobileScrollEnd": "已載入全部商品",
+  "market.mobileScrollMore": "繼續下滑載入更多商品",
   "market.myOrders": "我的訂單",
   "market.myTickets": "我的工單",
   "market.newUserCoupon.active": "当前可用优惠券：减 ${amountOff}，最低消费 ${minimumAmount}，到期时间 {expiresAt}。",
