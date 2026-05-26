@@ -2329,6 +2329,29 @@ const Market: React.FC = () => {
         </div>
       </div>
 
+      <div className='mt-4 flex flex-col gap-3 border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300'>
+            <FormattedMessage id="accountMarket.panel.codeLabel" defaultMessage="Discount code" />
+          </div>
+          <div className='mt-1 text-slate-700 dark:text-slate-200'>
+            <FormattedMessage
+              id="accountMarket.panel.codeBody"
+              defaultMessage="Use the monthly account code at checkout to claim {percent}% off eligible account listings."
+              values={{ percent: ACCOUNT_MARKET_COUPON_PERCENT_OFF }}
+            />
+          </div>
+        </div>
+        <div className='flex shrink-0 items-center gap-2'>
+          <div className='break-all text-lg font-black leading-tight text-slate-950 dark:text-white'>{accountCouponCode}</div>
+          <Tooltip title={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })} arrow>
+            <IconButton size="small" sx={{ flexShrink: 0 }} onClick={() => void handleCopyAccountCouponCode()}>
+              <ContentCopy fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      </div>
+
       {featuredAccountLoading && featuredAccountItems.length === 0 ? (
         <div className='mt-4 flex min-h-48 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
           <CircularProgress size={22} />
@@ -2349,7 +2372,7 @@ const Market: React.FC = () => {
                 data-featured-account-sku-id={item.skuId}
                 onMouseEnter={() => ensureFeaturedAccountVisible(item.skuId)}
                 onFocus={() => ensureFeaturedAccountVisible(item.skuId)}
-                className='starter-pack-card relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left text-white no-underline outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px]'
+                className='starter-pack-card text-white! relative h-[300px] shrink-0 cursor-pointer overflow-hidden bg-neutral-900 text-left no-underline outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-[360px]'
               >
                 <img
                   src={getFeaturedAccountImageUrl(item)}
