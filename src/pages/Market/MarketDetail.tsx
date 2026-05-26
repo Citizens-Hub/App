@@ -74,6 +74,7 @@ import { getAbsoluteAssetUrl, getMarketDetailUrl } from '@/utils/marketLinks';
 import MarketImageBadge from './components/MarketImageBadge';
 // import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 import { getDirectCheckoutPath, saveDirectCheckoutItems } from '@/utils/directCheckout';
+import FloatingDiscordButton from '@/components/FloatingDiscordButton';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -358,6 +359,8 @@ function MarketTrustBadge({
 }) {
   return (
     <div className={`${compact ? '' : 'md:p-5'}`}>
+      <FloatingDiscordButton />
+      
       <div className='flex flex-col gap-2'>
         <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
           <FormattedMessage id="market.trust.eyebrow" defaultMessage="Why Buy Here" />

@@ -110,6 +110,7 @@ import ExtensionModal from '@/pages/CCUPlanner/components/ExtensionModal';
 import type { FlowData, PlannerWorkspaceData } from '@/pages/CCUPlanner/services/ImportExportService';
 import { getCompletedPathsStorageKeyForTab } from '@/pages/CCUPlanner/services/completedPathsStorage';
 import type { Edge, Node } from 'reactflow';
+import FloatingDiscordButton from '@/components/FloatingDiscordButton';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 
@@ -1318,7 +1319,7 @@ const Market: React.FC = () => {
     const configuredSlides = marketHomeSettingsResponse?.data.settings.enabled === false
       ? []
       : (marketHomeSettingsResponse?.data.settings.slides || [])
-          .filter((slide) => slide.enabled && slide.mediaUrl.trim());
+        .filter((slide) => slide.enabled && slide.mediaUrl.trim());
 
     return configuredSlides.length > 0 ? configuredSlides : DEFAULT_MARKET_HERO_SLIDES;
   }, [marketHomeSettingsResponse]);
@@ -1730,12 +1731,12 @@ const Market: React.FC = () => {
         setSnackbarMessage(intl.formatMessage(
           {
             id: 'pathBuilder.marketRouteCreditUnavailable',
-              defaultMessage: 'No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}.',
-            },
-            {
-              amount: formatUsdPrice(intl.locale, plannerOfficialStoreCreditSpend),
-            },
-          ));
+            defaultMessage: 'No combination of Store Credit amounts can cover the required normal-upgrade spend of {amount}.',
+          },
+          {
+            amount: formatUsdPrice(intl.locale, plannerOfficialStoreCreditSpend),
+          },
+        ));
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
         return null;
@@ -3184,9 +3185,9 @@ const Market: React.FC = () => {
             <div className='mt-1 text-2xl font-black text-emerald-950 dark:text-emerald-50 md:text-3xl'>
               {plannerRoute
                 ? intl.formatMessage(
-                    { id: 'market.ccuPlanner.instantSavings', defaultMessage: 'Order now and save {amount}' },
-                    { amount: formatUsdPrice(intl.locale, plannerInstantSavings) },
-                  )
+                  { id: 'market.ccuPlanner.instantSavings', defaultMessage: 'Order now and save {amount}' },
+                  { amount: formatUsdPrice(intl.locale, plannerInstantSavings) },
+                )
                 : intl.formatMessage({ id: 'market.ccuPlanner.instantSavingsPending', defaultMessage: 'Select ships to calculate savings' })}
             </div>
           </div>
@@ -3908,6 +3909,8 @@ const Market: React.FC = () => {
             </div>
           </Alert>
         )}
+
+        <FloatingDiscordButton />
 
         <Button
           variant="contained"
