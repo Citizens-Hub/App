@@ -3389,12 +3389,12 @@ const Market: React.FC = () => {
           sx={{
             minHeight: 40,
             borderRadius: 0,
-            justifyContent: 'space-between',
+            justifyContent: 'start',
             px: 1.5,
-            textTransform: 'none',
+            textTransform: 'none'
           }}
         >
-          <span>
+          <span className='mr-2'>
             <FormattedMessage id="admin.bi.filter" defaultMessage="Filter" />
           </span>
           <span className='text-xs text-slate-500 dark:text-slate-400'>
@@ -3445,7 +3445,7 @@ const Market: React.FC = () => {
 
   const renderListingGrid = () => (
     <Box sx={{ position: 'relative', p: 2 }}>
-      {refreshing && (
+      {refreshing && !listingGridInitialLoading && (
         <Box
           sx={{
             position: 'sticky',
@@ -3478,7 +3478,7 @@ const Market: React.FC = () => {
         </Box>
       )}
 
-      {loading && visibleListingItems.length === 0 ? (
+      {listingGridInitialLoading && visibleListingItems.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" minHeight={360}>
           <CircularProgress />
         </Box>
