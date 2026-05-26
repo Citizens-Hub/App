@@ -164,6 +164,7 @@ const SHIP_COMPONENT_SUFFIX_TRANSLATIONS: Array<[string, ShipComponentTranslatio
   ['torpedos', t('鱼雷', '魚雷', 'Torpedos', '魚雷', 'Torpedos')],
   ['torpedo', t('鱼雷', '魚雷', 'Torpedo', '魚雷', 'Torpedo')],
   ['shield', t('护盾', '護盾', 'Shield', 'シールド', 'Schild')],
+  ['refuel arm', t('加油臂', '加油臂', 'Refuel Arm', '給油アーム', 'Betankungsarm')],
 ];
 
 const SHIP_COMPONENT_DETAIL_TRANSLATIONS: Record<string, ShipComponentTranslations> = {
