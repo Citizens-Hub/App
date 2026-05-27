@@ -1,5 +1,5 @@
 import { Box, IconButton } from '@mui/material';
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { ListingItem, Ship } from '@/types';
 import { ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER, resolveMarketImageBadgeKind } from '@/components/marketItemDisplay';
@@ -12,14 +12,17 @@ interface MarketItemMediaProps {
   badgeText?: string | null;
 }
 
-export default function MarketItemMedia({
+function MarketItemMedia({
   item,
   ships,
   height = 220,
   badgeText,
 }: MarketItemMediaProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const visual = getMarketItemVisual(item, ships, { imageVariant: 'thumbLarge' });
+  const visual = useMemo(
+    () => getMarketItemVisual(item, ships, { imageVariant: 'thumbLarge' }),
+    [item, ships],
+  );
   const imageBadgeKind = resolveMarketImageBadgeKind(item);
 
   if (item.itemType === 'ccu') {
@@ -37,6 +40,8 @@ export default function MarketItemMedia({
           }}
           src={visual.fromImage || MARKET_ITEM_PLACEHOLDER}
           alt={visual.fromShipName || item.name}
+          loading="lazy"
+          decoding="async"
         />
         <Box
           component="img"
@@ -51,6 +56,8 @@ export default function MarketItemMedia({
           }}
           src={visual.toImage || MARKET_ITEM_PLACEHOLDER}
           alt={visual.toShipName || item.name}
+          loading="lazy"
+          decoding="async"
         />
         <div className='absolute top-1/2 left-[36%] -translate-x-1/2 -translate-y-1/2 bg-black/45 p-2 text-white'>
           <ChevronsRight className='h-6 w-6' />
@@ -81,6 +88,8 @@ export default function MarketItemMedia({
         sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
         src={selectedImage}
         alt={item.name}
+        loading="lazy"
+        decoding="async"
       />
       {carouselImages.length > 1 && (
         <>
@@ -160,3 +169,5 @@ export default function MarketItemMedia({
     </Box>
   );
 }
+
+export default memo(MarketItemMedia);

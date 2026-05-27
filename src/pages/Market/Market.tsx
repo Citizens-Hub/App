@@ -698,6 +698,338 @@ function buildMarketPageSearchParams(currentSearchParams: URLSearchParams, state
   return nextSearchParams;
 }
 
+function resolveDirectMarketItem(item: ListingItem): ListingItem | null {
+  if (item.itemType === 'credit') {
+    return null;
+  }
+
+  return item.itemType === 'ccu' ? resolveLowestCcuVariant(item) : item;
+}
+
+interface MarketListingSearchFieldProps {
+  id?: string;
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}
+
+const MarketListingSearchField = React.memo(function MarketListingSearchField({
+  id,
+  value,
+  placeholder,
+  onCommit,
+}: MarketListingSearchFieldProps) {
+  const [draftValue, setDraftValue] = useState(value);
+
+  useEffect(() => {
+    setDraftValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (draftValue === value) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      onCommit(draftValue);
+    }, MARKET_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [draftValue, onCommit, value]);
+
+  const commitNow = useCallback(() => {
+    if (draftValue !== value) {
+      onCommit(draftValue);
+    }
+  }, [draftValue, onCommit, value]);
+
+  return (
+    <TextField
+      fullWidth
+      variant="outlined"
+      placeholder={placeholder}
+      value={draftValue}
+      id={id}
+      onChange={(event) => {
+        setDraftValue(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commitNow();
+        }
+      }}
+      sx={{
+        '& .MuiOutlinedInput-root': { borderRadius: 0 },
+      }}
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search />
+            </InputAdornment>
+          ),
+        },
+      }}
+      size="small"
+    />
+  );
+});
+
+interface MarketHomeSearchBoxProps {
+  value: string;
+  placeholder: string;
+  onSearch: (value: string) => void;
+}
+
+const MarketHomeSearchBox = React.memo(function MarketHomeSearchBox({
+  value,
+  placeholder,
+  onSearch,
+}: MarketHomeSearchBoxProps) {
+  const [draftValue, setDraftValue] = useState(value);
+
+  useEffect(() => {
+    setDraftValue(value);
+  }, [value]);
+
+  const submitSearch = useCallback(() => {
+    onSearch(draftValue);
+  }, [draftValue, onSearch]);
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) 180px' },
+        gap: 1.5,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        p: 1.5,
+      }}
+    >
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder={placeholder}
+        value={draftValue}
+        onChange={(event) => {
+          setDraftValue(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitSearch();
+          }
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: 'background.paper' },
+        }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          },
+        }}
+        size="small"
+      />
+      <Button
+        variant="contained"
+        onClick={submitSearch}
+        sx={{ borderRadius: 0 }}
+      >
+        <FormattedMessage id="market.search" defaultMessage="Search" />
+      </Button>
+    </Box>
+  );
+});
+
+interface MarketListingCardProps {
+  item: ListingItem;
+  ships: Ship[];
+  cartQuantity: number;
+  onOpenDetails: (item: ListingItem) => void;
+  onAddToCart: (item: ListingItem) => void | Promise<void>;
+  onBuyNow: (item: ListingItem) => void | Promise<void>;
+  onRemoveFromCart: (resourceId: string) => void;
+  onUpdateQuantity: (resourceId: string, quantity: number) => void;
+}
+
+const MarketListingCard = React.memo(function MarketListingCard({
+  item,
+  ships,
+  cartQuantity,
+  onOpenDetails,
+  onAddToCart,
+  onBuyNow,
+  onRemoveFromCart,
+  onUpdateQuantity,
+}: MarketListingCardProps) {
+  const intl = useIntl();
+  const directItem = useMemo(() => resolveDirectMarketItem(item), [item]);
+  const directItemSkuId = directItem?.skuId || item.skuId;
+  const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
+  const basePrice = useMemo(() => getListingBasePrice(item, ships), [item, ships]);
+  const discount = useMemo(() => getListingDiscountPercent(item, ships), [item, ships]);
+  const displayName = useMemo(() => getMarketItemDisplayName(intl, item, ships), [intl, item, ships]);
+  const summary = useMemo(() => getMarketItemSummary(intl, item, ships), [intl, item, ships]);
+  const isCredit = item.itemType === 'credit';
+  const isCcu = item.itemType === 'ccu';
+  const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
+  const packageShips = item.packageShips || [];
+  const packageItems = item.packageItems || [];
+  const packageShipCount = useMemo(
+    () => packageShips.filter((ship) => ship.shipId !== null).length,
+    [packageShips],
+  );
+
+  return (
+    <div className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'>
+      <div
+        className='block w-full cursor-pointer text-left'
+        onClick={() => onOpenDetails(item)}
+      >
+        <MarketItemMedia
+          item={item}
+          ships={ships}
+          height={220}
+          badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
+        />
+      </div>
+
+      <div className='flex flex-1 flex-col gap-4 p-4'>
+        <div className='flex flex-wrap gap-2'>
+          {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
+          {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+          {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
+        </div>
+
+        <div className='flex flex-1 flex-col gap-2'>
+          <div
+            className='w-full cursor-pointer text-left text-inherit no-underline'
+            onClick={() => onOpenDetails(item)}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, fontSize: '1.05rem' }}>
+              {displayName}
+            </Typography>
+          </div>
+          <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
+            {summary}
+          </Typography>
+          {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {formatPackageContentsSummary(intl, packageShipCount, packageItems.length)}
+            </Typography>
+          )}
+        </div>
+
+        <div className='mt-auto flex flex-col gap-4'>
+          <div className='flex flex-col gap-1'>
+            <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+              {isCredit || isVariantPriceRange
+                ? formatMarketPriceFrom(intl, item.price)
+                : formatUsdPrice(intl.locale, item.price)}
+            </div>
+            {discount && Number(discount) > 0 && (
+              <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+                {formatUsdPrice(intl.locale, basePrice)}
+              </div>
+            )}
+            {typeof item.cost === 'number' && item.cost > 0 && (
+              <div className='text-sm text-slate-500 dark:text-slate-400'>
+                {intl.formatMessage(
+                  { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
+                  { value: formatUsdPrice(intl.locale, item.cost) },
+                )}
+              </div>
+            )}
+          </div>
+
+          <Divider />
+
+          <div className='flex items-center justify-between gap-3'>
+            {isCredit ? (
+              <Button
+                variant="outlined"
+                onClick={() => onOpenDetails(item)}
+                size="small"
+              >
+                <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
+              </Button>
+            ) : cartQuantity > 0 ? (
+              <ButtonGroup
+                size="small"
+                aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (cartQuantity > 1) {
+                      onUpdateQuantity(directItemSkuId, cartQuantity - 1);
+                    } else {
+                      onRemoveFromCart(directItemSkuId);
+                    }
+                  }}
+                >
+                  <Minus className="h-4 w-4" />
+                </IconButton>
+                <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
+                  {cartQuantity}
+                </Typography>
+                <IconButton
+                  size="small"
+                  disabled={cartQuantity >= availableStock}
+                  onClick={() => {
+                    if (cartQuantity < availableStock) {
+                      onUpdateQuantity(directItemSkuId, cartQuantity + 1);
+                    }
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </IconButton>
+              </ButtonGroup>
+            ) : (
+              <Button
+                variant="outlined"
+                onClick={() => void onAddToCart(item)}
+                disabled={availableStock <= 0}
+                size="small"
+              >
+                <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
+              </Button>
+            )}
+            {!isCredit && (
+              <Button
+                variant="contained"
+                onClick={() => void onBuyNow(item)}
+                disabled={availableStock <= 0}
+                size="small"
+              >
+                <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const Market: React.FC = () => {
   const intl = useIntl();
   const { locale } = useLocale();
@@ -715,7 +1047,6 @@ const Market: React.FC = () => {
   const otherGearScrollerRef = useRef<HTMLDivElement | null>(null);
   const starterPackVisibilityFrameRef = useRef<number | null>(null);
   const featuredAccountVisibilityFrameRef = useRef<number | null>(null);
-  const lastCommittedSearchRef = useRef('');
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -739,10 +1070,15 @@ const Market: React.FC = () => {
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const autoClaimAttemptedRef = useRef<string | null>(null);
+  const cartRef = useRef(cart);
   const { data: couponPreview, mutate: mutateCouponPreview } = useAuthApi<NewUserCouponPreview>(
     user.token ? '/api/user/new-user-coupon' : null,
   );
   const selectedHangarItems = useSelector(selectUsersHangarItems);
+  useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
+
   const plannerHangarItems = useMemo<HangarItem[]>(() => selectedHangarItems.ccus.map((upgrade, index) => ({
     id: index,
     name: upgrade.name,
@@ -762,7 +1098,6 @@ const Market: React.FC = () => {
     page,
     rowsPerPage,
   } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
-  const [searchInput, setSearchInput] = useState(() => searchTerm);
   const { data: marketHomeSettingsResponse } = useMarketHomeSettings();
   const showsShipTraitFilters = selectedItemFilter === 'all'
     || selectedItemFilter === 'standalone_ship'
@@ -857,45 +1192,11 @@ const Market: React.FC = () => {
   }, [hasActiveMarketSearchParams, listingDrawerOpen, normalizedSearchParams, searchParams]);
 
   useEffect(() => {
-    if (searchTerm !== lastCommittedSearchRef.current) {
-      setSearchInput(searchTerm);
-      lastCommittedSearchRef.current = searchTerm;
-    }
-  }, [searchTerm]);
-
-  useEffect(() => {
     setMobileListingPage(0);
     setMobileListingItems([]);
     mobileListingPageRequestPendingRef.current = false;
     listingDrawerContentRef.current?.scrollTo({ top: 0 });
   }, [listingSearchKey]);
-
-  useEffect(() => {
-    if (searchInput === searchTerm) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.delete('page');
-
-      if (searchInput.trim()) {
-        nextSearchParams.set('search', searchInput);
-      } else {
-        nextSearchParams.delete('search');
-      }
-
-      lastCommittedSearchRef.current = searchInput;
-
-      if (nextSearchParams.toString() !== searchParams.toString()) {
-        setSearchParams(nextSearchParams, { replace: true });
-      }
-    }, MARKET_SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [searchInput, searchParams, searchTerm, setSearchParams]);
 
   const updateMarketSearchParams = (updater: (nextSearchParams: URLSearchParams) => void) => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -913,15 +1214,55 @@ const Market: React.FC = () => {
     });
 
     const nextQueryKey = nextSearchParams.toString();
-    lastCommittedSearchRef.current = '';
     autoOpenedListingQueryRef.current = options?.keepDrawerClosed ? nextQueryKey : null;
     suppressListingAutoOpenRef.current = Boolean(options?.keepDrawerClosed);
-    setSearchInput('');
 
     if (nextSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(nextSearchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  const openListingDrawer = useCallback((options?: { focusSearch?: boolean }) => {
+    suppressListingAutoOpenRef.current = false;
+    setListingDrawerContentReady(false);
+    setListingDrawerOpen(true);
+    if (options?.focusSearch) {
+      window.setTimeout(() => {
+        document.getElementById('market-listing-search-input')?.focus();
+      }, 80);
+    }
+  }, []);
+
+  const closeListingDrawer = useCallback((options?: { clearFilters?: boolean }) => {
+    setListingDrawerContentReady(false);
+    setListingDrawerOpen(false);
+    if (options?.clearFilters) {
+      clearMarketSearchParams({ keepDrawerClosed: true });
+    }
+  }, [clearMarketSearchParams]);
+
+  const commitMarketSearch = useCallback((nextSearchTerm: string) => {
+    const trimmedSearchTerm = nextSearchTerm.trim();
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('page');
+
+    if (trimmedSearchTerm) {
+      nextSearchParams.set('search', trimmedSearchTerm);
+    } else {
+      nextSearchParams.delete('search');
+    }
+
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      React.startTransition(() => {
+        setSearchParams(nextSearchParams, { replace: true });
+      });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const commitHomeMarketSearch = useCallback((nextSearchTerm: string) => {
+    commitMarketSearch(nextSearchTerm);
+    openListingDrawer();
+  }, [commitMarketSearch, openListingDrawer]);
 
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
@@ -984,6 +1325,15 @@ const Market: React.FC = () => {
   ]);
   const { ships, listingItems, pagination, loading, refreshing, error } = useMarketData(marketQuery);
   const visibleListingItems = isMobileListingDrawer && listingDrawerOpen ? mobileListingItems : listingItems;
+  const cartQuantityByResourceId = useMemo(() => {
+    const quantities = new Map<string, number>();
+
+    cart.forEach((cartItem: CartItemType) => {
+      quantities.set(cartItem.resource.id, cartItem.quantity || 1);
+    });
+
+    return quantities;
+  }, [cart]);
   const mobileHasMoreListings = isMobileListingDrawer
     && listingDrawerOpen
     && mobileListingItems.length < pagination.total;
@@ -1573,15 +1923,11 @@ const Market: React.FC = () => {
     listingDrawerContentRef.current?.scrollTo({ top: 0 });
   }, [listingSearchKey]);
 
-  const resolveDirectMarketItem = (item: ListingItem): ListingItem | null => {
-    if (item.itemType === 'credit') {
-      return null;
-    }
+  const handleOpenDetails = useCallback((item: ListingItem) => {
+    window.open(getMarketDetailUrl(item.skuId), '_blank', 'noopener,noreferrer');
+  }, []);
 
-    return item.itemType === 'ccu' ? resolveLowestCcuVariant(item) : item;
-  };
-
-  const resolveDirectMarketItemForAction = async (item: ListingItem): Promise<ListingItem | null> => {
+  const resolveDirectMarketItemForAction = useCallback(async (item: ListingItem): Promise<ListingItem | null> => {
     if (item.itemType !== 'ccu') {
       return resolveDirectMarketItem(item);
     }
@@ -1598,16 +1944,16 @@ const Market: React.FC = () => {
       console.error('Failed to resolve CCU group for direct market action:', error);
       return resolveDirectMarketItem(item);
     }
-  };
+  }, []);
 
-  const handleAddToCart = async (item: ListingItem) => {
+  const handleAddToCart = useCallback(async (item: ListingItem) => {
     const targetItem = await resolveDirectMarketItemForAction(item);
     if (!targetItem) {
       handleOpenDetails(item);
       return;
     }
 
-    const existingCartItem = cart.find((cartItem: CartItemType) => cartItem.resource.id === targetItem.skuId);
+    const existingCartItem = cartRef.current.find((cartItem: CartItemType) => cartItem.resource.id === targetItem.skuId);
     const availableStock = getAvailableStock(targetItem);
 
     if (existingCartItem) {
@@ -1627,9 +1973,9 @@ const Market: React.FC = () => {
     setSnackbarMessage(intl.formatMessage({ id: 'market.addedToCart', defaultMessage: 'Added to cart' }));
     setSnackbarSeverity('success');
     setSnackbarOpen(true);
-  };
+  }, [addToCart, handleOpenDetails, intl, resolveDirectMarketItemForAction, ships, updateItemQuantity]);
 
-  const handleBuyNow = async (item: ListingItem) => {
+  const handleBuyNow = useCallback(async (item: ListingItem) => {
     const targetItem = await resolveDirectMarketItemForAction(item);
     if (!targetItem || getAvailableStock(targetItem) <= 0) {
       handleOpenDetails(item);
@@ -1644,7 +1990,7 @@ const Market: React.FC = () => {
         ships,
       },
     });
-  };
+  }, [handleOpenDetails, navigate, resolveDirectMarketItemForAction, ships]);
 
   const validateMarketRouteListingStock = (edges: MarketRouteEdge[]) => {
     const plannedListingQuantities = new Map<string, number>();
@@ -1863,10 +2209,6 @@ const Market: React.FC = () => {
     if (item) return getAvailableStock(item);
 
     return cart.find((cartItem) => cartItem.resource.id === resourceId)?.resource.marketAvailableStock ?? 0;
-  };
-
-  const handleOpenDetails = (item: ListingItem) => {
-    window.open(getMarketDetailUrl(item.skuId), '_blank', 'noopener,noreferrer');
   };
 
   const handleClaimNewUserCoupon = useCallback(async (options?: { silent?: boolean }) => {
@@ -3529,25 +3871,6 @@ const Market: React.FC = () => {
     );
   };
 
-  const openListingDrawer = (options?: { focusSearch?: boolean }) => {
-    suppressListingAutoOpenRef.current = false;
-    setListingDrawerContentReady(false);
-    setListingDrawerOpen(true);
-    if (options?.focusSearch) {
-      window.setTimeout(() => {
-        document.getElementById('market-listing-search-input')?.focus();
-      }, 80);
-    }
-  };
-
-  const closeListingDrawer = (options?: { clearFilters?: boolean }) => {
-    setListingDrawerContentReady(false);
-    setListingDrawerOpen(false);
-    if (options?.clearFilters) {
-      clearMarketSearchParams({ keepDrawerClosed: true });
-    }
-  };
-
   const openStarterPackListings = () => {
     updateMarketSearchParams((nextSearchParams) => {
       MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
@@ -3583,28 +3906,11 @@ const Market: React.FC = () => {
         p: 2,
       }}
     >
-      <TextField
-        fullWidth
-        variant="outlined"
-        placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
-        value={searchInput}
+      <MarketListingSearchField
         id="market-listing-search-input"
-        onChange={(event) => {
-          setSearchInput(event.target.value);
-        }}
-        sx={{
-          '& .MuiOutlinedInput-root': { borderRadius: 0 }
-        }}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            )
-          }
-        }}
-        size="small"
+        value={searchTerm}
+        placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
+        onCommit={commitMarketSearch}
       />
 
       <div className='grid gap-2 lg:hidden'>
@@ -3727,161 +4033,19 @@ const Market: React.FC = () => {
                 {visibleListingItems.map((item) => {
                   const directItem = resolveDirectMarketItem(item);
                   const directItemSkuId = directItem?.skuId || item.skuId;
-                  const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
-                  const inCartItem = directItem
-                    ? cart.find((cartItem: CartItemType) => cartItem.resource.id === directItemSkuId)
-                    : undefined;
-                  const inCartQuantity = inCartItem?.quantity || 0;
-                  const basePrice = getListingBasePrice(item, ships);
-                  const discount = getListingDiscountPercent(item, ships);
-                  const isCredit = item.itemType === 'credit';
-                  const isCcu = item.itemType === 'ccu';
-                  const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
-                  const packageShips = item.packageShips || [];
-                  const packageItems = item.packageItems || [];
-                  const displayName = getMarketItemDisplayName(intl, item, ships);
 
                   return (
-                    <div
+                    <MarketListingCard
                       key={item.skuId}
-                      className='flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition hover:border-gray-300 dark:border-gray-800 dark:bg-neutral-900 dark:hover:border-gray-700'
-                    >
-                      <div
-                        className='block w-full cursor-pointer text-left'
-                        onClick={() => handleOpenDetails(item)}
-                      >
-                        <MarketItemMedia
-                          item={item}
-                          ships={ships}
-                          height={220}
-                          badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
-                        />
-                      </div>
-
-                      <div className='flex flex-1 flex-col gap-4 p-4'>
-                        <div className='flex flex-wrap gap-2'>
-                          {item.browseCategory && <Chip size="small" variant="outlined" label={getMarketBrowseCategoryLabel(intl, item.browseCategory)} />}
-                          {item.itemType === 'ccu' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                          {item.itemType === 'credit' && <Chip size="small" label={getMarketItemTypeLabel(intl, item.itemType)} />}
-                        </div>
-
-                        <div className='flex flex-1 flex-col gap-2'>
-                          <div
-                            className='w-full cursor-pointer text-left text-inherit no-underline'
-                            onClick={() => handleOpenDetails(item)}
-                          >
-                            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.35, fontSize: '1.05rem' }}>
-                              {displayName}
-                            </Typography>
-                          </div>
-                          <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
-                            {getMarketItemSummary(intl, item, ships)}
-                          </Typography>
-                          {item.itemType === 'package' && (packageShips.length > 0 || packageItems.length > 0) && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {formatPackageContentsSummary(intl, packageShips.filter(ship => ship.shipId !== null).length, packageItems.length)}
-                            </Typography>
-                          )}
-                        </div>
-
-                        <div className='mt-auto flex flex-col gap-4'>
-                          <div className='flex flex-col gap-1'>
-                            <div className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
-                              {isCredit || isVariantPriceRange
-                                ? formatMarketPriceFrom(intl, item.price)
-                                : formatUsdPrice(intl.locale, item.price)}
-                            </div>
-                            {discount && Number(discount) > 0 && (
-                              <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                                {formatUsdPrice(intl.locale, basePrice)}
-                              </div>
-                            )}
-                            {typeof item.cost === 'number' && item.cost > 0 && (
-                              <div className='text-sm text-slate-500 dark:text-slate-400'>
-                                {intl.formatMessage(
-                                  { id: 'market.detail.meltValueSummary', defaultMessage: 'Exchange value: {value}' },
-                                  { value: formatUsdPrice(intl.locale, item.cost) },
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <Divider />
-
-                          <div className='flex items-center justify-between gap-3'>
-                            {isCredit ? (
-                              <Button
-                                variant="outlined"
-                                onClick={() => handleOpenDetails(item)}
-                                size="small"
-                              >
-                                <FormattedMessage id="market.credit.chooseAmount" defaultMessage="Choose amount" />
-                              </Button>
-                            ) : inCartItem ? (
-                              <ButtonGroup
-                                size="small"
-                                aria-label={intl.formatMessage({ id: 'market.quantityControls', defaultMessage: 'Quantity controls' })}
-                              >
-                                <IconButton
-                                  size="small"
-                                  onClick={() => {
-                                    if (inCartQuantity > 1) {
-                                      updateItemQuantity(directItemSkuId, inCartQuantity - 1);
-                                    } else {
-                                      removeFromCart(directItemSkuId);
-                                    }
-                                  }}
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </IconButton>
-                                <Typography sx={{ px: 2, display: 'flex', alignItems: 'center', border: '1px solid', borderColor: 'divider' }}>
-                                  {inCartQuantity}
-                                </Typography>
-                                <IconButton
-                                  size="small"
-                                  disabled={inCartQuantity >= availableStock}
-                                  onClick={() => {
-                                    if (inCartQuantity < availableStock) {
-                                      updateItemQuantity(directItemSkuId, inCartQuantity + 1);
-                                    }
-                                  }}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </IconButton>
-                              </ButtonGroup>
-                            ) : (
-                              <Button
-                                variant="outlined"
-                                onClick={() => handleAddToCart(item)}
-                                disabled={availableStock <= 0}
-                                size="small"
-                              >
-                                <FormattedMessage id="market.addToCart" defaultMessage="Add to cart" />
-                              </Button>
-                            )}
-                            {!isCredit && (
-                              <Button
-                                variant="contained"
-                                onClick={() => handleBuyNow(item)}
-                                disabled={availableStock <= 0}
-                                size="small"
-                              >
-                                <FormattedMessage id="market.buyNow" defaultMessage="Buy now" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      item={item}
+                      ships={ships}
+                      cartQuantity={cartQuantityByResourceId.get(directItemSkuId) || 0}
+                      onOpenDetails={handleOpenDetails}
+                      onAddToCart={handleAddToCart}
+                      onBuyNow={handleBuyNow}
+                      onRemoveFromCart={removeFromCart}
+                      onUpdateQuantity={updateItemQuantity}
+                    />
                   );
                 })}
               </div>
@@ -4304,50 +4468,11 @@ const Market: React.FC = () => {
           )} */}
 
           <section className='mx-auto grid w-full gap-4'>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) 180px' },
-                gap: 1.5,
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                p: 1.5,
-              }}
-            >
-              <TextField
-                fullWidth
-                variant="outlined"
+              <MarketHomeSearchBox
+                value={searchTerm}
                 placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    openListingDrawer();
-                  }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: 'background.paper' }
-                }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search />
-                      </InputAdornment>
-                    )
-                  }
-                }}
-                size="small"
+                onSearch={commitHomeMarketSearch}
               />
-              <Button
-                variant="contained"
-                onClick={() => openListingDrawer()}
-                sx={{ borderRadius: 0 }}
-              >
-                <FormattedMessage id="market.search" defaultMessage="Search" />
-              </Button>
-            </Box>
 
             <div className='grid gap-3 md:grid-cols-5'>
               {[
