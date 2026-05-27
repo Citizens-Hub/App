@@ -29,7 +29,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ChevronsRight, PlusCircle, Search } from "lucide-react";
+import { ChevronsRight, Copy, PlusCircle, Search } from "lucide-react";
 import Crawler from "@/components/Crawler";
 import UserSelector from "@/components/UserSelector";
 import { getMarketItemVisual, MARKET_ITEM_PLACEHOLDER } from "@/components/marketItemDisplay";
@@ -51,6 +51,7 @@ import {
 } from "./storeListingUtils";
 import { getMarketBrowseCategoryLabel, getMarketTagLabel } from "@/pages/Market/marketI18n";
 import { resolveMarketImageUrls } from "@/utils/marketImages";
+import { getMarketDetailUrl } from "@/utils/marketLinks";
 import ResellerImagePicker from "./ResellerImagePicker";
 
 const DEFAULT_MANUAL_ITEM_TYPE: MarketItemType = "ccu";
@@ -73,6 +74,10 @@ type ManualPackageItemDraft = {
 };
 
 type DisplayableMarketItem = StoreInventoryItem | ListingItem;
+type ListingNotice = {
+  severity: "success" | "error";
+  message: string;
+};
 
 const twoLineClampSx = {
   display: "-webkit-box",
@@ -97,6 +102,30 @@ function normalizeManualPackageItemImageUrl(value?: string) {
 
 function normalizeShipName(name?: string) {
   return (name || "").trim().toUpperCase();
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "true");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+
+  if (!copied) {
+    throw new Error("Clipboard copy failed");
+  }
 }
 
 function getDisplayTypeLabel(type: StoreListingDisplayType, intl: IntlShape) {
@@ -272,6 +301,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [listingItems, setListingItems] = useState<ListingItem[]>([]);
   const [listingPagination, setListingPagination] = useState<MarketListPagination>(() => createEmptyListingPagination(10));
   const [listingFetchError, setListingFetchError] = useState<string | null>(null);
+  const [listingNotice, setListingNotice] = useState<ListingNotice | null>(null);
   const [isListingLoading, setIsListingLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
@@ -683,6 +713,28 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     }
   };
 
+  const handleCopyListingUrl = useCallback(async (skuId: string) => {
+    try {
+      await copyTextToClipboard(getMarketDetailUrl(skuId));
+      setListingNotice({
+        severity: "success",
+        message: intl.formatMessage({
+          id: "market.copyListingUrlSuccess",
+          defaultMessage: "Product URL copied to clipboard.",
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to copy listing URL:", error);
+      setListingNotice({
+        severity: "error",
+        message: intl.formatMessage({
+          id: "market.copyListingUrlFailed",
+          defaultMessage: "Failed to copy product URL.",
+        }),
+      });
+    }
+  }, [intl]);
+
   const handleOpenAdjustStockDialog = useCallback((item: ListingItem) => {
     setAdjustStockTarget(item);
     setAdjustStockDeltaInput("0");
@@ -1024,6 +1076,12 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         </Alert>
       )}
 
+      {listingNotice && (
+        <Alert severity={listingNotice.severity} sx={{ mb: 2 }} onClose={() => setListingNotice(null)}>
+          {listingNotice.message}
+        </Alert>
+      )}
+
       {isListingLoading && listingItems.length === 0 ? (
         <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography variant="h6">
@@ -1071,7 +1129,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   <TableCell width="150px">
                     <FormattedMessage id="hangar.quantity" defaultMessage="Quantity" />
                   </TableCell>
-                  <TableCell width="220px">
+                  <TableCell width="280px">
                     <FormattedMessage id="hangar.action" defaultMessage="Action" />
                   </TableCell>
                 </TableRow>
@@ -1170,7 +1228,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", minWidth: 180 }}>
+                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", minWidth: 230 }}>
                           <Button
                             size="small"
                             variant="outlined"
@@ -1179,6 +1237,15 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                             sx={{ minWidth: 0 }}
                           >
                             <FormattedMessage id="common.edit" defaultMessage="Edit" />
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<Copy size={14} />}
+                            onClick={() => void handleCopyListingUrl(item.skuId)}
+                            sx={{ minWidth: 0 }}
+                          >
+                            <FormattedMessage id="market.copyListingUrl" defaultMessage="Copy URL" />
                           </Button>
                           <Button
                             size="small"
