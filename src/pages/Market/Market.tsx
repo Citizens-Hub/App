@@ -86,6 +86,10 @@ import {
   resolveLowestCcuVariant,
 } from './marketUtils';
 import {
+  buildMarketLocalizedSearchCandidates,
+  resolveLocalizedMarketSearchTerm,
+} from './marketSearchLocalization';
+import {
   formatMarketDiscount,
   formatMarketCreditResourceName,
   formatMarketPriceFrom,
@@ -607,115 +611,6 @@ function normalizeShipFocusParam(value?: string | null): string {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function normalizeMarketLocalizedSearchValue(value?: string | null): string {
-  return (value || '')
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[\s_\-:/|]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function scoreMarketLocalizedSearchCandidate(query: string, candidate: string): number {
-  if (!query || !candidate) {
-    return 0;
-  }
-
-  if (candidate === query) {
-    return 1000 + candidate.length;
-  }
-
-  if (candidate.startsWith(query)) {
-    return 700 + query.length;
-  }
-
-  if (candidate.includes(query)) {
-    return 400 + query.length;
-  }
-
-  if (query.includes(candidate)) {
-    return 200 + candidate.length;
-  }
-
-  return 0;
-}
-
-interface MarketLocalizedSearchCandidate {
-  value: string;
-  normalizedValues: string[];
-}
-
-function buildMarketLocalizedSearchCandidates(localizedShips: Ship[]): MarketLocalizedSearchCandidate[] {
-  if (localizedShips.length === 0) {
-    return [];
-  }
-
-  return localizedShips.flatMap((ship) => {
-    const entries: MarketLocalizedSearchCandidate[] = [];
-    const addEntry = (value?: string | null, aliases: Array<string | null | undefined> = []) => {
-      const trimmedValue = value?.trim();
-      if (!trimmedValue) {
-        return;
-      }
-
-      const normalizedValues = Array.from(new Set(
-        aliases
-          .map(normalizeMarketLocalizedSearchValue)
-          .filter(Boolean),
-      ));
-
-      if (normalizedValues.length > 0) {
-        entries.push({
-          value: trimmedValue,
-          normalizedValues,
-        });
-      }
-    };
-
-    addEntry(ship.name, [
-      ship.localizedName,
-      ship.name,
-      ship.alias,
-    ]);
-    addEntry(ship.manufacturer.name, [
-      ship.manufacturer.localizedName,
-      ship.manufacturer.name,
-    ]);
-
-    return entries;
-  });
-}
-
-function resolveLocalizedMarketSearchTerm(searchTerm: string, localizedSearchCandidates: MarketLocalizedSearchCandidate[]): string {
-  const trimmedSearchTerm = searchTerm.trim();
-  const normalizedSearchTerm = normalizeMarketLocalizedSearchValue(trimmedSearchTerm);
-  if (!trimmedSearchTerm || !normalizedSearchTerm || localizedSearchCandidates.length === 0) {
-    return trimmedSearchTerm;
-  }
-
-  let bestScore = 0;
-  let bestValue = '';
-  const considerMatch = (score: number, value?: string | null) => {
-    const trimmedValue = value?.trim();
-    if (!trimmedValue || score <= 0) {
-      return;
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestValue = trimmedValue;
-    }
-  };
-
-  localizedSearchCandidates.forEach((candidate) => {
-    candidate.normalizedValues.forEach((normalizedValue) => {
-      considerMatch(scoreMarketLocalizedSearchCandidate(normalizedSearchTerm, normalizedValue), candidate.value);
-    });
-  });
-
-  return bestValue || trimmedSearchTerm;
 }
 
 function mergeLocalizedMarketSearchShips(baseShips: Ship[], localizedShips: Ship[]): Ship[] {
