@@ -1,4 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Alert,
   Autocomplete,
@@ -14,10 +32,11 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { CloudUpload } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { useSWRConfig } from 'swr';
@@ -64,6 +83,17 @@ interface MarketHomeMediaUploadResponse {
   error?: string;
 }
 
+interface SortableMarketHomeSlideCardProps {
+  id: string;
+  slideIndex: number;
+  slideCount: number;
+  enabled: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  children: ReactNode;
+}
+
 function createEmptySlide(index: number): MarketHomeHeroSlide {
   return {
     id: `hero-${Date.now()}-${index}`,
@@ -90,6 +120,10 @@ function createEmptySlide(index: number): MarketHomeHeroSlide {
   };
 }
 
+function getSlideSortId(slide: MarketHomeHeroSlide, index: number) {
+  return `${slide.id || 'hero-slide'}:${index}`;
+}
+
 function getLocaleLabel(locale: MarketHomeLocaleCode) {
   switch (locale) {
     case 'zh-CN':
@@ -104,6 +138,125 @@ function getLocaleLabel(locale: MarketHomeLocaleCode) {
     default:
       return 'English';
   }
+}
+
+function SortableMarketHomeSlideCard({
+  id,
+  slideIndex,
+  slideCount,
+  enabled,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  children,
+}: SortableMarketHomeSlideCardProps) {
+  const intl = useIntl();
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id,
+    disabled: slideCount < 2,
+  });
+  const dragLabel = intl.formatMessage({
+    id: 'admin.marketHome.dragSlide',
+    defaultMessage: 'Drag to reorder',
+  });
+
+  return (
+    <Paper
+      ref={setNodeRef}
+      variant="outlined"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      sx={{
+        p: 2,
+        borderRadius: 0,
+        bgcolor: 'background.default',
+        opacity: isDragging ? 0.72 : 1,
+        position: 'relative',
+        zIndex: isDragging ? 1 : 'auto',
+      }}
+    >
+      <Stack spacing={2}>
+        <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
+          <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
+            <Tooltip title={dragLabel}>
+              <span>
+                <IconButton
+                  ref={setActivatorNodeRef}
+                  size="small"
+                  disabled={slideCount < 2}
+                  aria-label={dragLabel}
+                  sx={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-5 w-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <FormattedMessage
+                id="admin.marketHome.slideTitle"
+                defaultMessage="Hero slide {index}"
+                values={{ index: slideIndex + 1 }}
+              />
+            </Typography>
+            <Chip
+              size="small"
+              color={enabled ? 'success' : 'default'}
+              label={enabled
+                ? intl.formatMessage({ id: 'common.enabled', defaultMessage: 'Enabled' })
+                : intl.formatMessage({ id: 'common.disabled', defaultMessage: 'Disabled' })}
+            />
+          </Box>
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <Tooltip title={intl.formatMessage({ id: 'admin.marketHome.moveSlideUp', defaultMessage: 'Move slide up' })}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onMoveUp}
+                  disabled={slideIndex === 0}
+                  aria-label={intl.formatMessage({ id: 'admin.marketHome.moveSlideUp', defaultMessage: 'Move slide up' })}
+                >
+                  <ArrowUp className="h-5 w-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={intl.formatMessage({ id: 'admin.marketHome.moveSlideDown', defaultMessage: 'Move slide down' })}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onMoveDown}
+                  disabled={slideIndex >= slideCount - 1}
+                  aria-label={intl.formatMessage({ id: 'admin.marketHome.moveSlideDown', defaultMessage: 'Move slide down' })}
+                >
+                  <ArrowDown className="h-5 w-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <IconButton
+              color="error"
+              onClick={onRemove}
+              aria-label={intl.formatMessage({ id: 'common.delete', defaultMessage: 'Delete' })}
+            >
+              <Trash2 className="h-5 w-5" />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {children}
+      </Stack>
+    </Paper>
+  );
 }
 
 function formatBytes(bytes: number | null | undefined): string {
@@ -154,6 +307,9 @@ export default function MarketHomeSettingsManager() {
   const activeSlides = useMemo(() => (
     settings.slides.filter((slide) => slide.enabled && slide.mediaUrl.trim() && slide.shipId)
   ), [settings.slides]);
+  const slideSortIds = useMemo(() => (
+    settings.slides.map((slide, index) => getSlideSortId(slide, index))
+  ), [settings.slides]);
   const shipOptions = useMemo(() => {
     return [...(shipsData?.data.ships || [])].sort((left, right) => (
       getShipDisplayName(left).localeCompare(getShipDisplayName(right))
@@ -162,6 +318,22 @@ export default function MarketHomeSettingsManager() {
   const shipsById = useMemo(() => {
     return new Map(shipOptions.map((ship) => [ship.id, ship]));
   }, [shipOptions]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 160,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const updateSlide = (slideIndex: number, updater: (slide: MarketHomeHeroSlide) => MarketHomeHeroSlide) => {
     setSettings((current) => ({
@@ -200,6 +372,44 @@ export default function MarketHomeSettingsManager() {
       ...current,
       slides: current.slides.filter((_, index) => index !== slideIndex),
     }));
+  };
+
+  const handleMoveSlide = (slideIndex: number, direction: -1 | 1) => {
+    setSettings((current) => {
+      const targetIndex = slideIndex + direction;
+
+      if (targetIndex < 0 || targetIndex >= current.slides.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        slides: arrayMove(current.slides, slideIndex, targetIndex),
+      };
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    setSettings((current) => {
+      const currentSortIds = current.slides.map((slide, index) => getSlideSortId(slide, index));
+      const oldIndex = currentSortIds.indexOf(String(active.id));
+      const newIndex = currentSortIds.indexOf(String(over.id));
+
+      if (oldIndex < 0 || newIndex < 0) {
+        return current;
+      }
+
+      return {
+        ...current,
+        slides: arrayMove(current.slides, oldIndex, newIndex),
+      };
+    });
   };
 
   const handleUploadMedia = async (slideIndex: number, file: File | null | undefined, target: UploadTarget) => {
@@ -365,255 +575,251 @@ export default function MarketHomeSettingsManager() {
         </Box>
 
         <Stack spacing={2}>
-          {settings.slides.map((slide, slideIndex) => (
-            <Paper
-              key={slide.id || slideIndex}
-              variant="outlined"
-              sx={{ p: 2, borderRadius: 0, bgcolor: 'background.default' }}
-            >
+          {settings.slides.length > 1 ? (
+            <Typography variant="body2" color="text.secondary">
+              <FormattedMessage
+                id="admin.marketHome.reorderHint"
+                defaultMessage="Drag slides or use the arrow buttons to change the homepage hero order."
+              />
+            </Typography>
+          ) : null}
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={slideSortIds} strategy={verticalListSortingStrategy}>
               <Stack spacing={2}>
-                <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-                  <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      <FormattedMessage
-                        id="admin.marketHome.slideTitle"
-                        defaultMessage="Hero slide {index}"
-                        values={{ index: slideIndex + 1 }}
-                      />
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={slide.enabled ? 'success' : 'default'}
-                      label={slide.enabled
-                        ? intl.formatMessage({ id: 'common.enabled', defaultMessage: 'Enabled' })
-                        : intl.formatMessage({ id: 'common.disabled', defaultMessage: 'Disabled' })}
-                    />
-                  </Box>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleRemoveSlide(slideIndex)}
-                    aria-label={intl.formatMessage({ id: 'common.delete', defaultMessage: 'Delete' })}
+                {settings.slides.map((slide, slideIndex) => (
+                  <SortableMarketHomeSlideCard
+                    key={slideSortIds[slideIndex]}
+                    id={slideSortIds[slideIndex]}
+                    slideIndex={slideIndex}
+                    slideCount={settings.slides.length}
+                    enabled={slide.enabled}
+                    onMoveUp={() => handleMoveSlide(slideIndex, -1)}
+                    onMoveDown={() => handleMoveSlide(slideIndex, 1)}
+                    onRemove={() => handleRemoveSlide(slideIndex)}
                   >
-                    <Trash2 className="h-5 w-5" />
-                  </IconButton>
-                </Box>
-
-                <Box display="grid" gap={2} gridTemplateColumns={{ xs: '1fr', md: '160px minmax(0, 1fr)' }}>
-                  <TextField
-                    select
-                    label={intl.formatMessage({ id: 'admin.marketHome.mediaType', defaultMessage: 'Media type' })}
-                    value={slide.mediaType}
-                    onChange={(event) => updateSlide(slideIndex, (current) => ({
-                      ...current,
-                      mediaType: event.target.value === 'video' ? 'video' : 'image',
-                    }))}
-                  >
-                    <MenuItem value="image">
-                      <FormattedMessage id="admin.marketHome.mediaType.image" defaultMessage="Image" />
-                    </MenuItem>
-                    <MenuItem value="video">
-                      <FormattedMessage id="admin.marketHome.mediaType.video" defaultMessage="Video" />
-                    </MenuItem>
-                  </TextField>
-
-                  <Autocomplete
-                    options={shipOptions}
-                    value={slide.shipId ? shipsById.get(slide.shipId) || null : null}
-                    loading={shipsLoading}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    getOptionLabel={(option) => {
-                      const manufacturer = getShipManufacturerDisplayName(option);
-                      return manufacturer
-                        ? `${getShipDisplayName(option)} · ${manufacturer}`
-                        : getShipDisplayName(option);
-                    }}
-                    onChange={(_, value) => updateSlide(slideIndex, (current) => ({
-                      ...current,
-                      shipId: value?.id ?? null,
-                    }))}
-                    renderInput={(params) => (
+                    <Box display="grid" gap={2} gridTemplateColumns={{ xs: '1fr', md: '160px minmax(0, 1fr)' }}>
                       <TextField
-                        {...params}
-                        required
-                        label={intl.formatMessage({ id: 'admin.marketHome.ship', defaultMessage: 'Ship' })}
-                        placeholder={intl.formatMessage({ id: 'admin.marketHome.shipPlaceholder', defaultMessage: 'Search and select a ship' })}
-                        slotProps={{
-                          input: {
-                            ...params.InputProps,
-                            endAdornment: (
-                              <>
-                                {shipsLoading ? <CircularProgress color="inherit" size={18} /> : null}
-                                {params.InputProps.endAdornment}
-                              </>
-                            ),
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </Box>
-
-                <Box display="grid" gap={2} gridTemplateColumns={{ xs: '1fr', lg: 'minmax(0, 1fr) 280px' }}>
-                  <Stack spacing={1.5}>
-                    <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
-                      <Button
-                        component="label"
-                        variant="outlined"
-                        startIcon={uploadingKey === `${slide.id || slideIndex}:media` ? <CircularProgress size={16} /> : <CloudUpload />}
-                        disabled={Boolean(uploadingKey)}
+                        select
+                        label={intl.formatMessage({ id: 'admin.marketHome.mediaType', defaultMessage: 'Media type' })}
+                        value={slide.mediaType}
+                        onChange={(event) => updateSlide(slideIndex, (current) => ({
+                          ...current,
+                          mediaType: event.target.value === 'video' ? 'video' : 'image',
+                        }))}
                       >
-                        <FormattedMessage id="admin.marketHome.uploadMedia" defaultMessage="Upload hero media" />
-                        <input
-                          hidden
-                          type="file"
-                          accept={slide.mediaType === 'video' ? 'video/*' : 'image/*'}
-                          onChange={(event) => {
-                            void handleUploadMedia(slideIndex, event.target.files?.[0], 'media');
-                            event.target.value = '';
-                          }}
-                        />
-                      </Button>
-                      <Typography variant="caption" color="text.secondary">
-                        {slide.mediaType === 'video'
-                          ? intl.formatMessage({ id: 'admin.marketHome.videoUploadHint', defaultMessage: 'MP4/WebM/Ogg/QuickTime, up to 80 MB.' })
-                          : intl.formatMessage({ id: 'admin.marketHome.imageUploadHint', defaultMessage: 'JPG/PNG/WebP/GIF/AVIF, up to 12 MB.' })}
-                      </Typography>
+                        <MenuItem value="image">
+                          <FormattedMessage id="admin.marketHome.mediaType.image" defaultMessage="Image" />
+                        </MenuItem>
+                        <MenuItem value="video">
+                          <FormattedMessage id="admin.marketHome.mediaType.video" defaultMessage="Video" />
+                        </MenuItem>
+                      </TextField>
+
+                      <Autocomplete
+                        options={shipOptions}
+                        value={slide.shipId ? shipsById.get(slide.shipId) || null : null}
+                        loading={shipsLoading}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        getOptionLabel={(option) => {
+                          const manufacturer = getShipManufacturerDisplayName(option);
+                          return manufacturer
+                            ? `${getShipDisplayName(option)} · ${manufacturer}`
+                            : getShipDisplayName(option);
+                        }}
+                        onChange={(_, value) => updateSlide(slideIndex, (current) => ({
+                          ...current,
+                          shipId: value?.id ?? null,
+                        }))}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            required
+                            label={intl.formatMessage({ id: 'admin.marketHome.ship', defaultMessage: 'Ship' })}
+                            placeholder={intl.formatMessage({ id: 'admin.marketHome.shipPlaceholder', defaultMessage: 'Search and select a ship' })}
+                            slotProps={{
+                              input: {
+                                ...params.InputProps,
+                                endAdornment: (
+                                  <>
+                                    {shipsLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                                    {params.InputProps.endAdornment}
+                                  </>
+                                ),
+                              },
+                            }}
+                          />
+                        )}
+                      />
                     </Box>
 
-                    <TextField
-                      label={intl.formatMessage({ id: 'admin.marketHome.mediaUrl', defaultMessage: 'Media URL' })}
-                      value={slide.mediaUrl}
-                      onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, mediaUrl: event.target.value }))}
-                      required
-                      helperText={intl.formatMessage({
-                        id: 'admin.marketHome.mediaUrlHelp',
-                        defaultMessage: 'Uploading fills this automatically. Local development uses the API proxy; production uses the R2 public endpoint.',
-                      })}
-                    />
-
-                    {slide.mediaType === 'video' ? (
-                      <>
+                    <Box display="grid" gap={2} gridTemplateColumns={{ xs: '1fr', lg: 'minmax(0, 1fr) 280px' }}>
+                      <Stack spacing={1.5}>
                         <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
                           <Button
                             component="label"
                             variant="outlined"
-                            startIcon={uploadingKey === `${slide.id || slideIndex}:poster` ? <CircularProgress size={16} /> : <CloudUpload />}
+                            startIcon={uploadingKey === `${slide.id || slideIndex}:media` ? <CircularProgress size={16} /> : <CloudUpload />}
                             disabled={Boolean(uploadingKey)}
                           >
-                            <FormattedMessage id="admin.marketHome.uploadPoster" defaultMessage="Upload poster" />
+                            <FormattedMessage id="admin.marketHome.uploadMedia" defaultMessage="Upload hero media" />
                             <input
                               hidden
                               type="file"
-                              accept="image/*"
+                              accept={slide.mediaType === 'video' ? 'video/*' : 'image/*'}
                               onChange={(event) => {
-                                void handleUploadMedia(slideIndex, event.target.files?.[0], 'poster');
+                                void handleUploadMedia(slideIndex, event.target.files?.[0], 'media');
                                 event.target.value = '';
                               }}
                             />
                           </Button>
                           <Typography variant="caption" color="text.secondary">
-                            <FormattedMessage id="admin.marketHome.posterUploadHint" defaultMessage="Optional image shown before the video starts loading." />
+                            {slide.mediaType === 'video'
+                              ? intl.formatMessage({ id: 'admin.marketHome.videoUploadHint', defaultMessage: 'MP4/WebM/Ogg/QuickTime, up to 80 MB.' })
+                              : intl.formatMessage({ id: 'admin.marketHome.imageUploadHint', defaultMessage: 'JPG/PNG/WebP/GIF/AVIF, up to 12 MB.' })}
                           </Typography>
                         </Box>
+
                         <TextField
-                          label={intl.formatMessage({ id: 'admin.marketHome.posterUrl', defaultMessage: 'Video poster URL' })}
-                          value={slide.posterUrl}
-                          onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, posterUrl: event.target.value }))}
+                          label={intl.formatMessage({ id: 'admin.marketHome.mediaUrl', defaultMessage: 'Media URL' })}
+                          value={slide.mediaUrl}
+                          onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, mediaUrl: event.target.value }))}
+                          required
+                          helperText={intl.formatMessage({
+                            id: 'admin.marketHome.mediaUrlHelp',
+                            defaultMessage: 'Uploading fills this automatically. Local development uses the API proxy; production uses the R2 public endpoint.',
+                          })}
                         />
-                      </>
-                    ) : null}
-                  </Stack>
 
-                  <Box
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.paper',
-                      minHeight: 160,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {slide.mediaUrl ? (
-                      slide.mediaType === 'video' ? (
-                        <Box
-                          component="video"
-                          src={slide.mediaUrl}
-                          poster={slide.posterUrl || undefined}
-                          controls
-                          muted
-                          sx={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
-                        />
-                      ) : (
-                        <Box
-                          component="img"
-                          src={slide.mediaUrl}
-                          alt=""
-                          sx={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
-                        />
-                      )
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        <FormattedMessage id="admin.marketHome.noMediaPreview" defaultMessage="No media uploaded" />
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
+                        {slide.mediaType === 'video' ? (
+                          <>
+                            <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
+                              <Button
+                                component="label"
+                                variant="outlined"
+                                startIcon={uploadingKey === `${slide.id || slideIndex}:poster` ? <CircularProgress size={16} /> : <CloudUpload />}
+                                disabled={Boolean(uploadingKey)}
+                              >
+                                <FormattedMessage id="admin.marketHome.uploadPoster" defaultMessage="Upload poster" />
+                                <input
+                                  hidden
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(event) => {
+                                    void handleUploadMedia(slideIndex, event.target.files?.[0], 'poster');
+                                    event.target.value = '';
+                                  }}
+                                />
+                              </Button>
+                              <Typography variant="caption" color="text.secondary">
+                                <FormattedMessage id="admin.marketHome.posterUploadHint" defaultMessage="Optional image shown before the video starts loading." />
+                              </Typography>
+                            </Box>
+                            <TextField
+                              label={intl.formatMessage({ id: 'admin.marketHome.posterUrl', defaultMessage: 'Video poster URL' })}
+                              value={slide.posterUrl}
+                              onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, posterUrl: event.target.value }))}
+                            />
+                          </>
+                        ) : null}
+                      </Stack>
 
-                <FormControlLabel
-                  control={(
-                    <Switch
-                      checked={slide.enabled}
-                      onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, enabled: event.target.checked }))}
-                    />
-                  )}
-                  label={intl.formatMessage({ id: 'admin.marketHome.slideEnabled', defaultMessage: 'Show this slide' })}
-                />
-
-                <Divider />
-
-                <Stack spacing={2}>
-                  {MARKET_HOME_LOCALES.map((locale) => {
-                    const translation = slide.translations[locale] || EMPTY_TRANSLATION;
-
-                    return (
-                      <Box key={`${slide.id}-${locale}`} display="grid" gap={1.5}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {getLocaleLabel(locale)}
-                        </Typography>
-                        <Box display="grid" gap={1.5} gridTemplateColumns={{ xs: '1fr', md: '180px minmax(0, 1fr) 150px' }}>
-                          <TextField
-                            label={intl.formatMessage({ id: 'admin.marketHome.eyebrow', defaultMessage: 'Eyebrow' })}
-                            value={translation.eyebrow}
-                            onChange={(event) => updateTranslation(slideIndex, locale, 'eyebrow', event.target.value)}
-                          />
-                          <TextField
-                            label={intl.formatMessage({ id: 'admin.marketHome.heroTitle', defaultMessage: 'Title' })}
-                            value={translation.title}
-                            onChange={(event) => updateTranslation(slideIndex, locale, 'title', event.target.value)}
-                          />
-                          <TextField
-                            label={intl.formatMessage({ id: 'admin.marketHome.ctaLabel', defaultMessage: 'CTA label' })}
-                            value={translation.ctaLabel}
-                            onChange={(event) => updateTranslation(slideIndex, locale, 'ctaLabel', event.target.value)}
-                          />
-                        </Box>
-                        <TextField
-                          label={intl.formatMessage({ id: 'admin.marketHome.subtitle', defaultMessage: 'Subtitle' })}
-                          value={translation.subtitle}
-                          onChange={(event) => updateTranslation(slideIndex, locale, 'subtitle', event.target.value)}
-                          multiline
-                          minRows={2}
-                        />
+                      <Box
+                        sx={{
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: 'background.paper',
+                          minHeight: 160,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {slide.mediaUrl ? (
+                          slide.mediaType === 'video' ? (
+                            <Box
+                              component="video"
+                              src={slide.mediaUrl}
+                              poster={slide.posterUrl || undefined}
+                              controls
+                              muted
+                              sx={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
+                            />
+                          ) : (
+                            <Box
+                              component="img"
+                              src={slide.mediaUrl}
+                              alt=""
+                              sx={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
+                            />
+                          )
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            <FormattedMessage id="admin.marketHome.noMediaPreview" defaultMessage="No media uploaded" />
+                          </Typography>
+                        )}
                       </Box>
-                    );
-                  })}
-                </Stack>
+                    </Box>
+
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={slide.enabled}
+                          onChange={(event) => updateSlide(slideIndex, (current) => ({ ...current, enabled: event.target.checked }))}
+                        />
+                      )}
+                      label={intl.formatMessage({ id: 'admin.marketHome.slideEnabled', defaultMessage: 'Show this slide' })}
+                    />
+
+                    <Divider />
+
+                    <Stack spacing={2}>
+                      {MARKET_HOME_LOCALES.map((locale) => {
+                        const translation = slide.translations[locale] || EMPTY_TRANSLATION;
+
+                        return (
+                          <Box key={`${slide.id}-${locale}`} display="grid" gap={1.5}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {getLocaleLabel(locale)}
+                            </Typography>
+                            <Box display="grid" gap={1.5} gridTemplateColumns={{ xs: '1fr', md: '180px minmax(0, 1fr) 150px' }}>
+                              <TextField
+                                label={intl.formatMessage({ id: 'admin.marketHome.eyebrow', defaultMessage: 'Eyebrow' })}
+                                value={translation.eyebrow}
+                                onChange={(event) => updateTranslation(slideIndex, locale, 'eyebrow', event.target.value)}
+                              />
+                              <TextField
+                                label={intl.formatMessage({ id: 'admin.marketHome.heroTitle', defaultMessage: 'Title' })}
+                                value={translation.title}
+                                onChange={(event) => updateTranslation(slideIndex, locale, 'title', event.target.value)}
+                              />
+                              <TextField
+                                label={intl.formatMessage({ id: 'admin.marketHome.ctaLabel', defaultMessage: 'CTA label' })}
+                                value={translation.ctaLabel}
+                                onChange={(event) => updateTranslation(slideIndex, locale, 'ctaLabel', event.target.value)}
+                              />
+                            </Box>
+                            <TextField
+                              label={intl.formatMessage({ id: 'admin.marketHome.subtitle', defaultMessage: 'Subtitle' })}
+                              value={translation.subtitle}
+                              onChange={(event) => updateTranslation(slideIndex, locale, 'subtitle', event.target.value)}
+                              multiline
+                              minRows={2}
+                            />
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </SortableMarketHomeSlideCard>
+                ))}
               </Stack>
-            </Paper>
-          ))}
+            </SortableContext>
+          </DndContext>
         </Stack>
 
         <Box display="flex" gap={2} flexWrap="wrap">
