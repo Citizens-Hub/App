@@ -1048,6 +1048,32 @@ export default function AdminRsiOrderAutomation() {
     }
   };
 
+  const getFreshPrefetchedToken = () => {
+    if (prefetchedToken && isPrefetchedTokenFresh(prefetchedToken)) {
+      return prefetchedToken;
+    }
+
+    const storedToken = readStoredPrefetchedToken();
+    if (storedToken) {
+      if (
+        !prefetchedToken
+        || prefetchedToken.token !== storedToken.token
+        || prefetchedToken.receivedAt !== storedToken.receivedAt
+        || (prefetchedToken.provider || null) !== (storedToken.provider || null)
+      ) {
+        updatePrefetchedToken(storedToken);
+      }
+
+      return storedToken;
+    }
+
+    if (prefetchedToken) {
+      updatePrefetchedToken(null);
+    }
+
+    return null;
+  };
+
   const requestCheckoutTokenFromProvider = async () => {
     ensureNotStopped();
 
@@ -1096,19 +1122,6 @@ export default function AdminRsiOrderAutomation() {
     }
   };
   requestCheckoutTokenRef.current = requestCheckoutToken;
-
-  const getFreshPrefetchedToken = () => {
-    if (!prefetchedToken) {
-      return null;
-    }
-
-    if (!isPrefetchedTokenFresh(prefetchedToken)) {
-      updatePrefetchedToken(null);
-      return null;
-    }
-
-    return prefetchedToken;
-  };
 
   const consumeTokenForAutomation = async () => {
     const cachedToken = getFreshPrefetchedToken();
@@ -1793,13 +1806,14 @@ export default function AdminRsiOrderAutomation() {
           }
 
           let tokenResult = await tokenPromise;
-          if (!tokenResult.reused) {
-            const ageMs = Date.now() - new Date(tokenResult.receivedAt).getTime();
-            if (!Number.isFinite(ageMs) || ageMs > PREFETCHED_TOKEN_TTL_MS) {
-              appendLog('warning', 'The prefetched token provider token is stale. Requesting a fresh token before cart validation.');
-              tokenPromise = consumeTokenForAutomation();
-              tokenResult = await tokenPromise;
-            }
+          if (!isPrefetchedTokenFresh(tokenResult)) {
+            appendLog('warning', 'The prefetched checkout token is older than 1 minute. Looking for a fresh prefetched token before cart validation.');
+            tokenPromise = consumeTokenForAutomation();
+            tokenResult = await tokenPromise;
+          }
+
+          if (!isPrefetchedTokenFresh(tokenResult)) {
+            throw new Error('Checkout token is older than 1 minute.');
           }
 
           const nextToken = {
