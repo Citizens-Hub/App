@@ -88,6 +88,7 @@ interface SortableMarketHomeSlideCardProps {
   slideIndex: number;
   slideCount: number;
   enabled: boolean;
+  actionsDisabled: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
@@ -145,6 +146,7 @@ function SortableMarketHomeSlideCard({
   slideIndex,
   slideCount,
   enabled,
+  actionsDisabled,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -161,7 +163,7 @@ function SortableMarketHomeSlideCard({
     isDragging,
   } = useSortable({
     id,
-    disabled: slideCount < 2,
+    disabled: actionsDisabled || slideCount < 2,
   });
   const dragLabel = intl.formatMessage({
     id: 'admin.marketHome.dragSlide',
@@ -193,7 +195,7 @@ function SortableMarketHomeSlideCard({
                 <IconButton
                   ref={setActivatorNodeRef}
                   size="small"
-                  disabled={slideCount < 2}
+                  disabled={actionsDisabled || slideCount < 2}
                   aria-label={dragLabel}
                   sx={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
                   {...attributes}
@@ -224,7 +226,7 @@ function SortableMarketHomeSlideCard({
                 <IconButton
                   size="small"
                   onClick={onMoveUp}
-                  disabled={slideIndex === 0}
+                  disabled={actionsDisabled || slideIndex === 0}
                   aria-label={intl.formatMessage({ id: 'admin.marketHome.moveSlideUp', defaultMessage: 'Move slide up' })}
                 >
                   <ArrowUp className="h-5 w-5" />
@@ -236,7 +238,7 @@ function SortableMarketHomeSlideCard({
                 <IconButton
                   size="small"
                   onClick={onMoveDown}
-                  disabled={slideIndex >= slideCount - 1}
+                  disabled={actionsDisabled || slideIndex >= slideCount - 1}
                   aria-label={intl.formatMessage({ id: 'admin.marketHome.moveSlideDown', defaultMessage: 'Move slide down' })}
                 >
                   <ArrowDown className="h-5 w-5" />
@@ -246,6 +248,7 @@ function SortableMarketHomeSlideCard({
             <IconButton
               color="error"
               onClick={onRemove}
+              disabled={actionsDisabled}
               aria-label={intl.formatMessage({ id: 'common.delete', defaultMessage: 'Delete' })}
             >
               <Trash2 className="h-5 w-5" />
@@ -598,6 +601,7 @@ export default function MarketHomeSettingsManager() {
                     slideIndex={slideIndex}
                     slideCount={settings.slides.length}
                     enabled={slide.enabled}
+                    actionsDisabled={Boolean(uploadingKey)}
                     onMoveUp={() => handleMoveSlide(slideIndex, -1)}
                     onMoveDown={() => handleMoveSlide(slideIndex, 1)}
                     onRemove={() => handleRemoveSlide(slideIndex)}
