@@ -75,6 +75,50 @@ export function buildMarketLocalizedSearchCandidates(localizedShips: Ship[]): Ma
   });
 }
 
+function getNormalizedSearchWords(value: string): string[] {
+  return normalizeMarketLocalizedSearchValue(value)
+    .split(' ')
+    .filter(Boolean);
+}
+
+function getDisplaySearchWords(value: string): string[] {
+  return value
+    .trim()
+    .replace(/[\s_\-:/|]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function findCommonLeadingSearchTerm(values: string[]): string | null {
+  if (values.length < 2) {
+    return null;
+  }
+
+  const normalizedWordLists = values.map(getNormalizedSearchWords);
+  const firstDisplayWords = getDisplaySearchWords(values[0] || '');
+  const maxCommonLength = Math.min(
+    firstDisplayWords.length,
+    ...normalizedWordLists.map((words) => words.length),
+  );
+  let commonLength = 0;
+
+  for (let index = 0; index < maxCommonLength; index += 1) {
+    const firstWord = normalizedWordLists[0]?.[index];
+    if (!firstWord || !normalizedWordLists.every((words) => words[index] === firstWord)) {
+      break;
+    }
+
+    commonLength += 1;
+  }
+
+  if (commonLength === 0) {
+    return null;
+  }
+
+  const commonTerm = firstDisplayWords.slice(0, commonLength).join(' ').trim();
+  return normalizeMarketLocalizedSearchValue(commonTerm).length >= 2 ? commonTerm : null;
+}
+
 export function resolveLocalizedMarketSearchTerm(
   searchTerm: string,
   localizedSearchCandidates: MarketLocalizedSearchCandidate[],
@@ -111,6 +155,16 @@ export function resolveLocalizedMarketSearchTerm(
 
   const bestValues = Array.from(bestValuesByKey.values());
 
-  // Keep broad prefixes broad when several ships share the same best match, e.g. "cutlass".
-  return bestValues.length === 1 ? bestValues[0] : trimmedSearchTerm;
+  if (bestValues.length === 1) {
+    return bestValues[0];
+  }
+
+  const commonSearchTerm = findCommonLeadingSearchTerm(bestValues);
+  if (!commonSearchTerm) {
+    return trimmedSearchTerm;
+  }
+
+  return normalizeMarketLocalizedSearchValue(commonSearchTerm) === normalizedSearchTerm
+    ? trimmedSearchTerm
+    : commonSearchTerm;
 }
