@@ -2173,6 +2173,7 @@
   "orderDetail.completed": "Completed",
   "orderDetail.created": "Created At",
   "orderDetail.createTicket": "Open Support Ticket",
+  "orderDetail.creditDeliveryNotice": "Store Credit may be delivered as upgraded ships, CCUs, equipment, or other equivalent meltable items. After receiving the items, you need to manually use Exchange to melt them and receive the corresponding Store Credit.",
   "orderDetail.delivered": "Delivered",
   "orderDetail.delivering": "Delivering",
   "orderDetail.discountAmount": "Discount",

@@ -2173,6 +2173,7 @@
   "orderDetail.completed": "已完成",
   "orderDetail.created": "建立時間",
   "orderDetail.createTicket": "發起工單",
+  "orderDetail.creditDeliveryNotice": "信用點可能會以已升級的艦船、CCU、裝備等其他等額可熔物品形式發送。收到貨後，需要手動操作 Exchange 熔解物品，才能獲得對應信用點。",
   "orderDetail.delivered": "已交付",
   "orderDetail.delivering": "交付中",
   "orderDetail.discountAmount": "优惠",

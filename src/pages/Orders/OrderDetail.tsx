@@ -316,6 +316,10 @@ export default function OrderDetail() {
   const totalItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + item.quantity, 0);
   const cancelledItemsCount = orderItems.reduce((acc: number, item: DetailedOrderItem) => acc + (item?.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
+  const hasActiveCreditItem = orderItems.some((item: DetailedOrderItem) => (
+    item.marketItem?.itemType === 'credit'
+    && item.quantity - (item.cancelledQuantity || 0) > 0
+  ));
   const deadlineMode = order.status === OrderStatus.Pending
     ? 'payment'
     : order.status === OrderStatus.Paid
@@ -515,6 +519,15 @@ export default function OrderDetail() {
               variant="outlined"
             />
           </div>
+
+          {hasActiveCreditItem && (
+            <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
+              <FormattedMessage
+                id="orderDetail.creditDeliveryNotice"
+                defaultMessage="Store Credit may be delivered as upgraded ships, CCUs, equipment, or other equivalent meltable items. After receiving the items, you need to manually use Exchange to melt them and receive the corresponding Store Credit."
+              />
+            </Alert>
+          )}
 
           <Box sx={{ width: '100%', overflow: 'auto' }} className="resource-card">
             <TableContainer className="overflow-hidden mb-3">

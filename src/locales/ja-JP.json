@@ -2173,6 +2173,7 @@
   "orderDetail.completed": "完了",
   "orderDetail.created": "作成日時",
   "orderDetail.createTicket": "サポートチケットを作成",
+  "orderDetail.creditDeliveryNotice": "Store Credit は、アップグレード済みの船、CCU、装備、または同等額の溶解可能なアイテムとして配送される場合があります。受け取り後、対応する Store Credit を得るには、Exchange を手動で操作してアイテムを溶解する必要があります。",
   "orderDetail.delivered": "配達済み",
   "orderDetail.delivering": "配送中",
   "orderDetail.discountAmount": "Discount",

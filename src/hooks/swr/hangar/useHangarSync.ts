@@ -51,6 +51,7 @@ interface HangarSyncSnapshot {
     ccus: unknown[];
     ships: unknown[];
     bundles: unknown[];
+    accountIssues: unknown[];
     predicts: Record<number, number>;
   };
   imported: Record<number, { ccus: unknown[] }>;

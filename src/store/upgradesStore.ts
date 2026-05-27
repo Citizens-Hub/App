@@ -178,11 +178,39 @@ function getOrCreateDeviceId() {
   return generateHangarSyncDeviceId();
 }
 
+function createDefaultHangarItems(): HangarItems {
+  return {
+    ccus: [],
+    ships: [],
+    bundles: [],
+    accountIssues: [],
+    predicts: {},
+  };
+}
+
+function normalizeHangarItems(items?: Partial<HangarItems> | null): HangarItems {
+  const defaults = createDefaultHangarItems();
+
+  return {
+    ccus: Array.isArray(items?.ccus) ? items.ccus : defaults.ccus,
+    ships: Array.isArray(items?.ships) ? items.ships : defaults.ships,
+    bundles: Array.isArray(items?.bundles) ? items.bundles : defaults.bundles,
+    accountIssues: Array.isArray(items?.accountIssues) ? items.accountIssues : defaults.accountIssues,
+    predicts: items?.predicts && typeof items.predicts === 'object' && !Array.isArray(items.predicts)
+      ? items.predicts
+      : defaults.predicts,
+  };
+}
+
 function persistUpgradesState(state: {
   syncUserId: string | null;
   version: string;
+  items?: Partial<HangarItems> | null;
 }) {
-  const serializedState = JSON.stringify(state);
+  const serializedState = JSON.stringify({
+    ...state,
+    items: normalizeHangarItems(state.items),
+  });
   saveHangarState(serializedState, resolveHangarStateUserId(state));
 }
 
@@ -214,11 +242,7 @@ const getInitialState = (): {
     return {
       ...state,
       currency: state.currency || getDefaultCurrency(),
-      items: {
-        ...state.items,
-        accountIssues: state.items.accountIssues || [],
-        predicts: state.items.predicts || { },
-      },
+      items: normalizeHangarItems(state.items),
       imported: state.imported || {},
       ccuSourceTypePriority: normalizeCcuSourceTypePriority(state.ccuSourceTypePriority),
       syncUserId: typeof state.syncUserId === 'string' ? state.syncUserId : null,
@@ -238,13 +262,7 @@ const getInitialState = (): {
   }
 
   return {
-    items: {
-      ccus: [],
-      ships: [],
-      bundles: [],
-      accountIssues: [],
-      predicts: {},
-    },
+    items: createDefaultHangarItems(),
     imported: {},
     users: [],
     selectedUser: -1,
@@ -344,12 +362,13 @@ export const upgradesSlice = createSlice({
     },
     clearUpgrades: (state, action: PayloadAction<number>) => {
       const currentUser = action.payload;
+      const items = normalizeHangarItems(state.items);
       state.items = {
-        ccus: state.items.ccus.filter(item => item.belongsTo !== currentUser),
-        ships: state.items.ships.filter(item => item.belongsTo !== currentUser),
-        bundles: state.items.bundles.filter(item => item.belongsTo !== currentUser),
-        accountIssues: state.items.accountIssues.filter(item => item.belongsTo !== currentUser),
-        predicts: state.items.predicts,
+        ccus: items.ccus.filter(item => item.belongsTo !== currentUser),
+        ships: items.ships.filter(item => item.belongsTo !== currentUser),
+        bundles: items.bundles.filter(item => item.belongsTo !== currentUser),
+        accountIssues: items.accountIssues.filter(item => item.belongsTo !== currentUser),
+        predicts: items.predicts,
       };
       touchHangarContent(state);
       persistUpgradesState(state);
@@ -419,11 +438,11 @@ export const upgradesSlice = createSlice({
       };
       sync: Partial<HangarSyncMetadata>;
     }>) => {
-      state.items = action.payload.nextState.items;
-      state.imported = action.payload.nextState.imported;
-      state.users = action.payload.nextState.users;
-      state.selectedUser = action.payload.nextState.selectedUser;
-      state.currency = action.payload.nextState.currency;
+      state.items = normalizeHangarItems(action.payload.nextState.items);
+      state.imported = action.payload.nextState.imported || {};
+      state.users = Array.isArray(action.payload.nextState.users) ? action.payload.nextState.users : [];
+      state.selectedUser = typeof action.payload.nextState.selectedUser === 'number' ? action.payload.nextState.selectedUser : -1;
+      state.currency = action.payload.nextState.currency || getDefaultCurrency();
       state.ccuSourceTypePriority = normalizeCcuSourceTypePriority(action.payload.nextState.ccuSourceTypePriority);
       state.syncUserId = action.payload.sync.syncUserId ?? state.syncUserId;
       state.syncRevision = action.payload.sync.syncRevision ?? state.syncRevision;
@@ -444,10 +463,10 @@ export const upgradesSlice = createSlice({
 });
 
 export const selectUsersHangarItems = createSelector(
-  (state: RootState) => state.upgrades.items.ccus,
-  (state: RootState) => state.upgrades.items.ships,
-  (state: RootState) => state.upgrades.items.bundles,
-  (state: RootState) => state.upgrades.items.accountIssues,
+  (state: RootState) => state.upgrades.items?.ccus ?? [],
+  (state: RootState) => state.upgrades.items?.ships ?? [],
+  (state: RootState) => state.upgrades.items?.bundles ?? [],
+  (state: RootState) => state.upgrades.items?.accountIssues ?? [],
   (state: RootState) => state.upgrades.selectedUser,
   (ccus, ships, bundles, accountIssues, selectedUser) => {
     return {

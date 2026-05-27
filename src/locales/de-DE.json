@@ -2173,6 +2173,7 @@
   "orderDetail.completed": "Abgeschlossen",
   "orderDetail.created": "Erstellt am",
   "orderDetail.createTicket": "Support-Ticket erstellen",
+  "orderDetail.creditDeliveryNotice": "Store Credit kann als aufgewertetes Schiff, CCU, Ausrüstung oder anderer gleichwertiger einschmelzbarer Gegenstand geliefert werden. Nach Erhalt musst du Exchange manuell verwenden, um die Gegenstände einzuschmelzen und den entsprechenden Store Credit zu erhalten.",
   "orderDetail.delivered": "Geliefert",
   "orderDetail.delivering": "Wird geliefert",
   "orderDetail.discountAmount": "Discount",
