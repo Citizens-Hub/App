@@ -59,9 +59,10 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
   const { locale, shipNameTranslationEnabled } = useLocale();
   const localizedPath = appendShipLocaleToPath(path, locale);
   const fullUrl = localizedPath ? `${API_BASE_URL}${localizedPath}` : null;
-  const requestPathname = localizedPath ? new URL(localizedPath, 'http://localhost').pathname : null;
-  const isShipListRequest = requestPathname === '/api/ships';
-  const shouldMergeShipLocalizations = locale !== 'en' && shipNameTranslationEnabled;
+  const requestUrl = localizedPath ? new URL(localizedPath, 'http://localhost') : null;
+  const isShipListRequest = requestUrl?.pathname === '/api/ships';
+  const hasExplicitShipLocale = Boolean(requestUrl?.searchParams.has('locale'));
+  const shouldMergeShipLocalizations = locale !== 'en' && shipNameTranslationEnabled && !hasExplicitShipLocale;
   const swrKey = fullUrl
     ? (isShipListRequest
       ? `${fullUrl}#locale=${locale}#ship-localization=${shouldMergeShipLocalizations ? 'on' : 'off'}`

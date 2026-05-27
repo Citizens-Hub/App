@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   TextField,
@@ -60,6 +60,7 @@ import {
   MarketListResponse,
   Ship,
   AccountListingItem,
+  ShipsData,
 } from '@/types';
 import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight } from 'lucide-react';
 import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings, useMarketReviews } from '@/hooks';
@@ -174,7 +175,7 @@ interface PlannerRoutePurchaseItems {
 const MARKET_DEFAULT_ROWS_PER_PAGE = 15;
 const MARKET_ROWS_PER_PAGE_OPTIONS = [15, 30] as const;
 const MARKET_MOBILE_ROWS_PER_BATCH = 15;
-const MARKET_SEARCH_DEBOUNCE_MS = 300;
+const MARKET_SEARCH_DEBOUNCE_MS = 450;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 4000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
 const MARKET_HOME_OTHER_ITEMS_LIMIT = 12;
@@ -608,6 +609,143 @@ function normalizeShipFocusParam(value?: string | null): string {
     .trim();
 }
 
+function normalizeMarketLocalizedSearchValue(value?: string | null): string {
+  return (value || '')
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[\s_\-:/|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scoreMarketLocalizedSearchCandidate(query: string, candidate: string): number {
+  if (!query || !candidate) {
+    return 0;
+  }
+
+  if (candidate === query) {
+    return 1000 + candidate.length;
+  }
+
+  if (candidate.startsWith(query)) {
+    return 700 + query.length;
+  }
+
+  if (candidate.includes(query)) {
+    return 400 + query.length;
+  }
+
+  if (query.includes(candidate)) {
+    return 200 + candidate.length;
+  }
+
+  return 0;
+}
+
+interface MarketLocalizedSearchCandidate {
+  value: string;
+  normalizedValues: string[];
+}
+
+function buildMarketLocalizedSearchCandidates(localizedShips: Ship[]): MarketLocalizedSearchCandidate[] {
+  if (localizedShips.length === 0) {
+    return [];
+  }
+
+  return localizedShips.flatMap((ship) => {
+    const entries: MarketLocalizedSearchCandidate[] = [];
+    const addEntry = (value?: string | null, aliases: Array<string | null | undefined> = []) => {
+      const trimmedValue = value?.trim();
+      if (!trimmedValue) {
+        return;
+      }
+
+      const normalizedValues = Array.from(new Set(
+        aliases
+          .map(normalizeMarketLocalizedSearchValue)
+          .filter(Boolean),
+      ));
+
+      if (normalizedValues.length > 0) {
+        entries.push({
+          value: trimmedValue,
+          normalizedValues,
+        });
+      }
+    };
+
+    addEntry(ship.name, [
+      ship.localizedName,
+      ship.name,
+      ship.alias,
+    ]);
+    addEntry(ship.manufacturer.name, [
+      ship.manufacturer.localizedName,
+      ship.manufacturer.name,
+    ]);
+
+    return entries;
+  });
+}
+
+function resolveLocalizedMarketSearchTerm(searchTerm: string, localizedSearchCandidates: MarketLocalizedSearchCandidate[]): string {
+  const trimmedSearchTerm = searchTerm.trim();
+  const normalizedSearchTerm = normalizeMarketLocalizedSearchValue(trimmedSearchTerm);
+  if (!trimmedSearchTerm || !normalizedSearchTerm || localizedSearchCandidates.length === 0) {
+    return trimmedSearchTerm;
+  }
+
+  let bestScore = 0;
+  let bestValue = '';
+  const considerMatch = (score: number, value?: string | null) => {
+    const trimmedValue = value?.trim();
+    if (!trimmedValue || score <= 0) {
+      return;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestValue = trimmedValue;
+    }
+  };
+
+  localizedSearchCandidates.forEach((candidate) => {
+    candidate.normalizedValues.forEach((normalizedValue) => {
+      considerMatch(scoreMarketLocalizedSearchCandidate(normalizedSearchTerm, normalizedValue), candidate.value);
+    });
+  });
+
+  return bestValue || trimmedSearchTerm;
+}
+
+function mergeLocalizedMarketSearchShips(baseShips: Ship[], localizedShips: Ship[]): Ship[] {
+  if (!baseShips.length) {
+    return [];
+  }
+
+  if (!localizedShips.length) {
+    return baseShips;
+  }
+
+  const localizedShipById = new Map(localizedShips.map((ship) => [ship.id, ship]));
+
+  return baseShips.map((ship) => {
+    const localizedShip = localizedShipById.get(ship.id);
+    if (!localizedShip) {
+      return ship;
+    }
+
+    return {
+      ...ship,
+      localizedName: localizedShip.name || ship.localizedName,
+      manufacturer: {
+        ...ship.manufacturer,
+        localizedName: localizedShip.manufacturer?.name || ship.manufacturer.localizedName,
+      },
+    };
+  });
+}
+
 function getShipFocusSearchParams(searchParams: URLSearchParams): string[] {
   const values = parseMarketSearchParamList(searchParams, 'shipFocus')
     .flatMap((value) => value.split(','))
@@ -706,6 +844,22 @@ function resolveDirectMarketItem(item: ListingItem): ListingItem | null {
   return item.itemType === 'ccu' ? resolveLowestCcuVariant(item) : item;
 }
 
+function normalizeMarketSearchCommitValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function getMarketSearchInputEventValue(
+  event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | React.CompositionEvent<HTMLDivElement>,
+  fallbackValue: string,
+) {
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return target.value;
+  }
+
+  return fallbackValue;
+}
+
 interface MarketListingSearchFieldProps {
   id?: string;
   value: string;
@@ -720,30 +874,96 @@ const MarketListingSearchField = React.memo(function MarketListingSearchField({
   onCommit,
 }: MarketListingSearchFieldProps) {
   const [draftValue, setDraftValue] = useState(value);
+  const [compositionTick, setCompositionTick] = useState(0);
+  const valueRef = useRef(value);
+  const draftValueRef = useRef(draftValue);
+  const onCommitRef = useRef(onCommit);
+  const isEditingRef = useRef(false);
+  const isComposingRef = useRef(false);
+  const debounceTimeoutRef = useRef<number | null>(null);
+  const pendingCommitValueRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    if (debounceTimeoutRef.current !== null) {
+      window.clearTimeout(debounceTimeoutRef.current);
+    }
+  }, []);
 
   useEffect(() => {
-    setDraftValue(value);
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
+
+  useEffect(() => {
+    valueRef.current = value;
+    const pendingCommitValue = pendingCommitValueRef.current;
+    if (
+      pendingCommitValue !== null
+      && normalizeMarketSearchCommitValue(pendingCommitValue) === normalizeMarketSearchCommitValue(value)
+    ) {
+      pendingCommitValueRef.current = null;
+      if (normalizeMarketSearchCommitValue(draftValueRef.current) === normalizeMarketSearchCommitValue(value)) {
+        isEditingRef.current = false;
+      }
+    }
+
+    if (!isEditingRef.current && pendingCommitValueRef.current === null && draftValueRef.current !== value) {
+      draftValueRef.current = value;
+      setDraftValue(value);
+    }
   }, [value]);
 
   useEffect(() => {
-    if (draftValue === value) {
+    draftValueRef.current = draftValue;
+
+    if (isComposingRef.current) {
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      onCommit(draftValue);
+    if (normalizeMarketSearchCommitValue(draftValue) === normalizeMarketSearchCommitValue(valueRef.current)) {
+      pendingCommitValueRef.current = null;
+      isEditingRef.current = false;
+      return;
+    }
+
+    if (debounceTimeoutRef.current !== null) {
+      window.clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = window.setTimeout(() => {
+      debounceTimeoutRef.current = null;
+      const nextValue = typeof draftValueRef.current === 'string' ? draftValueRef.current : '';
+      pendingCommitValueRef.current = nextValue;
+      onCommitRef.current(nextValue);
     }, MARKET_SEARCH_DEBOUNCE_MS);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      if (debounceTimeoutRef.current !== null) {
+        window.clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
     };
-  }, [draftValue, onCommit, value]);
+  }, [compositionTick, draftValue]);
 
   const commitNow = useCallback(() => {
-    if (draftValue !== value) {
-      onCommit(draftValue);
+    if (isComposingRef.current) {
+      return;
     }
-  }, [draftValue, onCommit, value]);
+
+    if (debounceTimeoutRef.current !== null) {
+      window.clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    const nextValue = typeof draftValueRef.current === 'string' ? draftValueRef.current : '';
+    if (normalizeMarketSearchCommitValue(nextValue) !== normalizeMarketSearchCommitValue(valueRef.current)) {
+      pendingCommitValueRef.current = nextValue;
+      onCommitRef.current(nextValue);
+      return;
+    }
+
+    pendingCommitValueRef.current = null;
+    isEditingRef.current = false;
+  }, []);
 
   return (
     <TextField
@@ -753,10 +973,27 @@ const MarketListingSearchField = React.memo(function MarketListingSearchField({
       value={draftValue}
       id={id}
       onChange={(event) => {
-        setDraftValue(event.target.value);
+        const nextValue = getMarketSearchInputEventValue(event, draftValueRef.current);
+        isEditingRef.current = true;
+        pendingCommitValueRef.current = null;
+        draftValueRef.current = nextValue;
+        setDraftValue(nextValue);
       }}
+      onCompositionStart={() => {
+        isComposingRef.current = true;
+      }}
+      onCompositionEnd={(event) => {
+        const nextValue = getMarketSearchInputEventValue(event, draftValueRef.current);
+        isComposingRef.current = false;
+        isEditingRef.current = true;
+        pendingCommitValueRef.current = null;
+        draftValueRef.current = nextValue;
+        setDraftValue(nextValue);
+        setCompositionTick((current) => current + 1);
+      }}
+      onBlur={commitNow}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing && !isComposingRef.current) {
           event.preventDefault();
           commitNow();
         }
@@ -882,7 +1119,7 @@ const MarketListingCard = React.memo(function MarketListingCard({
   const isCredit = item.itemType === 'credit';
   const isCcu = item.itemType === 'ccu';
   const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
-  const packageShips = item.packageShips || [];
+  const packageShips = useMemo(() => item.packageShips || [], [item.packageShips]);
   const packageItems = item.packageItems || [];
   const packageShipCount = useMemo(
     () => packageShips.filter((ship) => ship.shipId !== null).length,
@@ -1098,7 +1335,27 @@ const Market: React.FC = () => {
     page,
     rowsPerPage,
   } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const { data: marketHomeSettingsResponse } = useMarketHomeSettings();
+  const { data: marketSearchShipsResponse } = useApi<ShipsData>('/api/ships', {
+    revalidateOnFocus: false,
+    dedupingInterval: 300_000,
+  });
+  const localizedShipSearchPath = locale === 'en'
+    ? null
+    : `/api/ships?locale=${encodeURIComponent(locale)}`;
+  const { data: localizedShipSearchResponse } = useApi<ShipsData>(localizedShipSearchPath, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300_000,
+  });
+  const localizedShipSearchItems = useMemo(
+    () => localizedShipSearchResponse?.data.ships || [],
+    [localizedShipSearchResponse],
+  );
+  const marketSearchShips = useMemo(
+    () => marketSearchShipsResponse?.data.ships || [],
+    [marketSearchShipsResponse],
+  );
   const showsShipTraitFilters = selectedItemFilter === 'all'
     || selectedItemFilter === 'standalone_ship'
     || selectedItemFilter === 'ship_package';
@@ -1160,7 +1417,6 @@ const Market: React.FC = () => {
     sortBy,
   ]);
   const shouldLoadListingData = listingDrawerOpen || hasActiveMarketSearchParams;
-
   useEffect(() => {
     if (normalizedSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(normalizedSearchParams, { replace: true });
@@ -1264,6 +1520,19 @@ const Market: React.FC = () => {
     openListingDrawer();
   }, [commitMarketSearch, openListingDrawer]);
 
+  const localizedMarketSearchShips = useMemo(
+    () => mergeLocalizedMarketSearchShips(marketSearchShips, localizedShipSearchItems),
+    [localizedShipSearchItems, marketSearchShips],
+  );
+  const localizedMarketSearchCandidates = useMemo(
+    () => buildMarketLocalizedSearchCandidates(localizedMarketSearchShips),
+    [localizedMarketSearchShips],
+  );
+  const backendSearchTerm = useMemo(
+    () => resolveLocalizedMarketSearchTerm(deferredSearchTerm, localizedMarketSearchCandidates),
+    [deferredSearchTerm, localizedMarketSearchCandidates],
+  );
+
   const marketQuery = useMemo(() => {
     const itemTypes: MarketItemType[] = [];
     const browseCategories: MarketBrowseCategory[] = [];
@@ -1294,7 +1563,7 @@ const Market: React.FC = () => {
 
     return {
       enabled: shouldLoadListingData,
-      search: searchTerm,
+      search: backendSearchTerm,
       itemTypes,
       browseCategories,
       shipTraits,
@@ -1307,12 +1576,12 @@ const Market: React.FC = () => {
     };
   }, [
     isMobileListingDrawer,
+    backendSearchTerm,
     listingDrawerOpen,
     mobileListingPage,
     page,
     packageItems,
     rowsPerPage,
-    searchTerm,
     selectedManufacturerId,
     selectedItemFilter,
     selectedShipFocus,
