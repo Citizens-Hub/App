@@ -1787,7 +1787,7 @@
   "market.reviews.purchased": "已购买",
   "market.reviews.ratingValue": "{rating}/5",
   "market.reviews.rsiAccount": "RSI：{handle}",
-  "market.reviews.title": "来自已验证购买的评价",
+  "market.reviews.title": "来自已购用户的评价",
   "market.otherGear.cta": "浏览全部装备",
   "market.otherGear.description": "挑选新的周边、装备和其他市场好物，为下一次行动做准备。",
   "market.otherGear.eyebrow": "装备上新",

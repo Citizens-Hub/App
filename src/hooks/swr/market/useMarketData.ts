@@ -14,6 +14,7 @@ import {
 } from '@/types';
 
 export interface UseMarketDataParams {
+  enabled?: boolean;
   search?: string;
   inStockOnly?: boolean;
   groupCcus?: boolean;
@@ -103,6 +104,7 @@ function buildMarketSearchPath(params: UseMarketDataParams = {}) {
 }
 
 export default function useMarketData(params: UseMarketDataParams = {}) {
+  const marketEnabled = params.enabled !== false;
   const itemTypesKey = (params.itemTypes || []).join(',');
   const packageKindsKey = (params.packageKinds || []).join(',');
   const packageItemsKey = (params.packageItems || []).join(',');
@@ -111,9 +113,12 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
   const shipTraitsKey = (params.shipTraits || []).join(',');
   const shipFocusesKey = (params.shipFocuses || []).join(',');
   const manufacturerIdsKey = (params.manufacturerIds || []).join(',');
-  const marketPath = useMemo(() => buildMarketSearchPath(params), [
+  const marketPath = useMemo(() => (
+    marketEnabled ? buildMarketSearchPath(params) : null
+  ), [
     browseCategoriesKey,
     itemTypesKey,
+    marketEnabled,
     packageKindsKey,
     packageItemsKey,
     manufacturerIdsKey,
@@ -149,9 +154,9 @@ export default function useMarketData(params: UseMarketDataParams = {}) {
     return [...shipsData.data.ships].sort((a: Ship, b: Ship) => a.msrp - b.msrp);
   }, [shipsData]);
 
-  const hasInitialData = Boolean(shipsData) && Boolean(marketResponse);
-  const loading = !hasInitialData && (shipsLoading || marketLoading);
-  const refreshing = hasInitialData && (shipsValidating || marketValidating);
+  const hasInitialData = Boolean(shipsData) && (!marketEnabled || Boolean(marketResponse));
+  const loading = !hasInitialData && (shipsLoading || (marketEnabled && marketLoading));
+  const refreshing = hasInitialData && (shipsValidating || (marketEnabled && marketValidating));
   const error = shipsError || marketError ? 'Failed to load data' : null;
 
   return {

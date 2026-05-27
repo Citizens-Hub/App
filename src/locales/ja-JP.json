@@ -1787,7 +1787,7 @@
   "market.reviews.purchased": "Purchased",
   "market.reviews.ratingValue": "{rating}/5",
   "market.reviews.rsiAccount": "RSI: {handle}",
-  "market.reviews.title": "Reviews from verified purchases",
+  "market.reviews.title": "購入済みユーザーからのレビュー",
   "market.otherGear.cta": "すべてのギアを見る",
   "market.otherGear.description": "次の出撃に向けて、新しいエクストラ、装備、その他のマーケットアイテムを探しましょう。",
   "market.otherGear.eyebrow": "Gear drop",

@@ -709,6 +709,7 @@ const Market: React.FC = () => {
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerInfiniteSentinelRef = useRef<HTMLDivElement | null>(null);
+  const mobileListingPageRequestPendingRef = useRef(false);
   const starterPackScrollerRef = useRef<HTMLDivElement | null>(null);
   const featuredAccountScrollerRef = useRef<HTMLDivElement | null>(null);
   const otherGearScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -823,6 +824,7 @@ const Market: React.FC = () => {
     showsShipTraitFilters,
     sortBy,
   ]);
+  const shouldLoadListingData = listingDrawerOpen || hasActiveMarketSearchParams;
 
   useEffect(() => {
     if (normalizedSearchParams.toString() !== searchParams.toString()) {
@@ -864,6 +866,7 @@ const Market: React.FC = () => {
   useEffect(() => {
     setMobileListingPage(0);
     setMobileListingItems([]);
+    mobileListingPageRequestPendingRef.current = false;
     listingDrawerContentRef.current?.scrollTo({ top: 0 });
   }, [listingSearchKey]);
 
@@ -949,6 +952,7 @@ const Market: React.FC = () => {
     }
 
     return {
+      enabled: shouldLoadListingData,
       search: searchTerm,
       itemTypes,
       browseCategories,
@@ -972,6 +976,7 @@ const Market: React.FC = () => {
     selectedItemFilter,
     selectedShipFocus,
     selectedShipTraitFilter,
+    shouldLoadListingData,
     showsShipFocusFilter,
     showsManufacturerFilter,
     showsShipTraitFilters,
@@ -1414,67 +1419,56 @@ const Market: React.FC = () => {
       addManufacturer(ship.manufacturer);
     });
 
-    listingItems.forEach((item) => {
-      if (!item.toShipManufacturerId && !item.fromShipManufacturerId && !item.shipManufacturerId) {
+    return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name));
+  }, [ships]);
+
+  const shipFocusOptions = useMemo(() => {
+    const groupedShips = new Map<string, { focus: string; ships: Ship[] }>();
+
+    ships.forEach((ship) => {
+      if (!availableShipIds.has(ship.id)) {
         return;
       }
 
-      [
-        item.toShipManufacturerId,
-        item.fromShipManufacturerId,
-        item.shipManufacturerId,
-        ...(item.packageShips || []).map((packageShip) => packageShip.manufacturerId),
-      ].forEach((manufacturerId) => {
-        if (!manufacturerId || options.has(manufacturerId)) {
-          return;
-        }
-
-        options.set(manufacturerId, {
-          id: manufacturerId,
-          name: String(manufacturerId),
-          logoPath: getManufacturerLogoPath({ id: manufacturerId }),
-        });
-      });
-    });
-
-    return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name));
-  }, [listingItems, ships]);
-
-  const shipFocusOptions = useMemo(() => {
-    const options = new Map<string, {
-      focus: string;
-      label: string;
-      shipCount: number;
-      imageUrl: string;
-      sampleShipName: string;
-    }>();
-
-    const availableShips = ships.filter((ship) => availableShipIds.has(ship.id));
-
-    availableShips.forEach((ship) => {
       const focus = normalizeShipFocusParam(ship.focus);
       const key = normalizeShipFocusFilter(focus);
       if (!focus || !key) {
         return;
       }
 
-      if (!options.has(key)) {
-        const focusShips = availableShips.filter((candidate) => normalizeShipFocusFilter(candidate.focus) === key);
-        const imageShips = focusShips.filter((candidate) => getShipImageForRoleCard(candidate));
-        const samplePool = imageShips.length ? imageShips : focusShips;
-        const sampleShip = samplePool[Math.floor(Math.random() * samplePool.length)] || ship;
-
-        options.set(key, {
-          focus,
-          label: localizeShipFocus(locale, focus),
-          shipCount: focusShips.length,
-          imageUrl: getShipImageForRoleCard(sampleShip),
-          sampleShipName: getShipDisplayName(sampleShip),
-        });
+      const group = groupedShips.get(key);
+      if (group) {
+        group.ships.push(ship);
+      } else {
+        groupedShips.set(key, { focus, ships: [ship] });
       }
     });
 
-    return Array.from(options.values()).sort((left, right) => (
+    return Array.from(groupedShips.values()).map(({ focus, ships: focusShips }) => {
+      let sampleShip = focusShips[0];
+      let imageUrl = '';
+
+      for (const candidate of focusShips) {
+        const candidateImageUrl = getShipImageForRoleCard(candidate);
+        if (candidateImageUrl) {
+          sampleShip = candidate;
+          imageUrl = candidateImageUrl;
+          break;
+        }
+      }
+
+      if (!imageUrl && sampleShip) {
+        imageUrl = getShipImageForRoleCard(sampleShip);
+      }
+
+      return {
+        focus,
+        label: localizeShipFocus(locale, focus),
+        shipCount: focusShips.length,
+        imageUrl,
+        sampleShipName: sampleShip ? getShipDisplayName(sampleShip) : '',
+      };
+    }).sort((left, right) => (
       right.shipCount - left.shipCount
       || left.label.localeCompare(right.label)
     ));
@@ -1517,8 +1511,15 @@ const Market: React.FC = () => {
 
   useEffect(() => {
     if (!isMobileListingDrawer || !listingDrawerOpen) {
+      mobileListingPageRequestPendingRef.current = false;
       return;
     }
+
+    if (loading || refreshing) {
+      return;
+    }
+
+    mobileListingPageRequestPendingRef.current = false;
 
     setMobileListingItems((currentItems) => {
       if (mobileListingPage === 0) {
@@ -1529,7 +1530,7 @@ const Market: React.FC = () => {
       const nextItems = listingItems.filter((item) => !existingSkuIds.has(item.skuId));
       return nextItems.length ? [...currentItems, ...nextItems] : currentItems;
     });
-  }, [isMobileListingDrawer, listingDrawerOpen, listingItems, mobileListingPage]);
+  }, [isMobileListingDrawer, listingDrawerOpen, listingItems, loading, mobileListingPage, refreshing]);
 
   useEffect(() => {
     if (!isMobileListingDrawer || !listingDrawerOpen || !listingDrawerContentReady || !mobileHasMoreListings) {
@@ -1544,10 +1545,11 @@ const Market: React.FC = () => {
 
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0];
-      if (!entry?.isIntersecting || loading || refreshing) {
+      if (!entry?.isIntersecting || loading || refreshing || mobileListingPageRequestPendingRef.current) {
         return;
       }
 
+      mobileListingPageRequestPendingRef.current = true;
       setMobileListingPage((currentPage) => currentPage + 1);
     }, {
       root,
