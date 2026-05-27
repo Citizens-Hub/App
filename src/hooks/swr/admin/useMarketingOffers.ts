@@ -1,6 +1,7 @@
 import { useAuthApi } from '../useApi';
 import {
   AdminMarketingOfferListResponse,
+  AdminResellerSearchResponse,
   AdminUserSearchResponse,
   MarketBrowseCategory,
   MarketItemType,
@@ -64,6 +65,22 @@ export function useAdminUserSearch(query: string) {
   const trimmedQuery = query.trim();
   return useAuthApi<AdminUserSearchResponse>(
     trimmedQuery ? `/api/admin/users/search?q=${encodeURIComponent(trimmedQuery)}` : null,
+    {
+      keepPreviousData: true,
+    },
+  );
+}
+
+export function useAdminResellerSearch(query: string) {
+  const trimmedQuery = query.trim();
+  const searchParams = new URLSearchParams();
+  if (trimmedQuery) {
+    searchParams.set('q', trimmedQuery);
+  }
+  searchParams.set('limit', '50');
+
+  return useAuthApi<AdminResellerSearchResponse>(
+    `/api/admin/accounting/resellers?${searchParams.toString()}`,
     {
       keepPreviousData: true,
     },

@@ -1587,6 +1587,18 @@ export interface AdminUserSearchResponse {
   users: AdminUserSearchItem[];
 }
 
+export interface AdminResellerSearchItem {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+}
+
+export interface AdminResellerSearchResponse {
+  success: boolean;
+  resellers: AdminResellerSearchItem[];
+}
+
 export type MarketingOfferStatus = 'creating' | 'active' | 'failed' | 'canceled' | 'used' | 'expired';
 
 export interface MarketingOfferItem extends ListingItem {

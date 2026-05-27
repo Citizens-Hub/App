@@ -24,6 +24,7 @@ import MarketHomeSettingsManager from './components/MarketHomeSettingsManager';
 import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import InvoiceSettingsManager from './components/InvoiceSettingsManager';
 import AdminMaintenanceManager from './components/AdminMaintenanceManager';
+import ResellerAccountingReportManager from './components/ResellerAccountingReportManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -38,6 +39,7 @@ enum Page {
   ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
   MarketHome = 'marketHome',
+  AccountingReport = 'accountingReport',
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
   NewUserCoupon = 'newUserCoupon',
@@ -208,6 +210,15 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.Orders),
     },
     {
+      id: Page.AccountingReport,
+      title: <FormattedMessage id="admin.accountingReport.title" defaultMessage="Reseller Accounting Report" />,
+      description: <FormattedMessage id="admin.accountingReport.navDescription" defaultMessage="导出商家的会计报表。" />,
+      groupId: 'operations',
+      groupLabel: groups.operations,
+      active: currentPage === Page.AccountingReport,
+      onSelect: () => setCurrentPage(Page.AccountingReport),
+    },
+    {
       id: Page.Tickets,
       title: <FormattedMessage id="admin.tickets.title" defaultMessage="Support Tickets" />,
       description: <FormattedMessage id="admin.tickets.description" defaultMessage="处理售后工单。" />,
@@ -305,6 +316,7 @@ export default function Admin() {
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.SiteNotification && <SiteNotificationManager />}
         {currentPage === Page.Orders && <OrdersManager />}
+        {currentPage === Page.AccountingReport && <ResellerAccountingReportManager />}
         {currentPage === Page.GraphqlDebugger && <AdminGraphqlDebugger />}
         {currentPage === Page.RecaptchaV3 && <AdminRecaptchaV3Tool />}
         {currentPage === Page.Maintenance && <AdminMaintenanceManager />}
