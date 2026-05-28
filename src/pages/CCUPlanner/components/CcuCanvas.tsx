@@ -376,6 +376,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   const [shipInfoShip, setShipInfoShip] = useState<Ship | null>(null);
   const [shipTranslationShip, setShipTranslationShip] = useState<Ship | null>(null);
   const [imageTaskProgress, setImageTaskProgress] = useState<ImageTaskProgress | null>(null);
+  const [completedPathsRevision, setCompletedPathsRevision] = useState(0);
 
   // Use data from context
   const {
@@ -517,6 +518,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
 
   // Handle path completion status change, refresh edge styles
   const refreshEdgesOnPathCompletion = useCallback((showAlert: boolean = true) => {
+    setCompletedPathsRevision(revision => revision + 1);
+
     // Trigger edge re-rendering by creating new edge data references
     setEdges(currentEdges => {
       return currentEdges.map(edge => {
@@ -2801,7 +2804,13 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
                 />
               </div>
               <Panel position="top-left" className="bg-white dark:bg-[#121212] md:w-[340px] w-[320px] border border-gray-200 dark:border-gray-800 p-2 hidden sm:block">
-                <Hangar ships={ships} ccus={ccus} onDragStart={onShipDragStart} />
+                <Hangar
+                  ships={ships}
+                  ccus={ccus}
+                  onDragStart={onShipDragStart}
+                  activeTabId={activeTabId}
+                  completedPathsRevision={completedPathsRevision}
+                />
               </Panel>
             </ReactFlow>
 
