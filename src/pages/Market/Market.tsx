@@ -203,14 +203,14 @@ const DEFAULT_MARKET_HERO_SLIDES: MarketHomeHeroSlide[] = [
   {
     id: 'default-market-hero',
     enabled: true,
-    mediaType: 'video',
-    mediaUrl: '/videos/bg.mp4',
+    mediaType: 'image',
+    mediaUrl: 'https://images.citizenshub.app/ships/242/e1a23fa4c3dbaff4e7d286e6485702e8.webp',
     posterUrl: '',
     shipId: null,
     linkMode: 'ship',
     translations: {
       en: {
-        eyebrow: 'CitizensHub Market',
+        eyebrow: 'Citizens\' Hub Market',
         title: 'Star Citizen ships, upgrades, and paints',
         subtitle: 'Browse CCUs, standalone ships, packages, paints, and store credit.',
         ctaLabel: 'Browse listings',
