@@ -34,6 +34,9 @@ const IMAGE_CACHE_MESSAGE_TYPES = {
   clear: 'CH_IMAGE_CACHE_CLEAR',
 };
 
+const DEFAULT_NOTIFICATION_URL = '/reseller';
+const CN_MIRROR_HOST = 'citizenshub.oxdl.cn';
+
 const IMAGE_CACHE_METADATA_HEADERS = {
   cachedAt: 'X-Citizens-Hub-Cache-Cached-At',
   source: 'X-Citizens-Hub-Cache-Source',
@@ -1005,6 +1008,71 @@ self.addEventListener('fetch', (event) => {
   if (isOwnedImageRequest(request, requestUrl)) {
     event.respondWith(handleOwnedImageRequest(event, request, requestUrl));
   }
+});
+
+self.addEventListener('push', (event) => {
+  if (!event.data) {
+    return;
+  }
+
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch (error) {
+    data = {
+      title: 'Citizens Hub',
+      body: event.data.text(),
+    };
+  }
+
+  const notificationTitle = data.title || 'Citizens Hub';
+  const notificationOptions = {
+    body: data.body || '',
+    icon: data.icon || '/logo.192.png',
+    badge: data.badge || '/logo.192.png',
+    tag: data.tag,
+    data: data.data || {},
+  };
+
+  event.waitUntil(self.registration.showNotification(notificationTitle, notificationOptions));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const notificationData = event.notification.data || {};
+  const targetRoute = notificationData.route || notificationData.url || DEFAULT_NOTIFICATION_URL;
+  const targetUrl = (() => {
+    const route = typeof targetRoute === 'string' && targetRoute.startsWith('/')
+      ? targetRoute
+      : DEFAULT_NOTIFICATION_URL;
+
+    if (self.location.hostname === CN_MIRROR_HOST) {
+      return new URL(`/#${route}`, self.location.origin);
+    }
+
+    return new URL(route, self.location.origin);
+  })();
+
+  event.waitUntil((async () => {
+    const windowClients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    });
+
+    for (const client of windowClients) {
+      const clientUrl = new URL(client.url);
+      if (clientUrl.origin === targetUrl.origin && 'focus' in client) {
+        await client.focus();
+        if ('navigate' in client) {
+          return client.navigate(targetUrl.href);
+        }
+        return;
+      }
+    }
+
+    return self.clients.openWindow(targetUrl.href);
+  })());
 });
 
 self.addEventListener('message', (event) => {

@@ -10,6 +10,7 @@ import OrdersTable from './components/OrdersTable';
 import { useNavigate } from 'react-router';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 import CcuBulkCheckout from '@/pages/CcuBulkCheckout/CcuBulkCheckout';
+import OrderPushNotificationPanel from './components/OrderPushNotificationPanel';
 
 enum Page {
   MyStore = 'myStore',
@@ -80,6 +81,7 @@ export default function Reseller() {
       mobileMenuTitle={<FormattedMessage id="reseller.sections" defaultMessage="商家中心" />}
       contentClassName="min-h-0 flex-1 overflow-y-auto p-4"
     >
+        <OrderPushNotificationPanel />
         {loading ? <Typography align="center"><FormattedMessage id="loading" defaultMessage="Loading..." /></Typography> : (<>
           {currentPage === Page.MyStore && (
             <div className='flex flex-col'>
