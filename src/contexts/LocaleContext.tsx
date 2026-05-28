@@ -7,9 +7,11 @@ import jaJPMessages from '../locales/ja-JP.json';
 import deDEMessages from '../locales/de-DE.json';
 
 export type Locale = 'zh-CN' | 'zh-HK' | 'en' | 'ja-JP' | 'de-DE';
+export type EmailLocale = 'zh-CN' | 'zh-HK' | 'en';
 
 const SUPPORTED_LOCALES: Locale[] = ['zh-CN', 'zh-HK', 'en', 'ja-JP', 'de-DE'];
 const LOCALE_STORAGE_KEY = 'locale';
+const EMAIL_LOCALE_STORAGE_KEY = 'email-locale';
 const SHIP_NAME_TRANSLATION_STORAGE_KEY = 'ship-name-translation-enabled';
 const DOCUMENT_LANG_BY_LOCALE: Record<Locale, string> = {
   'en': 'en',
@@ -30,12 +32,40 @@ const messages: Record<Locale, Record<string, string>> = {
 interface LocaleContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  emailLocale: EmailLocale;
+  setEmailLocale: (locale: EmailLocale) => void;
   shipNameTranslationEnabled: boolean;
   setShipNameTranslationEnabled: (enabled: boolean) => void;
   messages: Record<string, string>;
 }
 
 const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
+
+export function toEmailLocale(locale: Locale): EmailLocale {
+  if (locale === 'zh-CN' || locale === 'zh-HK') {
+    return locale;
+  }
+
+  return 'en';
+}
+
+export function getSavedEmailLocale(): EmailLocale {
+  const savedEmailLocale = localStorage.getItem(EMAIL_LOCALE_STORAGE_KEY);
+  if (savedEmailLocale === 'zh-CN' || savedEmailLocale === 'zh-HK' || savedEmailLocale === 'en') {
+    return savedEmailLocale;
+  }
+
+  return 'en';
+}
+
+export function hasSavedEmailLocalePreference(): boolean {
+  const savedEmailLocale = localStorage.getItem(EMAIL_LOCALE_STORAGE_KEY);
+  return savedEmailLocale === 'zh-CN' || savedEmailLocale === 'zh-HK' || savedEmailLocale === 'en';
+}
+
+export function persistEmailLocale(locale: EmailLocale) {
+  localStorage.setItem(EMAIL_LOCALE_STORAGE_KEY, locale);
+}
 
 interface LocaleProviderProps {
   children: ReactNode;
@@ -81,6 +111,7 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
   };
 
   const [locale, setLocale] = useState<Locale>(getSavedLocale);
+  const [emailLocale, setEmailLocale] = useState<EmailLocale>(getSavedEmailLocale);
   const [shipNameTranslationEnabled, setShipNameTranslationEnabled] = useState<boolean>(getSavedShipNameTranslationEnabled);
 
   useEffect(() => {
@@ -90,6 +121,14 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
   const handleSetLocale = (newLocale: Locale) => {
     setLocale(newLocale);
     localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+    const nextEmailLocale = toEmailLocale(newLocale);
+    setEmailLocale(nextEmailLocale);
+    persistEmailLocale(nextEmailLocale);
+  };
+
+  const handleSetEmailLocale = (newLocale: EmailLocale) => {
+    setEmailLocale(newLocale);
+    persistEmailLocale(newLocale);
   };
 
   const handleSetShipNameTranslationEnabled = (enabled: boolean) => {
@@ -100,6 +139,8 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
   const value = {
     locale,
     setLocale: handleSetLocale,
+    emailLocale,
+    setEmailLocale: handleSetEmailLocale,
     shipNameTranslationEnabled,
     setShipNameTranslationEnabled: handleSetShipNameTranslationEnabled,
     messages: messages[locale],

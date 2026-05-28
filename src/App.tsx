@@ -15,6 +15,7 @@ import Verify from './pages/Verify/Verify'
 import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
 import MarketingEmailConsentPrompt from '@/components/MarketingEmailConsentPrompt'
+import EmailLocaleSync from '@/components/EmailLocaleSync'
 import { useIntl } from 'react-intl'
 import { SiteNotification } from '@/types'
 // import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
@@ -358,6 +359,7 @@ function App() {
         <CssBaseline />
         <Router>
           <Header darkMode={!!darkMode} toggleDarkMode={toggleDarkMode} />
+          <EmailLocaleSync />
           <SupportPrompt />
           <MarketingEmailConsentPrompt />
           <Snackbar

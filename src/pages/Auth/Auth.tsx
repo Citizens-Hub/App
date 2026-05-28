@@ -29,6 +29,7 @@ import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
 import { sendGoogleAdsSignupConversion } from '@/utils/googleAdsConversions';
 import Verify, { AUTH_FORM_PAPER_SX } from '@/pages/Verify/Verify';
+import { getSavedEmailLocale, hasSavedEmailLocalePreference } from '@/contexts/LocaleContext';
 
 interface LoginResponse {
   success: boolean;
@@ -65,7 +66,8 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
       fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/google`, {
         method: 'POST',
         body: JSON.stringify({
-          token: tokenResponse.access_token
+          token: tokenResponse.access_token,
+          ...(hasSavedEmailLocalePreference() ? { emailLocale: getSavedEmailLocale() } : {}),
         })
       })
         .then(res => res.json())
@@ -225,6 +227,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
           marketingEmailConsentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
           adsAudienceConsent,
           consentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
+          ...(hasSavedEmailLocalePreference() ? { emailLocale: getSavedEmailLocale() } : {}),
           ...captchaPayload
         }),
       });

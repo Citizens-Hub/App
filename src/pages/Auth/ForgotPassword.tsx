@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
+import { getSavedEmailLocale, hasSavedEmailLocalePreference } from '@/contexts/LocaleContext';
 
 type ApiResponse = {
   success?: boolean;
@@ -74,6 +75,7 @@ export default function ForgotPassword() {
         },
         body: JSON.stringify({
           email,
+          ...(hasSavedEmailLocalePreference() ? { emailLocale: getSavedEmailLocale() } : {}),
           ...captchaPayload,
         }),
       });
