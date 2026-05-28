@@ -87,7 +87,7 @@ export default function GoogleAdsAudienceManager() {
   const token = useSelector((state: RootState) => state.user.user.token);
   const [audienceKey, setAudienceKey] = useState('all_consented_users');
   const [displayName, setDisplayName] = useState('All Consented Users');
-  const [description, setDescription] = useState('Citizens Hub registered users who consented to audience matching.');
+  const [description, setDescription] = useState("Citizens' Hub registered users who consented to audience matching.");
   const [segment, setSegment] = useState<'all_consented_users' | 'paid_buyers'>('all_consented_users');
   const [includePaymentReview, setIncludePaymentReview] = useState(false);
   const [submitting, setSubmitting] = useState<'dry' | 'live' | null>(null);
@@ -326,7 +326,7 @@ export default function GoogleAdsAudienceManager() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             <FormattedMessage
               id="admin.googleAdsAudience.oauthDescription"
-              defaultMessage="Authorize Google once from the admin panel so Citizens Hub can refresh Data Manager access tokens automatically."
+              defaultMessage="Authorize Google once from the admin panel so Citizens' Hub can refresh Data Manager access tokens automatically."
             />
           </Typography>
           <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap={2} sx={{ mt: 1.5 }}>

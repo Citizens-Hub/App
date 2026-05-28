@@ -1881,7 +1881,7 @@ export default function Settings() {
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
                           id="settings.marketingEmailConsentDescription"
-                          defaultMessage="Control whether Citizens Hub may send you marketing broadcast emails, including product updates, offers, and announcements."
+                          defaultMessage="Control whether Citizens' Hub may send you marketing broadcast emails, including product updates, offers, and announcements."
                         />
                       </Typography>
                     </div>
@@ -1981,7 +1981,7 @@ export default function Settings() {
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
                           id="settings.adsConsentDescription"
-                          defaultMessage="Control whether Citizens Hub may share your email and related first-party purchase data with advertising platforms such as Google to build or refresh customer audiences."
+                          defaultMessage="Control whether Citizens' Hub may share your email and related first-party purchase data with advertising platforms such as Google to build or refresh customer audiences."
                         />
                       </Typography>
                     </div>
@@ -2715,7 +2715,7 @@ export default function Settings() {
                       <Typography variant="body2" color='text.secondary'>
                         <FormattedMessage
                           id="settings.shipImageCacheDescription"
-                          defaultMessage="Manage locally cached ship images fetched from CitizensHub worker and R2."
+                          defaultMessage="Manage locally cached ship images fetched from Citizens' Hub worker and R2."
                         />
                       </Typography>
                     </div>

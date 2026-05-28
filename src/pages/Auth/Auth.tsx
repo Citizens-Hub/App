@@ -427,7 +427,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                     <Typography variant="body2">
                       <FormattedMessage
                         id="register.marketingEmailConsentQuestion"
-                        defaultMessage="Would you like to receive marketing broadcast emails from Citizens Hub?"
+                        defaultMessage="Would you like to receive marketing broadcast emails from Citizens' Hub?"
                       />
                     </Typography>
                   </FormLabel>
@@ -483,7 +483,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                     <Typography variant="body2">
                       <FormattedMessage
                         id="register.adsAudienceConsent"
-                        defaultMessage="Allow Citizens Hub to use my email and related purchase records for customer audience matching with Google and similar advertising platforms."
+                        defaultMessage="Allow Citizens' Hub to use my email and related purchase records for customer audience matching with Google and similar advertising platforms."
                       />
                     </Typography>
                   )}

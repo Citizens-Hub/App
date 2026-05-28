@@ -1219,7 +1219,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     : `${displayTitle} listing on Citizens' Hub Star Citizen market.`;
   const detailKeywords = [
     'Star Citizen market',
-    'Citizens Hub',
+    "Citizens' Hub",
     displayTitle,
     getMarketItemTypeLabel(intl, item.itemType),
     item.browseCategory,

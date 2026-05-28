@@ -779,7 +779,7 @@ export default function CcuBulkCheckout({
       ],
     }, {
       timeoutMs: RESPONSE_TIMEOUT_MS,
-      timeoutMessage: text(intl, 'error.extensionTimeout', 'The browser extension request timed out. Make sure the Citizens Hub extension is installed, enabled, and logged in on robertsspaceindustries.com.'),
+      timeoutMessage: text(intl, 'error.extensionTimeout', "The browser extension request timed out. Make sure the Citizens' Hub extension is installed, enabled, and logged in on robertsspaceindustries.com."),
       requestIdPrefix: `${requestIdPrefix}-${operationName}`,
     }) as GraphqlResponseEnvelope;
 

@@ -180,7 +180,7 @@ export default function MarketingEmailConsentPrompt() {
               ) : (
                 <FormattedMessage
                   id="settings.marketingEmailPromptDescription"
-                  defaultMessage="Would you like to receive Citizens Hub marketing broadcast emails, including product updates, offers, and announcements?"
+                  defaultMessage="Would you like to receive Citizens' Hub marketing broadcast emails, including product updates, offers, and announcements?"
                 />
               )}
             </Typography>

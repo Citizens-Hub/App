@@ -1203,7 +1203,7 @@ export default function AdminRsiOrderAutomation() {
       timeoutMs: RESPONSE_TIMEOUT_MS,
       timeoutMessage: intl.formatMessage({
         id: 'admin.rsiOrderAutomation.error.timeout',
-        defaultMessage: 'The browser extension request timed out. Make sure the Citizens Hub extension is installed, enabled, and logged in on robertsspaceindustries.com.',
+        defaultMessage: "The browser extension request timed out. Make sure the Citizens' Hub extension is installed, enabled, and logged in on robertsspaceindustries.com.",
       }),
       requestIdPrefix: `admin-rsi-order-automation-${operationName}`,
     }) as GraphqlResponseEnvelope;
@@ -2215,7 +2215,7 @@ export default function AdminRsiOrderAutomation() {
       <Alert severity="info">
         {intl.formatMessage({
           id: 'admin.rsiOrderAutomation.requirements',
-          defaultMessage: 'This tool runs entirely in the admin browser through the Citizens Hub extension. Make sure the extension is installed, enabled, and logged in on robertsspaceindustries.com before starting.',
+          defaultMessage: "This tool runs entirely in the admin browser through the Citizens' Hub extension. Make sure the extension is installed, enabled, and logged in on robertsspaceindustries.com before starting.",
         })}
       </Alert>
 

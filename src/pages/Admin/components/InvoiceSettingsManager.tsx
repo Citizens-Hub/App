@@ -19,7 +19,7 @@ const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
 const DEFAULT_SETTINGS: InvoiceSettings = {
   enabled: true,
-  storeName: 'CitizensHub',
+  storeName: "Citizens' Hub",
   companyName: '',
   companyAddress: '',
   companyPhone: '',

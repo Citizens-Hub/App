@@ -589,7 +589,7 @@ export default function AdminGraphqlDebugger() {
           timeoutMs: RESPONSE_TIMEOUT_MS,
           timeoutMessage: intl.formatMessage({
             id: 'admin.graphqlDebugger.error.timeout',
-            defaultMessage: 'The browser extension request timed out. Make sure the Citizens Hub extension is installed, enabled, and that you are logged in on robertsspaceindustries.com.',
+            defaultMessage: "The browser extension request timed out. Make sure the Citizens' Hub extension is installed, enabled, and that you are logged in on robertsspaceindustries.com.",
           }),
           requestIdPrefix: 'admin-graphql-debugger',
         },
@@ -744,7 +744,7 @@ export default function AdminGraphqlDebugger() {
         <Typography variant="body2">
           {intl.formatMessage({
             id: 'admin.graphqlDebugger.requirements',
-            defaultMessage: 'This tool sends requests through the Citizens Hub browser extension. Make sure the extension is installed and that the same browser is logged in on robertsspaceindustries.com.',
+            defaultMessage: "This tool sends requests through the Citizens' Hub browser extension. Make sure the extension is installed and that the same browser is logged in on robertsspaceindustries.com.",
           })}
         </Typography>
       </Alert>

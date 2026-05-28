@@ -519,7 +519,7 @@ function getMarketHeroTranslation(
   };
 
   return {
-    eyebrow: resolveText('eyebrow', 'CitizensHub Market'),
+    eyebrow: resolveText('eyebrow', "Citizens' Hub Market"),
     title: resolveText('title', 'Star Citizen Market'),
     subtitle: resolveText('subtitle', ''),
     ctaLabel: resolveText('ctaLabel', 'View details'),

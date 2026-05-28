@@ -116,7 +116,7 @@ export default function ResellerGraphqlExport() {
         timeoutMs: RESPONSE_TIMEOUT_MS,
         timeoutMessage: intl.formatMessage({
           id: 'reseller.graphqlExport.error.timeout',
-          defaultMessage: 'The extension request timed out. Make sure the Citizens Hub browser extension is installed and enabled.',
+          defaultMessage: "The extension request timed out. Make sure the Citizens' Hub browser extension is installed and enabled.",
         }),
         requestIdPrefix: 'reseller-graphql-export',
       });

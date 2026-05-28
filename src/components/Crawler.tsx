@@ -996,7 +996,7 @@ export default function Crawler({ ships }: { ships: Ship[] }) {
         error,
         intl.formatMessage({
           id: 'crawler.requestFailed',
-          defaultMessage: 'Failed to sync hangar data. Please confirm the Citizens Hub browser extension is enabled and try again.'
+          defaultMessage: "Failed to sync hangar data. Please confirm the Citizens' Hub browser extension is enabled and try again."
         })
       ),
       'error'

@@ -506,7 +506,7 @@ async function fetchPaintCatalogPage(page: number, intl: ReturnType<typeof useIn
     timeoutMs: RESPONSE_TIMEOUT_MS,
     timeoutMessage: intl.formatMessage({
       id: 'admin.conciergePaints.error.timeout',
-      defaultMessage: '扩展请求超时，请确认 Citizens Hub 扩展已安装、启用，并且已登录 RSI。',
+      defaultMessage: "扩展请求超时，请确认 Citizens' Hub 扩展已安装、启用，并且已登录 RSI。",
     }),
     requestIdPrefix: `admin-concierge-paints-page-${page}`,
   });
@@ -540,7 +540,7 @@ async function fetchPaintDetailBatch(slugs: string[], intl: ReturnType<typeof us
     timeoutMs: RESPONSE_TIMEOUT_MS,
     timeoutMessage: intl.formatMessage({
       id: 'admin.conciergePaints.error.timeout',
-      defaultMessage: '扩展请求超时，请确认 Citizens Hub 扩展已安装、启用，并且已登录 RSI。',
+      defaultMessage: "扩展请求超时，请确认 Citizens' Hub 扩展已安装、启用，并且已登录 RSI。",
     }),
     requestIdPrefix: `admin-concierge-paints-detail-${slugs[0] || 'batch'}`,
   });
