@@ -44,7 +44,7 @@ export default function OrderPaymentDeadline({
   const hasTriggeredExpiryRef = useRef(false);
   const expiryTimestamp = expiresAt ? new Date(expiresAt).getTime() : Number.NaN;
   const hasDeadline =
-    (mode === 'payment' ? status === OrderStatus.Pending : status === OrderStatus.Paid)
+    (mode === 'payment' ? status === OrderStatus.Pending : [OrderStatus.Paid, OrderStatus.Confirmed].includes(status))
     && !Number.isNaN(expiryTimestamp);
   const remainingMs = hasDeadline ? expiryTimestamp - now : 0;
   const isExpired = hasDeadline && remainingMs <= 0;

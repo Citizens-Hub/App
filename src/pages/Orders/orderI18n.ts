@@ -29,7 +29,7 @@ export function formatOrderChargedLabel(intl: IntlShape, order: Order) {
     });
   }
 
-  if (order.status === OrderStatus.Paid || order.status === OrderStatus.Finished) {
+  if (order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished) {
     return formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order));
   }
 
@@ -44,6 +44,30 @@ export function formatOrderChargedLabel(intl: IntlShape, order: Order) {
     id: 'orders.awaitingPayment',
     defaultMessage: 'Awaiting payment',
   });
+}
+
+export function getCustomerOrderStatusMessage(status: OrderStatus) {
+  if (status === OrderStatus.Confirmed) {
+    return {
+      id: 'orders.status.processing',
+      defaultMessage: 'Processing',
+    };
+  }
+
+  return {
+    id: `orders.status.${status.toLowerCase()}`,
+    defaultMessage: status,
+  };
+}
+
+export function getLatestOrderEstimatedShipmentAt(items: OrderItem[]) {
+  const latestTimestamp = items
+    .filter((item) => item.quantity - (item.cancelledQuantity || 0) > 0 && !item.shipped)
+    .map((item) => item.estimatedShipmentAt ? new Date(item.estimatedShipmentAt).getTime() : Number.NaN)
+    .filter((timestamp) => Number.isFinite(timestamp))
+    .sort((left, right) => right - left)[0];
+
+  return Number.isFinite(latestTimestamp) ? new Date(latestTimestamp) : null;
 }
 
 export function getLocalizedOrderItemShipNames(item: OrderMarketItemLike, ships?: Ship[]) {

@@ -36,6 +36,8 @@ import {
   formatOrderItemCountLabel,
   formatOrderPackageSummary,
   formatOrderUsdPrice,
+  getCustomerOrderStatusMessage,
+  getLatestOrderEstimatedShipmentAt,
   getLocalizedOrderItemShipNames,
   getOrderChargedAmount,
   getOrderItemDisplayName,
@@ -193,6 +195,9 @@ export default function OrderDetail() {
       case OrderStatus.Paid:
         color = "success";
         break;
+      case OrderStatus.Confirmed:
+        color = "info";
+        break;
       case OrderStatus.PaymentReview:
         color = "warning";
         break;
@@ -211,8 +216,7 @@ export default function OrderDetail() {
         color={color}
         label={
           <FormattedMessage
-            id={`orders.status.${status.toLowerCase()}`}
-            defaultMessage={status}
+            {...getCustomerOrderStatusMessage(status)}
           />
         }
         size="small"
@@ -229,6 +233,7 @@ export default function OrderDetail() {
       case OrderStatus.Processing:
         return 1;
       case OrderStatus.Paid:
+      case OrderStatus.Confirmed:
       case OrderStatus.PaymentReview:
         return 2;
       case OrderStatus.Finished:
@@ -322,12 +327,16 @@ export default function OrderDetail() {
   ));
   const deadlineMode = order.status === OrderStatus.Pending
     ? 'payment'
-    : order.status === OrderStatus.Paid
+    : [OrderStatus.Paid, OrderStatus.Confirmed].includes(order.status)
       ? 'shipment'
       : null;
   const deadlineAt = deadlineMode === 'payment'
     ? order.expiresAt
     : order.shipmentDeadlineAt;
+  const latestEstimatedShipmentAt = getLatestOrderEstimatedShipmentAt(orderItems);
+  const latestEstimatedShipmentLabel = order.status === OrderStatus.Confirmed && latestEstimatedShipmentAt
+    ? latestEstimatedShipmentAt.toLocaleString(intl.locale)
+    : null;
   const reviewImages = order.reviewAttachments || [];
   const canUploadMoreReviewImages = reviewImages.length < 5;
   const reviewSubmittedAt = order.feedbackAt ? new Date(order.feedbackAt).toLocaleString(intl.locale) : null;
@@ -363,7 +372,7 @@ export default function OrderDetail() {
               variant="text"
               startIcon={<ReceiptLongIcon />}
               onClick={handleViewReceipt}
-              disabled={order.status !== OrderStatus.Paid && order.status !== OrderStatus.Finished && order.status !== OrderStatus.PaymentReview}
+              disabled={order.status !== OrderStatus.Paid && order.status !== OrderStatus.Confirmed && order.status !== OrderStatus.Finished && order.status !== OrderStatus.PaymentReview}
             >
               <FormattedMessage id="orderDetail.viewInvoice" defaultMessage="View Invoice" />
             </Button>
@@ -378,12 +387,12 @@ export default function OrderDetail() {
                 <FormattedMessage id="orderDetail.status.pending" defaultMessage="Pending" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
+            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.processing" defaultMessage="Processing" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
+            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.paid" defaultMessage="Paid" />
               </StepLabel>
@@ -398,13 +407,13 @@ export default function OrderDetail() {
 
         {/* Order Header Information */}
         <div className="bg-white dark:bg-neutral-900 p-6 shadow-sm mb-6 border border-gray-100 dark:border-neutral-700">
-          <div className="flex flex-wrap gap-6 justify-between">
+          <div className="flex flex-wrap gap-6 justify-between items-stretch">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
                 <Typography variant="h5" fontWeight="bold" 
                   sx={{
                     borderLeft: '4px solid',
-                    borderLeftColor: order.status === OrderStatus.Paid ? 'success.main' :
+                    borderLeftColor: order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed ? 'success.main' :
                       order.status === OrderStatus.Pending ? 'warning.main' :
                         order.status === OrderStatus.PaymentReview ? 'warning.main' :
                         order.status === OrderStatus.Canceled ? 'error.main' :
@@ -426,7 +435,7 @@ export default function OrderDetail() {
                   />
                 </Alert>
               )}
-              
+
               <div className="flex flex-col gap-2 items-start">
                 <div>
                   <div className='text-xs text-gray-500 text-left'>
@@ -449,6 +458,15 @@ export default function OrderDetail() {
                       expiresAt={deadlineAt}
                       mode={deadlineMode}
                     />
+                    {latestEstimatedShipmentLabel && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <FormattedMessage
+                          id="orders.estimatedShipmentAt"
+                          defaultMessage="Estimated shipment: {time}"
+                          values={{ time: latestEstimatedShipmentLabel }}
+                        />
+                      </Typography>
+                    )}
                   </div>
                 )}
                 
@@ -465,11 +483,11 @@ export default function OrderDetail() {
               </div>
             </div>
             
-            <div className="text-right">
+            <div className="min-w-[180px] self-start text-left md:self-end md:text-right">
               <Typography variant="caption" color="text.secondary">
                 <FormattedMessage id="orderDetail.totalPrice" defaultMessage="Total Price" />
               </Typography>
-            <div className='text-[16px] text-blue-500 font-bold'>
+              <div className='text-[16px] text-blue-500 font-bold'>
                 {order.status === OrderStatus.PaymentReview
                   ? <FormattedMessage id="orders.paymentReceivedReview" defaultMessage="Payment received, under review" />
                   : formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order))}

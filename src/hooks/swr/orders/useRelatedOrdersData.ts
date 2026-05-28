@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthApi } from '../useApi';
-import { Order } from '@/types';
+import { Order, UserInfo } from '@/types';
 
 // 分页信息类型
 interface Pagination {
@@ -14,6 +14,11 @@ interface Pagination {
 interface RelatedOrdersResponse {
   orders: Order[];
   pagination: Pagination;
+}
+
+interface UserInfoResponse {
+  success: boolean;
+  user: UserInfo;
 }
 
 /**
@@ -32,6 +37,12 @@ export default function useRelatedOrdersData(page: number = 1, pageSize: number 
     mutate
   } = useAuthApi<RelatedOrdersResponse>(`/api/orders/related/${currentPage}?pageSize=${pageSize}`);
 
+  const {
+    data: userInfoData,
+    error: userInfoError,
+    isLoading: userInfoLoading,
+  } = useAuthApi<UserInfoResponse>('/api/auth/user');
+
   // 页面变更处理函数
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -39,9 +50,10 @@ export default function useRelatedOrdersData(page: number = 1, pageSize: number 
 
   return {
     orders: data?.orders || [],
+    userInfo: userInfoData?.user || null,
     pagination: data?.pagination || { total: 0, page: currentPage, pageSize, totalPages: 0 },
-    loading: isLoading,
-    error: error ? 'Failed to load related orders' : null,
+    loading: isLoading || userInfoLoading,
+    error: (error || userInfoError) ? 'Failed to load related orders' : null,
     handlePageChange,
     refresh: mutate
   };

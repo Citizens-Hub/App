@@ -32,6 +32,8 @@ import {
   formatOrderLeadSummary,
   formatOrderMoreItemsLabel,
   formatOrderUsdPrice,
+  getCustomerOrderStatusMessage,
+  getLatestOrderEstimatedShipmentAt,
   getOrderItemDisplayName,
 } from './orderI18n';
 import { sendGoogleAdsPurchaseConversion } from '@/utils/googleAdsConversions';
@@ -182,7 +184,7 @@ export default function Orders() {
             }
 
             const sessionStatus = await response.json() as OrderCheckoutSessionStatus;
-            const isPaidOrder = [OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(sessionStatus.status);
+            const isPaidOrder = [OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(sessionStatus.status);
 
             if (isPaidOrder && !hasTrackedGoogleAdsPurchase(checkoutSessionId) && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
@@ -267,6 +269,9 @@ export default function Orders() {
       case OrderStatus.Paid:
         color = 'success';
         break;
+      case OrderStatus.Confirmed:
+        color = 'info';
+        break;
       case OrderStatus.PaymentReview:
         color = 'warning';
         break;
@@ -285,8 +290,7 @@ export default function Orders() {
         color={color}
         label={(
           <FormattedMessage
-            id={`orders.status.${status.toLowerCase()}`}
-            defaultMessage={status}
+            {...getCustomerOrderStatusMessage(status)}
           />
         )}
         size="small"
@@ -420,12 +424,16 @@ export default function Orders() {
               const hiddenItemsCount = Math.max(orderItems.length - visibleItems.length, 0);
               const deadlineMode = order.status === OrderStatus.Pending
                 ? 'payment'
-                : order.status === OrderStatus.Paid
+                : [OrderStatus.Paid, OrderStatus.Confirmed].includes(order.status)
                   ? 'shipment'
                   : null;
               const deadlineAt = deadlineMode === 'payment'
                 ? order.expiresAt
                 : order.shipmentDeadlineAt;
+              const latestEstimatedShipmentAt = getLatestOrderEstimatedShipmentAt(orderItems);
+              const latestEstimatedShipmentLabel = order.status === OrderStatus.Confirmed && latestEstimatedShipmentAt
+                ? latestEstimatedShipmentAt.toLocaleString(intl.locale)
+                : null;
 
               return (
                 <Box
@@ -513,6 +521,15 @@ export default function Orders() {
                                 }
                               : undefined}
                           />
+                          {latestEstimatedShipmentLabel && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                              <FormattedMessage
+                                id="orders.estimatedShipmentAt"
+                                defaultMessage="Estimated shipment: {time}"
+                                values={{ time: latestEstimatedShipmentLabel }}
+                              />
+                            </Typography>
+                          )}
                         </>
                       ) : (
                         <>

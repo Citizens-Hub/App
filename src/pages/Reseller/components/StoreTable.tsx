@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { FormattedMessage, IntlShape, useIntl } from "react-intl";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -290,6 +290,212 @@ function MarketItemMedia({
     />
   );
 }
+
+type SelectedPrefillItemCardProps = {
+  item: StoreInventoryItem | null;
+  ships: Ship[];
+  intl: IntlShape;
+};
+
+const SelectedPrefillItemCard = memo(function SelectedPrefillItemCard({
+  item,
+  ships,
+  intl,
+}: SelectedPrefillItemCardProps) {
+  if (!item) {
+    return (
+      <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1, p: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          <FormattedMessage
+            id="market.prefillSelectionHint"
+            defaultMessage="Select a hangar item below if you want to prefill this listing."
+          />
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+        <FormattedMessage id="market.prefillSelectedItem" defaultMessage="Selected Hangar Item" />
+      </Typography>
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
+        <Box sx={{ width: { xs: "100%", md: 240 }, flexShrink: 0 }}>
+          <MarketItemMedia item={item} ships={ships} compact height={132} />
+        </Box>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="subtitle1" fontWeight={700} sx={twoLineClampSx}>
+                {item.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={twoLineClampSx}>
+                {getInventorySubtitle(item, intl)}
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
+              {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Chip size="small" label={getDisplayTypeLabel(item.displayType, intl)} />
+            <Chip
+              size="small"
+              color={item.canGift ? "success" : "warning"}
+              label={item.canGift
+                ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
+                : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
+            />
+            {item.isBuyBack && (
+              <Chip
+                size="small"
+                variant="outlined"
+                color="warning"
+                label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
+              />
+            )}
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {getInventoryOptionMeta(item)}
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
+  );
+});
+
+type PrefillInventoryCardProps = {
+  item: StoreInventoryItem;
+  isSelected: boolean;
+  ships: Ship[];
+  intl: IntlShape;
+  onSelect: (item: StoreInventoryItem) => void;
+};
+
+const PrefillInventoryCard = memo(function PrefillInventoryCard({
+  item,
+  isSelected,
+  ships,
+  intl,
+  onSelect,
+}: PrefillInventoryCardProps) {
+  const handleSelect = useCallback(() => {
+    onSelect(item);
+  }, [item, onSelect]);
+
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={handleSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleSelect();
+        }
+      }}
+      sx={{
+        border: "1px solid",
+        borderColor: isSelected ? "primary.main" : "divider",
+        bgcolor: isSelected ? "action.selected" : "background.paper",
+        borderRadius: 1,
+        p: 1.25,
+        cursor: "pointer",
+        transition: "border-color 0.2s ease, background-color 0.2s ease",
+      }}
+    >
+      <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
+        <Box sx={{ width: { xs: 120, sm: 136 }, flexShrink: 0 }}>
+          <MarketItemMedia item={item} ships={ships} compact height={84} />
+        </Box>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ ...twoLineClampSx, flex: 1, minWidth: 0 }}>
+              {item.name}
+            </Typography>
+            <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
+              {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={twoLineClampSx}>
+            {getInventorySubtitle(item, intl)}
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Chip size="small" label={getDisplayTypeLabel(item.displayType, intl)} />
+            <Chip
+              size="small"
+              color={item.canGift ? "success" : "warning"}
+              label={item.canGift
+                ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
+                : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
+            />
+            {item.isBuyBack && (
+              <Chip
+                size="small"
+                variant="outlined"
+                color="warning"
+                label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
+              />
+            )}
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {getInventoryOptionMeta(item)}
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
+  );
+});
+
+type PrefillInventoryGridProps = {
+  items: StoreInventoryItem[];
+  selectedSourceKey?: string;
+  ships: Ship[];
+  intl: IntlShape;
+  onSelect: (item: StoreInventoryItem) => void;
+};
+
+const PrefillInventoryGrid = memo(function PrefillInventoryGrid({
+  items,
+  selectedSourceKey,
+  ships,
+  intl,
+  onSelect,
+}: PrefillInventoryGridProps) {
+  return (
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, maxHeight: 420, overflowY: "auto" }}>
+      {items.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
+        </Typography>
+      ) : (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "repeat(2, minmax(0, 1fr))",
+              xl: "repeat(3, minmax(0, 1fr))",
+            },
+            gap: 1.25,
+          }}
+        >
+          {items.map((item) => (
+            <PrefillInventoryCard
+              key={item.sourceKey}
+              item={item}
+              isSelected={selectedSourceKey === item.sourceKey}
+              ships={ships}
+              intl={intl}
+              onSelect={onSelect}
+            />
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+});
 
 export default function StoreTable({ ships }: { ships: Ship[] }) {
   const intl = useIntl();
@@ -678,13 +884,17 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
     resetManualFormFields();
   };
 
-  const handleSelectSourceItem = (item: StoreInventoryItem | null) => {
+  const handleSelectSourceItem = useCallback((item: StoreInventoryItem | null) => {
     setSelectedSourceItem(item);
 
     if (item) {
       applyInventoryItemToForm(item);
     }
-  };
+  }, [applyInventoryItemToForm]);
+
+  const handleClearSourceItem = useCallback(() => {
+    handleSelectSourceItem(null);
+  }, [handleSelectSourceItem]);
 
   const handleRemoveItem = async (skuId?: string) => {
     if (!skuId || !token) return;
@@ -1366,157 +1576,25 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
                   label={intl.formatMessage({ id: "market.prefillGiftableOnly", defaultMessage: "Giftable only" })}
                 />
                 {selectedSourceItem && (
-                  <Button variant="outlined" onClick={() => handleSelectSourceItem(null)}>
+                  <Button variant="outlined" onClick={handleClearSourceItem}>
                     <FormattedMessage id="market.prefillClearSelection" defaultMessage="Clear Selection" />
                   </Button>
                 )}
               </Box>
 
-              {selectedSourceItem ? (
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    <FormattedMessage id="market.prefillSelectedItem" defaultMessage="Selected Hangar Item" />
-                  </Typography>
-                  <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 2 }}>
-                    <Box sx={{ width: { xs: "100%", md: 240 }, flexShrink: 0 }}>
-                      <MarketItemMedia item={selectedSourceItem} ships={ships} compact height={132} />
-                    </Box>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography variant="subtitle1" fontWeight={700} sx={twoLineClampSx}>
-                            {selectedSourceItem.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={twoLineClampSx}>
-                            {getInventorySubtitle(selectedSourceItem, intl)}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
-                          {selectedSourceItem.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                        <Chip size="small" label={getDisplayTypeLabel(selectedSourceItem.displayType, intl)} />
-                        <Chip
-                          size="small"
-                          color={selectedSourceItem.canGift ? "success" : "warning"}
-                          label={selectedSourceItem.canGift
-                            ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
-                            : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
-                        />
-                        {selectedSourceItem.isBuyBack && (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            color="warning"
-                            label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
-                          />
-                        )}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        {getInventoryOptionMeta(selectedSourceItem)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              ) : (
-                <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1, p: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    <FormattedMessage
-                      id="market.prefillSelectionHint"
-                      defaultMessage="Select a hangar item below if you want to prefill this listing."
-                    />
-                  </Typography>
-                </Box>
-              )}
+              <SelectedPrefillItemCard
+                item={selectedSourceItem}
+                ships={ships}
+                intl={intl}
+              />
 
-              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, maxHeight: 420, overflowY: "auto" }}>
-                {filteredInventoryItems.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    <FormattedMessage id="hangar.noEquipment" defaultMessage="No sharable content in your hangar" />
-                  </Typography>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: {
-                        xs: "1fr",
-                        md: "repeat(2, minmax(0, 1fr))",
-                        xl: "repeat(3, minmax(0, 1fr))",
-                      },
-                      gap: 1.25,
-                    }}
-                  >
-                    {filteredInventoryItems.map((item) => {
-                      const isSelected = selectedSourceItem?.sourceKey === item.sourceKey;
-
-                      return (
-                        <Box
-                          key={item.sourceKey}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleSelectSourceItem(item)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              handleSelectSourceItem(item);
-                            }
-                          }}
-                          sx={{
-                            border: "1px solid",
-                            borderColor: isSelected ? "primary.main" : "divider",
-                            bgcolor: isSelected ? "action.selected" : "background.paper",
-                            borderRadius: 1,
-                            p: 1.25,
-                            cursor: "pointer",
-                            transition: "border-color 0.2s ease, background-color 0.2s ease",
-                          }}
-                        >
-                          <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
-                            <Box sx={{ width: { xs: 120, sm: 136 }, flexShrink: 0 }}>
-                              <MarketItemMedia item={item} ships={ships} compact height={84} />
-                            </Box>
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1, minWidth: 0 }}>
-                              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start", flexWrap: "wrap" }}>
-                                <Typography variant="subtitle2" fontWeight={700} sx={{ ...twoLineClampSx, flex: 1, minWidth: 0 }}>
-                                  {item.name}
-                                </Typography>
-                                <Typography variant="body2" color="primary" fontWeight={700} sx={{ whiteSpace: "nowrap" }}>
-                                  {item.price.toLocaleString(intl.locale, { style: "currency", currency: "USD" })}
-                                </Typography>
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" sx={twoLineClampSx}>
-                                {getInventorySubtitle(item, intl)}
-                              </Typography>
-                              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                                <Chip size="small" label={getDisplayTypeLabel(item.displayType, intl)} />
-                                <Chip
-                                  size="small"
-                                  color={item.canGift ? "success" : "warning"}
-                                  label={item.canGift
-                                    ? intl.formatMessage({ id: "ccuPlanner.canGift", defaultMessage: "Giftable" })
-                                    : intl.formatMessage({ id: "market.notGiftable", defaultMessage: "Not giftable" })}
-                                />
-                                {item.isBuyBack && (
-                                  <Chip
-                                    size="small"
-                                    variant="outlined"
-                                    color="warning"
-                                    label={intl.formatMessage({ id: "market.prefillBuybackShort", defaultMessage: "Buyback" })}
-                                  />
-                                )}
-                              </Box>
-                              <Typography variant="caption" color="text.secondary">
-                                {getInventoryOptionMeta(item)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                )}
-              </Box>
+              <PrefillInventoryGrid
+                items={filteredInventoryItems}
+                selectedSourceKey={selectedSourceItem?.sourceKey}
+                ships={ships}
+                intl={intl}
+                onSelect={handleSelectSourceItem}
+              />
             </Box>
 
             {selectedSourceItem && (

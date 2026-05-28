@@ -1082,6 +1082,7 @@ export enum OrderStatus {
   Pending = 'pending',
   Processing = 'processing',
   Paid = 'paid',
+  Confirmed = 'confirmed',
   Finished = 'finished',
   Canceled = 'canceled',
   PaymentReview = 'payment_review',
@@ -1148,6 +1149,8 @@ export interface OrderItem {
   sellerDiscountShare?: number;
   sellerNetAmount?: number;
   cancelledQuantity?: number | null;
+  confirmedAt?: string | null;
+  estimatedShipmentAt?: string | null;
   shipped?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -1182,6 +1185,7 @@ export interface OrderItem {
     creditAmount?: number;
     discountRateBps?: number;
     sellerCount?: number;
+    belongsTo?: string;
     creditOptions?: Array<{
       amount: number;
       price: number;
@@ -1225,6 +1229,8 @@ export interface DetailedOrderItem extends OrderItem {
   sellerDiscountShare?: number;
   sellerNetAmount?: number;
   cancelledQuantity?: number;
+  confirmedAt?: string | null;
+  estimatedShipmentAt?: string | null;
   shipped: boolean;
   updatedAt: string;
   marketItem: {

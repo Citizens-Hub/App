@@ -29,6 +29,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
   type ChipProps,
@@ -61,6 +62,7 @@ import {
 
 const statusColor: Record<OrderStatus, ChipProps['color']> = {
   [OrderStatus.Paid]: 'success',
+  [OrderStatus.Confirmed]: 'success',
   [OrderStatus.Pending]: 'warning',
   [OrderStatus.Processing]: 'info',
   [OrderStatus.Canceled]: 'error',
@@ -79,10 +81,27 @@ const riskColor: Record<string, ChipProps['color']> = {
 const pageContainerClassName = 'w-full h-[calc(100vh-65px)] absolute top-[65px] left-0 right-0 px-8 py-4 overflow-auto';
 const sectionClassName = 'bg-white dark:bg-neutral-900 p-6 shadow-sm border border-gray-100 dark:border-neutral-700';
 
+function formatDateTimeLocalInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function getDefaultEstimatedShipmentDate() {
+  const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  defaultDate.setSeconds(0, 0);
+  return defaultDate;
+}
+
 const statusAccentColor: Record<OrderStatus, string> = {
   [OrderStatus.Pending]: '#ed6c02',
   [OrderStatus.Processing]: '#0288d1',
   [OrderStatus.Paid]: '#2e7d32',
+  [OrderStatus.Confirmed]: '#2e7d32',
   [OrderStatus.Canceled]: '#d32f2f',
   [OrderStatus.Finished]: '#9c27b0',
   [OrderStatus.PaymentReview]: '#ed6c02',
@@ -95,6 +114,7 @@ function getActiveStep(status: OrderStatus) {
     case OrderStatus.Processing:
       return 1;
     case OrderStatus.Paid:
+    case OrderStatus.Confirmed:
     case OrderStatus.PaymentReview:
       return 2;
     case OrderStatus.Finished:
@@ -352,6 +372,9 @@ const OrderDetail = () => {
   const items = useSelector((state: RootState) => state.upgrades.items);
 
   const [isShippingDialogOpen, setIsShippingDialogOpen] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [estimatedShipmentAt, setEstimatedShipmentAt] = useState('');
+  const [confirmFormError, setConfirmFormError] = useState<string | null>(null);
   const [isGoShippingDialogOpen, setIsGoShippingDialogOpen] = useState(false);
   const [ccusToOpen, setCcusToOpen] = useState<{ found: CCUToOpen[]; notFound: string[] }>({ found: [], notFound: [] });
   const [currentItem, setCurrentItem] = useState<DetailedOrderItem | null>(null);
@@ -365,7 +388,7 @@ const OrderDetail = () => {
   const [paymentInfoError, setPaymentInfoError] = useState<string | null>(null);
   const autoLoadedPaymentInfoOrderIdRef = useRef<string | null>(null);
 
-  const { order, error, loading, mutateOrder: mutate, ships } = useRelatedOrderData(orderId || '');
+  const { order, error, loading, mutateOrder: mutate, ships, userInfo } = useRelatedOrderData(orderId || '');
 
   const showAlert = (message: string, severity: 'success' | 'error' = 'success') => {
     setAlertMessage(message);
@@ -390,6 +413,69 @@ const OrderDetail = () => {
   const handleCloseShippingDialog = () => {
     setIsShippingDialogOpen(false);
     setCurrentItem(null);
+  };
+
+  const handleOpenConfirmDialog = () => {
+    setEstimatedShipmentAt(formatDateTimeLocalInputValue(getDefaultEstimatedShipmentDate()));
+    setConfirmFormError(null);
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleCloseConfirmDialog = () => {
+    setIsConfirmDialogOpen(false);
+    setConfirmFormError(null);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!order || !estimatedShipmentAt) return;
+
+    const estimatedShipmentDate = new Date(estimatedShipmentAt);
+    if (!Number.isFinite(estimatedShipmentDate.getTime()) || estimatedShipmentDate.getTime() <= Date.now()) {
+      setConfirmFormError(intl.formatMessage({
+        id: 'orders.estimatedShipmentFutureError',
+        defaultMessage: 'Estimated shipment time must be in the future.',
+      }));
+      return;
+    }
+
+    setConfirmFormError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/orders/related/${encodeURIComponent(order.id)}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          estimatedShipmentAt: estimatedShipmentDate.toISOString(),
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to confirm order');
+      }
+
+      showAlert(intl.formatMessage({ id: 'orders.confirmSuccess', defaultMessage: 'Order confirmed successfully.' }));
+      if (payload?.order) {
+        await mutate(payload.order, { revalidate: false });
+      } else {
+        await mutate();
+      }
+      handleCloseConfirmDialog();
+    } catch (confirmError) {
+      console.error(confirmError);
+      showAlert(
+        confirmError instanceof Error
+          ? confirmError.message
+          : intl.formatMessage({ id: 'orders.confirmError', defaultMessage: 'Failed to confirm order.' }),
+        'error',
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleShip = async () => {
@@ -511,7 +597,7 @@ const OrderDetail = () => {
       return;
     }
 
-    if (![OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status)) {
+    if (![OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status)) {
       return;
     }
 
@@ -726,6 +812,20 @@ const OrderDetail = () => {
   const cancelledItemsCount = orderItems.reduce((acc, item) => acc + (item.cancelledQuantity || 0), 0);
   const activeItemsCount = totalItemsCount - cancelledItemsCount;
   const total = orderItems.reduce((sum, item) => sum + (item.sellerNetAmount ?? ((item.quantity - (item.cancelledQuantity || 0)) * item.price)), 0);
+  const currentResellerId = userInfo?.id || '';
+  const resellerActiveItems = orderItems.filter((item) => {
+    const activeQty = item.quantity - (item.cancelledQuantity || 0);
+    const itemSellerId = item.sellerId || item.marketItem?.belongsTo;
+    return activeQty > 0 && !item.shipped && itemSellerId === currentResellerId;
+  });
+  const hasUnconfirmedResellerItems = resellerActiveItems.some((item) => !item.confirmedAt || !item.estimatedShipmentAt);
+  const latestResellerEstimatedShipmentAt = resellerActiveItems
+    .map((item) => item.estimatedShipmentAt ? new Date(item.estimatedShipmentAt).getTime() : Number.NaN)
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => b - a)[0];
+  const canConfirmOrder = [OrderStatus.Paid, OrderStatus.Confirmed].includes(order.status)
+    && order.discountSettlementStatus === 'settled'
+    && hasUnconfirmedResellerItems;
   const paymentDocumentAvailable = Boolean(order.invoiceUrl || paymentInfo?.hostedInvoiceUrl || paymentInfo?.receiptUrl || order.invoiceId);
   const chargedLabel = paymentInfo
     ? formatMoney(intl.locale, paymentInfo.amountTotal, paymentInfo.currency)
@@ -786,12 +886,12 @@ const OrderDetail = () => {
                 <FormattedMessage id="orderDetail.status.pending" defaultMessage="Pending" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
+            <Step completed={order.status === OrderStatus.Processing || order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.processing" defaultMessage="Processing" />
               </StepLabel>
             </Step>
-            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
+            <Step completed={order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished || order.status === OrderStatus.PaymentReview}>
               <StepLabel>
                 <FormattedMessage id="orderDetail.status.paid" defaultMessage="Paid" />
               </StepLabel>
@@ -827,6 +927,33 @@ const OrderDetail = () => {
                   <FormattedMessage
                     id="orders.paymentReviewDescription"
                     defaultMessage="Payment was received, but seller settlement needs manual review before fulfillment."
+                  />
+                </Alert>
+              )}
+
+              {canConfirmOrder && (
+                <Alert
+                  severity="info"
+                  sx={{ mb: 2 }}
+                  action={(
+                    <Button color="inherit" size="small" onClick={handleOpenConfirmDialog} disabled={isLoading}>
+                      <FormattedMessage id="orders.confirmOrder" defaultMessage="Confirm Order" />
+                    </Button>
+                  )}
+                >
+                  <FormattedMessage
+                    id="orders.confirmOrderPrompt"
+                    defaultMessage="Please confirm this order and provide the estimated shipment time before shipping."
+                  />
+                </Alert>
+              )}
+
+              {!hasUnconfirmedResellerItems && resellerActiveItems.length > 0 && Number.isFinite(latestResellerEstimatedShipmentAt) && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <FormattedMessage
+                    id="orders.confirmedShipmentEstimate"
+                    defaultMessage="Confirmed. Estimated shipment time: {time}"
+                    values={{ time: new Date(latestResellerEstimatedShipmentAt).toLocaleString(intl.locale) }}
                   />
                 </Alert>
               )}
@@ -975,7 +1102,14 @@ const OrderDetail = () => {
                     const ccuRoute = formatOrderCcuRoute(intl, marketItem, ships);
                     const packageSummary = formatOrderPackageSummary(intl, marketItem);
                     const isFullyCancelled = item.quantity === itemCancelledQty;
-                    const canShip = order.status === OrderStatus.Paid && order.discountSettlementStatus === 'settled' && !item.shipped && activeQty > 0;
+                    const isCurrentResellerItem = (item.sellerId || marketItem?.belongsTo) === currentResellerId;
+                    const itemConfirmed = Boolean(item.confirmedAt && item.estimatedShipmentAt);
+                    const canShip = [OrderStatus.Confirmed, OrderStatus.Finished].includes(order.status)
+                      && order.discountSettlementStatus === 'settled'
+                      && isCurrentResellerItem
+                      && itemConfirmed
+                      && !item.shipped
+                      && activeQty > 0;
                     const conciergePaintStoreUrl = getConciergePaintStoreUrl(marketItem);
 
                     return (
@@ -1023,6 +1157,15 @@ const OrderDetail = () => {
                                 </Typography>
                               )}
                             </>
+                          )}
+                          {item.estimatedShipmentAt && (
+                            <Typography variant="body2" color="text.secondary">
+                              <FormattedMessage
+                                id="orders.estimatedShipmentAt"
+                                defaultMessage="Estimated shipment: {time}"
+                                values={{ time: formatDateTime(intl.locale, item.estimatedShipmentAt) }}
+                              />
+                            </Typography>
                           )}
                           {!marketItem?.name && (
                             <Typography variant="body2" color="text.secondary">
@@ -1088,11 +1231,17 @@ const OrderDetail = () => {
                               color="success"
                               label={<FormattedMessage id="orderDetail.delivered" defaultMessage="Delivered" />}
                             />
+                          ) : itemConfirmed ? (
+                            <Chip
+                              size="small"
+                              color="info"
+                              label={<FormattedMessage id="orders.status.confirmed" defaultMessage="Confirmed" />}
+                            />
                           ) : (
                             <Chip
                               size="small"
                               color="warning"
-                              label={<FormattedMessage id="orderDetail.delivering" defaultMessage="Delivering" />}
+                              label={<FormattedMessage id="orders.awaitingConfirmation" defaultMessage="Awaiting confirmation" />}
                             />
                           )}
                         </TableCell>
@@ -1237,7 +1386,7 @@ const OrderDetail = () => {
                 <FormattedMessage id="common.loading" defaultMessage="Loading..." />
               </Typography>
             </Box>
-          ) : [OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status) && !paymentInfoRequested ? (
+          ) : [OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(order.status) && !paymentInfoRequested ? (
             <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
               <CircularProgress />
               <Typography variant="body2" color="text.secondary">
@@ -1475,6 +1624,42 @@ const OrderDetail = () => {
           </Button>
           <Button onClick={handleShip} color="primary" disabled={isLoading} autoFocus>
             <FormattedMessage id="orders.confirmShip" defaultMessage="Confirm Ship" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onClose={handleCloseConfirmDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <FormattedMessage id="orders.confirmOrder" defaultMessage="Confirm Order" />
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            <FormattedMessage
+              id="orders.confirmOrderText"
+              defaultMessage="Provide your estimated shipment time. After all related dealers confirm, the customer will be notified with the latest estimate."
+            />
+          </DialogContentText>
+          <TextField
+            fullWidth
+            type="datetime-local"
+            label={intl.formatMessage({ id: 'orders.estimatedShipmentTime', defaultMessage: 'Estimated shipment time' })}
+            value={estimatedShipmentAt}
+            onChange={(event) => {
+              setEstimatedShipmentAt(event.target.value);
+              setConfirmFormError(null);
+            }}
+            inputProps={{ min: formatDateTimeLocalInputValue(new Date()) }}
+            error={Boolean(confirmFormError)}
+            helperText={confirmFormError}
+            InputLabelProps={{ shrink: true }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirmDialog} disabled={isLoading}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button onClick={handleConfirmOrder} color="primary" disabled={isLoading || !estimatedShipmentAt} autoFocus>
+            <FormattedMessage id="orders.confirmOrder" defaultMessage="Confirm Order" />
           </Button>
         </DialogActions>
       </Dialog>

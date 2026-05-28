@@ -34,6 +34,7 @@ const STATUS_OPTIONS: Array<'all' | OrderStatus> = [
   OrderStatus.Pending,
   OrderStatus.Processing,
   OrderStatus.Paid,
+  OrderStatus.Confirmed,
   OrderStatus.PaymentReview,
   OrderStatus.Finished,
   OrderStatus.Canceled,
@@ -88,6 +89,8 @@ export default function OrdersManager() {
         return intl.formatMessage({ id: 'orders.status.pending', defaultMessage: 'Pending' });
       case OrderStatus.Paid:
         return intl.formatMessage({ id: 'orders.status.paid', defaultMessage: 'Paid' });
+      case OrderStatus.Confirmed:
+        return intl.formatMessage({ id: 'orders.status.confirmed', defaultMessage: 'Confirmed' });
       case OrderStatus.PaymentReview:
         return intl.formatMessage({ id: 'orders.status.payment_review', defaultMessage: 'Payment review' });
       case OrderStatus.Canceled:
@@ -106,6 +109,7 @@ export default function OrdersManager() {
       case OrderStatus.Pending:
         return 'warning';
       case OrderStatus.Paid:
+      case OrderStatus.Confirmed:
         return 'success';
       case OrderStatus.PaymentReview:
         return 'warning';
@@ -608,7 +612,7 @@ export default function OrdersManager() {
           {selectedOrder && (
             <Button
               onClick={() => void handleResendReceipt(selectedOrder.id)}
-              disabled={resendingReceipt || ![OrderStatus.Paid, OrderStatus.Finished, OrderStatus.PaymentReview].includes(selectedOrder.status)}
+              disabled={resendingReceipt || ![OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(selectedOrder.status)}
             >
               <FormattedMessage id="admin.orders.resendReceipt" defaultMessage="Resend Receipt" />
             </Button>

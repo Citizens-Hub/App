@@ -12,6 +12,11 @@ interface UserInfo {
   emailVerified: boolean;
 }
 
+interface UserInfoResponse {
+  success: boolean;
+  user: UserInfo;
+}
+
 export default function useRelatedOrderData(orderId: string) {
   // 使用SWR获取船只数据
   const { 
@@ -33,7 +38,7 @@ export default function useRelatedOrderData(orderId: string) {
     data: userInfoData,
     error: userInfoError,
     isLoading: userInfoLoading 
-  } = useAuthApi<UserInfo>('/api/auth/user');
+  } = useAuthApi<UserInfoResponse>('/api/auth/user');
 
   // 处理和排序船只数据
   const ships = useMemo(() => {
@@ -49,7 +54,7 @@ export default function useRelatedOrderData(orderId: string) {
   return { 
     ships, 
     order: orderData || null,
-    userInfo: userInfoData || null,
+    userInfo: userInfoData?.user || null,
     loading, 
     error,
     mutateOrder
