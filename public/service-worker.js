@@ -5,6 +5,8 @@ const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v1';
 const IMAGE_CACHE_NAME_PREFIX = 'citizens-hub-image-cache-';
 const FONT_CACHE_NAME = 'citizens-hub-font-cache-v1';
 const FONT_CACHE_NAME_PREFIX = 'citizens-hub-font-cache-';
+const VIDEO_CACHE_NAME = 'citizens-hub-video-cache-v1';
+const VIDEO_CACHE_NAME_PREFIX = 'citizens-hub-video-cache-';
 const FONT_FILE_PATHS = [
   '/fonts/Quantico-Regular.ttf',
   '/fonts/Quantico-Bold.ttf',
@@ -38,10 +40,23 @@ const IMAGE_CACHE_METADATA_HEADERS = {
   size: 'X-Citizens-Hub-Cache-Size',
 };
 
+const VIDEO_CACHE_METADATA_HEADERS = {
+  cachedAt: 'X-Citizens-Hub-Video-Cache-Cached-At',
+  source: 'X-Citizens-Hub-Video-Cache-Source',
+  size: 'X-Citizens-Hub-Video-Cache-Size',
+};
+
 const IMAGE_CACHE_SOURCES = {
   app: 'app',
   worker: 'worker',
   workerShipImage: 'workerShipImage',
+  r2: 'r2',
+  unknown: 'unknown',
+};
+
+const VIDEO_CACHE_SOURCES = {
+  app: 'app',
+  worker: 'worker',
   r2: 'r2',
   unknown: 'unknown',
 };
@@ -599,6 +614,285 @@ async function clearImageCacheEntries(options = {}) {
   return { deletedCount };
 }
 
+function isVideoLikeRequest(request, requestUrl) {
+  if (request.destination === 'video') {
+    return true;
+  }
+
+  return /\.(m4v|mov|mp4|ogv|ogg|webm)$/i.test(requestUrl.pathname);
+}
+
+function getVideoCacheSource(requestUrl) {
+  if (requestUrl.hostname === 'r2.citizenshub.app') {
+    return VIDEO_CACHE_SOURCES.r2;
+  }
+
+  if (requestUrl.hostname === 'worker.citizenshub.app') {
+    return VIDEO_CACHE_SOURCES.worker;
+  }
+
+  if (requestUrl.origin === self.location.origin || requestUrl.hostname === self.location.hostname) {
+    return VIDEO_CACHE_SOURCES.app;
+  }
+
+  return VIDEO_CACHE_SOURCES.unknown;
+}
+
+function isOwnedVideoRequest(request, requestUrl) {
+  if (!isVideoLikeRequest(request, requestUrl)) {
+    return false;
+  }
+
+  const source = getVideoCacheSource(requestUrl);
+  return source !== VIDEO_CACHE_SOURCES.unknown;
+}
+
+function createVideoCacheRequest(requestUrl) {
+  return new Request(requestUrl.toString(), {
+    method: 'GET',
+  });
+}
+
+function parseVideoRangeHeader(rangeHeader, size) {
+  if (!rangeHeader) {
+    return null;
+  }
+
+  const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, startRaw, endRaw] = match;
+  if (!startRaw && !endRaw) {
+    return null;
+  }
+
+  if (!startRaw) {
+    const suffixLength = Number.parseInt(endRaw, 10);
+    if (!Number.isInteger(suffixLength) || suffixLength <= 0) {
+      return { unsatisfied: true };
+    }
+
+    return {
+      start: Math.max(size - suffixLength, 0),
+      end: size - 1,
+      unsatisfied: size <= 0,
+    };
+  }
+
+  const start = Number.parseInt(startRaw, 10);
+  if (!Number.isInteger(start) || start < 0) {
+    return { unsatisfied: true };
+  }
+
+  if (start >= size) {
+    return { unsatisfied: true };
+  }
+
+  const end = endRaw
+    ? Number.parseInt(endRaw, 10)
+    : size - 1;
+
+  if (!Number.isInteger(end) || end < start) {
+    return { unsatisfied: true };
+  }
+
+  return {
+    start,
+    end: Math.min(end, size - 1),
+    unsatisfied: false,
+  };
+}
+
+function createUnsatisfiedVideoRangeResponse(size) {
+  return new Response(null, {
+    status: 416,
+    statusText: 'Range Not Satisfiable',
+    headers: {
+      'Accept-Ranges': 'bytes',
+      'Content-Range': `bytes */${size}`,
+    },
+  });
+}
+
+function copyVideoRangeHeader(sourceHeaders, targetHeaders, headerName) {
+  const value = sourceHeaders.get(headerName);
+  if (value) {
+    targetHeaders.set(headerName, value);
+  }
+}
+
+async function createVideoRangeResponse(cachedResponse, rangeHeader) {
+  if (cachedResponse.type === 'opaque') {
+    return null;
+  }
+
+  const body = await cachedResponse.clone().arrayBuffer();
+  const size = body.byteLength;
+  const range = parseVideoRangeHeader(rangeHeader, size);
+
+  if (!range) {
+    return null;
+  }
+
+  if (range.unsatisfied) {
+    return createUnsatisfiedVideoRangeResponse(size);
+  }
+
+  const chunk = body.slice(range.start, range.end + 1);
+  const headers = new Headers();
+
+  copyVideoRangeHeader(cachedResponse.headers, headers, 'Content-Type');
+  copyVideoRangeHeader(cachedResponse.headers, headers, 'Cache-Control');
+  copyVideoRangeHeader(cachedResponse.headers, headers, 'ETag');
+  copyVideoRangeHeader(cachedResponse.headers, headers, 'Expires');
+  copyVideoRangeHeader(cachedResponse.headers, headers, 'Last-Modified');
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('Content-Length', String(chunk.byteLength));
+  headers.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
+  headers.set('X-Citizens-Hub-Video-Cache', 'HIT');
+  headers.set(VIDEO_CACHE_METADATA_HEADERS.size, String(size));
+
+  return new Response(chunk, {
+    status: 206,
+    statusText: 'Partial Content',
+    headers,
+  });
+}
+
+async function shouldCacheVideoResponse(requestUrl, response) {
+  if (response.type === 'opaque') {
+    return false;
+  }
+
+  if (!response.ok || response.status !== 200) {
+    return false;
+  }
+
+  const cacheControl = (response.headers.get('Cache-Control') || '').toLowerCase();
+  if (cacheControl.includes('no-store')) {
+    return false;
+  }
+
+  const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+  return contentType.startsWith('video/') || /\.(m4v|mov|mp4|ogv|ogg|webm)$/i.test(requestUrl.pathname);
+}
+
+async function buildCacheableVideoResponse(response, source) {
+  const body = await response.arrayBuffer();
+  const headers = new Headers(response.headers);
+  headers.delete('Content-Encoding');
+  headers.delete('Content-Range');
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('Content-Length', String(body.byteLength));
+  headers.set(VIDEO_CACHE_METADATA_HEADERS.cachedAt, String(Date.now()));
+  headers.set(VIDEO_CACHE_METADATA_HEADERS.source, source);
+  headers.set(VIDEO_CACHE_METADATA_HEADERS.size, String(body.byteLength));
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function putVideoResponse(cache, cacheRequest, response, requestUrl) {
+  if (response.type === 'opaque') {
+    await cache.put(cacheRequest, response);
+    return;
+  }
+
+  const source = getVideoCacheSource(requestUrl);
+  const cacheableResponse = await buildCacheableVideoResponse(response, source);
+  await cache.put(cacheRequest, cacheableResponse);
+}
+
+async function fetchFullVideoResponse(request, requestUrl) {
+  const headers = new Headers();
+  const accept = request.headers.get('accept');
+  if (accept) {
+    headers.set('accept', accept);
+  }
+
+  if (requestUrl.origin === self.location.origin || requestUrl.hostname === self.location.hostname) {
+    return fetch(new Request(request.url, {
+      method: 'GET',
+      credentials: request.credentials,
+      redirect: 'follow',
+      headers,
+    }));
+  }
+
+  try {
+    return await fetch(new Request(request.url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
+      redirect: 'follow',
+      headers,
+    }));
+  } catch (error) {
+    console.warn('[VideoCache] CORS full video fetch failed, falling back to no-cors.', error);
+    return fetch(new Request(request.url, {
+      method: 'GET',
+      mode: 'no-cors',
+      credentials: 'omit',
+      redirect: 'follow',
+      headers,
+    }));
+  }
+}
+
+async function fetchAndCacheFullVideoResponse(cache, cacheRequest, request, requestUrl) {
+  const fullResponse = await fetchFullVideoResponse(request, requestUrl);
+  const shouldCache = await shouldCacheVideoResponse(requestUrl, fullResponse.clone());
+
+  if (shouldCache) {
+    await putVideoResponse(cache, cacheRequest, fullResponse, requestUrl);
+  }
+}
+
+async function cacheVideoNetworkResponse(cache, cacheRequest, request, requestUrl, response) {
+  if (request.headers.has('Range')) {
+    await fetchAndCacheFullVideoResponse(cache, cacheRequest, request, requestUrl);
+    return;
+  }
+
+  const shouldCache = await shouldCacheVideoResponse(requestUrl, response.clone());
+  if (shouldCache) {
+    await putVideoResponse(cache, cacheRequest, response, requestUrl);
+  }
+}
+
+async function handleOwnedVideoRequest(event, request, requestUrl) {
+  const cache = await caches.open(VIDEO_CACHE_NAME);
+  const cacheRequest = createVideoCacheRequest(requestUrl);
+  const cachedResponse = await cache.match(cacheRequest);
+  const rangeHeader = request.headers.get('Range');
+
+  if (cachedResponse) {
+    if (rangeHeader) {
+      const rangeResponse = await createVideoRangeResponse(cachedResponse, rangeHeader);
+      if (rangeResponse) {
+        return rangeResponse;
+      }
+    }
+
+    return cachedResponse;
+  }
+
+  const networkResponse = await fetch(request);
+
+  event.waitUntil(
+    cacheVideoNetworkResponse(cache, cacheRequest, request, requestUrl, networkResponse.clone()).catch((error) => {
+      console.warn('[VideoCache] Failed to cache video response.', error);
+    }),
+  );
+
+  return networkResponse;
+}
+
 function isFontRequest(request, requestUrl) {
   if (request.destination === 'font') {
     return requestUrl.origin === self.location.origin;
@@ -675,6 +969,7 @@ self.addEventListener('activate', (event) => {
       cacheNames.filter((cacheName) => (
         (cacheName.startsWith(IMAGE_CACHE_NAME_PREFIX) && cacheName !== IMAGE_CACHE_NAME)
         || (cacheName.startsWith(FONT_CACHE_NAME_PREFIX) && cacheName !== FONT_CACHE_NAME)
+        || (cacheName.startsWith(VIDEO_CACHE_NAME_PREFIX) && cacheName !== VIDEO_CACHE_NAME)
       )).map((cacheName) => caches.delete(cacheName)),
     );
 
@@ -699,6 +994,11 @@ self.addEventListener('fetch', (event) => {
 
   if (isFontRequest(request, requestUrl)) {
     event.respondWith(handleFontRequest(request));
+    return;
+  }
+
+  if (isOwnedVideoRequest(request, requestUrl)) {
+    event.respondWith(handleOwnedVideoRequest(event, request, requestUrl));
     return;
   }
 

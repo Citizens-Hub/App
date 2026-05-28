@@ -721,23 +721,27 @@ export default function Settings() {
   const buildProfileUpdatePayload = () => {
     const marketingEmailConsent = profileData.marketingEmailConsent;
     const payload: Partial<ProfileData> = {
-      ...profileData,
+      name: profileData.name,
+      avatar: profileData.avatar,
+      description: profileData.description,
+      contacts: profileData.contacts,
+      homepage: profileData.homepage,
+      sharedHangar: profileData.sharedHangar,
+      marketingEmailConsent: profileData.marketingEmailConsent,
+      marketingEmailConsentRegion: profileData.marketingEmailConsentRegion,
+      adsAudienceConsent: profileData.adsAudienceConsent,
       adsConsentRegion: profileData.adsConsentRegion || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
     };
 
     if (marketingEmailConsent === null || marketingEmailConsent === undefined) {
       delete payload.marketingEmailConsent;
       delete payload.marketingEmailConsentRegion;
-      delete payload.marketingEmailConsentSource;
-      delete payload.marketingEmailConsentAt;
       return payload;
     }
 
     payload.marketingEmailConsentRegion = profileData.marketingEmailConsentRegion
       || Intl.DateTimeFormat().resolvedOptions().timeZone
       || null;
-    delete payload.marketingEmailConsentSource;
-    delete payload.marketingEmailConsentAt;
     return payload;
   };
 

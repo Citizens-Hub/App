@@ -29,7 +29,7 @@ import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
 import { sendGoogleAdsSignupConversion } from '@/utils/googleAdsConversions';
 import Verify, { AUTH_FORM_PAPER_SX } from '@/pages/Verify/Verify';
-import { getSavedEmailLocale, hasSavedEmailLocalePreference } from '@/contexts/LocaleContext';
+import { toEmailLocale, useLocale } from '@/contexts/LocaleContext';
 
 interface LoginResponse {
   success: boolean;
@@ -41,6 +41,7 @@ interface LoginResponse {
 }
 
 const Auth = ({ action }: { action: 'login' | 'register' }) => {
+  const { locale } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -60,6 +61,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [registeredEmailVerificationSent, setRegisteredEmailVerificationSent] = useState(false);
   const [registeredEmailVerificationExpiresInMinutes, setRegisteredEmailVerificationExpiresInMinutes] = useState(15);
   const captchaRef = useRef<CaptchaWidgetHandle>(null);
+  const emailLocale = toEmailLocale(locale);
 
   const googleLogin = useGoogleLogin({
     onSuccess: tokenResponse => {
@@ -67,7 +69,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
         method: 'POST',
         body: JSON.stringify({
           token: tokenResponse.access_token,
-          ...(hasSavedEmailLocalePreference() ? { emailLocale: getSavedEmailLocale() } : {}),
+          emailLocale,
         })
       })
         .then(res => res.json())
@@ -227,7 +229,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
           marketingEmailConsentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
           adsAudienceConsent,
           consentRegion: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
-          ...(hasSavedEmailLocalePreference() ? { emailLocale: getSavedEmailLocale() } : {}),
+          emailLocale,
           ...captchaPayload
         }),
       });

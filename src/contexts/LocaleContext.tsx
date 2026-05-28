@@ -67,6 +67,10 @@ export function persistEmailLocale(locale: EmailLocale) {
   localStorage.setItem(EMAIL_LOCALE_STORAGE_KEY, locale);
 }
 
+function getInitialEmailLocale(locale: Locale): EmailLocale {
+  return hasSavedEmailLocalePreference() ? getSavedEmailLocale() : toEmailLocale(locale);
+}
+
 interface LocaleProviderProps {
   children: ReactNode;
 }
@@ -111,7 +115,7 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
   };
 
   const [locale, setLocale] = useState<Locale>(getSavedLocale);
-  const [emailLocale, setEmailLocale] = useState<EmailLocale>(getSavedEmailLocale);
+  const [emailLocale, setEmailLocale] = useState<EmailLocale>(() => getInitialEmailLocale(locale));
   const [shipNameTranslationEnabled, setShipNameTranslationEnabled] = useState<boolean>(getSavedShipNameTranslationEnabled);
 
   useEffect(() => {
