@@ -1595,6 +1595,42 @@ export interface AdminUserSearchResponse {
   users: AdminUserSearchItem[];
 }
 
+export interface AdminUserRoleOption {
+  value: UserRole;
+  label: string;
+}
+
+export interface AdminUserListItem {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar?: string | null;
+  role: UserRole;
+  emailVerified: boolean;
+  accountDeleted: boolean;
+  accountDeletionRequestedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserListResponse {
+  success: boolean;
+  users: AdminUserListItem[];
+  roles: AdminUserRoleOption[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface AdminUserRoleUpdateResponse {
+  success: boolean;
+  user: AdminUserListItem;
+  roles: AdminUserRoleOption[];
+}
+
 export interface AdminResellerSearchItem {
   id: string;
   email: string;

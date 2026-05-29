@@ -26,6 +26,7 @@ import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import InvoiceSettingsManager from './components/InvoiceSettingsManager';
 import AdminMaintenanceManager from './components/AdminMaintenanceManager';
 import ResellerAccountingReportManager from './components/ResellerAccountingReportManager';
+import UsersRolesManager from './components/UsersRolesManager';
 import ResponsiveSectionLayout, { type ResponsiveSectionLayoutItem } from '@/components/ResponsiveSectionLayout';
 
 enum Page {
@@ -43,6 +44,7 @@ enum Page {
   AccountingReport = 'accountingReport',
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
+  Users = 'users',
   NewUserCoupon = 'newUserCoupon',
   InvoiceSettings = 'invoiceSettings',
   MarketingOffers = 'marketingOffers',
@@ -64,6 +66,7 @@ export default function Admin() {
     content: <FormattedMessage id="admin.group.content" defaultMessage="内容与资料" />,
     catalog: <FormattedMessage id="admin.group.catalog" defaultMessage="商品与目录" />,
     operations: <FormattedMessage id="admin.group.operations" defaultMessage="运营与订单" />,
+    access: <FormattedMessage id="admin.group.access" defaultMessage="用户与权限" />,
     tools: <FormattedMessage id="admin.group.tools" defaultMessage="管理工具" />,
   } as const;
   const layoutItems: ResponsiveSectionLayoutItem[] = [
@@ -248,6 +251,15 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.Withdrawals),
     },
     {
+      id: Page.Users,
+      title: <FormattedMessage id="admin.users.title" defaultMessage="Users & Roles" />,
+      description: <FormattedMessage id="admin.users.description" defaultMessage="管理所有用户和角色。" />,
+      groupId: 'access',
+      groupLabel: groups.access,
+      active: currentPage === Page.Users,
+      onSelect: () => setCurrentPage(Page.Users),
+    },
+    {
       id: Page.GraphqlDebugger,
       title: <FormattedMessage id="admin.graphqlDebugger.title" defaultMessage="GraphQL Debugger" />,
       description: <FormattedMessage id="admin.graphqlDebugger.description" defaultMessage="调试 GraphQL 请求。" />,
@@ -336,6 +348,7 @@ export default function Admin() {
         {currentPage === Page.CcuAutoCheckout && <AdminCcuAutoCheckout />}
         {currentPage === Page.Tickets && <TicketsManager />}
         {currentPage === Page.Withdrawals && <WithdrawalRequestsManager />}
+        {currentPage === Page.Users && <UsersRolesManager />}
     </ResponsiveSectionLayout>
   );
 }

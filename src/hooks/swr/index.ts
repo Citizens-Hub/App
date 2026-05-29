@@ -59,6 +59,7 @@ export { default as useWatchlistData } from './watchlist/useWatchlistData';
 export { useNewUserCoupon, useAdminNewUserCouponSettings } from './useNewUserCoupon';
 export { useAdminInvoiceSettings } from './useInvoiceSettings';
 export { useSiteNotification, useAdminSiteNotification } from './useSiteNotification';
+export { useAdminUsers } from './admin/useAdminUsers';
 
 // Warbond Subscription相关钩子
 export { default as useWarbondSubscription } from './warbondSubscription/useWarbondSubscription'; 
