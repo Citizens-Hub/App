@@ -349,7 +349,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
   };
 
   return (
-    <div className="h-[calc(100vh-115px)] max-h-[calc(100vh-155px)] flex flex-col min-h-0 overflow-hidden">
+    <div className={`${hangarExpanded ? "h-[calc(100vh-115px)] max-h-[calc(100vh-155px)]" : "h-auto max-h-none"} flex flex-col min-h-0 overflow-hidden`}>
       <div className="shrink-0 flex items-center justify-left gap-2 px-1">
         <FormattedMessage id="ccuPlanner.myHangar" defaultMessage="Hangar" />
         <IconButton color="primary" size="small" onClick={() => setHangarExpanded(!hangarExpanded)} aria-label={hangarExpanded ? intl.formatMessage({ id: 'ccuPlanner.collapseHangar', defaultMessage: 'Collapse Hangar' }) : intl.formatMessage({ id: 'ccuPlanner.expandHangar', defaultMessage: 'Expand Hangar' })}>
@@ -358,14 +358,14 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
         <Crawler ships={ships} />
       </div>
 
-      <div className="shrink-0 flex items-center justify-left gap-2 px-1">
-        <Button onClick={() => setExtensionModalOpen(true)}>
-          <FormattedMessage id="ccuPlanner.downloadBrowserExtension" defaultMessage="Download Extension" />
-        </Button>
-      </div>
-
       {hangarExpanded && (
         <div className="shrink-0">
+          <div className="flex items-center justify-left gap-2 px-1">
+            <Button onClick={() => setExtensionModalOpen(true)}>
+              <FormattedMessage id="ccuPlanner.downloadBrowserExtension" defaultMessage="Download Extension" />
+            </Button>
+          </div>
+
           <div className="px-2 pb-2 border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
               <PackageOpen className="w-4 h-4" />
