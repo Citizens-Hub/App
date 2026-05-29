@@ -77,6 +77,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
   const upgrades = useSelector(selectUsersHangarItems);
   const importItems = useSelector(selectImportItems);
   const users = useSelector((state: RootState) => state.upgrades.users);
+  const completedPathsStorageRevisionKey = `${activeTabId || ''}:${completedPathsRevision}`;
 
   const handleExtensionLinkClick = () => {
     setExtensionModalOpen(true);
@@ -117,6 +118,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
   }));
 
   const ccuUsageMap = useMemo(() => {
+    void completedPathsStorageRevisionKey;
     const usage = new Map<string, number>();
     const completedPaths = readStoredCompletedPathsForActiveTab();
 
@@ -136,7 +138,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
     });
 
     return usage;
-  }, [activeTabId, completedPathsRevision]);
+  }, [completedPathsStorageRevisionKey]);
 
   const startShips = useMemo<HangarStartShipItem[]>(() => {
     const grouped = new Map<number, HangarStartShipItem>();

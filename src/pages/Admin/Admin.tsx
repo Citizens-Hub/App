@@ -16,6 +16,7 @@ import NewUserCouponSettingsManager from './components/NewUserCouponSettingsMana
 import OrdersManager from './components/OrdersManager';
 import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
+import MarketingEmailCampaignsManager from './components/MarketingEmailCampaignsManager';
 import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
@@ -45,6 +46,7 @@ enum Page {
   NewUserCoupon = 'newUserCoupon',
   InvoiceSettings = 'invoiceSettings',
   MarketingOffers = 'marketingOffers',
+  MarketingEmails = 'marketingEmails',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
   SiteNotification = 'siteNotification',
@@ -183,6 +185,15 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.MarketingOffers),
     },
     {
+      id: Page.MarketingEmails,
+      title: <FormattedMessage id="admin.marketingEmails.title" defaultMessage="Marketing Emails" />,
+      description: <FormattedMessage id="admin.marketingEmails.description" defaultMessage="创建群发优惠券邮件。" />,
+      groupId: 'operations',
+      groupLabel: groups.operations,
+      active: currentPage === Page.MarketingEmails,
+      onSelect: () => setCurrentPage(Page.MarketingEmails),
+    },
+    {
       id: Page.GoogleAdsAudience,
       title: <FormattedMessage id="admin.googleAdsAudience.title" defaultMessage="Google Ads Customer Match" />,
       description: <FormattedMessage id="admin.googleAdsAudience.description" defaultMessage="管理 Google Ads 受众。" />,
@@ -313,6 +324,7 @@ export default function Admin() {
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
         {currentPage === Page.InvoiceSettings && <InvoiceSettingsManager />}
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
+        {currentPage === Page.MarketingEmails && <MarketingEmailCampaignsManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.SiteNotification && <SiteNotificationManager />}
         {currentPage === Page.Orders && <OrdersManager />}

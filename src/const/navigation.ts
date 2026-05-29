@@ -202,4 +202,9 @@ export const navigation = [
     path: "/offers/:offerId",
     hidden: true,
   },
+  {
+    name: "navigation.marketingEmails",
+    path: "/marketing-emails/:token",
+    hidden: true,
+  },
 ];

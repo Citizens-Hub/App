@@ -352,8 +352,21 @@ export default function Checkout() {
 
   // 计算总价 - 更新为使用MarketCartItem，考虑数量
   const subtotal = checkoutSubmitCart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0) || 0;
+  const couponPreviewItems = useMemo(() => checkoutSubmitCart.map((item) => ({
+    skuId: item.skuId,
+    quantity: item.quantity,
+    unitPrice: getItemPrice(item),
+  })), [checkoutSubmitCart]);
+  const couponPreviewQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('subtotal', String(subtotal));
+    if (couponPreviewItems.length > 0) {
+      params.set('items', JSON.stringify(couponPreviewItems));
+    }
+    return params.toString();
+  }, [couponPreviewItems, subtotal]);
   const { data: couponPreview } = useAuthApi<NewUserCouponPreview>(
-    user?.token && !isAccountMarketCart ? `/api/user/new-user-coupon?subtotal=${encodeURIComponent(String(subtotal))}` : null,
+    user?.token && !isAccountMarketCart ? `/api/user/new-user-coupon?${couponPreviewQuery}` : null,
   );
   // 判断是否免除服务费
   const isServiceFeeFree = subtotal >= SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD;
@@ -1213,7 +1226,7 @@ export default function Checkout() {
                     ? intl.formatMessage(
                         {
                           id: 'checkout.couponSummary',
-                          defaultMessage: '{amountOff} off, minimum spend {minimumAmount}, expires at {expiresAt}.',
+                          defaultMessage: '{amountOff} off, minimum eligible spend {minimumAmount}, expires at {expiresAt}.',
                         },
                         {
                           amountOff: formatCheckoutPrice(selectedCoupon.amountOff),
@@ -1251,7 +1264,7 @@ export default function Checkout() {
                   <Alert severity="warning" sx={{ mt: 1, textAlign: 'left' }}>
                     <FormattedMessage
                       id="checkout.couponNotApplicable"
-                      defaultMessage="This cart does not meet the minimum spend requirement yet."
+                      defaultMessage="This cart does not include enough eligible products for this coupon yet."
                     />
                   </Alert>
                 )}

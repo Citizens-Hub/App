@@ -10,11 +10,12 @@ interface MediaLibraryModalProps {
   open: boolean;
   onClose: () => void;
   onInsert?: (markdown: string) => void;
+  onSelectUrl?: (url: string) => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
-export default function MediaLibraryModal({ open, onClose, onInsert }: MediaLibraryModalProps) {
+export default function MediaLibraryModal({ open, onClose, onInsert, onSelectUrl }: MediaLibraryModalProps) {
   const intl = useIntl();
   const { uploadFile, loading: uploading, error: uploadError } = useUploadAttachment();
   const [page, setPage] = useState(1);
@@ -77,6 +78,12 @@ export default function MediaLibraryModal({ open, onClose, onInsert }: MediaLibr
   };
 
   const handleInsertMarkdown = (attachment: Attachment) => {
+    if (onSelectUrl) {
+      onSelectUrl(getImageUrl(attachment));
+      onClose();
+      return;
+    }
+
     if (onInsert) {
       const markdown = generateMarkdown(attachment);
       onInsert(markdown);
@@ -265,7 +272,7 @@ export default function MediaLibraryModal({ open, onClose, onInsert }: MediaLibr
                         >
                           <FormattedMessage id="mediaLibrary.copy" defaultMessage="Copy" />
                         </Button>
-                        {onInsert && (
+                        {(onInsert || onSelectUrl) && (
                           <Button
                             size="small"
                             variant="contained"
@@ -275,7 +282,10 @@ export default function MediaLibraryModal({ open, onClose, onInsert }: MediaLibr
                             }}
                             sx={{ flex: 1, fontSize: '0.75rem' }}
                           >
-                            <FormattedMessage id="mediaLibrary.insert" defaultMessage="Insert" />
+                            <FormattedMessage
+                              id={onSelectUrl ? 'mediaLibrary.select' : 'mediaLibrary.insert'}
+                              defaultMessage={onSelectUrl ? 'Select' : 'Insert'}
+                            />
                           </Button>
                         )}
                       </Box>
@@ -327,4 +337,3 @@ export default function MediaLibraryModal({ open, onClose, onInsert }: MediaLibr
     </Dialog>
   );
 }
-

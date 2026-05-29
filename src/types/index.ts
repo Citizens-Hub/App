@@ -1514,6 +1514,8 @@ export interface ActiveUserCoupon {
   source?: string;
   amountOff: number;
   minimumAmount: number;
+  eligibleSkuIds?: string[];
+  eligibleSubtotal?: number;
   expiresAt: string;
   claimedAt: string;
   appliedAt?: string | null;
@@ -1658,6 +1660,160 @@ export interface AdminMarketingOfferListResponse {
 export interface MarketingOfferResponse {
   success: boolean;
   offer: MarketingOffer;
+}
+
+export type MarketingEmailCampaignStatus = 'draft' | 'sending' | 'sent' | 'canceled' | 'expired';
+export type MarketingEmailAudienceLocale = 'en' | 'zh-CN' | 'zh-HK';
+export type MarketingEmailLandingSectionType = 'benefits' | 'product_group' | 'media_text';
+
+export interface MarketingEmailLandingSectionItem {
+  id: string;
+  title: string;
+  body: string;
+}
+
+export interface MarketingEmailLandingSection {
+  id: string;
+  type: MarketingEmailLandingSectionType;
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  imageSide?: 'left' | 'right';
+  itemSkuIds?: string[];
+  buttonLabel?: string;
+  items?: MarketingEmailLandingSectionItem[];
+}
+
+export interface MarketingEmailCampaignItem extends ListingItem {
+  quantity: number;
+  offerUnitPrice: number;
+  sortOrder: number;
+  emailHeadline?: string | null;
+  emailDescription?: string | null;
+  emailBadge?: string | null;
+  emailImageUrl?: string | null;
+  buttonLabel?: string | null;
+  productUrl?: string;
+}
+
+export interface MarketingEmailCampaignCoupon {
+  id: string;
+  source?: string;
+  amountOff: number;
+  minimumAmount: number;
+  currency: string;
+  expiresAt: string;
+  claimedAt: string;
+  appliedAt?: string | null;
+  eligibleSkuIds?: string[];
+}
+
+export interface MarketingEmailCampaignRecipient {
+  id: string;
+  userId: string;
+  email: string;
+  name: string | null;
+  status: string;
+  emailSentAt?: string | null;
+  emailError?: string | null;
+  claimedAt?: string | null;
+  couponId?: string | null;
+  claimUrl?: string;
+  coupon?: MarketingEmailCampaignCoupon | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketingEmailCampaign {
+  id: string;
+  title: string;
+  subject?: string;
+  preheader?: string | null;
+  template: string;
+  status: MarketingEmailCampaignStatus | string;
+  brandLabel?: string | null;
+  eyebrow?: string | null;
+  subtitle?: string | null;
+  message?: string | null;
+  buttonLabel?: string | null;
+  heroImageUrl?: string | null;
+  heroImageAlt?: string | null;
+  sectionTitle?: string | null;
+  sectionBody?: string | null;
+  footerNote?: string | null;
+  audienceLocale?: MarketingEmailAudienceLocale;
+  claimButtonLabel?: string | null;
+  landingSections?: MarketingEmailLandingSection[];
+  amountOff: number;
+  minimumAmount: number;
+  currency: string;
+  expiresAt: string;
+  sentAt?: string | null;
+  canceledAt?: string | null;
+  itemSubtotal: number;
+  recipientCount: number;
+  itemCount: number;
+  createdBy?: MarketingOfferUserSummary;
+  recipient?: MarketingEmailCampaignRecipient;
+  recipients?: MarketingEmailCampaignRecipient[];
+  claimUrl?: string;
+  coupon?: MarketingEmailCampaignCoupon | null;
+  createdAt: string;
+  updatedAt: string;
+  items: MarketingEmailCampaignItem[];
+}
+
+export interface AdminMarketingEmailCampaignListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  campaigns: MarketingEmailCampaign[];
+}
+
+export interface MarketingEmailCampaignResponse {
+  success: boolean;
+  campaign: MarketingEmailCampaign;
+}
+
+export interface AdminMarketingEmailCampaignPreviewResponse {
+  success: boolean;
+  html?: string;
+  email: {
+    customerName?: string;
+    title?: string;
+    subject?: string;
+    preheader?: string;
+    brandLabel?: string;
+    eyebrow?: string;
+    subtitle?: string;
+    message?: string;
+    template?: string;
+    claimUrl?: string;
+    buttonLabel?: string;
+    claimButtonLabel?: string;
+    heroImageUrl?: string;
+    heroImageAlt?: string;
+    sectionTitle?: string;
+    sectionBody?: string;
+    footerNote?: string;
+    amountOff?: string;
+    minimumAmount?: string;
+    expiresAt?: string;
+    items?: Array<{
+      skuId?: string;
+      name: string;
+      headline?: string;
+      description?: string;
+      badge?: string;
+      unitPrice: string;
+      imageUrl?: string;
+      href?: string;
+      buttonLabel?: string;
+    }>;
+  };
 }
 
 export type WithdrawalRequestStatus = 'pending' | 'paid' | 'rejected';

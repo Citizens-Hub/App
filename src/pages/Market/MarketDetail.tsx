@@ -17,13 +17,15 @@ import {
 } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import useSWR from 'swr';
+import { useSelector } from 'react-redux';
 import RsiIcon from '@/components/RsiIcon';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useApi, useMarketItemData } from '@/hooks';
+import { RootState } from '@/store';
 import {
   CartItem as CartItemType,
   ListingItem,
@@ -695,9 +697,12 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   const intl = useIntl();
   const { locale } = useLocale();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useSelector((state: RootState) => state.user);
   const { skuId: routeSkuId } = useParams();
   const resolvedSkuId = skuIdProp ?? routeSkuId ?? '';
   const decodedSkuId = decodeURIComponent(resolvedSkuId);
+  const marketingEmailCampaignToken = searchParams.get('mec')?.trim() || '';
   const { item, ships, loading, error, notFound } = useMarketItemData(decodedSkuId);
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -776,6 +781,74 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
       return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
     })[0] || null;
   }, [matchingCcuVariants]);
+
+  useEffect(() => {
+    if (embedded) {
+      return;
+    }
+
+    if (!marketingEmailCampaignToken) {
+      return;
+    }
+
+    if (!user?.token) {
+      setSnackbarMessage(intl.formatMessage({
+        id: 'marketingEmail.signInToClaim',
+        defaultMessage: 'Sign in to claim the email coupon for this item.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    let canceled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/marketing-email-campaigns/${encodeURIComponent(marketingEmailCampaignToken)}/claim`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || intl.formatMessage({
+            id: 'marketingEmail.claimError',
+            defaultMessage: 'Failed to claim this coupon.',
+          }));
+        }
+
+        if (canceled) {
+          return;
+        }
+
+        setSnackbarMessage(intl.formatMessage({
+          id: 'marketingEmail.autoClaimed',
+          defaultMessage: 'Coupon claimed. It will appear in checkout for eligible recommended items.',
+        }));
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        const nextSearchParams = new URLSearchParams(window.location.search);
+        nextSearchParams.delete('mec');
+        setSearchParams(nextSearchParams, { replace: true });
+      } catch (error) {
+        if (canceled) {
+          return;
+        }
+
+        setSnackbarMessage(error instanceof Error
+          ? error.message
+          : intl.formatMessage({ id: 'marketingEmail.claimError', defaultMessage: 'Failed to claim this coupon.' }));
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [embedded, intl, marketingEmailCampaignToken, setSearchParams, user?.token]);
+
   const activeItem = useMemo<ListingItem | null>(() => {
     if (!item) {
       return null;

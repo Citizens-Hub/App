@@ -1,5 +1,6 @@
 import { useAuthApi } from '../useApi';
 import {
+  AdminMarketingEmailCampaignListResponse,
   AdminMarketingOfferListResponse,
   AdminResellerSearchResponse,
   AdminUserSearchResponse,
@@ -59,6 +60,16 @@ export function useAdminMarketingOffers(params?: { page?: number; limit?: number
 
   const query = searchParams.toString();
   return useAuthApi<AdminMarketingOfferListResponse>(`/api/admin/marketing-offers${query ? `?${query}` : ''}`);
+}
+
+export function useAdminMarketingEmailCampaigns(params?: { page?: number; limit?: number; search?: string }) {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.limit) searchParams.set('limit', String(params.limit));
+  if (params?.search?.trim()) searchParams.set('search', params.search.trim());
+
+  const query = searchParams.toString();
+  return useAuthApi<AdminMarketingEmailCampaignListResponse>(`/api/admin/marketing-email-campaigns${query ? `?${query}` : ''}`);
 }
 
 export function useAdminUserSearch(query: string) {
