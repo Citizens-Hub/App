@@ -12,6 +12,7 @@ import {
 } from '@/store/cartStore';
 import { Resource } from '@/types';
 import { sendGoogleAdsAddToCartConversion } from '@/utils/googleAdsConversions';
+import { sendRedditPixelAddToCartConversion } from '@/utils/redditPixelConversions';
 
 type CartNamespace = 'market' | 'accountMarket';
 
@@ -24,6 +25,7 @@ export function useCartStore(namespace: CartNamespace = 'market') {
   const addToCart = (resource: Resource) => {
     dispatch(addItem({ namespace, resource }));
     void sendGoogleAdsAddToCartConversion();
+    void sendRedditPixelAddToCartConversion(resource.id);
   };
 
   const updateItemQuantity = (resourceId: string, quantity: number) => {

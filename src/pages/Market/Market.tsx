@@ -1231,7 +1231,8 @@ const Market: React.FC = () => {
     rowsPerPage,
   } = useMemo(() => parseMarketPageSearchState(searchParams), [searchParams]);
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const { data: marketHomeSettingsResponse } = useMarketHomeSettings();
+  const homeContentEnabled = !listingDrawerOpen;
+  const { data: marketHomeSettingsResponse } = useMarketHomeSettings({ enabled: homeContentEnabled });
   const { data: marketSearchShipsResponse } = useApi<ShipsData>('/api/ships', {
     revalidateOnFocus: false,
     dedupingInterval: 300_000,
@@ -1515,12 +1516,13 @@ const Market: React.FC = () => {
     ships: accountMarketShips,
     listingItems: featuredAccountItems,
     loading: featuredAccountLoading,
-  } = useAccountMarketData({ limit: 12, page: 0 });
+  } = useAccountMarketData({ enabled: homeContentEnabled, limit: 12, page: 0 });
   const {
     ships: starterPackShips,
     listingItems: starterPackItems,
     loading: starterPackLoading,
   } = useMarketData({
+    enabled: homeContentEnabled,
     browseCategories: ['ship_package'],
     shipTraits: ['lti'],
     packageItems: [STARTER_PACK_GAME_DOWNLOAD_ITEM],
@@ -1532,6 +1534,7 @@ const Market: React.FC = () => {
     listingItems: otherGearItems,
     loading: otherGearLoading,
   } = useMarketData({
+    enabled: homeContentEnabled,
     browseCategories: ['other'],
     sortBy: 'newest',
     page: 0,
@@ -1540,7 +1543,7 @@ const Market: React.FC = () => {
   const {
     data: marketReviewsResponse,
     isLoading: marketReviewsLoading,
-  } = useMarketReviews(12);
+  } = useMarketReviews(12, { enabled: homeContentEnabled });
   const {
     data: availableShipIdsResponse,
   } = useApi<MarketAvailableShipIdsResponse>('/api/market/available-ship-ids', {
@@ -2420,6 +2423,7 @@ const Market: React.FC = () => {
     if (
       !activeCoupon
       || couponPopupDismissed
+      || listingDrawerOpen
       || !Number.isFinite(activeCouponExpiresAt)
       || activeCouponExpiresAt <= Date.now()
     ) {
@@ -2436,7 +2440,7 @@ const Market: React.FC = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [activeCoupon, activeCoupon?.id, activeCouponExpiresAt, couponPopupDismissed]);
+  }, [activeCoupon, activeCoupon?.id, activeCouponExpiresAt, couponPopupDismissed, listingDrawerOpen]);
 
   useEffect(() => {
     if (!user.token || !user.id) {
@@ -4453,41 +4457,43 @@ const Market: React.FC = () => {
           </Alert>
         )}
 
-        <FloatingDiscordButton />
+        {!listingDrawerOpen && (
+          <>
+            <FloatingDiscordButton />
 
-        <Button
-          variant="contained"
-          onClick={() => openListingDrawer()}
-          sx={{
-            position: 'fixed',
-            right: 0,
-            top: '30%',
-            transform: 'translateY(-50%)',
-            zIndex: 1200,
-            width: 48,
-            minWidth: 42,
-            minHeight: 156,
-            borderRadius: 0,
-            px: 0,
-            py: 1.5,
-            display: 'inline-flex',
-            flexDirection: 'column',
-            gap: 1,
-            writingMode: 'vertical-rl',
-            textOrientation: 'mixed',
-            letterSpacing: 0,
-            '& .market-listing-button-icon': {
-              writingMode: 'horizontal-tb',
-            },
-          }}
-        >
-          <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
-          {/* <span className="market-listing-button-icon">
-            <ListFilter className="h-4 w-4" />
-          </span> */}
-        </Button>
+            <Button
+              variant="contained"
+              onClick={() => openListingDrawer()}
+              sx={{
+                position: 'fixed',
+                right: 0,
+                top: '30%',
+                transform: 'translateY(-50%)',
+                zIndex: 1200,
+                width: 48,
+                minWidth: 42,
+                minHeight: 156,
+                borderRadius: 0,
+                px: 0,
+                py: 1.5,
+                display: 'inline-flex',
+                flexDirection: 'column',
+                gap: 1,
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                letterSpacing: 0,
+                '& .market-listing-button-icon': {
+                  writingMode: 'horizontal-tb',
+                },
+              }}
+            >
+              <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+              {/* <span className="market-listing-button-icon">
+                <ListFilter className="h-4 w-4" />
+              </span> */}
+            </Button>
 
-        <div className='relative mx-auto flex min-h-full w-full max-w-[1440px] flex-col gap-6 px-4 py-5 md:px-10 md:py-6'>
+            <div className='relative mx-auto flex min-h-full w-full max-w-[1440px] flex-col gap-6 px-4 py-5 md:px-10 md:py-6'>
           <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Link to="/orders" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
               <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
@@ -4749,7 +4755,9 @@ const Market: React.FC = () => {
               <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
             </Link>
           </Box>
-        </div>
+            </div>
+          </>
+        )}
 
         <Drawer
           anchor="right"

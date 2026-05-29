@@ -3,6 +3,7 @@ import { useApi } from '../useApi';
 import { AccountListingItem, AccountMarketListResponse, ShipsData, Ship } from '@/types';
 
 export interface UseAccountMarketDataParams {
+  enabled?: boolean;
   search?: string;
   page?: number;
   limit?: number;
@@ -29,6 +30,7 @@ function buildAccountMarketSearchPath(params: UseAccountMarketDataParams = {}) {
 }
 
 export default function useAccountMarketData(params: UseAccountMarketDataParams = {}) {
+  const accountMarketEnabled = params.enabled !== false;
   const accountMarketPath = useMemo(() => buildAccountMarketSearchPath(params), [
     params.limit,
     params.page,
@@ -40,14 +42,14 @@ export default function useAccountMarketData(params: UseAccountMarketDataParams 
     error: shipsError,
     isLoading: shipsLoading,
     isValidating: shipsValidating,
-  } = useApi<ShipsData>('/api/ships');
+  } = useApi<ShipsData>(accountMarketEnabled ? '/api/ships' : null);
 
   const {
     data: marketResponse,
     error: marketError,
     isLoading: marketLoading,
     isValidating: marketValidating,
-  } = useApi<AccountMarketListResponse>(accountMarketPath, {
+  } = useApi<AccountMarketListResponse>(accountMarketEnabled ? accountMarketPath : null, {
     keepPreviousData: true,
   });
 
@@ -57,8 +59,8 @@ export default function useAccountMarketData(params: UseAccountMarketDataParams 
   }, [shipsData]);
 
   const hasInitialData = Boolean(shipsData) && Boolean(marketResponse);
-  const loading = !hasInitialData && (shipsLoading || marketLoading);
-  const refreshing = hasInitialData && (shipsValidating || marketValidating);
+  const loading = accountMarketEnabled && !hasInitialData && (shipsLoading || marketLoading);
+  const refreshing = accountMarketEnabled && hasInitialData && (shipsValidating || marketValidating);
   const error = shipsError || marketError ? 'Failed to load account market data' : null;
 
   return {

@@ -2,6 +2,7 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    rdt?: (...args: unknown[]) => void;
     gapi?: {
       load: (moduleName: string, callback: () => void) => void;
       surveyoptin?: {

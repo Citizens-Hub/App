@@ -28,6 +28,7 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import CaptchaWidget, { CaptchaWidgetHandle } from '@/components/CaptchaWidget';
 import type { CaptchaVerificationPayload } from '@/types';
 import { sendGoogleAdsSignupConversion } from '@/utils/googleAdsConversions';
+import { sendRedditPixelSignupConversion } from '@/utils/redditPixelConversions';
 import Verify, { AUTH_FORM_PAPER_SX } from '@/pages/Verify/Verify';
 import { toEmailLocale, useLocale } from '@/contexts/LocaleContext';
 
@@ -238,6 +239,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
       if (data.success) {
         void sendGoogleAdsSignupConversion();
+        void sendRedditPixelSignupConversion(data.user.id);
         dispatch(login({
           ...data.user,
           avatar: data.user.avatar || `https://www.gravatar.com/avatar/${md5(data.user.email)}`,

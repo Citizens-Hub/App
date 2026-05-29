@@ -1,8 +1,10 @@
 import { MarketHomeSettingsResponse } from '@/types';
 import { useApi, useAuthApi } from '../useApi';
 
-export function useMarketHomeSettings() {
-  return useApi<MarketHomeSettingsResponse>('/api/market/home-settings', {
+export function useMarketHomeSettings(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled !== false;
+
+  return useApi<MarketHomeSettingsResponse>(enabled ? '/api/market/home-settings' : null, {
     revalidateOnFocus: false,
   });
 }

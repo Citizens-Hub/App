@@ -37,6 +37,7 @@ import {
   getOrderItemDisplayName,
 } from './orderI18n';
 import { sendGoogleAdsPurchaseConversion } from '@/utils/googleAdsConversions';
+import { sendRedditPixelPurchaseConversion } from '@/utils/redditPixelConversions';
 // import {
 //   formatGoogleCustomerReviewsDate,
 //   getGoogleCustomerReviewsDeliveryDays,
@@ -44,17 +45,30 @@ import { sendGoogleAdsPurchaseConversion } from '@/utils/googleAdsConversions';
 // } from '@/utils/googleCustomerReviews';
 
 const GOOGLE_ADS_TRACKED_SESSION_PREFIX = 'google-ads:purchase:';
+const REDDIT_PIXEL_TRACKED_SESSION_PREFIX = 'reddit-pixel:purchase:';
 
 function getGoogleAdsTrackedSessionKey(sessionId: string) {
   return `${GOOGLE_ADS_TRACKED_SESSION_PREFIX}${sessionId}`;
+}
+
+function getRedditPixelTrackedSessionKey(sessionId: string) {
+  return `${REDDIT_PIXEL_TRACKED_SESSION_PREFIX}${sessionId}`;
 }
 
 function hasTrackedGoogleAdsPurchase(sessionId: string) {
   return window.sessionStorage.getItem(getGoogleAdsTrackedSessionKey(sessionId)) === '1';
 }
 
+function hasTrackedRedditPixelPurchase(sessionId: string) {
+  return window.sessionStorage.getItem(getRedditPixelTrackedSessionKey(sessionId)) === '1';
+}
+
 function markGoogleAdsPurchaseTracked(sessionId: string) {
   window.sessionStorage.setItem(getGoogleAdsTrackedSessionKey(sessionId), '1');
+}
+
+function markRedditPixelPurchaseTracked(sessionId: string) {
+  window.sessionStorage.setItem(getRedditPixelTrackedSessionKey(sessionId), '1');
 }
 
 // function resolveGoogleCustomerReviewsEstimatedDeliveryDate(
@@ -188,6 +202,10 @@ export default function Orders() {
 
             if (isPaidOrder && !hasTrackedGoogleAdsPurchase(checkoutSessionId) && await sendGoogleAdsPurchaseConversion(sessionStatus)) {
               markGoogleAdsPurchaseTracked(checkoutSessionId);
+            }
+
+            if (isPaidOrder && !hasTrackedRedditPixelPurchase(checkoutSessionId) && await sendRedditPixelPurchaseConversion(sessionStatus)) {
+              markRedditPixelPurchaseTracked(checkoutSessionId);
             }
 
             // if (isPaidOrder) {
