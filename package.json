@@ -10,13 +10,16 @@
     "check:ship-metadata": "node --experimental-strip-types scripts/check-ship-metadata.ts",
     "check:translation-risks": "node scripts/find-translation-risks.js",
     "trim:manufacturer-logos": "node --experimental-strip-types scripts/trim-manufacturer-logos.ts",
-    "prebuild": "tsx scripts/generate-sitemap.ts",
+    "configure:npmrc": "node scripts/configure-npmrc.mjs",
+    "preinstall": "node scripts/configure-npmrc.mjs",
+    "prebuild": "node scripts/configure-npmrc.mjs && tsx scripts/generate-sitemap.ts",
     "build:ccu-wasm": "bash scripts/build-ccu-pathfinder-c-wasm.sh",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@citizens-hub/starmap": "^1.0.7",
     "@ctrl/react-adsense": "^1.8.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

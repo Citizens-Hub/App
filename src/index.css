@@ -1,3 +1,7 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
 @font-face{
   font-family: 'Quantico';
   src : url('/fonts/Quantico-Regular.ttf');

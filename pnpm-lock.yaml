@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@citizens-hub/starmap':
+        specifier: ^1.0.7
+        version: 1.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@ctrl/react-adsense':
         specifier: ^1.8.0
         version: 1.8.0
@@ -275,6 +278,12 @@ packages:
   '@babel/types@7.27.1':
     resolution: {integrity: sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q==}
     engines: {node: '>=6.9.0'}
+
+  '@citizens-hub/starmap@1.0.7':
+    resolution: {integrity: sha512-a+R22UXpP2H2ayqOrXFdeARGoJpX6GSgLnx+09tzKlgNKEjrG8JWzvveNTGS9f3RizjXqTucr9nqEKM6cbOr+Q==, tarball: https://npm.pkg.github.com/download/@citizens-hub/starmap/1.0.7/731f78cfd00502b8e3327741e6f354c4f8335706}
+    peerDependencies:
+      react: ^18.3.1
+      react-dom: ^18.3.1
 
   '@ctrl/react-adsense@1.8.0':
     resolution: {integrity: sha512-c95s60v8WYlPgdeZV8gn80jTQdeNSCxHaZcZqNirlm24y/vceHafUcp0t8qemGV+tikKtSAl3vCDVA43jk9DAw==}
@@ -2198,6 +2207,11 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  lucide-react@0.575.0:
+    resolution: {integrity: sha512-VuXgKZrk0uiDlWjGGXmKV6MSk9Yy4l10qgVvzGn2AWBx1Ylt0iBexKOAoA6I7JO3m+M9oeovJd3yYENfkUbOeg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
@@ -2883,6 +2897,9 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  three@0.171.0:
+    resolution: {integrity: sha512-Y/lAXPaKZPcEdkKjh0JOAHVv8OOnv/NDJqm0wjfCzyQmfKxV7zvkwsnBgPBKTzJHToSOhRGQAGbPJObT59B/PQ==}
+
   three@0.184.0:
     resolution: {integrity: sha512-wtTRjG92pM5eUg/KuUnHsqSAlPM296brTOcLgMRqEeylYTh/CdtvKUvCyyCQTzFuStieWxvZb8mVTMvdPyUpxg==}
 
@@ -3251,6 +3268,13 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
+
+  '@citizens-hub/starmap@1.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+    dependencies:
+      lucide-react: 0.575.0(react@19.2.5)
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+      three: 0.171.0
 
   '@ctrl/react-adsense@1.8.0':
     dependencies:
@@ -5252,6 +5276,10 @@ snapshots:
     dependencies:
       react: 19.2.5
 
+  lucide-react@0.575.0(react@19.2.5):
+    dependencies:
+      react: 19.2.5
+
   markdown-table@3.0.4: {}
 
   math-intrinsics@1.1.0: {}
@@ -6230,6 +6258,8 @@ snapshots:
       commander: 2.20.3
       source-map-support: 0.5.21
     optional: true
+
+  three@0.171.0: {}
 
   three@0.184.0: {}
 

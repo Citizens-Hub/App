@@ -25,6 +25,10 @@ export const navigation = [
     path: "/fleetview",
   },
   {
+    name: "navigation.starMap",
+    path: "/starmap",
+  },
+  {
     name: "navigation.market",
     path: "/market",
   },

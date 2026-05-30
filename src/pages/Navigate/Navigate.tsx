@@ -30,6 +30,10 @@ export default function Navigate() {
             <FormattedMessage id="navigate.storePreview" defaultMessage="Store Preview" />
           </Link>
           <span>|</span>
+          <Link to="/starmap" style={{ color: 'inherit' }}>
+            <FormattedMessage id="navigation.starMap" defaultMessage="Star Map" />
+          </Link>
+          <span>|</span>
           <Link to="/market" style={{ color: 'inherit' }}>
             <FormattedMessage id="navigate.market" defaultMessage="Market" />
           </Link>

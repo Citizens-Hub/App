@@ -371,7 +371,8 @@ function isShipImagePath(pathname) {
 
 function isOwnedImageRequest(request, requestUrl) {
   return isImageLikeRequest(request, requestUrl)
-    && requestUrl.hostname === 'images.citizenshub.app';
+    && (requestUrl.hostname === 'images.citizenshub.app'
+      || requestUrl.hostname === 'materials.citizenshub.app');
 }
 
 function getImageCacheSource(requestUrl) {

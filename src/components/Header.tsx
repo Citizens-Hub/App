@@ -52,6 +52,7 @@ const menuGroups: MenuGroupConfig[] = [
       'navigation.priceHistory',
       'navigation.hangar',
       'navigation.fleetview',
+      'navigation.starMap',
       'navigation.storePreview',
       'navigation.blog',
     ],
