@@ -1,27 +1,32 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Alert,
+  Autocomplete,
   Box,
   Divider,
   FormControl,
   IconButton,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
+  TextField,
   Tooltip,
   Typography,
   type SelectChangeEvent,
 } from '@mui/material';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
-import { LocateFixed, MapPin, Orbit, Rotate3D } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Copy, GripHorizontal, LocateFixed, MapPin, Orbit, Rotate3D, Search } from 'lucide-react';
 import {
   createMapControl,
   defineStarMapElement,
   localizeName,
+  normalizeSystem,
   type NodeSelectDetail,
+  type NormalizedNode,
   type NormalizedSystem,
   type StarMapControl,
   type StarMapElement,
@@ -34,8 +39,129 @@ const STAR_SYSTEM_DATA_SRC = '/data/StarSystem.json';
 const ASSETS_PATH = 'https://materials.citizenshub.app';
 const HEADER_HEIGHT_PX = 65;
 const PANEL_RADIUS = 0;
+const MAX_LOCATION_SEARCH_RESULTS = 80;
+const STAR_MAP_PANEL_POSITION_STORAGE_KEY = 'citizenshub.starMap.controls.position';
+const DEFAULT_PANEL_OFFSET_DESKTOP = 20;
+const DEFAULT_PANEL_OFFSET_MOBILE = 12;
+const MUI_MD_BREAKPOINT_PX = 900;
 
 defineStarMapElement();
+
+interface PanelPosition {
+  x: number;
+  y: number;
+}
+
+interface StoredPanelPosition extends PanelPosition {
+  viewportHeight: number;
+  viewportWidth: number;
+}
+
+interface ViewportSize {
+  height: number;
+  width: number;
+}
+
+interface PanelDragState {
+  offsetX: number;
+  offsetY: number;
+  pointerId: number;
+}
+
+interface LocationSearchOption {
+  key: string;
+  node: NormalizedNode;
+  searchText: string;
+  system: NormalizedSystem;
+}
+
+function getViewportSize(): ViewportSize {
+  if (typeof window === 'undefined') {
+    return { height: 0, width: 0 };
+  }
+
+  return {
+    height: window.innerHeight,
+    width: window.innerWidth,
+  };
+}
+
+function getDefaultPanelPosition(): PanelPosition {
+  if (typeof window === 'undefined') {
+    return { x: DEFAULT_PANEL_OFFSET_DESKTOP, y: DEFAULT_PANEL_OFFSET_DESKTOP };
+  }
+
+  const offset = window.innerWidth >= MUI_MD_BREAKPOINT_PX
+    ? DEFAULT_PANEL_OFFSET_DESKTOP
+    : DEFAULT_PANEL_OFFSET_MOBILE;
+
+  return { x: offset, y: offset };
+}
+
+function clearStoredPanelPosition() {
+  try {
+    window.localStorage.removeItem(STAR_MAP_PANEL_POSITION_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures; the panel can still be moved for this session.
+  }
+}
+
+function readStoredPanelPosition(): PanelPosition {
+  if (typeof window === 'undefined') {
+    return getDefaultPanelPosition();
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(STAR_MAP_PANEL_POSITION_STORAGE_KEY);
+
+    if (!rawValue) {
+      return getDefaultPanelPosition();
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<StoredPanelPosition>;
+    const viewport = getViewportSize();
+    const hasSameViewportSize =
+      parsed.viewportWidth === viewport.width &&
+      parsed.viewportHeight === viewport.height;
+    const x = Number(parsed.x);
+    const y = Number(parsed.y);
+
+    if (!hasSameViewportSize || !Number.isFinite(x) || !Number.isFinite(y)) {
+      clearStoredPanelPosition();
+      return getDefaultPanelPosition();
+    }
+
+    return {
+      x: Math.max(0, x),
+      y: Math.max(0, y),
+    };
+  } catch {
+    clearStoredPanelPosition();
+    return getDefaultPanelPosition();
+  }
+}
+
+function writeStoredPanelPosition(position: PanelPosition) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const viewport = getViewportSize();
+
+  try {
+    window.localStorage.setItem(
+      STAR_MAP_PANEL_POSITION_STORAGE_KEY,
+      JSON.stringify({
+        x: position.x,
+        y: position.y,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+      } satisfies StoredPanelPosition),
+    );
+  } catch {
+    // Ignore storage access failures; dragging should remain responsive.
+  }
+}
 
 function getStarMapLanguage(locale: string): StarMapLanguage {
   return locale.startsWith('zh') ? 'cn' : 'en';
@@ -79,8 +205,45 @@ function localizeNodeKind(kind: string, language: StarMapLanguage) {
   }
 }
 
-function formatCount(value: number | undefined) {
-  return value ?? 0;
+// function formatCount(value: number | undefined) {
+//   return value ?? 0;
+// }
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’]/g, '')
+    .replace(/[\s_-]+/g, ' ')
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function getLocationSearchOptionLabel(option: LocationSearchOption, language: StarMapLanguage) {
+  if (language === 'cn') {
+    return option.node.nameCN === option.node.nameEN
+      ? option.node.nameCN
+      : `${option.node.nameCN} / ${option.node.nameEN}`;
+  }
+
+  return option.node.nameEN;
+}
+
+async function copyTextToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = value;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textArea);
 }
 
 function getToggleButtonSx(active: boolean) {
@@ -131,7 +294,15 @@ export default function StarMap() {
   const starMapTheme: StarMapTheme = theme.palette.mode === 'dark' ? 'dark' : 'light';
   const mapRef = useRef<StarMapElement | null>(null);
   const controlRef = useRef<StarMapControl | null>(null);
+  const copiedNodeTimerRef = useRef<number | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const panelDragRef = useRef<PanelDragState | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<NodeSelectDetail | null>(null);
+  const [locationSearchInput, setLocationSearchInput] = useState('');
+  const [locationSearchValue, setLocationSearchValue] = useState<LocationSearchOption | null>(null);
+  const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition>(() => readStoredPanelPosition());
 
   if (!controlRef.current) {
     controlRef.current = createMapControl({
@@ -200,6 +371,32 @@ export default function StarMap() {
     };
   }, []);
 
+  useEffect(() => () => {
+    if (copiedNodeTimerRef.current !== null) {
+      window.clearTimeout(copiedNodeTimerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      clearStoredPanelPosition();
+      panelDragRef.current = null;
+      setPanelPosition(getDefaultPanelPosition());
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (locationSearchValue) {
+      setLocationSearchInput(getLocationSearchOptionLabel(locationSearchValue, language));
+    }
+  }, [language, locationSearchValue]);
+
   const systemOptions = useMemo(
     () => snapshot.systems.map((system) => ({
       id: system.systemId,
@@ -208,35 +405,192 @@ export default function StarMap() {
     [language, snapshot.systems],
   );
 
+  const locationSearchOptions = useMemo<LocationSearchOption[]>(() => {
+    const data = snapshot.data;
+
+    if (!data) {
+      return [];
+    }
+
+    return snapshot.systems.flatMap((systemSummary) => {
+      const system = normalizeSystem(data, systemSummary.systemId);
+
+      if (!system) {
+        return [];
+      }
+
+      return system.nodes.map((node) => ({
+        key: `${system.systemId}:${node.id}`,
+        node,
+        searchText: normalizeSearchText([
+          node.nameCN,
+          node.nameEN,
+          system.systemNameCN,
+          system.systemNameEN,
+        ].join(' ')),
+        system,
+      }));
+    });
+  }, [snapshot.data, snapshot.systems]);
+
   const handleSystemChange = (event: SelectChangeEvent<string>) => {
     control.setSystemId(event.target.value);
     setSelectedDetail(null);
+    setLocationSearchValue(null);
+    setLocationSearchInput('');
   };
 
-  const stats = currentSystem
-    ? [
-      {
-        id: 'stars',
-        label: intl.formatMessage({ id: 'starMap.stats.stars', defaultMessage: 'Stars' }),
-        value: formatCount(currentSystem.counts.star),
-      },
-      {
-        id: 'planets',
-        label: intl.formatMessage({ id: 'starMap.stats.planets', defaultMessage: 'Planets' }),
-        value: formatCount(currentSystem.counts.planet),
-      },
-      {
-        id: 'moons',
-        label: intl.formatMessage({ id: 'starMap.stats.moons', defaultMessage: 'Moons' }),
-        value: formatCount(currentSystem.counts.moon),
-      },
-      {
-        id: 'stations',
-        label: intl.formatMessage({ id: 'starMap.stats.stations', defaultMessage: 'Stations' }),
-        value: formatCount(currentSystem.counts.station),
-      },
-    ]
-    : [];
+  const handleLocationSelect = (_event: unknown, option: LocationSearchOption | null) => {
+    setLocationSearchValue(option);
+
+    if (!option) {
+      return;
+    }
+
+    const shouldShowPlaces = snapshot.showPlaces || option.node.kind === 'place';
+    control.patch({
+      systemId: option.system.systemId,
+      selectedNodeId: option.node.id,
+      showPlaces: shouldShowPlaces,
+    });
+    setSelectedDetail({
+      system: option.system,
+      node: option.node,
+    });
+    setLocationSearchInput(getLocationSearchOptionLabel(option, language));
+  };
+
+  const handleCopyEnglishName = async () => {
+    if (!selectedNode?.nameEN) {
+      return;
+    }
+
+    await copyTextToClipboard(selectedNode.nameEN);
+    setCopiedNodeId(selectedNode.id);
+
+    if (copiedNodeTimerRef.current !== null) {
+      window.clearTimeout(copiedNodeTimerRef.current);
+    }
+
+    copiedNodeTimerRef.current = window.setTimeout(() => {
+      setCopiedNodeId(null);
+      copiedNodeTimerRef.current = null;
+    }, 1600);
+  };
+
+  const clampPanelPosition = (nextPosition: PanelPosition) => {
+    const panel = panelRef.current;
+    const viewport = getViewportSize();
+    const panelWidth = panel?.offsetWidth ?? 0;
+    const panelHeight = panel?.offsetHeight ?? 0;
+    const maxX = Math.max(DEFAULT_PANEL_OFFSET_MOBILE, viewport.width - panelWidth - DEFAULT_PANEL_OFFSET_MOBILE);
+    const maxY = Math.max(DEFAULT_PANEL_OFFSET_MOBILE, viewport.height - HEADER_HEIGHT_PX - panelHeight - DEFAULT_PANEL_OFFSET_MOBILE);
+
+    return {
+      x: Math.min(Math.max(DEFAULT_PANEL_OFFSET_MOBILE, nextPosition.x), maxX),
+      y: Math.min(Math.max(DEFAULT_PANEL_OFFSET_MOBILE, nextPosition.y), maxY),
+    };
+  };
+
+  const updatePanelPosition = (nextPosition: PanelPosition, persist = false) => {
+    const clampedPosition = clampPanelPosition(nextPosition);
+    setPanelPosition(clampedPosition);
+
+    if (persist) {
+      writeStoredPanelPosition(clampedPosition);
+    }
+
+    return clampedPosition;
+  };
+
+  const handlePanelDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const panel = panelRef.current;
+
+    if (!panel) {
+      return;
+    }
+
+    const rect = panel.getBoundingClientRect();
+    panelDragRef.current = {
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      pointerId: event.pointerId,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const handlePanelDragMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragState = panelDragRef.current;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    updatePanelPosition({
+      x: event.clientX - dragState.offsetX,
+      y: event.clientY - HEADER_HEIGHT_PX - dragState.offsetY,
+    });
+  };
+
+  const handlePanelDragEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragState = panelDragRef.current;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    panelDragRef.current = null;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    updatePanelPosition({
+      x: event.clientX - dragState.offsetX,
+      y: event.clientY - HEADER_HEIGHT_PX - dragState.offsetY,
+    }, true);
+  };
+
+  const handlePanelCollapseToggle = () => {
+    setIsPanelCollapsed((value) => !value);
+    window.requestAnimationFrame(() => {
+      setPanelPosition((currentPosition) => {
+        const clampedPosition = clampPanelPosition(currentPosition);
+        writeStoredPanelPosition(clampedPosition);
+        return clampedPosition;
+      });
+    });
+  };
+
+  // const stats = currentSystem
+  //   ? [
+  //     {
+  //       id: 'stars',
+  //       label: intl.formatMessage({ id: 'starMap.stats.stars', defaultMessage: 'Stars' }),
+  //       value: formatCount(currentSystem.counts.star),
+  //     },
+  //     {
+  //       id: 'planets',
+  //       label: intl.formatMessage({ id: 'starMap.stats.planets', defaultMessage: 'Planets' }),
+  //       value: formatCount(currentSystem.counts.planet),
+  //     },
+  //     {
+  //       id: 'moons',
+  //       label: intl.formatMessage({ id: 'starMap.stats.moons', defaultMessage: 'Moons' }),
+  //       value: formatCount(currentSystem.counts.moon),
+  //     },
+  //     {
+  //       id: 'stations',
+  //       label: intl.formatMessage({ id: 'starMap.stats.stations', defaultMessage: 'Stations' }),
+  //       value: formatCount(currentSystem.counts.station),
+  //     },
+  //   ]
+  //   : [];
   const selectedDescription = selectedNode
     ? language === 'cn'
       ? selectedNode.descriptionCN
@@ -283,15 +637,16 @@ export default function StarMap() {
       <Paper
         component="section"
         elevation={0}
+        ref={panelRef}
         aria-label={intl.formatMessage({ id: 'starMap.controls', defaultMessage: 'Star map controls' })}
         sx={{
           position: 'absolute',
           zIndex: 2,
-          top: { xs: 12, md: 20 },
-          left: { xs: 12, md: 20 },
-          width: { xs: 'calc(100vw - 24px)', sm: 380 },
+          top: panelPosition.y,
+          left: panelPosition.x,
+          width: { xs: 'min(380px, calc(100vw - 24px))', sm: 380 },
           maxHeight: { xs: 'calc(100% - 24px)', md: 'calc(100% - 40px)' },
-          overflow: 'auto',
+          overflow: isPanelCollapsed ? 'hidden' : 'auto',
           p: { xs: 1.75, sm: 2 },
           border: '1px solid',
           borderColor: theme.palette.mode === 'dark' ? alpha('#ffffff', 0.12) : alpha('#0f172a', 0.12),
@@ -302,6 +657,56 @@ export default function StarMap() {
         }}
       >
         <Stack spacing={2}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Stack
+              aria-label={intl.formatMessage({ id: 'starMap.moveControls', defaultMessage: 'Move controls' })}
+              direction="row"
+              alignItems="center"
+              spacing={0.75}
+              onPointerCancel={handlePanelDragEnd}
+              onPointerDown={handlePanelDragStart}
+              onPointerMove={handlePanelDragMove}
+              onPointerUp={handlePanelDragEnd}
+              sx={{
+                minWidth: 0,
+                flex: 1,
+                cursor: 'grab',
+                touchAction: 'none',
+                userSelect: 'none',
+                color: 'text.secondary',
+                '&:active': {
+                  cursor: 'grabbing',
+                },
+              }}
+            >
+              <GripHorizontal size={17} />
+              <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.3 }} noWrap>
+                <FormattedMessage id="starMap.controls" defaultMessage="Star map controls" />
+              </Typography>
+            </Stack>
+            <Tooltip
+              title={intl.formatMessage({
+                id: isPanelCollapsed ? 'starMap.expandControls' : 'starMap.collapseControls',
+                defaultMessage: isPanelCollapsed ? 'Expand controls' : 'Collapse controls',
+              })}
+            >
+              <IconButton
+                aria-label={intl.formatMessage({
+                  id: isPanelCollapsed ? 'starMap.expandControls' : 'starMap.collapseControls',
+                  defaultMessage: isPanelCollapsed ? 'Expand controls' : 'Collapse controls',
+                })}
+                aria-expanded={!isPanelCollapsed}
+                onClick={handlePanelCollapseToggle}
+                size="small"
+                sx={getToggleButtonSx(false)}
+              >
+                {isPanelCollapsed ? <ChevronDown size={17} /> : <ChevronUp size={17} />}
+              </IconButton>
+            </Tooltip>
+          </Stack>
+
+          {!isPanelCollapsed ? (
+            <>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <FormControl
               disabled={systemOptions.length === 0}
@@ -379,7 +784,79 @@ export default function StarMap() {
             </Stack>
           </Stack>
 
-          {currentSystem ? (
+          <Autocomplete
+            clearOnBlur={false}
+            disabled={locationSearchOptions.length === 0}
+            filterOptions={(options, state) => {
+              const query = normalizeSearchText(state.inputValue);
+
+              if (!query) {
+                return options.slice(0, MAX_LOCATION_SEARCH_RESULTS);
+              }
+
+              return options
+                .filter((option) => option.searchText.includes(query))
+                .slice(0, MAX_LOCATION_SEARCH_RESULTS);
+            }}
+            getOptionLabel={(option) => getLocationSearchOptionLabel(option, language)}
+            inputValue={locationSearchInput}
+            isOptionEqualToValue={(option, value) => option.key === value.key}
+            noOptionsText={intl.formatMessage({ id: 'starMap.noSearchResults', defaultMessage: 'No locations found' })}
+            onChange={handleLocationSelect}
+            onInputChange={(_event, value, reason) => {
+              setLocationSearchInput(value);
+
+              if (reason === 'clear') {
+                setLocationSearchValue(null);
+              }
+            }}
+            options={locationSearchOptions}
+            size="small"
+            value={locationSearchValue}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={intl.formatMessage({ id: 'starMap.search', defaultMessage: 'Search locations' })}
+                placeholder={intl.formatMessage({ id: 'starMap.searchPlaceholder', defaultMessage: 'Chinese or English name' })}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <Search size={16} />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: PANEL_RADIUS,
+                    bgcolor: theme.palette.mode === 'dark' ? alpha('#000000', 0.24) : alpha('#ffffff', 0.72),
+                  },
+                }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} key={option.key} sx={{ alignItems: 'flex-start !important' }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
+                    {language === 'cn' ? option.node.nameCN : option.node.nameEN}
+                  </Typography>
+                  {language === 'cn' && option.node.nameCN !== option.node.nameEN ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+                      {option.node.nameEN}
+                    </Typography>
+                  ) : null}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+                    {language === 'cn' ? option.system.systemNameCN : option.system.systemNameEN}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          />
+
+          {/* {currentSystem ? (
             <Box
               sx={{
                 display: 'grid',
@@ -417,7 +894,7 @@ export default function StarMap() {
                 <FormattedMessage id="starMap.empty" defaultMessage="No star system data is available." />
               )}
             </Typography>
-          )}
+          )} */}
 
           {snapshot.error ? (
             <Alert severity="error" variant="outlined" sx={{ borderRadius: PANEL_RADIUS }}>
@@ -435,9 +912,35 @@ export default function StarMap() {
               <LocateFixed size={16} color="currentColor" />
             </Stack>
 
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.15, overflowWrap: 'anywhere' }}>
-              {selectedNode ? localizeName(selectedNode, language) : '-'}
-            </Typography>
+            <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.15, overflowWrap: 'anywhere' }}>
+                  {selectedNode ? localizeName(selectedNode, language) : '-'}
+                </Typography>
+                {selectedNode && language === 'cn' && selectedNode.nameCN !== selectedNode.nameEN ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+                    {selectedNode.nameEN}
+                  </Typography>
+                ) : null}
+              </Box>
+              {selectedNode?.nameEN ? (
+                <Tooltip
+                  title={intl.formatMessage({
+                    id: copiedNodeId === selectedNode.id ? 'starMap.copiedEnglishName' : 'starMap.copyEnglishName',
+                    defaultMessage: copiedNodeId === selectedNode.id ? 'Copied' : 'Copy English name',
+                  })}
+                >
+                  <IconButton
+                    aria-label={intl.formatMessage({ id: 'starMap.copyEnglishName', defaultMessage: 'Copy English name' })}
+                    onClick={handleCopyEnglishName}
+                    size="small"
+                    sx={getToggleButtonSx(copiedNodeId === selectedNode.id)}
+                  >
+                    {copiedNodeId === selectedNode.id ? <Check size={17} /> : <Copy size={17} />}
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+            </Stack>
 
             <Stack component="dl" spacing={1} sx={{ m: 0 }}>
               {selectedDetails.map((item) => (
@@ -477,6 +980,8 @@ export default function StarMap() {
               </Typography>
             ) : null}
           </Stack>
+            </>
+          ) : null}
         </Stack>
       </Paper>
     </Box>
