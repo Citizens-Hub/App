@@ -302,15 +302,6 @@ export default function StarMap() {
         }}
       >
         <Stack spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.3 }}>
-              <FormattedMessage id="starMap.eyebrow" defaultMessage="Persistent Universe" />
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
-              <FormattedMessage id="starMap.title" defaultMessage="Star Map" />
-            </Typography>
-          </Stack>
-
           <Stack direction="row" spacing={1.25} alignItems="center">
             <FormControl
               disabled={systemOptions.length === 0}
