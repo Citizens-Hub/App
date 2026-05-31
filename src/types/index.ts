@@ -1000,6 +1000,7 @@ export interface MarketReviewItem {
   user: {
     displayName: string;
     avatar: string | null;
+    rsiAvatar: string | null;
     rsiHandle: string | null;
     rsiDisplayName: string | null;
     rsiProfileUrl: string | null;

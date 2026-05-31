@@ -26,6 +26,7 @@ import {
   Rating,
   useMediaQuery,
   useTheme,
+  Avatar,
 } from '@mui/material';
 import {
   ContentCopy,
@@ -196,6 +197,7 @@ const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['sta
 const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'non_oc', 'lti']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
+const RSI_BASE_URL = 'https://robertsspaceindustries.com';
 
 const MARKET_HOME_LOCALE_FALLBACKS: MarketHomeLocaleCode[] = ['en'];
 
@@ -291,6 +293,30 @@ function getMarketRouteTypeLabel(sourceType: CcuSourceType, intl: ReturnType<typ
     default:
       return sourceType;
   }
+}
+
+function resolveRsiAssetUrl(value?: string | null) {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return `${RSI_BASE_URL}${normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`}`;
+}
+
+function resolveReviewAvatarUrl(avatar?: string | null, rsiAvatar?: string | null) {
+  const normalizedAvatar = avatar?.trim();
+  if (normalizedAvatar) {
+    return /^https?:\/\//i.test(normalizedAvatar)
+      ? normalizedAvatar
+      : resolveRsiAssetUrl(normalizedAvatar);
+  }
+
+  return resolveRsiAssetUrl(rsiAvatar);
 }
 
 function getDefaultRouteName(locale: string, index: number) {
@@ -3388,6 +3414,7 @@ const Market: React.FC = () => {
           <div className='mt-4 grid min-w-0 max-w-full gap-3 md:grid-cols-2 xl:grid-cols-3'>
             {marketReviews.map((review) => {
               const rsiName = review.user.rsiDisplayName || review.user.rsiHandle;
+              const reviewAvatarUrl = resolveReviewAvatarUrl(review.user.avatar, review.user.rsiAvatar);
               const visiblePurchasedItems = review.purchasedItems || [];
               const hiddenPurchasedItemCount = Math.max(review.purchasedItemCount - visiblePurchasedItems.length, 0);
               const reviewAttachments = review.reviewAttachments || [];
@@ -3398,13 +3425,9 @@ const Market: React.FC = () => {
                   className='flex min-w-0 max-w-full flex-col overflow-hidden border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
                 >
                   <div className='flex min-w-0 items-start gap-3'>
-                    {review.user.avatar ? (
-                      <img
-                        src={review.user.avatar}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className='h-11 w-11 shrink-0 rounded-full object-cover'
+                    {reviewAvatarUrl ? (
+                      <Avatar
+                        src={reviewAvatarUrl}
                       />
                     ) : (
                       <span className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-black uppercase text-slate-600 dark:bg-neutral-800 dark:text-slate-300'>
