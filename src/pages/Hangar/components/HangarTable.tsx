@@ -1962,7 +1962,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={filteredEquipment.length}
+            count={mergedFilteredEquipment.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
