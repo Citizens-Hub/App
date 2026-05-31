@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@citizens-hub/starmap':
-        specifier: ^1.0.7
-        version: 1.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        specifier: ^1.0.8
+        version: 1.0.8(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@ctrl/react-adsense':
         specifier: ^1.8.0
         version: 1.8.0
@@ -279,8 +279,8 @@ packages:
     resolution: {integrity: sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q==}
     engines: {node: '>=6.9.0'}
 
-  '@citizens-hub/starmap@1.0.7':
-    resolution: {integrity: sha512-a+R22UXpP2H2ayqOrXFdeARGoJpX6GSgLnx+09tzKlgNKEjrG8JWzvveNTGS9f3RizjXqTucr9nqEKM6cbOr+Q==, tarball: https://npm.pkg.github.com/download/@citizens-hub/starmap/1.0.7/731f78cfd00502b8e3327741e6f354c4f8335706}
+  '@citizens-hub/starmap@1.0.8':
+    resolution: {integrity: sha512-EoSG7p3/qWQL4lkaX1utIk5XD/KTra/BZgydp+1dm8WPC1+ajAbNvSOzeGxnRKDlSjHRI9BCMRe2tr3K3iJFzQ==, tarball: https://npm.pkg.github.com/download/@citizens-hub/starmap/1.0.8/61fe480e369da1ea746303a458dc8c93f4821e0d}
     peerDependencies:
       react: ^18.3.1
       react-dom: ^18.3.1
@@ -3269,7 +3269,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@citizens-hub/starmap@1.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+  '@citizens-hub/starmap@1.0.8(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
     dependencies:
       lucide-react: 0.575.0(react@19.2.5)
       react: 19.2.5
