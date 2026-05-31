@@ -120,6 +120,85 @@ function getCcuShipMatchKey(item: Pick<CCUItem, 'parsed'>) {
   return `name:${normalizeShipNameKey(item.parsed?.from)}->${normalizeShipNameKey(item.parsed?.to)}`;
 }
 
+function normalizeOptionalTextKey(value?: string | null) {
+  return value?.trim().replace(/\s+/g, ' ').toUpperCase() || '';
+}
+
+function normalizeOptionalNumberKey(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
+}
+
+function getBaseHangarItemMatchKey(item: Pick<HangarItem, 'belongsTo' | 'canGift' | 'isBuyBack' | 'name' | 'value'>) {
+  return [
+    `owner:${item.belongsTo}`,
+    `gift:${item.canGift ? 'yes' : 'no'}`,
+    `source:${item.isBuyBack ? 'buyback' : 'hangar'}`,
+    `name:${normalizeOptionalTextKey(item.name)}`,
+    `value:${normalizeOptionalNumberKey(item.value)}`,
+  ].join('|');
+}
+
+function getShipMatchKey(item: ShipItem) {
+  return [
+    getBaseHangarItemMatchKey(item),
+    `ship:${item.id}`,
+    `shipName:${normalizeOptionalTextKey(item.name)}`,
+    `insurance:${normalizeOptionalTextKey(item.insurance)}`,
+  ].join('|');
+}
+
+function getOtherItemContentKey(item: Partial<OtherItem>) {
+  return [
+    `name:${normalizeOptionalTextKey(item.name)}`,
+    `type:${normalizeOptionalTextKey(item.type)}`,
+    `image:${normalizeOptionalTextKey(item.image)}`,
+    `withImage:${item.withImage ? 'yes' : 'no'}`,
+    `value:${normalizeOptionalNumberKey(item.value)}`,
+    `gift:${item.canGift ? 'yes' : 'no'}`,
+    `source:${item.isBuyBack ? 'buyback' : 'hangar'}`,
+  ].join('|');
+}
+
+function getBundleShipContentKey(item: Partial<ShipItem>) {
+  return [
+    `id:${normalizeOptionalNumberKey(item.id)}`,
+    `name:${normalizeOptionalTextKey(item.name)}`,
+    `insurance:${normalizeOptionalTextKey(item.insurance)}`,
+  ].join('|');
+}
+
+function getCountedContentKey(key: string, quantity?: number) {
+  return `${key}#${Math.max(1, quantity || 1)}`;
+}
+
+function getBundleMatchKey(item: BundleItem) {
+  const shipsKey = (item.ships || [])
+    .map(ship => getCountedContentKey(getBundleShipContentKey(ship), ship.quantity))
+    .sort()
+    .join('||');
+  const othersKey = (item.others || [])
+    .map(other => getCountedContentKey(getOtherItemContentKey(other), other.quantity))
+    .sort()
+    .join('||');
+
+  return [
+    getBaseHangarItemMatchKey(item),
+    `insurance:${normalizeOptionalTextKey(item.insurance)}`,
+    `ships:${shipsKey}`,
+    `others:${othersKey}`,
+  ].join('|');
+}
+
+function mergeHangarItemQuantity<T extends HangarItem>(target: T, source: T) {
+  target.quantity = (target.quantity || 1) + (source.quantity || 1);
+  target.pageIds = Array.from(new Set([
+    ...(target.pageIds || []),
+    ...(target.pageId ? [target.pageId] : []),
+    ...(source.pageIds || []),
+    ...(source.pageId ? [source.pageId] : []),
+  ])).sort((left, right) => left - right);
+}
+
 export interface HangarSyncPreferences {
   hangar: boolean;
 }
@@ -308,12 +387,34 @@ export const upgradesSlice = createSlice({
       persistUpgradesState(state);
     },
     addShip: (state, action: PayloadAction<ShipItem>) => {
-      state.items.ships.push(action.payload);
+      const incoming = {
+        ...action.payload,
+        pageIds: action.payload.pageIds || (action.payload.pageId ? [action.payload.pageId] : []),
+      };
+      const shipMatchKey = getShipMatchKey(incoming);
+      const item = state.items.ships.find(item => getShipMatchKey(item) === shipMatchKey);
+
+      if (item) {
+        mergeHangarItemQuantity(item, incoming);
+      } else {
+        state.items.ships.push(incoming);
+      }
       touchHangarContent(state);
       persistUpgradesState(state);
     },
     addBundle: (state, action: PayloadAction<BundleItem>) => {
-      state.items.bundles.push(action.payload);
+      const incoming = {
+        ...action.payload,
+        pageIds: action.payload.pageIds || (action.payload.pageId ? [action.payload.pageId] : []),
+      };
+      const bundleMatchKey = getBundleMatchKey(incoming);
+      const item = state.items.bundles.find(item => getBundleMatchKey(item) === bundleMatchKey);
+
+      if (item) {
+        mergeHangarItemQuantity(item, incoming);
+      } else {
+        state.items.bundles.push(incoming);
+      }
       touchHangarContent(state);
       persistUpgradesState(state);
     },

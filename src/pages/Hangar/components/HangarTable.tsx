@@ -44,6 +44,7 @@ interface DisplayEquipmentItem {
   };
   belongsTo: number;
   quantity?: number;
+  pageIds?: number[];
   insurance?: string;
   ships?: Partial<ShipItem>[];
   others?: Partial<OtherItem>[];
@@ -64,6 +65,9 @@ const normalizeShipName = (name: string) => name.toUpperCase().trim();
 const getCcuPairKey = (from: string, to: string) => `${normalizeShipName(from)}->${normalizeShipName(to)}`;
 const getCcuGroupKey = (from: string, to: string, isBuyBack: boolean) => `${getCcuPairKey(from, to)}|${isBuyBack ? 'buyback' : 'hangar'}`;
 const MAX_VISIBLE_BUNDLE_TEXT_ITEMS = 4;
+const normalizeHangarTextKey = (value?: string | null) => value?.trim().replace(/\s+/g, ' ').toUpperCase() || '';
+const normalizeHangarNumberKey = (value?: number | null) =>
+  typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
 const getEquipmentImageSrc = (item: Pick<DisplayEquipmentItem, 'imageUrl' | 'from'>) =>
   item.imageUrl ||
   getShipThumbLarge(item.from as Ship) ||
@@ -71,6 +75,97 @@ const getEquipmentImageSrc = (item: Pick<DisplayEquipmentItem, 'imageUrl' | 'fro
 
 const getEquipmentRowKey = (item: DisplayEquipmentItem, absoluteIndex: number) =>
   `${item.type}-${item.id}-${item.belongsTo}-${item.pageId ?? 'na'}-${absoluteIndex}`;
+
+const getBundleShipContentKey = (item: Partial<ShipItem>) => [
+  `id:${normalizeHangarNumberKey(item.id)}`,
+  `name:${normalizeHangarTextKey(item.name)}`,
+  `insurance:${normalizeHangarTextKey(item.insurance)}`,
+].join('|');
+
+const getBundleOtherContentKey = (item: Partial<OtherItem>) => [
+  `name:${normalizeHangarTextKey(item.name)}`,
+  `type:${normalizeHangarTextKey(item.type)}`,
+  `image:${normalizeHangarTextKey(item.image)}`,
+  `withImage:${item.withImage ? 'yes' : 'no'}`,
+].join('|');
+
+const getContentMultisetKey = <T extends { quantity?: number }>(
+  items: T[] | undefined,
+  getItemKey: (item: T) => string,
+) => {
+  const counts = new Map<string, number>();
+
+  items?.forEach((item) => {
+    const itemKey = getItemKey(item);
+    counts.set(itemKey, (counts.get(itemKey) || 0) + (item.quantity || 1));
+  });
+
+  return Array.from(counts.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => `${key}#${count}`)
+    .join('||');
+};
+
+const getEquipmentMergeKey = (item: DisplayEquipmentItem) => {
+  const baseKey = [
+    `type:${item.type}`,
+    `source:${item.isBuyBack ? 'buyback' : 'hangar'}`,
+    `gift:${item.canGift ? 'yes' : 'no'}`,
+    `name:${normalizeHangarTextKey(item.name)}`,
+    `value:${normalizeHangarNumberKey(item.value)}`,
+    `insurance:${normalizeHangarTextKey(item.insurance)}`,
+  ];
+
+  if (item.type === 'Ship') {
+    baseKey.push(`ship:${normalizeHangarTextKey(item.id)}`);
+    baseKey.push(`shipName:${normalizeHangarTextKey(item.from?.name || item.name)}`);
+  }
+
+  if (item.type === 'Bundle') {
+    baseKey.push(`ships:${getContentMultisetKey(item.ships, getBundleShipContentKey)}`);
+    baseKey.push(`others:${getContentMultisetKey(item.others, getBundleOtherContentKey)}`);
+  }
+
+  return baseKey.join('|');
+};
+
+const mergeDisplayEquipmentItems = (items: DisplayEquipmentItem[]): DisplayEquipmentItem[] => {
+  const grouped = new Map<string, DisplayEquipmentItem[]>();
+
+  items.forEach((item) => {
+    const key = getEquipmentMergeKey(item);
+    const bucket = grouped.get(key) || [];
+    bucket.push(item);
+    grouped.set(key, bucket);
+  });
+
+  return Array.from(grouped.entries()).map(([key, group]): DisplayEquipmentItem => {
+    const first = group[0];
+
+    if (group.length === 1) {
+      return first;
+    }
+
+    const totalQuantity = group.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const totalCost = group.reduce((sum, item) => sum + item.value * (item.quantity || 1), 0);
+    const pageIds = Array.from(new Set(group.flatMap((item) => [
+      ...(item.pageIds || []),
+      ...(item.pageId ? [item.pageId] : []),
+    ]))).sort((left, right) => left - right);
+
+    return {
+      ...first,
+      id: `${first.type.toLowerCase()}-group-${key}`,
+      quantity: totalQuantity,
+      pageId: first.pageId || pageIds[0],
+      pageIds,
+      groupedItems: group,
+      ownerCount: new Set(group.map(item => item.belongsTo)).size,
+      hasMultipleValues: new Set(group.map(item => item.value)).size > 1,
+      totalCost,
+    };
+  });
+};
 
 const getHangarDetailUrl = (item: Pick<DisplayEquipmentItem, 'isBuyBack' | 'pageId' | 'type'>) => {
   if (!item.pageId) {
@@ -671,6 +766,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       belongsTo: ship.belongsTo,
       quantity: ship.quantity,
       pageId: ship.pageId,
+      pageIds: ship.pageIds,
       insurance: ship.insurance,
       ships: [],
       others: []
@@ -726,17 +822,19 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
       belongsTo: bundle.belongsTo,
       quantity: bundle.quantity,
       pageId: bundle.pageId,
+      pageIds: bundle.pageIds,
       insurance: bundle.insurance,
       ships: bundle.ships,
       others: bundle.others
     };
   }) : [])].filter(item => shouldShowBySourceFilter(item));
+  const mergedFilteredEquipment = mergeDisplayEquipmentItems(filteredEquipment);
 
   const isBuybackOnlyView = showBuybacks && !showHangarItems;
-  const summaryItems = filteredEquipment.filter(item => isBuybackOnlyView ? item.isBuyBack : !item.isBuyBack);
+  const summaryItems = mergedFilteredEquipment.filter(item => isBuybackOnlyView ? item.isBuyBack : !item.isBuyBack);
 
   // 添加排序功能
-  const sortedEquipment = filteredEquipment.sort((a, b) => {
+  const sortedEquipment = [...mergedFilteredEquipment].sort((a, b) => {
     // 判断是否为不包含飞船的Bundle
     const isEmptyBundle = (item: typeof a) => 
       item.type === 'Bundle' && (!item.ships || item.ships.length === 0);
@@ -910,13 +1008,15 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                 return shipSum + (matchingShip?.msrp || 0);
               }, 0) || 0;
 
-              return sum + upgradeValue * (item.quantity || 1) + shipsValue;
+              const quantity = item.quantity || 1;
+
+              return sum + upgradeValue * quantity + shipsValue * quantity;
             }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {paginatedEquipment.map((item) => {
+          {paginatedEquipment.map((item, index) => {
             const isCcu = item.type === 'CCU';
             const isBundle = item.type === 'Bundle';
             const displayName = getDisplayEquipmentName(item);
@@ -933,13 +1033,13 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             const usedCount = isCcu ? getCcuUsage(item.from.name, item.to.name) : 0;
             const totalCount = item.quantity || 1;
             const remainingCount = Math.max(totalCount - usedCount, 0);
-            const ownerLabel = item.type === 'CCU' && item.ownerCount && item.ownerCount > 1
+            const ownerLabel = item.ownerCount && item.ownerCount > 1
               ? intl.formatMessage({ id: 'hangar.multipleOwners', defaultMessage: '{count} owners' }, { count: item.ownerCount })
               : users.find(user => user.id === item.belongsTo)?.nickname || '-';
             const currentValue = isCcu
               ? ((item.to.msrp - item.from.msrp) / 100)
               : (item.from.msrp / 100);
-            const costValue = isCcu && item.groupedItems && item.groupedItems.length > 1
+            const costValue = item.groupedItems && item.groupedItems.length > 1
               ? (item.totalCost || 0)
               : item.value;
             const discountText = isCcu && item.to.msrp - item.from.msrp !== 0
@@ -949,7 +1049,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
             return (
               <Box
-                key={item.id}
+                key={getEquipmentRowKey(item, index)}
                 sx={{
                   display: 'flex',
                   gap: 1.5,
@@ -1109,7 +1209,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
             const usedCount = isCcu ? getCcuUsage(detailItem.from.name, detailItem.to.name) : 0;
             const totalCount = detailItem.quantity || 1;
             const remainingCount = Math.max(totalCount - usedCount, 0);
-            const ownerName = detailItem.type === 'CCU' && detailItem.ownerCount && detailItem.ownerCount > 1
+            const ownerName = detailItem.ownerCount && detailItem.ownerCount > 1
               ? intl.formatMessage({ id: 'hangar.multipleOwners', defaultMessage: '{count} owners' }, { count: detailItem.ownerCount })
               : users.find(user => user.id === detailItem.belongsTo)?.nickname || '-';
 
@@ -1157,7 +1257,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       <FormattedMessage id="hangar.cost" defaultMessage="Cost" />
                     </Typography>
                     <Typography variant="h6" color="primary">
-                      {(isCcu && detailItem.groupedItems && detailItem.groupedItems.length > 1 ? (detailItem.totalCost || 0) : detailItem.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
+                      {(detailItem.groupedItems && detailItem.groupedItems.length > 1 ? (detailItem.totalCost || 0) : detailItem.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
                     </Typography>
                   </Box>
                   <Box>
@@ -1232,10 +1332,11 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       {detailItem.ships?.map((bundleShip, index) => {
                         const shipInfo = resolveShipInfo(bundleShip);
                         const imageUrl = getShipThumbLarge(shipInfo || undefined);
+                        const itemKey = `${getBundleShipContentKey(bundleShip)}-${index}`;
 
                         return (
                           <Box
-                            key={`drawer-ship-${index}`}
+                            key={`drawer-ship-${itemKey}`}
                             role="button"
                             tabIndex={0}
                             onClick={() => handleOpenShipDetail(bundleShip)}
@@ -1292,10 +1393,12 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       {detailItem.others?.map((bundleOther, index) => {
                         const imageUrl = bundleOther.image?.replace('subscribers_vault_thumbnail', 'product_thumb_large');
 
+                        const itemKey = `${getBundleOtherContentKey(bundleOther)}-${index}`;
+
                         if (imageUrl) {
                           return (
                             <Box
-                              key={`drawer-other-${index}`}
+                              key={`drawer-other-${itemKey}`}
                               sx={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1322,7 +1425,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                         }
 
                         return (
-                          <Typography key={`drawer-other-${index}`} variant="body2" color="text.secondary">
+                          <Typography key={`drawer-other-${itemKey}`} variant="body2" color="text.secondary">
                             {bundleOther.name || '-'}
                           </Typography>
                         );
@@ -1331,14 +1434,22 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   </Box>
                 )}
 
-                {isCcu && detailItem.groupedItems && detailItem.groupedItems.length > 1 && (
+                {detailItem.groupedItems && detailItem.groupedItems.length > 1 && (
                   <Box sx={{ mt: 3 }}>
                     <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
-                      <FormattedMessage
-                        id="hangar.mergedCcuDetails"
-                        defaultMessage="Merged CCU details ({count} records)"
-                        values={{ count: detailItem.groupedItems.length }}
-                      />
+                      {isCcu ? (
+                        <FormattedMessage
+                          id="hangar.mergedCcuDetails"
+                          defaultMessage="Merged CCU details ({count} records)"
+                          values={{ count: detailItem.groupedItems.length }}
+                        />
+                      ) : (
+                        <FormattedMessage
+                          id="hangar.mergedItemDetails"
+                          defaultMessage="Merged item details ({count} records)"
+                          values={{ count: detailItem.groupedItems.length }}
+                        />
+                      )}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       {detailItem.groupedItems.map((groupedItem, index) => {
@@ -1348,7 +1459,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
                         return (
                           <Box
-                            key={`drawer-grouped-${index}`}
+                            key={getEquipmentRowKey(groupedItem, index)}
                             sx={{
                               borderBottom: '1px solid',
                               borderColor: 'divider',
@@ -1402,7 +1513,9 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                   return shipSum + (matchingShip?.msrp || 0);
                 }, 0) || 0;
 
-                return sum + upgradeValue * (item.quantity || 1) + shipsValue;
+                const quantity = item.quantity || 1;
+
+                return sum + upgradeValue * quantity + shipsValue * quantity;
               }, 0) / 100).toLocaleString(locale, { style: 'currency', currency: 'USD' })}
             </span>
           </Typography>
@@ -1586,7 +1699,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             </span>
                             <span className='text-md text-blue-500 font-bold'>
                               <span className='text-gray-500 mr-2 dark:text-gray-400'><FormattedMessage id="hangar.cost" defaultMessage="Cost" /></span>
-                              <span>{item.value.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                              <span>{(item.groupedItems && item.groupedItems.length > 1 ? (item.totalCost || 0) : item.value).toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
                             </span>
                             {/* {'insurance' in item && item.insurance && (
                               <span className='text-md text-blue-500 font-bold'>
@@ -1602,7 +1715,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                             {
                               !item.isBuyBack && <Gift className={`${item.canGift ? 'text-green-300' : 'text-red-400'} w-4 h-4`} />
                             }
-                            {item.type === 'CCU' && item.ownerCount && item.ownerCount > 1 ? (
+                            {item.ownerCount && item.ownerCount > 1 ? (
                               <FormattedMessage
                                 id="hangar.multipleOwners"
                                 defaultMessage="{count} owners"
@@ -1621,12 +1734,30 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                           <div className="flex items-center">
                             <Button
                               size="small"
-                              onClick={() => toggleBundleExpand(item.id)}
+                              onClick={() => {
+                                toggleBundleExpand(item.id);
+                                if (item.groupedItems && item.groupedItems.length > 1) {
+                                  toggleCcuGroupExpand(item.id);
+                                }
+                              }}
                               sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                               variant="text"
                             >
                               <FormattedMessage id="hangar.expand" defaultMessage="Items" />
-                              {expandedBundles[item.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              {expandedBundles[item.id] || expandedCcuGroups[item.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </Button>
+                          </div>
+                        )}
+                        {item.type !== 'Bundle' && item.type !== 'CCU' && item.groupedItems && item.groupedItems.length > 1 && (
+                          <div className="flex items-center">
+                            <Button
+                              size="small"
+                              onClick={() => toggleCcuGroupExpand(item.id)}
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                              variant="text"
+                            >
+                              <FormattedMessage id="hangar.expand" defaultMessage="Items" />
+                              {expandedCcuGroups[item.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </Button>
                           </div>
                         )}
@@ -1744,17 +1875,25 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
                       </TableCell>
                     </TableRow>
                   )}
-                  {item.type === 'CCU' && !!item.groupedItems && item.groupedItems.length > 1 && (
+                  {!!item.groupedItems && item.groupedItems.length > 1 && (
                     <TableRow>
                       <TableCell colSpan={4} sx={{ py: 0, border: expandedCcuGroups[item.id] ? '' : 'none' }}>
                         <Collapse in={expandedCcuGroups[item.id]} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 2, px: 3, backgroundColor: 'background.paper', boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.1)' }}>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                              <FormattedMessage
-                                id="hangar.mergedCcuDetails"
-                                defaultMessage="Merged CCU details ({count} records)"
-                                values={{ count: item.groupedItems.length }}
-                              />
+                              {item.type === 'CCU' ? (
+                                <FormattedMessage
+                                  id="hangar.mergedCcuDetails"
+                                  defaultMessage="Merged CCU details ({count} records)"
+                                  values={{ count: item.groupedItems.length }}
+                                />
+                              ) : (
+                                <FormattedMessage
+                                  id="hangar.mergedItemDetails"
+                                  defaultMessage="Merged item details ({count} records)"
+                                  values={{ count: item.groupedItems.length }}
+                                />
+                              )}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                               {item.groupedItems.map((groupedItem, index) => {
@@ -1765,7 +1904,7 @@ export default function HangarTable({ ships }: { ships: Ship[] }) {
 
                                 return (
                                   <Box
-                                    key={index}
+                                    key={getEquipmentRowKey(groupedItem, index)}
                                     sx={{
                                       display: 'flex',
                                       flexWrap: 'wrap',
