@@ -2870,6 +2870,13 @@ const Market: React.FC = () => {
   const featuredAccountVisibilityFrameRef = useRef<number | null>(null);
   const autoOpenedListingQueryRef = useRef<string | null>(null);
   const suppressListingAutoOpenRef = useRef(false);
+  const heroAutoplayTimeoutRef = useRef<number | null>(null);
+  const heroAutoplayStartedAtRef = useRef(0);
+  const heroAutoplayRemainingMsRef = useRef(MARKET_HERO_AUTOPLAY_INTERVAL_MS);
+  const heroPointerPausedRef = useRef(false);
+  const heroFocusPausedRef = useRef(false);
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+  const heroPointerFocusRef = useRef(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -2884,7 +2891,6 @@ const Market: React.FC = () => {
   const [mobileListingPage, setMobileListingPage] = useState(0);
   const [mobileListingItems, setMobileListingItems] = useState<ListingItem[]>([]);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
   const [heroProgressAnimationKey, setHeroProgressAnimationKey] = useState(0);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
@@ -3428,7 +3434,6 @@ const Market: React.FC = () => {
     ? getMarketHeroTranslation(activeHeroSlide, locale as MarketHomeLocaleCode)
     : getMarketHeroTranslation(DEFAULT_MARKET_HERO_SLIDES[0], locale as MarketHomeLocaleCode);
   const heroAutoplayActive = heroSlides.length > 1
-    && !heroAutoplayPaused
     && !listingDrawerOpen
     && !mobileFilterDrawerOpen
     && !cartOpen;
@@ -3452,35 +3457,142 @@ const Market: React.FC = () => {
     setActiveHeroIndex(Math.min(Math.max(index, 0), Math.max(heroSlides.length - 1, 0)));
   }, [heroSlides.length]);
 
-  useEffect(() => {
-    if (!heroAutoplayActive) {
+  const clearHeroAutoplayTimeout = useCallback(() => {
+    if (heroAutoplayTimeoutRef.current !== null) {
+      window.clearTimeout(heroAutoplayTimeoutRef.current);
+      heroAutoplayTimeoutRef.current = null;
+    }
+  }, []);
+
+  const pauseHeroAutoplayTimer = useCallback(() => {
+    if (heroAutoplayTimeoutRef.current !== null) {
+      const elapsedMs = window.performance.now() - heroAutoplayStartedAtRef.current;
+      heroAutoplayRemainingMsRef.current = Math.max(0, heroAutoplayRemainingMsRef.current - elapsedMs);
+    }
+
+    clearHeroAutoplayTimeout();
+  }, [clearHeroAutoplayTimeout]);
+
+  const scheduleHeroAutoplay = useCallback((delayMs = MARKET_HERO_AUTOPLAY_INTERVAL_MS) => {
+    clearHeroAutoplayTimeout();
+
+    if (
+      heroSlides.length <= 1
+      || listingDrawerOpen
+      || mobileFilterDrawerOpen
+      || cartOpen
+      || heroPointerPausedRef.current
+      || heroFocusPausedRef.current
+    ) {
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      if (document.visibilityState === 'hidden') {
+    const normalizedDelay = Math.max(0, delayMs);
+    heroAutoplayRemainingMsRef.current = normalizedDelay;
+    heroAutoplayStartedAtRef.current = window.performance.now();
+    heroAutoplayTimeoutRef.current = window.setTimeout(() => {
+      heroAutoplayTimeoutRef.current = null;
+
+      if (
+        document.visibilityState === 'hidden'
+        || heroPointerPausedRef.current
+        || heroFocusPausedRef.current
+      ) {
+        heroAutoplayRemainingMsRef.current = MARKET_HERO_AUTOPLAY_INTERVAL_MS;
         return;
       }
 
       goToNextHeroSlide();
-    }, MARKET_HERO_AUTOPLAY_INTERVAL_MS);
+    }, normalizedDelay);
+  }, [
+    cartOpen,
+    clearHeroAutoplayTimeout,
+    goToNextHeroSlide,
+    heroSlides.length,
+    listingDrawerOpen,
+    mobileFilterDrawerOpen,
+  ]);
+
+  const pauseHeroAutoplay = useCallback((source: 'pointer' | 'focus') => {
+    if (source === 'pointer') {
+      heroPointerPausedRef.current = true;
+    } else {
+      heroFocusPausedRef.current = true;
+    }
+
+    heroSectionRef.current?.classList.add('is-hero-paused');
+    pauseHeroAutoplayTimer();
+  }, [pauseHeroAutoplayTimer]);
+
+  const resumeHeroAutoplay = useCallback((source: 'pointer' | 'focus') => {
+    if (source === 'pointer') {
+      heroPointerPausedRef.current = false;
+    } else {
+      heroFocusPausedRef.current = false;
+    }
+
+    if (!heroPointerPausedRef.current && !heroFocusPausedRef.current) {
+      heroSectionRef.current?.classList.remove('is-hero-paused');
+    }
+
+    scheduleHeroAutoplay(heroAutoplayRemainingMsRef.current);
+  }, [scheduleHeroAutoplay]);
+
+  const handleHeroMouseEnter = useCallback(() => {
+    heroPointerFocusRef.current = true;
+    pauseHeroAutoplay('pointer');
+  }, [pauseHeroAutoplay]);
+
+  const handleHeroMouseLeave = useCallback(() => {
+    heroPointerFocusRef.current = false;
+    heroFocusPausedRef.current = false;
+    resumeHeroAutoplay('pointer');
+  }, [resumeHeroAutoplay]);
+
+  const handleHeroFocus = useCallback((event: React.FocusEvent<HTMLElement>) => {
+    if (heroPointerFocusRef.current || event.currentTarget.matches(':hover')) {
+      return;
+    }
+
+    pauseHeroAutoplay('focus');
+  }, [pauseHeroAutoplay]);
+
+  useEffect(() => {
+    heroAutoplayRemainingMsRef.current = MARKET_HERO_AUTOPLAY_INTERVAL_MS;
+    scheduleHeroAutoplay();
 
     return () => {
-      window.clearTimeout(timeoutId);
+      clearHeroAutoplayTimeout();
     };
   }, [
     activeHeroSlideIndex,
-    goToNextHeroSlide,
-    heroAutoplayActive,
+    clearHeroAutoplayTimeout,
     heroProgressAnimationKey,
+    scheduleHeroAutoplay,
   ]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        pauseHeroAutoplayTimer();
+        return;
+      }
+
+      scheduleHeroAutoplay(heroAutoplayRemainingMsRef.current);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pauseHeroAutoplayTimer, scheduleHeroAutoplay]);
 
   const handleHeroBlur = useCallback((event: React.FocusEvent<HTMLElement>) => {
     const nextFocusedElement = event.relatedTarget;
     if (!(nextFocusedElement instanceof globalThis.Node) || !event.currentTarget.contains(nextFocusedElement)) {
-      setHeroAutoplayPaused(false);
+      resumeHeroAutoplay('focus');
     }
-  }, []);
+  }, [resumeHeroAutoplay]);
 
   const handleCopyAccountCouponCode = useCallback(async () => {
     try {
@@ -5132,6 +5244,19 @@ const Market: React.FC = () => {
               }
             }
 
+            .market-hero-section.is-hero-paused .market-hero-progress-fill {
+              animation-play-state: paused;
+            }
+
+            .market-hero-progress-fill {
+              animation: marketHeroProgress var(--market-hero-progress-duration, 6000ms) linear forwards;
+            }
+
+            .market-hero-progress-fill-complete {
+              animation: none;
+              transform: scaleX(1);
+            }
+
             .market-role-marquee:hover .market-role-marquee-row {
               animation-play-state: paused;
             }
@@ -5266,10 +5391,11 @@ const Market: React.FC = () => {
             </Box>
 
             <section
-              className='relative min-h-[clamp(400px,calc(100dvh-250px),620px)] overflow-hidden border border-gray-200 bg-slate-950 shadow-sm dark:border-gray-800'
-              onMouseEnter={() => setHeroAutoplayPaused(true)}
-              onMouseLeave={() => setHeroAutoplayPaused(false)}
-              onFocus={() => setHeroAutoplayPaused(true)}
+              ref={heroSectionRef}
+              className='market-hero-section relative min-h-[clamp(400px,calc(100dvh-250px),620px)] overflow-hidden border border-gray-200 bg-slate-950 shadow-sm dark:border-gray-800'
+              onMouseEnter={handleHeroMouseEnter}
+              onMouseLeave={handleHeroMouseLeave}
+              onFocus={handleHeroFocus}
               onBlur={handleHeroBlur}
             >
               <div className='absolute inset-0 bg-slate-950'>
@@ -5355,14 +5481,9 @@ const Market: React.FC = () => {
                       >
                         {active && (
                           <span
-                            key={`${activeHeroSlideIndex}:${heroProgressAnimationKey}:${heroAutoplayActive ? 'running' : 'paused'}`}
-                            className="market-hero-progress-fill absolute inset-y-0 left-0 w-full origin-left bg-white"
-                            style={{
-                              animation: heroAutoplayActive
-                                ? `marketHeroProgress ${MARKET_HERO_AUTOPLAY_INTERVAL_MS}ms linear forwards`
-                                : 'none',
-                              transform: heroAutoplayActive ? undefined : 'scaleX(1)',
-                            }}
+                            key={`${activeHeroSlideIndex}:${heroProgressAnimationKey}`}
+                            className={`market-hero-progress-fill absolute inset-y-0 left-0 w-full origin-left bg-white ${heroAutoplayActive ? '' : 'market-hero-progress-fill-complete'}`}
+                            style={{ '--market-hero-progress-duration': `${MARKET_HERO_AUTOPLAY_INTERVAL_MS}ms` } as React.CSSProperties}
                           />
                         )}
                       </div>
