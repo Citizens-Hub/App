@@ -10,6 +10,7 @@ import ShipItemIdMappingsManager from './components/ShipItemIdMappingsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
+import CopyrightWatermarkTool from './components/CopyrightWatermarkTool';
 import ConciergePaintsManager from './components/ConciergePaintsManager';
 import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
@@ -38,6 +39,7 @@ enum Page {
   ShipImages = 'shipImages',
   ShipItemIds = 'shipItemIds',
   WatermarkDebug = 'watermarkDebug',
+  CopyrightWatermark = 'copyrightWatermark',
   ConciergePaints = 'conciergePaints',
   GameShops = 'gameShops',
   MarketHome = 'marketHome',
@@ -278,6 +280,15 @@ export default function Admin() {
       onSelect: () => setCurrentPage(Page.WatermarkDebug),
     },
     {
+      id: Page.CopyrightWatermark,
+      title: <FormattedMessage id="admin.copyrightWatermark.title" defaultMessage="Copyright Watermark" />,
+      description: <FormattedMessage id="admin.copyrightWatermark.navDescription" defaultMessage="Batch add and verify Citizens' Hub image copyright watermarks." />,
+      groupId: 'tools',
+      groupLabel: groups.tools,
+      active: currentPage === Page.CopyrightWatermark,
+      onSelect: () => setCurrentPage(Page.CopyrightWatermark),
+    },
+    {
       id: Page.RecaptchaV3,
       title: <FormattedMessage id="admin.recaptchaV3.title" defaultMessage="reCAPTCHA v3 Score Probe" />,
       description: <FormattedMessage id="admin.recaptchaV3.description" defaultMessage="检测 reCAPTCHA v3 评分。" />,
@@ -330,6 +341,7 @@ export default function Admin() {
         {currentPage === Page.ShipImages && <ShipImagesManager />}
         {currentPage === Page.ShipItemIds && <ShipItemIdMappingsManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
+        {currentPage === Page.CopyrightWatermark && <CopyrightWatermarkTool />}
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.MarketHome && <MarketHomeSettingsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
