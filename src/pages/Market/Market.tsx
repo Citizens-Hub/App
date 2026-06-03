@@ -1041,7 +1041,6 @@ const MarketHomeSearchBox = React.memo(function MarketHomeSearchBox({
 interface MarketHomeCategoryEntry {
   value: MarketItemFilterOption;
   label: string;
-  eyebrow: string;
   description: string;
   imageUrl: string;
   accentClassName: string;
@@ -1069,7 +1068,7 @@ const MarketHomeCategoryCard = React.memo(function MarketHomeCategoryCard({
       tabIndex={0}
       onClick={() => onOpen(entry.value)}
       onKeyDown={handleKeyDown}
-      className='group relative min-h-[188px] overflow-hidden border border-gray-200 bg-white p-0 text-left text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-white dark:hover:border-gray-700'
+      className='group cursor-pointer relative min-h-[188px] overflow-hidden border border-gray-200 bg-white p-0 text-left text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-white dark:hover:border-gray-700'
     >
       {entry.imageUrl ? (
         <img
@@ -1086,10 +1085,7 @@ const MarketHomeCategoryCard = React.memo(function MarketHomeCategoryCard({
       <div className={`absolute left-0 top-0 h-1.5 w-full ${entry.accentClassName}`} />
 
       <div className='relative z-10 flex h-full min-h-[188px] flex-col justify-end p-4'>
-        <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300'>
-          {entry.eyebrow}
-        </div>
-        <div className='mt-1 text-xl font-black leading-tight text-slate-950 dark:text-white'>
+        <div className='text-xl font-black leading-tight text-slate-950 dark:text-white'>
           {entry.label}
         </div>
         <p className='mt-2 line-clamp-2 text-sm leading-6 text-slate-700 dark:text-slate-200'>
@@ -3586,41 +3582,36 @@ const Market: React.FC = () => {
     return [
       {
         value: 'standalone_ship',
-        label: intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' }),
-        eyebrow: intl.formatMessage({ id: 'market.home.category.ship.eyebrow', defaultMessage: 'Ships' }),
-        description: intl.formatMessage({ id: 'market.home.category.ship.description', defaultMessage: 'Flight-ready hulls and limited releases from current stock.' }),
+        label: intl.formatMessage({ id: 'market.home.category.ship.label', defaultMessage: 'Ships' }),
+        description: intl.formatMessage({ id: 'market.home.category.ship.description', defaultMessage: 'Browse and buy LTI and OC ships.' }),
         imageUrl: standaloneImageUrl,
         accentClassName: 'bg-sky-500',
       },
       {
         value: 'ship_package',
-        label: intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' }),
-        eyebrow: intl.formatMessage({ id: 'market.home.category.package.eyebrow', defaultMessage: 'Game access' }),
-        description: intl.formatMessage({ id: 'market.home.category.package.description', defaultMessage: 'Starter packs and bundled ships with useful extras.' }),
+        label: intl.formatMessage({ id: 'market.home.category.package.label', defaultMessage: 'Ship Packages' }),
+        description: intl.formatMessage({ id: 'market.home.category.package.description', defaultMessage: 'Buy bundles that include LTI ships.' }),
         imageUrl: starterPackImageUrl,
         accentClassName: 'bg-emerald-500',
       },
       {
         value: 'ccu',
-        label: intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' }),
-        eyebrow: intl.formatMessage({ id: 'market.home.category.ccu.eyebrow', defaultMessage: 'Upgrades' }),
-        description: intl.formatMessage({ id: 'market.home.category.ccu.description', defaultMessage: 'Upgrade chains and discounted routes for your next target ship.' }),
+        label: intl.formatMessage({ id: 'market.home.category.ccu.label', defaultMessage: 'CCU' }),
+        description: intl.formatMessage({ id: 'market.home.category.ccu.description', defaultMessage: 'Find a CCU chain tailored to your target ship.' }),
         imageUrl: ccuImageUrl,
         accentClassName: 'bg-cyan-500',
       },
       {
         value: 'paint',
-        label: intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' }),
-        eyebrow: intl.formatMessage({ id: 'market.home.category.paint.eyebrow', defaultMessage: 'Finishes' }),
-        description: intl.formatMessage({ id: 'market.home.category.paint.description', defaultMessage: 'Paints and cosmetics for ships already in your hangar.' }),
+        label: intl.formatMessage({ id: 'market.home.category.paint.label', defaultMessage: 'Paints' }),
+        description: intl.formatMessage({ id: 'market.home.category.paint.description', defaultMessage: 'Choose favorite paints and cosmetics for your ships.' }),
         imageUrl: paintImageUrl,
         accentClassName: 'bg-violet-500',
       },
       {
         value: 'credit',
-        label: intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' }),
-        eyebrow: intl.formatMessage({ id: 'market.home.category.credit.eyebrow', defaultMessage: 'Balance' }),
-        description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Store credit options sized for flexible checkout planning.' }),
+        label: intl.formatMessage({ id: 'market.home.category.credit.label', defaultMessage: 'Store Credit' }),
+        description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Buy discounted store credit.' }),
         imageUrl: creditImageUrl,
         accentClassName: 'bg-amber-500',
       },
@@ -4408,10 +4399,7 @@ const Market: React.FC = () => {
     <section className='grid gap-4'>
       <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
         <div className='min-w-0'>
-          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300'>
-            <FormattedMessage id="market.home.category.eyebrow" defaultMessage="Shop by mission" />
-          </div>
-          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
             <FormattedMessage id="market.home.category.title" defaultMessage="Start from the product type you need" />
           </Typography>
           <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
