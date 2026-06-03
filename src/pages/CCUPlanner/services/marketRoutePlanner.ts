@@ -36,6 +36,8 @@ interface MarketRouteScore {
 
 export type CreditPoolOption = NonNullable<ListingItem['creditOptions']>[number];
 
+const MARKET_ROUTE_PRICE_EPSILON = 1e-6;
+
 export function normalizeMarketRouteShipName(name: string): string {
   return name.trim().toUpperCase();
 }
@@ -57,7 +59,23 @@ export function getCurrentWarbondPriceCents(ship: Ship, ccus: Ccu[]): number | n
   return Math.min(...ccuWarbondPrices);
 }
 
+function getRouteStepOfficialValue(sourceShip: Ship, targetShip: Ship): number {
+  return Math.max(0, (targetShip.msrp - sourceShip.msrp) / 100);
+}
+
+function isSavingsMarketCcuEdge(sourceShip: Ship, targetShip: Ship, price: number): boolean {
+  if (!Number.isFinite(price)) {
+    return false;
+  }
+
+  return price < getRouteStepOfficialValue(sourceShip, targetShip) - MARKET_ROUTE_PRICE_EPSILON;
+}
+
 function compareMarketRouteScore(left: MarketRouteScore, right: MarketRouteScore): number {
+  if (Math.abs(left.totalCost - right.totalCost) > MARKET_ROUTE_PRICE_EPSILON) {
+    return left.totalCost - right.totalCost;
+  }
+
   if (left.hangarCount !== right.hangarCount) {
     return right.hangarCount - left.hangarCount;
   }
@@ -74,12 +92,8 @@ function compareMarketRouteScore(left: MarketRouteScore, right: MarketRouteScore
     return right.officialCount - left.officialCount;
   }
 
-  if (Math.abs(left.warbondCost - right.warbondCost) > 1e-6) {
+  if (Math.abs(left.warbondCost - right.warbondCost) > MARKET_ROUTE_PRICE_EPSILON) {
     return left.warbondCost - right.warbondCost;
-  }
-
-  if (Math.abs(left.totalCost - right.totalCost) > 1e-6) {
-    return left.totalCost - right.totalCost;
   }
 
   return left.stepCount - right.stepCount;
@@ -355,6 +369,10 @@ export function buildCurrentMarketRoute(params: {
       return;
     }
 
+    if (!isSavingsMarketCcuEdge(sourceShip, nextShip, group.listing.price)) {
+      return;
+    }
+
     addEdge({
       key: `market:${group.listing.skuId}`,
       sourceShip,
@@ -384,7 +402,7 @@ export function buildCurrentMarketRoute(params: {
           sourceShip,
           targetShip: nextShip,
           sourceType: CcuSourceType.OFFICIAL,
-          cost: Math.max(0, (nextShip.msrp - sourceShip.msrp) / 100),
+          cost: getRouteStepOfficialValue(sourceShip, nextShip),
         });
       }
 

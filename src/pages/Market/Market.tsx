@@ -683,6 +683,32 @@ function getShipImageForRoleCard(ship: Ship) {
     || '';
 }
 
+function getMarketHomeListingImage(item: ListingItem | null | undefined, ships: Ship[]) {
+  if (!item) {
+    return '';
+  }
+
+  const listingImages = [
+    ...resolveMarketImageUrls(item.imageUrl, item.imageUrls),
+    item.toImageUrl,
+    item.fromImageUrl,
+    item.imageUrl,
+  ].filter((value): value is string => Boolean(value?.trim()));
+
+  for (const imageUrl of listingImages) {
+    const displayUrl = getMarketImageDisplayUrl(imageUrl, {
+      ships,
+      variant: 'slideshow',
+    });
+
+    if (displayUrl) {
+      return displayUrl;
+    }
+  }
+
+  return '';
+}
+
 function parseMarketPageSearchState(searchParams: URLSearchParams): MarketPageSearchState {
   const itemTypeFilter = parseMarketSearchParamList(searchParams, 'itemType')
     .find((value): value is MarketItemType => VALID_MARKET_ITEM_TYPE_FILTERS.has(value as MarketItemType));
@@ -961,12 +987,12 @@ const MarketHomeSearchBox = React.memo(function MarketHomeSearchBox({
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(0,1fr) 180px' },
-        gap: 1.5,
+        gridTemplateColumns: { xs: '1fr', sm: 'minmax(0,1fr) 156px' },
+        gap: { xs: 0.75, sm: 1 },
         border: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        p: 1.5,
+        p: { xs: 0.75, sm: 1 },
       }}
     >
       <TextField
@@ -984,7 +1010,11 @@ const MarketHomeSearchBox = React.memo(function MarketHomeSearchBox({
           }
         }}
         sx={{
-          '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: 'background.paper' },
+          '& .MuiOutlinedInput-root': {
+            minHeight: 46,
+            borderRadius: 0,
+            bgcolor: 'background.paper',
+          },
         }}
         slotProps={{
           input: {
@@ -1000,11 +1030,77 @@ const MarketHomeSearchBox = React.memo(function MarketHomeSearchBox({
       <Button
         variant="contained"
         onClick={submitSearch}
-        sx={{ borderRadius: 0 }}
+        sx={{ minHeight: { xs: 44, sm: 46 }, borderRadius: 0 }}
       >
         <FormattedMessage id="market.search" defaultMessage="Search" />
       </Button>
     </Box>
+  );
+});
+
+interface MarketHomeCategoryEntry {
+  value: MarketItemFilterOption;
+  label: string;
+  eyebrow: string;
+  description: string;
+  imageUrl: string;
+  accentClassName: string;
+}
+
+interface MarketHomeCategoryCardProps {
+  entry: MarketHomeCategoryEntry;
+  onOpen: (value: MarketItemFilterOption) => void;
+}
+
+const MarketHomeCategoryCard = React.memo(function MarketHomeCategoryCard({
+  entry,
+  onOpen,
+}: MarketHomeCategoryCardProps) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpen(entry.value);
+    }
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(entry.value)}
+      onKeyDown={handleKeyDown}
+      className='group relative min-h-[188px] overflow-hidden border border-gray-200 bg-white p-0 text-left text-slate-950 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-white dark:hover:border-gray-700'
+    >
+      {entry.imageUrl ? (
+        <img
+          src={entry.imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className='absolute inset-0 h-full w-full object-cover opacity-58 transition duration-500 group-hover:scale-[1.04] dark:opacity-52'
+        />
+      ) : (
+        <div className='absolute inset-0 bg-neutral-900' />
+      )}
+      <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.70)_0%,rgba(255,255,255,0.54)_30%,rgba(255,255,255,0.94)_100%)] dark:bg-[linear-gradient(180deg,rgba(10,10,10,0.12)_0%,rgba(10,10,10,0.42)_36%,rgba(10,10,10,0.92)_100%)]' />
+      <div className={`absolute left-0 top-0 h-1.5 w-full ${entry.accentClassName}`} />
+
+      <div className='relative z-10 flex h-full min-h-[188px] flex-col justify-end p-4'>
+        <div className='text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300'>
+          {entry.eyebrow}
+        </div>
+        <div className='mt-1 text-xl font-black leading-tight text-slate-950 dark:text-white'>
+          {entry.label}
+        </div>
+        <p className='mt-2 line-clamp-2 text-sm leading-6 text-slate-700 dark:text-slate-200'>
+          {entry.description}
+        </p>
+        <div className='mt-4 inline-flex items-center gap-2 text-sm font-bold text-sky-700 transition group-hover:gap-3 dark:text-sky-200'>
+          <FormattedMessage id="market.home.category.open" defaultMessage="Open listings" />
+          <ArrowRight className='h-4 w-4' />
+        </div>
+      </div>
+    </div>
   );
 });
 
@@ -2563,11 +2659,11 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
               {routeCalculating
                 ? intl.formatMessage({ id: 'market.ccuPlanner.calculatingSavings', defaultMessage: 'Calculating savings...' })
                 : displayedPlannerRoute
-                ? intl.formatMessage(
-                  { id: 'market.ccuPlanner.instantSavings', defaultMessage: 'Order now and save {amount}' },
-                  { amount: formatUsdPrice(intl.locale, plannerInstantSavings) },
-                )
-                : intl.formatMessage({ id: 'market.ccuPlanner.instantSavingsPending', defaultMessage: 'Select ships to calculate savings' })}
+                  ? intl.formatMessage(
+                    { id: 'market.ccuPlanner.instantSavings', defaultMessage: 'Order now and save {amount}' },
+                    { amount: formatUsdPrice(intl.locale, plannerInstantSavings) },
+                  )
+                  : intl.formatMessage({ id: 'market.ccuPlanner.instantSavingsPending', defaultMessage: 'Select ships to calculate savings' })}
             </div>
           </div>
           <div className='grid gap-2 text-sm text-emerald-950 dark:text-emerald-50 md:min-w-[300px]'>
@@ -3247,6 +3343,33 @@ const Market: React.FC = () => {
     limit: MARKET_HOME_OTHER_ITEMS_LIMIT,
   });
   const {
+    listingItems: standalonePreviewItems,
+  } = useMarketData({
+    enabled: homeContentEnabled,
+    browseCategories: ['standalone_ship'],
+    sortBy: 'recommended',
+    page: 0,
+    limit: 1,
+  });
+  const {
+    listingItems: ccuPreviewItems,
+  } = useMarketData({
+    enabled: homeContentEnabled,
+    itemTypes: ['ccu'],
+    sortBy: 'recommended',
+    page: 0,
+    limit: 1,
+  });
+  const {
+    listingItems: paintPreviewItems,
+  } = useMarketData({
+    enabled: homeContentEnabled,
+    browseCategories: ['paint'],
+    sortBy: 'recommended',
+    page: 0,
+    limit: 1,
+  });
+  const {
     data: marketReviewsResponse,
     isLoading: marketReviewsLoading,
   } = useMarketReviews(12, { enabled: homeContentEnabled });
@@ -3438,6 +3561,81 @@ const Market: React.FC = () => {
     showsManufacturerFilter,
     showsShipTraitFilters,
     sortBy,
+  ]);
+
+  const homeCatalogShips = marketSearchShips.length > 0 ? marketSearchShips : ships;
+  const activeHeroImageFallbackUrl = activeHeroSlide?.mediaType === 'image'
+    ? activeHeroSlide.mediaUrl
+    : activeHeroSlide?.posterUrl || '';
+  const marketHomeCategoryEntries = useMemo<MarketHomeCategoryEntry[]>(() => {
+    const categoryShips = homeCatalogShips.length > 0 ? homeCatalogShips : ships;
+    const firstAvailableShip = categoryShips.find((ship) => availableShipIds.has(ship.id)) || categoryShips[0] || null;
+    const standaloneImageUrl = getMarketHomeListingImage(standalonePreviewItems[0], categoryShips)
+      || (firstAvailableShip ? getShipImageForRoleCard(firstAvailableShip) : '')
+      || activeHeroImageFallbackUrl
+      || '';
+    const starterPackImageUrl = getMarketHomeListingImage(starterPackItems[0], categoryShips)
+      || standaloneImageUrl;
+    const ccuImageUrl = getMarketHomeListingImage(ccuPreviewItems[0], categoryShips)
+      || starterPackImageUrl;
+    const paintImageUrl = getMarketHomeListingImage(paintPreviewItems[0], categoryShips)
+      || getMarketHomeListingImage(otherGearItems[0], categoryShips)
+      || standaloneImageUrl;
+    const creditImageUrl = '/imgs/credit.webp';
+
+    return [
+      {
+        value: 'standalone_ship',
+        label: intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' }),
+        eyebrow: intl.formatMessage({ id: 'market.home.category.ship.eyebrow', defaultMessage: 'Ships' }),
+        description: intl.formatMessage({ id: 'market.home.category.ship.description', defaultMessage: 'Flight-ready hulls and limited releases from current stock.' }),
+        imageUrl: standaloneImageUrl,
+        accentClassName: 'bg-sky-500',
+      },
+      {
+        value: 'ship_package',
+        label: intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' }),
+        eyebrow: intl.formatMessage({ id: 'market.home.category.package.eyebrow', defaultMessage: 'Game access' }),
+        description: intl.formatMessage({ id: 'market.home.category.package.description', defaultMessage: 'Starter packs and bundled ships with useful extras.' }),
+        imageUrl: starterPackImageUrl,
+        accentClassName: 'bg-emerald-500',
+      },
+      {
+        value: 'ccu',
+        label: intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' }),
+        eyebrow: intl.formatMessage({ id: 'market.home.category.ccu.eyebrow', defaultMessage: 'Upgrades' }),
+        description: intl.formatMessage({ id: 'market.home.category.ccu.description', defaultMessage: 'Upgrade chains and discounted routes for your next target ship.' }),
+        imageUrl: ccuImageUrl,
+        accentClassName: 'bg-cyan-500',
+      },
+      {
+        value: 'paint',
+        label: intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' }),
+        eyebrow: intl.formatMessage({ id: 'market.home.category.paint.eyebrow', defaultMessage: 'Finishes' }),
+        description: intl.formatMessage({ id: 'market.home.category.paint.description', defaultMessage: 'Paints and cosmetics for ships already in your hangar.' }),
+        imageUrl: paintImageUrl,
+        accentClassName: 'bg-violet-500',
+      },
+      {
+        value: 'credit',
+        label: intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' }),
+        eyebrow: intl.formatMessage({ id: 'market.home.category.credit.eyebrow', defaultMessage: 'Balance' }),
+        description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Store credit options sized for flexible checkout planning.' }),
+        imageUrl: creditImageUrl,
+        accentClassName: 'bg-amber-500',
+      },
+    ];
+  }, [
+    activeHeroImageFallbackUrl,
+    availableShipIds,
+    ccuPreviewItems,
+    homeCatalogShips,
+    intl,
+    otherGearItems,
+    paintPreviewItems,
+    ships,
+    standalonePreviewItems,
+    starterPackItems,
   ]);
 
   useEffect(() => {
@@ -4186,6 +4384,65 @@ const Market: React.FC = () => {
     </section>
   );
 
+  const openMarketCategoryListings = (value: MarketItemFilterOption) => {
+    updateMarketSearchParams((nextSearchParams) => {
+      nextSearchParams.delete('itemType');
+      nextSearchParams.delete('browseCategory');
+      nextSearchParams.delete('tag');
+      nextSearchParams.delete('shipTrait');
+      nextSearchParams.delete('shipFocus');
+      nextSearchParams.delete('manufacturerId');
+      nextSearchParams.delete('packageItem');
+      nextSearchParams.delete('page');
+
+      if (value === 'ccu' || value === 'credit') {
+        nextSearchParams.set('itemType', value);
+      } else if (value !== 'all') {
+        nextSearchParams.set('browseCategory', value);
+      }
+    });
+    openListingDrawer();
+  };
+
+  const renderCategoryBrowseSection = () => (
+    <section className='grid gap-4'>
+      <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
+        <div className='min-w-0'>
+          <div className='text-xs font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300'>
+            <FormattedMessage id="market.home.category.eyebrow" defaultMessage="Shop by mission" />
+          </div>
+          <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+            <FormattedMessage id="market.home.category.title" defaultMessage="Start from the product type you need" />
+          </Typography>
+          <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+            <FormattedMessage
+              id="market.home.category.description"
+              defaultMessage="Jump into ships, starter packages, CCUs, paints, or store credit with filters already applied."
+            />
+          </Typography>
+        </div>
+        <Button
+          variant="outlined"
+          endIcon={<ArrowRight className='h-4 w-4' />}
+          onClick={() => openListingDrawer()}
+          sx={{ alignSelf: { xs: 'flex-start', md: 'auto' }, borderRadius: 0 }}
+        >
+          <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+        </Button>
+      </div>
+
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
+        {marketHomeCategoryEntries.map((entry) => (
+          <MarketHomeCategoryCard
+            key={entry.value}
+            entry={entry}
+            onOpen={openMarketCategoryListings}
+          />
+        ))}
+      </div>
+    </section>
+  );
+
   const openManufacturerListings = (manufacturerId: number) => {
     updateMarketSearchParams((nextSearchParams) => {
       MARKET_SEARCH_PARAM_KEYS.forEach((key) => {
@@ -4897,303 +5154,291 @@ const Market: React.FC = () => {
             pointerEvents: listingDrawerOpen ? 'none' : 'auto',
           }}
         >
-            <FloatingDiscordButton />
+          <FloatingDiscordButton />
 
-            <Button
-              variant="contained"
-              onClick={() => openListingDrawer()}
-              sx={{
-                position: 'fixed',
-                right: 0,
-                top: '30%',
-                transform: 'translateY(-50%)',
-                zIndex: 1200,
-                width: 48,
-                minWidth: 42,
-                minHeight: 156,
-                borderRadius: 0,
-                px: 0,
-                py: 1.5,
-                display: 'inline-flex',
-                flexDirection: 'column',
-                gap: 1,
-                writingMode: 'vertical-rl',
-                textOrientation: 'mixed',
-                letterSpacing: 0,
-                '& .market-listing-button-icon': {
-                  writingMode: 'horizontal-tb',
-                },
-              }}
-            >
-              <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
-              {/* <span className="market-listing-button-icon">
-                <ListFilter className="h-4 w-4" />
-              </span> */}
-            </Button>
-
-            <div className='relative mx-auto flex min-h-full w-full max-w-[1440px] flex-col gap-6 px-4 py-5 md:px-10 md:py-6'>
-          <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Link to="/orders" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
-              <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
-            </Link>
-            <Link to="/tickets" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
-              <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
-            </Link>
-            <IconButton
-              onClick={openCart}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                backgroundColor: 'background.paper',
-                color: 'text.primary',
-                borderRadius: 0,
-                '&:hover': { backgroundColor: 'action.hover' },
-              }}
-            >
-              <Badge badgeContent={cart.length} color="secondary" overlap="circular">
-                <ShoppingCart className='h-6 w-6' />
-              </Badge>
-            </IconButton>
-          </Box>
-
-          <section
-            className='relative min-h-[440px] overflow-hidden border border-gray-200 bg-slate-900 shadow-sm dark:border-gray-800 md:min-h-[560px]'
-            onMouseEnter={() => setHeroAutoplayPaused(true)}
-            onMouseLeave={() => setHeroAutoplayPaused(false)}
-            onFocus={() => setHeroAutoplayPaused(true)}
-            onBlur={handleHeroBlur}
-          >
-            <div
-              key={activeHeroSlide ? `${activeHeroSlide.id || activeHeroSlideIndex}:${activeHeroSlide.mediaType}:${activeHeroSlide.mediaUrl}` : 'empty-hero-media'}
-              className='absolute inset-0 bg-slate-900'
-            >
-              {activeHeroSlide ? renderMarketHeroMedia(activeHeroSlide, true) : null}
-            </div>
-            <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.48)_0%,rgba(15,23,42,0.22)_42%,rgba(15,23,42,0.08)_72%,rgba(15,23,42,0.02)_100%)]' />
-            <div className='absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/70 via-slate-950/36 to-transparent' />
-
-            {heroSlides.length > 1 && (
-              <>
-                <IconButton
-                  onClick={goToPreviousHeroSlide}
-                  sx={{
-                    position: 'absolute',
-                    left: 16,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    zIndex: 20,
-                    color: 'white',
-                    bgcolor: 'rgba(0,0,0,0.38)',
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
-                  }}
-                  aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
-                >
-                  <ChevronLeft className='h-5 w-5' />
-                </IconButton>
-                <IconButton
-                  onClick={goToNextHeroSlide}
-                  sx={{
-                    position: 'absolute',
-                    right: 16,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    zIndex: 20,
-                    color: 'white',
-                    bgcolor: 'rgba(0,0,0,0.38)',
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
-                  }}
-                  aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
-                >
-                  <ChevronRight className='h-5 w-5' />
-                </IconButton>
-              </>
-            )}
-
-            <div
-              key={activeHeroSlide?.id || activeHeroSlideIndex}
-              className='relative z-10 flex min-h-[440px] max-w-3xl animate-[marketHeroCopyIn_360ms_ease-out] flex-col justify-end px-6 py-8 md:min-h-[560px] md:px-14 md:py-14 motion-reduce:animate-none'
-            >
-              <div className='text-xs font-semibold uppercase tracking-[0.18em] text-blue-200'>
-                {activeHeroTranslation.eyebrow}
-              </div>
-              <Typography
-                component="h1"
-                sx={{
-                  mt: 1.5,
-                  fontSize: { xs: 34, md: 56 },
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  letterSpacing: 0,
-                  textTransform: 'uppercase',
-                  color: 'white',
-                }}
-              >
-                {activeHeroTranslation.title}
-              </Typography>
-              {activeHeroTranslation.subtitle && (
-                <Typography sx={{ mt: 2, maxWidth: 620, color: 'rgba(255,255,255,0.78)', fontSize: { xs: 15, md: 18 }, lineHeight: 1.65 }}>
-                  {activeHeroTranslation.subtitle}
-                </Typography>
-              )}
-              <div className='mt-6 flex flex-wrap gap-3'>
-                <Button
-                  variant="contained"
-                  endIcon={<ArrowRight className='h-4 w-4' />}
-                  onClick={() => handleHeroAction(activeHeroSlide)}
-                  sx={{ borderRadius: 0 }}
-                >
-                  {activeHeroTranslation.ctaLabel}
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<ListFilter className='h-4 w-4' />}
-                  onClick={() => openListingDrawer()}
-                  sx={{ borderRadius: 0, borderColor: 'rgba(255,255,255,0.55)', color: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}
-                >
-                  <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
-                </Button>
-              </div>
-            </div>
-          </section>
-
-          {/* {heroSlides.length > 1 && (
-            <div className='mx-auto w-full flex gap-8 justify-center'>
-              {heroSlides.map((slide, index) => {
-                const translation = getMarketHeroTranslation(slide, locale as MarketHomeLocaleCode);
-                const active = index === activeHeroIndex;
-
-                return (
-                  <div
-                    key={slide.id || index}
-                    onClick={() => setActiveHeroIndex(index)}
-                    className={`cursor-pointer min-h-12 border px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] transition ${active ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-slate-700 hover:border-blue-300 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200 dark:hover:border-blue-500'}`}
-                  >
-                    {translation.title || translation.eyebrow || `Hero ${index + 1}`}
-                  </div>
-                );
-              })}
-            </div>
-          )} */}
-
-          <section className='mx-auto grid w-full gap-4'>
-              <MarketHomeSearchBox
-                value={searchTerm}
-                placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
-                onSearch={commitHomeMarketSearch}
-              />
-
-            <div className='grid gap-3 md:grid-cols-5'>
-              {[
-                { value: 'standalone_ship' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' }) },
-                { value: 'ship_package' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' }) },
-                { value: 'ccu' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.ccu', defaultMessage: 'CCU' }) },
-                { value: 'paint' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' }) },
-                { value: 'credit' as MarketItemFilterOption, label: intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' }) },
-              ].map((entry) => (
-                <div
-                  key={entry.value}
-                  onClick={() => {
-                    updateMarketSearchParams((nextSearchParams) => {
-                      nextSearchParams.delete('itemType');
-                      nextSearchParams.delete('browseCategory');
-                      nextSearchParams.delete('shipTrait');
-                      nextSearchParams.delete('shipFocus');
-                      nextSearchParams.delete('manufacturerId');
-                      nextSearchParams.delete('packageItem');
-                      nextSearchParams.delete('page');
-                      if (entry.value === 'ccu' || entry.value === 'credit') {
-                        nextSearchParams.set('itemType', entry.value);
-                      } else {
-                        nextSearchParams.set('browseCategory', entry.value);
-                      }
-                    });
-                    openListingDrawer();
-                  }}
-                  className='cursor-pointer flex min-h-20 items-center justify-between border border-gray-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:border-blue-400 hover:bg-blue-50 dark:border-gray-800 dark:bg-neutral-900 dark:text-white dark:hover:border-blue-500 dark:hover:bg-neutral-800'
-                >
-                  <span>{entry.label}</span>
-                  <ArrowRight className='h-4 w-4 text-blue-600 dark:text-blue-300' />
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <MarketCcuRoutePlanner ships={ships} />
-
-          {renderStarterPackSection()}
-
-          <section className='grid gap-4'>
-            <div className='grid gap-4 md:grid-cols-3'>
-              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-                <ShieldOutlined color="primary" />
-                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
-                  <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
-                </Typography>
-                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
-                  <FormattedMessage
-                    id="market.trust.description"
-                    defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
-                  />
-                </Typography>
-              </div>
-              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-                <LocalShippingOutlined color="primary" />
-                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
-                  <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
-                </Typography>
-                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
-                  <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
-                </Typography>
-              </div>
-              <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
-                <SupportAgentOutlined color="primary" />
-                <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
-                  <FormattedMessage id="market.support.title" defaultMessage="Order support" />
-                </Typography>
-                <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
-                  {renderProgressSupport()}
-                </Typography>
-              </div>
-            </div>
-          </section>
-
-          {renderMarketReviewsSection()}
-
-          {renderFeaturedAccountsSection()}
-
-          {renderManufacturerBrowseSection()}
-
-          {renderShipFocusBrowseSection()}
-
-          {renderOtherGearSection()}
-
-          <Box
+          <Button
+            variant="contained"
+            onClick={() => openListingDrawer()}
             sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 1.5,
-              flexWrap: 'wrap',
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              pt: 3,
-              pb: 2,
-              color: 'text.secondary',
+              position: 'fixed',
+              right: 0,
+              top: '30%',
+              transform: 'translateY(-50%)',
+              zIndex: 1200,
+              width: 48,
+              minWidth: 42,
+              minHeight: 156,
+              borderRadius: 0,
+              px: 0,
+              py: 1.5,
+              display: { xs: 'none', md: 'inline-flex' },
+              flexDirection: 'column',
+              gap: 1,
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              letterSpacing: 0,
+              '& .market-listing-button-icon': {
+                writingMode: 'horizontal-tb',
+              },
             }}
           >
-            <Link to="/terms-of-service" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
-              <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
-            </Link>
-            <span className='text-slate-500'>|</span>
-            <Link to="/refund-policy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
-              <FormattedMessage id="navigate.refund" defaultMessage="Refund Policy" />
-            </Link>
-            <span className='text-slate-500'>|</span>
-            <Link to="/privacy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
-              <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
-            </Link>
-          </Box>
-            </div>
+            <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+            {/* <span className="market-listing-button-icon">
+                <ListFilter className="h-4 w-4" />
+              </span> */}
+          </Button>
+
+          <div className='relative mx-auto flex min-h-full w-full max-w-[1480px] flex-col gap-8 px-4 py-5 md:px-10 md:py-6'>
+            <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              {/* <div className='flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400'>
+              <span className='border border-sky-200 bg-sky-50 px-2 py-1 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200'>
+                <FormattedMessage id="market.home.utilityLabel" defaultMessage="Citizens Hub Market" />
+              </span>
+            </div> */}
+              <div className='flex items-center gap-2 sm:gap-3'>
+                <Link to="/orders" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+                  <FormattedMessage id="market.myOrders" defaultMessage="My Orders" />
+                </Link>
+                <Link to="/tickets" className='text-sm text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+                  <FormattedMessage id="market.myTickets" defaultMessage="My Tickets" />
+                </Link>
+                <IconButton
+                  onClick={openCart}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: 'background.paper',
+                    color: 'text.primary',
+                    borderRadius: 0,
+                    '&:hover': { backgroundColor: 'action.hover' },
+                  }}
+                >
+                  <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                    <ShoppingCart className='h-6 w-6' />
+                  </Badge>
+                </IconButton>
+              </div>
+            </Box>
+
+            <section
+              className='relative min-h-[clamp(400px,calc(100dvh-250px),620px)] overflow-hidden border border-gray-200 bg-slate-950 shadow-sm dark:border-gray-800'
+              onMouseEnter={() => setHeroAutoplayPaused(true)}
+              onMouseLeave={() => setHeroAutoplayPaused(false)}
+              onFocus={() => setHeroAutoplayPaused(true)}
+              onBlur={handleHeroBlur}
+            >
+              <div
+                key={activeHeroSlide ? `${activeHeroSlide.id || activeHeroSlideIndex}:${activeHeroSlide.mediaType}:${activeHeroSlide.mediaUrl}` : 'empty-hero-media'}
+                className='absolute inset-0 bg-slate-950'
+              >
+                {activeHeroSlide ? renderMarketHeroMedia(activeHeroSlide, true) : null}
+              </div>
+              <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.86)_0%,rgba(2,6,23,0.60)_40%,rgba(2,6,23,0.18)_78%,rgba(2,6,23,0.08)_100%)]' />
+              <div className='absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-slate-950/88 via-slate-950/42 to-transparent' />
+
+              {heroSlides.length > 1 && (
+                <>
+                  <IconButton
+                    onClick={goToPreviousHeroSlide}
+                    sx={{
+                      position: 'absolute',
+                      left: 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 20,
+                      display: { xs: 'none', md: 'inline-flex' },
+                      color: 'white',
+                      bgcolor: 'rgba(0,0,0,0.34)',
+                      borderRadius: 0,
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
+                    }}
+                    aria-label={intl.formatMessage({ id: 'common.previous', defaultMessage: 'Previous' })}
+                  >
+                    <ChevronLeft className='h-5 w-5' />
+                  </IconButton>
+                  <IconButton
+                    onClick={goToNextHeroSlide}
+                    sx={{
+                      position: 'absolute',
+                      right: 16,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 20,
+                      display: { xs: 'none', md: 'inline-flex' },
+                      color: 'white',
+                      bgcolor: 'rgba(0,0,0,0.34)',
+                      borderRadius: 0,
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.58)' },
+                    }}
+                    aria-label={intl.formatMessage({ id: 'common.next', defaultMessage: 'Next' })}
+                  >
+                    <ChevronRight className='h-5 w-5' />
+                  </IconButton>
+                </>
+              )}
+
+              {heroSlides.length > 1 && (
+                <div className='absolute bottom-4 right-4 z-20 hidden gap-1.5 md:flex'>
+                  {heroSlides.map((slide, index) => {
+                    const translation = getMarketHeroTranslation(slide, locale as MarketHomeLocaleCode);
+                    const active = index === activeHeroIndex;
+                    const handleHeroDotKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setActiveHeroIndex(index);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={slide.id || index}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setActiveHeroIndex(index)}
+                        onKeyDown={handleHeroDotKeyDown}
+                        aria-label={translation.title || translation.eyebrow || `Hero ${index + 1}`}
+                        className={`h-2.5 cursor-pointer border border-white/50 transition ${active ? 'w-8 bg-white' : 'w-2.5 bg-white/30 hover:bg-white/70'}`}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              <div
+                key={activeHeroSlide?.id || activeHeroSlideIndex}
+                className='relative z-10 flex min-h-[clamp(400px,calc(100dvh-250px),620px)] px-5 py-6 sm:px-6 md:px-10 md:py-10 motion-reduce:animate-none'
+              >
+                <div className='flex max-w-3xl animate-[marketHeroCopyIn_360ms_ease-out] flex-col justify-end motion-reduce:animate-none'>
+                  <div className='text-xs font-semibold uppercase tracking-[0.18em] text-sky-200'>
+                    {activeHeroTranslation.eyebrow}
+                  </div>
+                  <Typography
+                    component="h1"
+                    sx={{
+                      mt: 1.5,
+                      maxWidth: 820,
+                      fontSize: { xs: 32, sm: 42, md: 58 },
+                      lineHeight: 1,
+                      fontWeight: 900,
+                      letterSpacing: 0,
+                      textTransform: 'uppercase',
+                      color: 'white',
+                    }}
+                  >
+                    {activeHeroTranslation.title}
+                  </Typography>
+                  {activeHeroTranslation.subtitle && (
+                    <Typography sx={{ mt: 2, maxWidth: 680, color: 'rgba(255,255,255,0.80)', fontSize: { xs: 15, md: 18 }, lineHeight: 1.65 }}>
+                      {activeHeroTranslation.subtitle}
+                    </Typography>
+                  )}
+
+                  <div className='mt-5 flex flex-wrap gap-3'>
+                    <Button
+                      variant="contained"
+                      endIcon={<ArrowRight className='h-4 w-4' />}
+                      onClick={() => handleHeroAction(activeHeroSlide)}
+                      sx={{ borderRadius: 0 }}
+                    >
+                      {activeHeroTranslation.ctaLabel}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ListFilter className='h-4 w-4' />}
+                      onClick={() => openListingDrawer()}
+                      sx={{ borderRadius: 0, borderColor: 'rgba(255,255,255,0.55)', color: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}
+                    >
+                      <FormattedMessage id="market.openListings" defaultMessage="Browse all products" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <MarketHomeSearchBox
+              value={searchTerm}
+              placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
+              onSearch={commitHomeMarketSearch}
+            />
+
+            {renderCategoryBrowseSection()}
+
+            <MarketCcuRoutePlanner ships={ships} />
+
+            {renderStarterPackSection()}
+
+            <section className='grid gap-4'>
+              <div className='grid gap-4 md:grid-cols-3'>
+                <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                  <ShieldOutlined color="primary" />
+                  <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                    <FormattedMessage id="market.trust.title" defaultMessage="Own stock, no third-party sellers involved" />
+                  </Typography>
+                  <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                    <FormattedMessage
+                      id="market.trust.description"
+                      defaultMessage="All items come directly from our own stock, with no third-party sellers involved, and are fully covered by our customer protection policy."
+                    />
+                  </Typography>
+                </div>
+                <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                  <LocalShippingOutlined color="primary" />
+                  <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                    <FormattedMessage id="market.trust.deliveryWithin24h" defaultMessage="Guaranteed delivery within 24 hours." />
+                  </Typography>
+                  <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                    <FormattedMessage id="market.trust.deliveryWindow" defaultMessage="Usually we can deliver within 30 minutes between 10:00 and 00:00 Hong Kong time." />
+                  </Typography>
+                </div>
+                <div className='border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-neutral-900'>
+                  <SupportAgentOutlined color="primary" />
+                  <Typography sx={{ mt: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                    <FormattedMessage id="market.support.title" defaultMessage="Order support" />
+                  </Typography>
+                  <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
+                    {renderProgressSupport()}
+                  </Typography>
+                </div>
+              </div>
+            </section>
+
+            {renderMarketReviewsSection()}
+
+            {renderFeaturedAccountsSection()}
+
+            {renderManufacturerBrowseSection()}
+
+            {renderShipFocusBrowseSection()}
+
+            {renderOtherGearSection()}
+
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 1.5,
+                flexWrap: 'wrap',
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                pt: 3,
+                pb: 2,
+                color: 'text.secondary',
+              }}
+            >
+              <Link to="/terms-of-service" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+                <FormattedMessage id="navigate.terms" defaultMessage="Terms of Service" />
+              </Link>
+              <span className='text-slate-500'>|</span>
+              <Link to="/refund-policy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+                <FormattedMessage id="navigate.refund" defaultMessage="Refund Policy" />
+              </Link>
+              <span className='text-slate-500'>|</span>
+              <Link to="/privacy" className='text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'>
+                <FormattedMessage id="navigate.privacy" defaultMessage="Privacy Policy" />
+              </Link>
+            </Box>
+          </div>
         </Box>
 
         <Drawer
