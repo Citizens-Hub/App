@@ -552,17 +552,50 @@ function getMarketHeroTranslation(
   };
 }
 
-function renderMarketHeroMedia(slide: MarketHomeHeroSlide, eager = false) {
+interface MarketHeroMediaProps {
+  active: boolean;
+  slide: MarketHomeHeroSlide;
+}
+
+const MarketHeroMedia = React.memo(function MarketHeroMedia({
+  active,
+  slide,
+}: MarketHeroMediaProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    if (!active) {
+      video.pause();
+      return;
+    }
+
+    const playPromise = video.play();
+
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        // Autoplay can be rejected by the browser even when muted.
+      });
+    }
+  }, [active, slide.mediaUrl]);
+
   if (slide.mediaType === 'video') {
     return (
       <video
+        ref={videoRef}
         className='absolute inset-0 h-full w-full object-cover'
         src={slide.mediaUrl}
         poster={slide.posterUrl || undefined}
         muted
-        autoPlay
+        autoPlay={active}
         loop
         playsInline
+        preload="auto"
       />
     );
   }
@@ -572,11 +605,11 @@ function renderMarketHeroMedia(slide: MarketHomeHeroSlide, eager = false) {
       className='absolute inset-0 h-full w-full object-cover'
       src={slide.mediaUrl}
       alt=""
-      loading={eager ? 'eager' : 'lazy'}
+      loading="eager"
       decoding="async"
     />
   );
-}
+});
 
 function formatCouponCountdown(remainingMs: number) {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
@@ -2852,6 +2885,7 @@ const Market: React.FC = () => {
   const [mobileListingItems, setMobileListingItems] = useState<ListingItem[]>([]);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [heroAutoplayPaused, setHeroAutoplayPaused] = useState(false);
+  const [heroProgressAnimationKey, setHeroProgressAnimationKey] = useState(0);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const autoClaimAttemptedRef = useRef<string | null>(null);
@@ -3393,31 +3427,37 @@ const Market: React.FC = () => {
   const activeHeroTranslation = activeHeroSlide
     ? getMarketHeroTranslation(activeHeroSlide, locale as MarketHomeLocaleCode)
     : getMarketHeroTranslation(DEFAULT_MARKET_HERO_SLIDES[0], locale as MarketHomeLocaleCode);
+  const heroAutoplayActive = heroSlides.length > 1
+    && !heroAutoplayPaused
+    && !listingDrawerOpen
+    && !mobileFilterDrawerOpen
+    && !cartOpen;
 
   useEffect(() => {
     setActiveHeroIndex((current) => Math.min(current, Math.max(heroSlides.length - 1, 0)));
   }, [heroSlides.length]);
 
   const goToPreviousHeroSlide = useCallback(() => {
+    setHeroProgressAnimationKey((current) => current + 1);
     setActiveHeroIndex((current) => (current <= 0 ? heroSlides.length - 1 : current - 1));
   }, [heroSlides.length]);
 
   const goToNextHeroSlide = useCallback(() => {
+    setHeroProgressAnimationKey((current) => current + 1);
     setActiveHeroIndex((current) => (current >= heroSlides.length - 1 ? 0 : current + 1));
   }, [heroSlides.length]);
 
+  const goToHeroSlide = useCallback((index: number) => {
+    setHeroProgressAnimationKey((current) => current + 1);
+    setActiveHeroIndex(Math.min(Math.max(index, 0), Math.max(heroSlides.length - 1, 0)));
+  }, [heroSlides.length]);
+
   useEffect(() => {
-    if (
-      heroSlides.length <= 1
-      || heroAutoplayPaused
-      || listingDrawerOpen
-      || mobileFilterDrawerOpen
-      || cartOpen
-    ) {
+    if (!heroAutoplayActive) {
       return;
     }
 
-    const intervalId = window.setInterval(() => {
+    const timeoutId = window.setTimeout(() => {
       if (document.visibilityState === 'hidden') {
         return;
       }
@@ -3426,9 +3466,14 @@ const Market: React.FC = () => {
     }, MARKET_HERO_AUTOPLAY_INTERVAL_MS);
 
     return () => {
-      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
     };
-  }, [cartOpen, goToNextHeroSlide, heroAutoplayPaused, heroSlides.length, listingDrawerOpen, mobileFilterDrawerOpen]);
+  }, [
+    activeHeroSlideIndex,
+    goToNextHeroSlide,
+    heroAutoplayActive,
+    heroProgressAnimationKey,
+  ]);
 
   const handleHeroBlur = useCallback((event: React.FocusEvent<HTMLElement>) => {
     const nextFocusedElement = event.relatedTarget;
@@ -5078,6 +5123,15 @@ const Market: React.FC = () => {
               }
             }
 
+            @keyframes marketHeroProgress {
+              from {
+                transform: scaleX(0);
+              }
+              to {
+                transform: scaleX(1);
+              }
+            }
+
             .market-role-marquee:hover .market-role-marquee-row {
               animation-play-state: paused;
             }
@@ -5112,6 +5166,11 @@ const Market: React.FC = () => {
 
               .market-role-marquee-row {
                 animation: none;
+              }
+
+              .market-hero-progress-fill {
+                animation: none;
+                transform: scaleX(1);
               }
             }
           `}
@@ -5213,11 +5272,20 @@ const Market: React.FC = () => {
               onFocus={() => setHeroAutoplayPaused(true)}
               onBlur={handleHeroBlur}
             >
-              <div
-                key={activeHeroSlide ? `${activeHeroSlide.id || activeHeroSlideIndex}:${activeHeroSlide.mediaType}:${activeHeroSlide.mediaUrl}` : 'empty-hero-media'}
-                className='absolute inset-0 bg-slate-950'
-              >
-                {activeHeroSlide ? renderMarketHeroMedia(activeHeroSlide, true) : null}
+              <div className='absolute inset-0 bg-slate-950'>
+                {heroSlides.map((slide, index) => {
+                  const active = index === activeHeroSlideIndex;
+
+                  return (
+                    <div
+                      key={`${slide.id || index}:${slide.mediaType}:${slide.mediaUrl}`}
+                      aria-hidden={!active}
+                      className={`absolute inset-0 transition-opacity duration-500 motion-reduce:transition-none ${active ? 'opacity-100' : 'opacity-0'}`}
+                    >
+                      <MarketHeroMedia active={active} slide={slide} />
+                    </div>
+                  );
+                })}
               </div>
               <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.86)_0%,rgba(2,6,23,0.60)_40%,rgba(2,6,23,0.18)_78%,rgba(2,6,23,0.08)_100%)]' />
               <div className='absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-slate-950/88 via-slate-950/42 to-transparent' />
@@ -5267,11 +5335,11 @@ const Market: React.FC = () => {
                 <div className='absolute bottom-4 right-4 z-20 hidden gap-1.5 md:flex'>
                   {heroSlides.map((slide, index) => {
                     const translation = getMarketHeroTranslation(slide, locale as MarketHomeLocaleCode);
-                    const active = index === activeHeroIndex;
+                    const active = index === activeHeroSlideIndex;
                     const handleHeroDotKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        setActiveHeroIndex(index);
+                        goToHeroSlide(index);
                       }
                     };
 
@@ -5280,11 +5348,24 @@ const Market: React.FC = () => {
                         key={slide.id || index}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setActiveHeroIndex(index)}
+                        onClick={() => goToHeroSlide(index)}
                         onKeyDown={handleHeroDotKeyDown}
                         aria-label={translation.title || translation.eyebrow || `Hero ${index + 1}`}
-                        className={`h-2.5 cursor-pointer border border-white/50 transition ${active ? 'w-8 bg-white' : 'w-2.5 bg-white/30 hover:bg-white/70'}`}
-                      />
+                        className={`relative h-2.5 cursor-pointer overflow-hidden border border-white/50 transition-[width,background-color] ${active ? 'w-10 bg-white/25' : 'w-2.5 bg-white/30 hover:bg-white/70'}`}
+                      >
+                        {active && (
+                          <span
+                            key={`${activeHeroSlideIndex}:${heroProgressAnimationKey}:${heroAutoplayActive ? 'running' : 'paused'}`}
+                            className="market-hero-progress-fill absolute inset-y-0 left-0 w-full origin-left bg-white"
+                            style={{
+                              animation: heroAutoplayActive
+                                ? `marketHeroProgress ${MARKET_HERO_AUTOPLAY_INTERVAL_MS}ms linear forwards`
+                                : 'none',
+                              transform: heroAutoplayActive ? undefined : 'scaleX(1)',
+                            }}
+                          />
+                        )}
+                      </div>
                     );
                   })}
                 </div>
