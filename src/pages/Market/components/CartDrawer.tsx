@@ -14,7 +14,7 @@ import {
   ButtonGroup
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
-import { CartItem, MarketItemType } from '@/types';
+import { CartItem, MarketItemType, Ship } from '@/types';
 import { ReactNode, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
@@ -40,6 +40,7 @@ interface CartDrawerProps {
   getAvailableStock?: (resourceId: string) => number;
   checkoutPath?: string;
   title?: ReactNode;
+  ships?: Ship[];
 }
 
 const CartDrawer: React.FC<CartDrawerProps> = ({ 
@@ -51,13 +52,15 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   getAvailableStock,
   checkoutPath = '/checkout',
   title,
+  ships: shipsProp,
 }) => {
   const intl = useIntl();
   const navigate = useNavigate();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const { ships } = useShipsData();
-  const cartValidation = useMarketCartValidation(cart, { enabled: checkoutPath === '/checkout' });
+  const { ships: loadedShips } = useShipsData({ enabled: !shipsProp });
+  const ships = shipsProp || loadedShips;
+  const cartValidation = useMarketCartValidation(cart, { enabled: open && checkoutPath === '/checkout' });
 
   const getResourceItemType = (item: CartItem['resource']): MarketItemType => {
     const rawItemType = item.itemType || item.subtitle || item.type;
@@ -181,6 +184,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         anchor="right"
         open={open}
         onClose={onClose}
+        ModalProps={{ keepMounted: false }}
         PaperProps={{
           sx: { width: { xs: '100%', sm: 400 } }
         }}

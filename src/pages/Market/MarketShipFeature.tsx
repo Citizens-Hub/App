@@ -224,6 +224,10 @@ export default function MarketShipFeature() {
       return resolveDirectMarketItem(item);
     }
 
+    if (item.variants?.length) {
+      return resolveLowestCcuVariant(item);
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/market/item/${encodeURIComponent(item.skuId)}`);
       if (!response.ok) {
@@ -280,12 +284,7 @@ export default function MarketShipFeature() {
 
     const directCheckoutItems = [buildMarketCartItem(targetItem, 1, ships)];
     saveDirectCheckoutItems(directCheckoutItems);
-    navigate(getDirectCheckoutPath(), {
-      state: {
-        directCheckoutItems,
-        ships,
-      },
-    });
+    navigate(getDirectCheckoutPath());
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
@@ -663,6 +662,7 @@ export default function MarketShipFeature() {
         <CartDrawer
           open={cartOpen}
           cart={cart}
+          ships={ships}
           onClose={closeCart}
           onRemoveFromCart={removeFromCart}
           onUpdateQuantity={updateItemQuantity}

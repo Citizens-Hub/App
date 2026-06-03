@@ -1,10 +1,20 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, createListenerMiddleware, isAnyOf } from "@reduxjs/toolkit";
 import upgradesReducer from "./upgradesStore";
 import userReducer from "./userStore";
 import shareReducer from "./shareStore";
 import importReducer from "./importStore";
-import cartReducer from "./cartStore";
+import cartReducer, {
+  addItem,
+  clearCart,
+  CartState,
+  persistCartState,
+  primeCartPersistence,
+  removeItem,
+  updateQuantity,
+} from "./cartStore";
 // import biReducer from "./biStore";
+
+const cartPersistenceMiddleware = createListenerMiddleware();
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +24,18 @@ export const store = configureStore({
     share: shareReducer,
     import: importReducer,
     cart: cartReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().prepend(cartPersistenceMiddleware.middleware),
+});
+
+primeCartPersistence(store.getState().cart);
+
+cartPersistenceMiddleware.startListening({
+  matcher: isAnyOf(addItem, updateQuantity, removeItem, clearCart),
+  effect: (_action, listenerApi) => {
+    const state = listenerApi.getState() as { cart: CartState };
+    persistCartState(state.cart);
   },
 });
 

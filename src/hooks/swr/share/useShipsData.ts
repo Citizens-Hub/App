@@ -6,13 +6,14 @@ import { getShipThumbSmall } from '@/utils/shipImage';
 /**
  * Hook to fetch and manage ships data
  */
-export default function useShipsData() {
+export default function useShipsData(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled !== false;
   // 使用SWR获取船只数据
   const { 
     data: shipsData, 
     error, 
     isLoading: loading 
-  } = useApi<ShipsData>('/api/ships');
+  } = useApi<ShipsData>(enabled ? '/api/ships' : null);
 
   // 处理和缓存船只数据
   const { ships, shipsMap } = useMemo(() => {

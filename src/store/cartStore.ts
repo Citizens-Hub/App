@@ -1,14 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { CartItem, Resource } from '@/types';
 
-type CartNamespace = 'market' | 'accountMarket';
+export type CartNamespace = 'market' | 'accountMarket';
 
 interface CartBucketState {
   items: CartItem[];
   isOpen: boolean;
 }
 
-interface CartState {
+export interface CartState {
   market: CartBucketState;
   accountMarket: CartBucketState;
 }
@@ -45,6 +45,73 @@ function saveCartItems(namespace: CartNamespace, items: CartItem[]) {
   }
 }
 
+const CART_NAMESPACES: CartNamespace[] = ['market', 'accountMarket'];
+const pendingCartPersistence = new Map<CartNamespace, CartItem[]>();
+const lastPersistedItemsByNamespace = new Map<CartNamespace, CartItem[]>();
+let cartPersistenceTimer: number | null = null;
+let cartPersistenceListenersRegistered = false;
+
+function flushPendingCartPersistence() {
+  if (cartPersistenceTimer !== null) {
+    window.clearTimeout(cartPersistenceTimer);
+    cartPersistenceTimer = null;
+  }
+
+  pendingCartPersistence.forEach((items, namespace) => {
+    saveCartItems(namespace, items);
+  });
+  pendingCartPersistence.clear();
+}
+
+function scheduleCartPersistence() {
+  if (typeof window === 'undefined' || cartPersistenceTimer !== null) {
+    return;
+  }
+
+  cartPersistenceTimer = window.setTimeout(flushPendingCartPersistence, 120);
+}
+
+function registerCartPersistenceListeners() {
+  if (typeof window === 'undefined' || cartPersistenceListenersRegistered) {
+    return;
+  }
+
+  cartPersistenceListenersRegistered = true;
+  window.addEventListener('pagehide', flushPendingCartPersistence);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushPendingCartPersistence();
+    }
+  });
+}
+
+export function primeCartPersistence(state: CartState) {
+  CART_NAMESPACES.forEach((namespace) => {
+    lastPersistedItemsByNamespace.set(namespace, state[namespace].items);
+  });
+  registerCartPersistenceListeners();
+}
+
+export function persistCartState(state: CartState) {
+  let hasPendingChanges = false;
+
+  CART_NAMESPACES.forEach((namespace) => {
+    const items = state[namespace].items;
+    if (lastPersistedItemsByNamespace.get(namespace) === items) {
+      return;
+    }
+
+    lastPersistedItemsByNamespace.set(namespace, items);
+    pendingCartPersistence.set(namespace, items);
+    hasPendingChanges = true;
+  });
+
+  if (hasPendingChanges) {
+    registerCartPersistenceListeners();
+    scheduleCartPersistence();
+  }
+}
+
 const initialState: CartState = {
   market: {
     items: loadCartItems('market'),
@@ -69,7 +136,6 @@ export const cartSlice = createSlice({
       } else {
         existingItem.quantity = (existingItem.quantity || 1) + 1;
       }
-      saveCartItems(namespace, bucket.items);
     },
     updateQuantity: (state, action: PayloadAction<{ namespace?: CartNamespace; resourceId: string; quantity: number }>) => {
       const namespace = action.payload.namespace || 'market';
@@ -78,19 +144,16 @@ export const cartSlice = createSlice({
       const item = bucket.items.find(item => item.resource.id === resourceId);
       if (item) {
         item.quantity = Math.max(1, quantity);
-        saveCartItems(namespace, bucket.items);
       }
     },
     removeItem: (state, action: PayloadAction<{ namespace?: CartNamespace; resourceId: string }>) => {
       const namespace = action.payload.namespace || 'market';
       const bucket = state[namespace];
       bucket.items = bucket.items.filter(item => item.resource.id !== action.payload.resourceId);
-      saveCartItems(namespace, bucket.items);
     },
     clearCart: (state, action: PayloadAction<{ namespace?: CartNamespace } | undefined>) => {
       const namespace = action.payload?.namespace || 'market';
       state[namespace].items = [];
-      saveCartItems(namespace, state[namespace].items);
     },
     openCart: (state, action: PayloadAction<{ namespace?: CartNamespace } | undefined>) => {
       const namespace = action.payload?.namespace || 'market';

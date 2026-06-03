@@ -605,7 +605,6 @@ export default function Checkout() {
         state: {
           ...(locationState || {}),
           directCheckoutItems: nextCart,
-          ships: stateShips,
         },
       });
       return;

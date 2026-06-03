@@ -2173,6 +2173,10 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
       return resolveDirectMarketItem(item);
     }
 
+    if (item.variants?.length) {
+      return resolveLowestCcuVariant(item);
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/market/item/${encodeURIComponent(item.skuId)}`);
       if (!response.ok) {
@@ -2196,12 +2200,7 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
 
     const directCheckoutItems = [buildMarketCartItem(targetItem, 1, ships)];
     saveDirectCheckoutItems(directCheckoutItems);
-    navigate(getDirectCheckoutPath(), {
-      state: {
-        directCheckoutItems,
-        ships,
-      },
-    });
+    navigate(getDirectCheckoutPath());
   }, [handleOpenDetails, navigate, resolveDirectMarketItemForAction, ships]);
 
   const validateMarketRouteListingStock = useCallback((edges: MarketRouteEdge[]) => {
@@ -3705,6 +3704,10 @@ const Market: React.FC = () => {
       return resolveDirectMarketItem(item);
     }
 
+    if (item.variants?.length) {
+      return resolveLowestCcuVariant(item);
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/market/item/${encodeURIComponent(item.skuId)}`);
       if (!response.ok) {
@@ -3757,12 +3760,7 @@ const Market: React.FC = () => {
 
     const directCheckoutItems = [buildMarketCartItem(targetItem, 1, ships)];
     saveDirectCheckoutItems(directCheckoutItems);
-    navigate(getDirectCheckoutPath(), {
-      state: {
-        directCheckoutItems,
-        ships,
-      },
-    });
+    navigate(getDirectCheckoutPath());
   }, [handleOpenDetails, navigate, resolveDirectMarketItemForAction, ships]);
 
   const getAvailableStockByResourceId = (resourceId: string) => {
@@ -5459,6 +5457,7 @@ const Market: React.FC = () => {
           anchor="right"
           open={listingDrawerOpen}
           onClose={() => closeListingDrawer({ clearFilters: true })}
+          ModalProps={{ keepMounted: false }}
           slotProps={{
             transition: {
               onEnter: handleListingDrawerEnter,
@@ -5542,6 +5541,7 @@ const Market: React.FC = () => {
         <CartDrawer
           open={cartOpen}
           cart={cart}
+          ships={ships}
           onClose={closeCart}
           onRemoveFromCart={removeFromCart}
           onUpdateQuantity={updateItemQuantity}

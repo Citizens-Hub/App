@@ -1026,12 +1026,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         creditOptions: undefined,
       }, 1, ships)];
       saveDirectCheckoutItems(directCheckoutItems);
-      navigate(getDirectCheckoutPath(), {
-        state: {
-          directCheckoutItems,
-          ships,
-        },
-      });
+      navigate(getDirectCheckoutPath());
       return;
     }
 
@@ -1041,12 +1036,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
 
     const directCheckoutItems = [buildMarketCartItem(activeItem, 1, ships)];
     saveDirectCheckoutItems(directCheckoutItems);
-    navigate(getDirectCheckoutPath(), {
-      state: {
-        directCheckoutItems,
-        ships,
-      },
-    });
+    navigate(getDirectCheckoutPath());
   };
 
   const getAvailableStockByResourceId = (resourceId: string) => {
@@ -1898,6 +1888,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
           <CartDrawer
             open={cartOpen}
             cart={cart}
+            ships={ships}
             onClose={closeCart}
             onRemoveFromCart={removeFromCart}
             onUpdateQuantity={updateItemQuantity}

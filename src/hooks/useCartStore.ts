@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   addItem, 
@@ -16,43 +17,57 @@ import { sendRedditPixelAddToCartConversion } from '@/utils/redditPixelConversio
 
 type CartNamespace = 'market' | 'accountMarket';
 
+function deferAddToCartConversions(resource: Resource) {
+  window.setTimeout(() => {
+    void sendGoogleAdsAddToCartConversion();
+    void sendRedditPixelAddToCartConversion(resource.id);
+  }, 0);
+}
+
 export function useCartStore(namespace: CartNamespace = 'market') {
   const dispatch = useDispatch();
   const cartItems = useSelector(selectCartItems(namespace));
   const isCartOpen = useSelector(selectCartOpen(namespace));
   const itemsCount = useSelector(selectCartItemsCount(namespace));
 
-  const addToCart = (resource: Resource) => {
+  const addToCart = useCallback((resource: Resource) => {
     dispatch(addItem({ namespace, resource }));
-    void sendGoogleAdsAddToCartConversion();
-    void sendRedditPixelAddToCartConversion(resource.id);
-  };
+    deferAddToCartConversions(resource);
+  }, [dispatch, namespace]);
 
-  const updateItemQuantity = (resourceId: string, quantity: number) => {
+  const updateItemQuantity = useCallback((resourceId: string, quantity: number) => {
     dispatch(updateQuantity({ namespace, resourceId, quantity }));
-  };
+  }, [dispatch, namespace]);
 
-  const removeFromCart = (resourceId: string) => {
+  const removeFromCart = useCallback((resourceId: string) => {
     dispatch(removeItem({ namespace, resourceId }));
-  };
+  }, [dispatch, namespace]);
 
-  const emptyCart = () => {
+  const emptyCart = useCallback(() => {
     dispatch(clearCart({ namespace }));
-  };
+  }, [dispatch, namespace]);
 
-  const toggleCart = (open?: boolean) => {
+  const openCartHandler = useCallback(() => {
+    dispatch(openCart({ namespace }));
+  }, [dispatch, namespace]);
+
+  const closeCartHandler = useCallback(() => {
+    dispatch(closeCart({ namespace }));
+  }, [dispatch, namespace]);
+
+  const toggleCart = useCallback((open?: boolean) => {
     if (open === undefined) {
       if (isCartOpen) {
-        dispatch(closeCart({ namespace }));
+        closeCartHandler();
       } else {
-        dispatch(openCart({ namespace }));
+        openCartHandler();
       }
     } else if (open) {
-      dispatch(openCart({ namespace }));
+      openCartHandler();
     } else {
-      dispatch(closeCart({ namespace }));
+      closeCartHandler();
     }
-  };
+  }, [closeCartHandler, isCartOpen, openCartHandler]);
 
   return {
     cart: cartItems,
@@ -62,8 +77,8 @@ export function useCartStore(namespace: CartNamespace = 'market') {
     updateItemQuantity,
     removeFromCart,
     emptyCart,
-    openCart: () => dispatch(openCart({ namespace })),
-    closeCart: () => dispatch(closeCart({ namespace })),
+    openCart: openCartHandler,
+    closeCart: closeCartHandler,
     toggleCart
   };
 } 
