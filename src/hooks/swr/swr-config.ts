@@ -7,9 +7,16 @@ export const fetcher = async (url: string, options?: RequestInit) => {
   if (!res.ok) {
     const error = new Error('API request failed') as Error & {
       info?: unknown;
+      code?: string;
+      message?: string;
       status?: number;
     };
-    error.info = await res.json();
+    error.info = await res.json().catch(() => null);
+    if (error.info && typeof error.info === 'object') {
+      const payload = error.info as { code?: unknown; message?: unknown };
+      error.code = typeof payload.code === 'string' ? payload.code : undefined;
+      error.message = typeof payload.message === 'string' ? payload.message : error.message;
+    }
     error.status = res.status;
     throw error;
   }
@@ -19,11 +26,13 @@ export const fetcher = async (url: string, options?: RequestInit) => {
 
 // 带认证的fetcher
 export const authFetcher = (token?: string) => async (url: string) => {
+  const headers: Record<string, string> = {
+    'Authorization': token ? `Bearer ${token}` : '',
+    'Content-Type': 'application/json',
+  };
+
   return fetcher(url, {
-    headers: {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
-    }
+    headers,
   });
 };
 

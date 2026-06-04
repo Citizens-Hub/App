@@ -4,6 +4,7 @@ import {
   Alert,
   Avatar,
   Box,
+  Button,
   Chip,
   CircularProgress,
   MenuItem,
@@ -22,7 +23,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAdminUsers } from '@/hooks';
 import { RootState } from '@/store';
-import { AdminUserListItem, AdminUserRoleUpdateResponse, UserRole } from '@/types';
+import { AdminUserBanUpdateResponse, AdminUserListItem, AdminUserRoleUpdateResponse, UserRole } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -58,6 +59,7 @@ export default function UsersRolesManager() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [updatingBanUserId, setUpdatingBanUserId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
   const { data, error, isLoading, mutate } = useAdminUsers({
@@ -120,6 +122,48 @@ export default function UsersRolesManager() {
       });
     } finally {
       setUpdatingUserId(null);
+    }
+  };
+
+  const handleBanToggle = async (targetUser: AdminUserListItem) => {
+    const nextBanned = !targetUser.bannedAt;
+
+    setUpdatingBanUserId(targetUser.id);
+    setFlash(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(targetUser.id)}/ban`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ banned: nextBanned }),
+      });
+
+      const payload = await response.json().catch(() => null) as AdminUserBanUpdateResponse | { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload && 'error' in payload && payload.error
+          ? payload.error
+          : intl.formatMessage({ id: 'admin.users.updateBanError', defaultMessage: 'Failed to update user ban state.' }));
+      }
+
+      await mutate();
+      setFlash({
+        severity: 'success',
+        text: nextBanned
+          ? intl.formatMessage({ id: 'admin.users.banSuccess', defaultMessage: 'User banned.' })
+          : intl.formatMessage({ id: 'admin.users.unbanSuccess', defaultMessage: 'User unbanned.' }),
+      });
+    } catch (updateError) {
+      setFlash({
+        severity: 'error',
+        text: updateError instanceof Error
+          ? updateError.message
+          : intl.formatMessage({ id: 'admin.users.updateBanError', defaultMessage: 'Failed to update user ban state.' }),
+      });
+    } finally {
+      setUpdatingBanUserId(null);
     }
   };
 
@@ -215,12 +259,15 @@ export default function UsersRolesManager() {
               <TableCell>
                 <FormattedMessage id="admin.users.table.updatedAt" defaultMessage="Updated" />
               </TableCell>
+              <TableCell align="right">
+                <FormattedMessage id="admin.users.table.actions" defaultMessage="Actions" />
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
                     <CircularProgress size={18} />
                     <FormattedMessage id="loading" defaultMessage="Loading..." />
@@ -229,13 +276,15 @@ export default function UsersRolesManager() {
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <FormattedMessage id="admin.users.empty" defaultMessage="No users matched the current filter." />
                 </TableCell>
               </TableRow>
             ) : users.map((user) => {
               const isSelf = user.id === currentUserId;
               const isUpdating = updatingUserId === user.id;
+              const isUpdatingBan = updatingBanUserId === user.id;
+              const isBanned = Boolean(user.bannedAt);
 
               return (
                 <TableRow key={user.id} hover>
@@ -303,13 +352,22 @@ export default function UsersRolesManager() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      size="small"
-                      color={user.accountDeleted ? 'error' : 'success'}
-                      label={user.accountDeleted
-                        ? intl.formatMessage({ id: 'admin.users.status.deleted', defaultMessage: 'Deleted' })
-                        : intl.formatMessage({ id: 'admin.users.status.active', defaultMessage: 'Active' })}
-                    />
+                    <Stack spacing={0.75} alignItems="flex-start">
+                      <Chip
+                        size="small"
+                        color={user.accountDeleted ? 'error' : isBanned ? 'warning' : 'success'}
+                        label={user.accountDeleted
+                          ? intl.formatMessage({ id: 'admin.users.status.deleted', defaultMessage: 'Deleted' })
+                          : isBanned
+                            ? intl.formatMessage({ id: 'admin.users.status.banned', defaultMessage: 'Banned' })
+                            : intl.formatMessage({ id: 'admin.users.status.active', defaultMessage: 'Active' })}
+                      />
+                      {isBanned && (
+                        <Typography variant="caption" color="text.secondary">
+                          {formatDateTime(user.bannedAt)}
+                        </Typography>
+                      )}
+                    </Stack>
                     {user.accountDeletionRequestedAt && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                         {formatDateTime(user.accountDeletionRequestedAt)}
@@ -318,6 +376,23 @@ export default function UsersRolesManager() {
                   </TableCell>
                   <TableCell>{formatDateTime(user.createdAt)}</TableCell>
                   <TableCell>{formatDateTime(user.updatedAt)}</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant={isBanned ? 'outlined' : 'contained'}
+                      color={isBanned ? 'success' : 'error'}
+                      disabled={isSelf || isUpdatingBan}
+                      onClick={() => void handleBanToggle(user)}
+                    >
+                      {isUpdatingBan ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : isBanned ? (
+                        <FormattedMessage id="admin.users.unban" defaultMessage="Unban" />
+                      ) : (
+                        <FormattedMessage id="admin.users.ban" defaultMessage="Ban" />
+                      )}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })}

@@ -65,33 +65,40 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const emailLocale = toEmailLocale(locale);
 
   const googleLogin = useGoogleLogin({
-    onSuccess: tokenResponse => {
-      fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/google`, {
-        method: 'POST',
-        body: JSON.stringify({
-          token: tokenResponse.access_token,
-          emailLocale,
-        })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            dispatch(login({
-              ...data.user,
-              avatar: data.user.avatar || `https://www.gravatar.com/avatar/${md5(data.user.email)}`,
-              token: data.token,
-            }));
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      setError('');
 
-            setOpenSnackbar(true);
-
-            setTimeout(() => {
-              navigate(redirectTo);
-            }, 1500);
-          }
-        })
-        .catch(err => {
-          console.log(err);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/auth/google`, {
+          method: 'POST',
+          body: JSON.stringify({
+            token: tokenResponse.access_token,
+            emailLocale,
+          }),
         });
+        const data: LoginResponse | null = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.message || 'message.invalidCredentials');
+        }
+
+        dispatch(login({
+          ...data.user,
+          avatar: data.user.avatar || `https://www.gravatar.com/avatar/${md5(data.user.email)}`,
+          token: data.token,
+        }));
+
+        setOpenSnackbar(true);
+
+        setTimeout(() => {
+          navigate(redirectTo);
+        }, 1500);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
     },
   });
 

@@ -16,7 +16,7 @@ import { useErrorBoundary } from 'react-error-boundary'
 import SupportPrompt from '@/components/SupportPrompt'
 import MarketingEmailConsentPrompt from '@/components/MarketingEmailConsentPrompt'
 import EmailLocaleSync from '@/components/EmailLocaleSync'
-import { useIntl } from 'react-intl'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { SiteNotification } from '@/types'
 // import { startGoogleCustomerReviewsBadge } from '@/utils/googleCustomerReviews'
 
@@ -194,6 +194,7 @@ function App() {
   const [darkMode, setDarkMode] = useState<boolean>();
   const [showCnMirrorPrompt, setShowCnMirrorPrompt] = useState(false);
   const [dismissedSiteNotificationId, setDismissedSiteNotificationId] = useState<string | null>(null);
+  const [accountBannedNoticeOpen, setAccountBannedNoticeOpen] = useState(false);
   const intl = useIntl();
 
   useLayoutEffect(() => {
@@ -315,8 +316,12 @@ function App() {
 
   // 当会话无效时登出
   useEffect(() => {
-    if (user.token && sessionError && sessionError.status === 401) {
+    const authError = sessionError as (typeof sessionError & { code?: string; status?: number }) | undefined;
+    if (user.token && authError && (authError.status === 401 || authError.code === 'account_banned')) {
       console.log("Session is invalid, logging out");
+      if (authError.code === 'account_banned') {
+        setAccountBannedNoticeOpen(true);
+      }
       dispatch(logout());
     }
   }, [user, sessionError, dispatch]);
@@ -364,6 +369,17 @@ function App() {
           <EmailLocaleSync />
           <SupportPrompt />
           <MarketingEmailConsentPrompt />
+          <Snackbar
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            autoHideDuration={6000}
+            onClose={() => setAccountBannedNoticeOpen(false)}
+            open={accountBannedNoticeOpen}
+            sx={{ mt: 7 }}
+          >
+            <Alert severity="error" onClose={() => setAccountBannedNoticeOpen(false)}>
+              <FormattedMessage id="message.accountBanned" defaultMessage="This account has been banned." />
+            </Alert>
+          </Snackbar>
           <Snackbar
             key={visibleSiteNotification?.id || 'site-notification-empty'}
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}

@@ -1608,6 +1608,7 @@ export interface AdminUserListItem {
   avatar?: string | null;
   role: UserRole;
   emailVerified: boolean;
+  bannedAt: string | null;
   accountDeleted: boolean;
   accountDeletionRequestedAt: string | null;
   createdAt: string;
@@ -1627,6 +1628,12 @@ export interface AdminUserListResponse {
 }
 
 export interface AdminUserRoleUpdateResponse {
+  success: boolean;
+  user: AdminUserListItem;
+  roles: AdminUserRoleOption[];
+}
+
+export interface AdminUserBanUpdateResponse {
   success: boolean;
   user: AdminUserListItem;
   roles: AdminUserRoleOption[];
