@@ -354,7 +354,7 @@ export default function PromotionsManager() {
     itemTypes: ['ccu', 'package', 'misc'],
     browseCategories: ['standalone_ship', 'ship_package', 'paint', 'other'],
     combineTypeFiltersWithOr: true,
-    page: 1,
+    page: 0,
     limit: 20,
   });
 
