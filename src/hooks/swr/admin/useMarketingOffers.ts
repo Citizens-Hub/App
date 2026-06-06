@@ -23,6 +23,7 @@ export interface AdminMarketSearchParams {
   tags?: string[];
   shipTraits?: MarketShipTraitFilter[];
   manufacturerIds?: number[];
+  combineTypeFiltersWithOr?: boolean;
   sortBy?: MarketSortMode;
   page?: number;
   limit?: number;
@@ -45,6 +46,7 @@ function buildAdminMarketSearchPath(params: AdminMarketSearchParams = {}) {
       searchParams.append('manufacturerId', String(manufacturerId));
     }
   });
+  if (params.combineTypeFiltersWithOr) searchParams.set('combineTypeFiltersWithOr', 'true');
   if (params.sortBy) searchParams.set('sortBy', params.sortBy);
   if (typeof params.page === 'number') searchParams.set('page', String(params.page));
   if (typeof params.limit === 'number') searchParams.set('limit', String(params.limit));
