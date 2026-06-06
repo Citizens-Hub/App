@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Badge,
   Box,
   Button,
   ButtonGroup,
@@ -9,6 +10,7 @@ import {
   Divider,
   IconButton,
   Snackbar,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
@@ -385,7 +387,7 @@ export default function MarketPromotion() {
   const navigate = useNavigate();
   const { slug = '' } = useParams();
   const decodedSlug = decodeURIComponent(slug);
-  const { cart, cartOpen, addToCart, removeFromCart, replaceCartItem, closeCart, updateItemQuantity } = useCartStore();
+  const { cart, cartOpen, addToCart, removeFromCart, replaceCartItem, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
@@ -513,6 +515,28 @@ export default function MarketPromotion() {
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+          <Tooltip title={intl.formatMessage({ id: 'market.openCart', defaultMessage: 'Open cart' })}>
+            <IconButton
+              onClick={openCart}
+              aria-label={intl.formatMessage({ id: 'market.openCart', defaultMessage: 'Open cart' })}
+              sx={{
+                position: 'absolute',
+                top: { xs: 16, md: 24 },
+                right: { xs: 16, md: 32 },
+                zIndex: 20,
+                border: '1px solid rgba(255,255,255,0.32)',
+                backgroundColor: 'rgba(0,0,0,0.35)',
+                color: 'common.white',
+                borderRadius: 0,
+                backdropFilter: 'blur(8px)',
+                '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' },
+              }}
+            >
+              <Badge badgeContent={cart.length} color="secondary" overlap="circular">
+                <ShoppingCart className="h-5 w-5" />
+              </Badge>
+            </IconButton>
+          </Tooltip>
           <div className="relative z-10 mx-auto flex min-h-[72vh] max-w-[1280px] flex-col justify-end gap-6 px-4 pb-10 pt-8 md:px-8">
             <Button
               variant="text"
