@@ -44,6 +44,7 @@ interface HeaderBreadcrumbItem {
   path?: string;
 }
 
+const ORDERS_NAV_NAME = 'navigation.orders';
 const MARKET_NAV_NAME = 'navigation.market';
 const HOME_NAV_NAME = 'navigation.home';
 
@@ -239,13 +240,21 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   const breadcrumbItems: HeaderBreadcrumbItem[] = pathname === '/'
     ? []
     : [
-        {
-          key: 'home',
-          labelId: HOME_NAV_NAME,
-          defaultMessage: 'Home',
-          path: '/',
-        },
-      ];
+      {
+        key: 'home',
+        labelId: HOME_NAV_NAME,
+        defaultMessage: 'Home',
+        path: '/',
+      },
+    ];
+  if (currentNavItem?.path.startsWith('/orders/') && currentNavItem.name !== ORDERS_NAV_NAME) {
+    breadcrumbItems.push({
+      key: 'orders',
+      labelId: ORDERS_NAV_NAME,
+      defaultMessage: 'Orders',
+      path: '/orders',
+    });
+  }
   if (currentNavItem?.path.startsWith('/market/') && currentNavItem.name !== MARKET_NAV_NAME) {
     breadcrumbItems.push({
       key: 'market',
@@ -316,7 +325,7 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
 
   useEffect(() => {
     setMarketPromoIndex(Math.floor(Math.random() * marketPromoMessages.length));
-  }, [intl.locale]);
+  }, [intl.locale, marketPromoMessages.length]);
 
   const isNavItemActive = (item: NavigationItem) => {
     if (item.path === '/market') {
@@ -696,9 +705,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                     onClick={() => setMenuOpen(false)}
                     className={`flex items-center font-normal! gap-2 rounded-md px-3 py-2 text-black! dark:text-white! transition-colors ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
                       }`}
-                    // sx={{
-                    //   color: darkMode ? '#fff' : '#000',
-                    // }}
+                  // sx={{
+                  //   color: darkMode ? '#fff' : '#000',
+                  // }}
                   >
                     {link.icon}
                     <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
@@ -720,10 +729,10 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
                       onClick={() => setMenuOpen(false)}
                       className={`rounded-md px-3 py-2 font-normal! transition-colors text-black! dark:text-white! ${darkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
                         }`}
-                      // sx={{
-                      //   color: darkMode ? '#fff' : '#000',
-                      //   display: 'block',
-                      // }}
+                    // sx={{
+                    //   color: darkMode ? '#fff' : '#000',
+                    //   display: 'block',
+                    // }}
                     >
                       <span>{intl.formatMessage({ id: link.labelId, defaultMessage: link.defaultMessage })}</span>
                     </Link>

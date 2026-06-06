@@ -38,7 +38,7 @@ export const navigation = [
     hidden: true,
   },
   {
-    name: "navigation.market",
+    name: "navigation.marketShip",
     path: "/market/ships/:shipId",
     hidden: true,
   },
@@ -62,7 +62,7 @@ export const navigation = [
     path: "/orders",
   },
   {
-    name: "navigation.orders",
+    name: "navigation.order",
     path: "/orders/:orderId",
     hidden: true,
   },

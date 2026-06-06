@@ -693,26 +693,17 @@ const MarketHomePromotionBanner = React.memo(function MarketHomePromotionBanner(
   });
 
   return (
-    <section className='relative overflow-hidden border border-sky-200 bg-neutral-950 text-white shadow-sm dark:border-sky-900/60'>
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className='absolute inset-0 h-full w-full object-cover opacity-50'
-        />
-      ) : null}
-      <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_48%,rgba(2,6,23,0.38)_100%)]' />
-      <div className='relative z-10 grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6'>
-        <div className='min-w-0'>
+    <section className='relative overflow-hidden border border-cyan-200 bg-white shadow-sm dark:border-cyan-900/70 dark:bg-neutral-900'>
+      <div className='absolute inset-y-0 left-0 w-1.5 bg-cyan-500 dark:bg-cyan-400' />
+      <div className='grid gap-0 md:grid-cols-[minmax(0,1fr)_340px] lg:grid-cols-[minmax(0,1fr)_420px]'>
+        <div className='flex min-w-0 flex-col justify-center p-5 pl-6 md:p-6 md:pl-8'>
           <div className='flex flex-wrap items-center gap-2'>
-            <span className='inline-flex items-center gap-1.5 border border-sky-200/35 bg-sky-400/12 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-sky-100'>
+            <span className='inline-flex items-center gap-1.5 border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-cyan-800 dark:border-cyan-800/80 dark:bg-cyan-950/50 dark:text-cyan-100'>
               <Timer className='h-3.5 w-3.5' />
               <FormattedMessage id="market.home.promotion.active" defaultMessage="Now live" />
             </span>
             {itemCount > 0 ? (
-              <span className='border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/85'>
+              <span className='border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-neutral-800 dark:text-slate-200'>
                 {intl.formatMessage(
                   { id: 'market.home.promotion.products', defaultMessage: '{count, plural, one {# deal} other {# deals}}' },
                   { count: itemCount },
@@ -721,7 +712,7 @@ const MarketHomePromotionBanner = React.memo(function MarketHomePromotionBanner(
             ) : null}
           </div>
 
-          <div className='mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200'>
+          <div className='mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300'>
             {eyebrow}
           </div>
           <Typography
@@ -729,7 +720,7 @@ const MarketHomePromotionBanner = React.memo(function MarketHomePromotionBanner(
             sx={{
               mt: 1,
               maxWidth: 860,
-              color: 'white',
+              color: 'text.primary',
               fontSize: { xs: 26, md: 34 },
               fontWeight: 900,
               lineHeight: 1.08,
@@ -739,25 +730,46 @@ const MarketHomePromotionBanner = React.memo(function MarketHomePromotionBanner(
             {title}
           </Typography>
           {hero.subtitle ? (
-            <Typography sx={{ mt: 1.5, maxWidth: 720, color: 'rgba(255,255,255,0.78)', fontSize: 15, lineHeight: 1.7 }}>
+            <Typography sx={{ mt: 1.5, maxWidth: 720, color: 'text.secondary', fontSize: 15, lineHeight: 1.7 }}>
               {hero.subtitle}
             </Typography>
           ) : null}
+
+          <Button
+            component={Link}
+            to={promotionPath}
+            variant="contained"
+            endIcon={<ArrowRight className='h-4 w-4' />}
+            sx={{
+              mt: 3,
+              alignSelf: 'flex-start',
+              borderRadius: 0,
+              px: 2.75,
+              py: 1.15,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {ctaLabel}
+          </Button>
         </div>
 
-        <Button
-          component={Link}
+        <Link
           to={promotionPath}
-          variant="contained"
-          endIcon={<ArrowRight className='h-4 w-4' />}
-          sx={{
-            justifySelf: { xs: 'start', md: 'end' },
-            borderRadius: 0,
-            whiteSpace: 'nowrap',
-          }}
+          aria-label={title}
+          className='group relative block min-h-[180px] overflow-hidden bg-slate-100 dark:bg-neutral-950 md:min-h-[240px]'
         >
-          {ctaLabel}
-        </Button>
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className='absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]'
+            />
+          ) : (
+            <div className='absolute inset-0 bg-slate-100 dark:bg-neutral-950' />
+          )}
+        </Link>
       </div>
     </section>
   );
