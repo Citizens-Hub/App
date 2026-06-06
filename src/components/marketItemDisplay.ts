@@ -1,4 +1,4 @@
-import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, Resource, Ship } from '@/types';
+import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, PromotionPriceInfo, Resource, Ship } from '@/types';
 import {
   getMarketImageAssetUrl,
   getMarketImageDisplayUrl,
@@ -40,6 +40,7 @@ type MarketDisplayItem = {
     discountRateBps: number;
     sellerCount: number;
   }>;
+  promotion?: PromotionPriceInfo | null;
 };
 
 export const MARKET_ITEM_PLACEHOLDER = '/imgs/credit.webp';
@@ -265,6 +266,7 @@ export function buildMarketResource(item: ListingItem, ships?: Ship[]): Resource
       level: item.itemType === 'credit' ? 'high' : availableStock > 5 ? 'high' : availableStock > 0 ? 'low' : 'none',
     },
     isPackage: item.itemType === 'package',
+    promotion: item.promotion || null,
   };
 }
 
@@ -307,6 +309,7 @@ export function buildMarketCartItem(
     name: item.name,
     price: item.price,
     discounted: 0,
+    promotion: item.promotion || null,
     media: {
       thumbnail: {
         storeSmall: primaryImage,
@@ -359,6 +362,7 @@ export function buildMarketCartItemFromResource(resource: Resource, quantity: nu
     name: resource.name || resource.id,
     price: (resource.nativePrice?.amount || 0) / 100,
     discounted: resource.nativePrice?.discounted ? (resource.nativePrice.discounted / 100) : 0,
+    promotion: resource.promotion || null,
     media: resource.media,
   };
 }

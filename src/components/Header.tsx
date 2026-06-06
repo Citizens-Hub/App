@@ -37,6 +37,13 @@ interface MenuGroupConfig {
   itemNames: string[];
 }
 
+interface HeaderBreadcrumbItem {
+  key: string;
+  labelId: string;
+  defaultMessage: string;
+  path?: string;
+}
+
 const MARKET_NAV_NAME = 'navigation.market';
 const HOME_NAV_NAME = 'navigation.home';
 
@@ -229,6 +236,31 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
     id: currentNavItem?.name || "navigation.home",
     defaultMessage: "Home",
   });
+  const breadcrumbItems: HeaderBreadcrumbItem[] = pathname === '/'
+    ? []
+    : [
+        {
+          key: 'home',
+          labelId: HOME_NAV_NAME,
+          defaultMessage: 'Home',
+          path: '/',
+        },
+      ];
+  if (currentNavItem?.path.startsWith('/market/') && currentNavItem.name !== MARKET_NAV_NAME) {
+    breadcrumbItems.push({
+      key: 'market',
+      labelId: MARKET_NAV_NAME,
+      defaultMessage: 'Market',
+      path: '/market',
+    });
+  }
+  if (pathname !== '/') {
+    breadcrumbItems.push({
+      key: currentNavItem?.path || pathname,
+      labelId: currentNavItem?.name || HOME_NAV_NAME,
+      defaultMessage: currentNavItem ? currentPageName : 'Home',
+    });
+  }
   const marketPromoMessages = [
     intl.formatMessage({
       id: 'header.marketPromo.lti',
@@ -287,6 +319,10 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
   }, [intl.locale]);
 
   const isNavItemActive = (item: NavigationItem) => {
+    if (item.path === '/market') {
+      return pathname === '/market' || pathname.startsWith('/market/');
+    }
+
     if (currentNavItem?.path === item.path) {
       return true;
     }
@@ -356,26 +392,37 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
         <IconButton onClick={() => setMenuOpen(!menuOpen)} aria-label={intl.formatMessage({ id: "header.toggleMenu", defaultMessage: "Toggle menu" })}>
           <MenuIcon />
         </IconButton>
-        {
-          pathname !== "/" && <span className="hidden md:block">
-            <Link
-              to="/"
-              // sx={{
-              //   textDecoration: 'none',
-              //   color: 'inherit',
-              // }}
-              className="text-black! dark:text-white! font-normal!"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/");
-              }}
-            >
-              {intl.formatMessage({ id: "navigation.home", defaultMessage: "Home" })}
-            </Link>
-            <span>{" > "}</span>
-          </span>
-        }
-        <span className="hidden md:block">{currentPageName}</span>
+        {breadcrumbItems.length > 0 && (
+          <nav
+            aria-label={intl.formatMessage({ id: 'header.breadcrumbLabel', defaultMessage: 'Breadcrumb' })}
+            className="hidden min-w-0 items-center gap-1 md:flex"
+          >
+            {breadcrumbItems.map((item, index) => {
+              const label = intl.formatMessage({ id: item.labelId, defaultMessage: item.defaultMessage });
+              const isCurrent = index === breadcrumbItems.length - 1;
+
+              return (
+                <span key={`${item.key}-${index}`} className="flex min-w-0 items-center gap-1">
+                  {index > 0 && <span className="text-gray-500 dark:text-gray-400">{'>'}</span>}
+                  {item.path && !isCurrent ? (
+                    <Link
+                      to={item.path}
+                      className="text-black! dark:text-white! font-normal! hover:underline"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        navigate(item.path || '/');
+                      }}
+                    >
+                      {label}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 truncate" aria-current={isCurrent ? 'page' : undefined}>{label}</span>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+        )}
       </div>
       <HeaderAd />
       <div className="flex items-center gap-2 justify-end">

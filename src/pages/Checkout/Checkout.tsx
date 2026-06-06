@@ -1,7 +1,7 @@
 // 导入必要的依赖
 import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from "react-router";
-import { useState, useEffect, useMemo } from "react";
-import { MarketCartItem, Order as MarketOrder, Ship } from "@/types";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { ListingItem, MarketCartItem, Order as MarketOrder, Ship } from "@/types";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import {
@@ -37,6 +37,7 @@ import { NewUserCouponPreview } from "@/types";
 import {
   buildMarketCartItem,
   buildMarketCartItemFromResource,
+  buildMarketResource,
   getMarketItemVisual,
   MARKET_ITEM_PLACEHOLDER,
 } from '@/components/marketItemDisplay';
@@ -80,6 +81,16 @@ type AccountCouponValidation = {
   subtotal: number;
   discountAmount: number;
 };
+
+function isListingItemPayload(value: ListingItem | { redirectSkuId?: string } | null): value is ListingItem {
+  const record = value as Record<string, unknown> | null;
+  return Boolean(
+    record
+      && typeof record.redirectSkuId !== 'string'
+      && typeof record.skuId === 'string'
+      && typeof record.name === 'string',
+  );
+}
 
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
@@ -232,7 +243,7 @@ export default function Checkout() {
   // 1. ResourcesTable使用的CartItem（本地状态，不使用Redux）
   // 2. 商城使用的商城购物车，使用Redux，但也是CartItem类型
   // 结账页面需要将CartItem转换为MarketCartItem
-  const { cart: cartFromState, removeFromCart } = useCartStore(isAccountMarketCheckout ? 'accountMarket' : 'market');
+  const { cart: cartFromState, removeFromCart, replaceCartItem } = useCartStore(isAccountMarketCheckout ? 'accountMarket' : 'market');
   const {
     item: accountMarketItem,
     loading: accountMarketItemLoading,
@@ -262,6 +273,14 @@ export default function Checkout() {
     || pendingOrder?.items?.some((item) => item.marketItem.sourceKind === ACCOUNT_MARKET_SOURCE_KIND);
   const expectedAccountCouponCode = useMemo(() => getMonthlyAccountCouponCode(), []);
   const cartValidation = useMarketCartValidation(cart, { enabled: !pendingOrder && !isAccountMarketCart });
+  const promotionReplacementKey = useMemo(() => (
+    cartValidation.data?.items
+      .filter((item) => item.replacementSkuId && item.replacementSkuId !== item.skuId)
+      .map((item) => `${item.skuId}->${item.replacementSkuId}`)
+      .sort()
+      .join('|') || ''
+  ), [cartValidation.data?.items]);
+  const lastPromotionReplacementKeyRef = useRef('');
   
   // 登录和邮箱验证对话框状态
   const [openLoginDialog, setOpenLoginDialog] = useState(false);
@@ -328,6 +347,69 @@ export default function Checkout() {
 
     setCart([]);
   }, [accountMarketItem, cartFromState, directCheckoutItems, effectiveShips, isAccountMarketCheckout, isDirectCheckout, pendingOrder, user?.id]);
+
+  useEffect(() => {
+    if (pendingOrder || isAccountMarketCart || !promotionReplacementKey || promotionReplacementKey === lastPromotionReplacementKeyRef.current) {
+      return;
+    }
+
+    lastPromotionReplacementKeyRef.current = promotionReplacementKey;
+    let canceled = false;
+
+    void (async () => {
+      const replacements = (cartValidation.data?.items || [])
+        .filter((item) => item.replacementSkuId && item.replacementSkuId !== item.skuId);
+
+      for (const replacement of replacements) {
+        const currentCartItem = cart.find((item) => item.skuId === replacement.skuId);
+        if (!currentCartItem || !replacement.replacementSkuId) {
+          continue;
+        }
+
+        try {
+          const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item/${encodeURIComponent(replacement.replacementSkuId)}`);
+          const payload = await response.json().catch(() => null) as ListingItem | { redirectSkuId?: string } | null;
+          if (!response.ok || !isListingItemPayload(payload)) {
+            continue;
+          }
+
+          if (canceled) {
+            return;
+          }
+
+          const replacementItem = buildMarketCartItem(payload, currentCartItem.quantity || 1, effectiveShips);
+          setCart((currentCart) => currentCart.map((item) => (
+            item.skuId === currentCartItem.skuId ? replacementItem : item
+          )));
+
+          if (!isDirectCheckout) {
+            replaceCartItem(
+              currentCartItem.skuId,
+              buildMarketResource(payload, effectiveShips),
+              currentCartItem.quantity || 1,
+            );
+          } else {
+            saveDirectCheckoutItems([replacementItem]);
+          }
+        } catch (error) {
+          console.warn('Failed to replace checkout item for active promotion.', error);
+        }
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    cart,
+    cartValidation.data?.items,
+    effectiveShips,
+    isAccountMarketCart,
+    isDirectCheckout,
+    pendingOrder,
+    promotionReplacementKey,
+    replaceCartItem,
+  ]);
 
   const getItemPrice = (item: MarketCartItem) => {
     return item.price || 0;

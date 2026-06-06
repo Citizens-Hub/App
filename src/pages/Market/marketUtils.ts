@@ -1,6 +1,8 @@
 import { ListingItem, MarketItemVariant, Ship } from '@/types';
 import { getMarketItemVisual } from '@/components/marketItemDisplay';
 
+const PRICE_EPSILON = 0.004;
+
 export function getAvailableStock(item: ListingItem) {
   return Math.max(item.stock - item.lockedStock, 0);
 }
@@ -120,7 +122,7 @@ export function getPackageMsrp(item: ListingItem, ships: Ship[]) {
   return (ship?.msrp || 0) / 100;
 }
 
-export function getListingBasePrice(item: ListingItem, ships: Ship[]) {
+export function getListingMsrpPrice(item: ListingItem, ships: Ship[]) {
   if (item.itemType === 'ccu') {
     const visual = getMarketItemVisual(item, ships);
     if (visual.fromShip && visual.toShip) {
@@ -139,14 +141,65 @@ export function getListingBasePrice(item: ListingItem, ships: Ship[]) {
   return 0;
 }
 
+export type ListingReferencePriceKind = 'market' | 'msrp';
+
+export interface ListingPriceDisplay {
+  currentPrice: number;
+  marketPrice: number;
+  msrpPrice: number;
+  officialSavingsAmount: number;
+  promotionDiscountPercent: string | null;
+  referencePrice: number;
+  referenceKind: ListingReferencePriceKind | null;
+  discountReferencePrice: number;
+  discountPercent: string | null;
+  showMsrpReference: boolean;
+}
+
+export function getListingPriceDisplay(
+  item: ListingItem,
+  ships: Ship[],
+  options?: {
+    currentPrice?: number;
+    originalPrice?: number | null;
+    msrpItem?: ListingItem | null;
+  },
+): ListingPriceDisplay {
+  const currentPrice = options?.currentPrice ?? item.price;
+  const rawMarketPrice = options?.originalPrice ?? item.promotion?.originalPrice ?? 0;
+  const marketPrice = rawMarketPrice > currentPrice + PRICE_EPSILON ? rawMarketPrice : 0;
+  const msrpSourceItem = options?.msrpItem || item;
+  const msrpPrice = getListingMsrpPrice(msrpSourceItem, ships);
+  const msrpReferencePrice = msrpPrice > currentPrice + PRICE_EPSILON ? msrpPrice : 0;
+  const referencePrice = marketPrice || msrpReferencePrice;
+  const referenceKind = marketPrice
+    ? 'market'
+    : (msrpReferencePrice ? 'msrp' : null);
+  const officialSavingsAmount = msrpReferencePrice ? msrpPrice - currentPrice : 0;
+  const promotionDiscountPercent = marketPrice > currentPrice + PRICE_EPSILON
+    ? ((marketPrice - currentPrice) / marketPrice * 100).toFixed(2)
+    : null;
+
+  return {
+    currentPrice,
+    marketPrice,
+    msrpPrice,
+    officialSavingsAmount,
+    promotionDiscountPercent,
+    referencePrice,
+    referenceKind,
+    discountReferencePrice: marketPrice,
+    discountPercent: promotionDiscountPercent,
+    showMsrpReference: Boolean(msrpReferencePrice),
+  };
+}
+
+export function getListingBasePrice(item: ListingItem, ships: Ship[]) {
+  return getListingPriceDisplay(item, ships).referencePrice;
+}
+
 export function getListingDiscountPercent(item: ListingItem, ships: Ship[]) {
-  const basePrice = getListingBasePrice(item, ships);
-
-  if (basePrice > item.price) {
-    return ((basePrice - item.price) / basePrice * 100).toFixed(2);
-  }
-
-  return null;
+  return getListingPriceDisplay(item, ships).discountPercent;
 }
 
 export function getListingSearchText(item: ListingItem, ships: Ship[]) {

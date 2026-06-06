@@ -63,7 +63,7 @@ import {
   AccountListingItem,
   ShipsData,
 } from '@/types';
-import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight, Timer } from 'lucide-react';
 import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings, useMarketReviews } from '@/hooks';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
@@ -82,8 +82,7 @@ import {
 import { getManufacturerLogoPath } from '@/data/rsiManufacturers';
 import {
   getAvailableStock,
-  getListingBasePrice,
-  getListingDiscountPercent,
+  getListingPriceDisplay,
   resolveLowestCcuVariant,
 } from './marketUtils';
 import {
@@ -92,6 +91,7 @@ import {
 } from './marketSearchLocalization';
 import {
   formatMarketDiscount,
+  formatMarketOfficialSavings,
   formatMarketCreditResourceName,
   formatMarketPriceFrom,
   formatPackageContentsSummary,
@@ -166,6 +166,34 @@ interface MarketAvailableShipIdsResponse {
     shipIds?: number[];
     updatedAt?: string;
   };
+}
+
+interface MarketHomePromotionHeroContent {
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  imageUrl?: string;
+  mobileImageUrl?: string;
+  imageAlt?: string;
+}
+
+interface MarketHomePromotion {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  startsAt: string;
+  expiresAt: string;
+  heroContent?: Record<string, MarketHomePromotionHeroContent>;
+  promotionUrl?: string;
+  itemCount?: number;
+  discountSkuCount?: number;
+}
+
+interface MarketHomePromotionsResponse {
+  success?: boolean;
+  promotions?: MarketHomePromotion[];
 }
 
 interface PlannerRoutePurchaseItems {
@@ -552,6 +580,35 @@ function getMarketHeroTranslation(
   };
 }
 
+function nonEmptyMarketHomeText(value?: string | null) {
+  return value?.trim() || '';
+}
+
+function getMarketHomePromotionHeroContent(
+  promotion: MarketHomePromotion,
+  locale: string,
+): MarketHomePromotionHeroContent {
+  const localized = promotion.heroContent?.[locale] || {};
+  const english = promotion.heroContent?.en || {};
+  const resolveText = (field: keyof MarketHomePromotionHeroContent) => (
+    nonEmptyMarketHomeText(localized[field]) || nonEmptyMarketHomeText(english[field])
+  );
+
+  return {
+    eyebrow: resolveText('eyebrow'),
+    title: resolveText('title') || promotion.title,
+    subtitle: resolveText('subtitle'),
+    ctaLabel: resolveText('ctaLabel'),
+    imageUrl: resolveText('imageUrl'),
+    mobileImageUrl: resolveText('mobileImageUrl'),
+    imageAlt: resolveText('imageAlt'),
+  };
+}
+
+function getMarketHomePromotionPath(promotion: MarketHomePromotion) {
+  return `/market/promotions/${encodeURIComponent(promotion.slug)}`;
+}
+
 interface MarketHeroMediaProps {
   active: boolean;
   slide: MarketHomeHeroSlide;
@@ -608,6 +665,101 @@ const MarketHeroMedia = React.memo(function MarketHeroMedia({
       loading="eager"
       decoding="async"
     />
+  );
+});
+
+interface MarketHomePromotionBannerProps {
+  promotion: MarketHomePromotion;
+  hero: MarketHomePromotionHeroContent;
+  imageUrl: string;
+}
+
+const MarketHomePromotionBanner = React.memo(function MarketHomePromotionBanner({
+  promotion,
+  hero,
+  imageUrl,
+}: MarketHomePromotionBannerProps) {
+  const intl = useIntl();
+  const promotionPath = getMarketHomePromotionPath(promotion);
+  const itemCount = promotion.itemCount || promotion.discountSkuCount || 0;
+  const title = hero.title || promotion.title;
+  const eyebrow = hero.eyebrow || intl.formatMessage({
+    id: 'market.home.promotion.eyebrow',
+    defaultMessage: 'Limited-time promotion',
+  });
+  const ctaLabel = hero.ctaLabel || intl.formatMessage({
+    id: 'market.home.promotion.cta',
+    defaultMessage: 'View deals',
+  });
+
+  return (
+    <section className='relative overflow-hidden border border-sky-200 bg-neutral-950 text-white shadow-sm dark:border-sky-900/60'>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className='absolute inset-0 h-full w-full object-cover opacity-50'
+        />
+      ) : null}
+      <div className='absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.94)_0%,rgba(2,6,23,0.78)_48%,rgba(2,6,23,0.38)_100%)]' />
+      <div className='relative z-10 grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6'>
+        <div className='min-w-0'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <span className='inline-flex items-center gap-1.5 border border-sky-200/35 bg-sky-400/12 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-sky-100'>
+              <Timer className='h-3.5 w-3.5' />
+              <FormattedMessage id="market.home.promotion.active" defaultMessage="Now live" />
+            </span>
+            {itemCount > 0 ? (
+              <span className='border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/85'>
+                {intl.formatMessage(
+                  { id: 'market.home.promotion.products', defaultMessage: '{count, plural, one {# deal} other {# deals}}' },
+                  { count: itemCount },
+                )}
+              </span>
+            ) : null}
+          </div>
+
+          <div className='mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200'>
+            {eyebrow}
+          </div>
+          <Typography
+            component="h2"
+            sx={{
+              mt: 1,
+              maxWidth: 860,
+              color: 'white',
+              fontSize: { xs: 26, md: 34 },
+              fontWeight: 900,
+              lineHeight: 1.08,
+              letterSpacing: 0,
+            }}
+          >
+            {title}
+          </Typography>
+          {hero.subtitle ? (
+            <Typography sx={{ mt: 1.5, maxWidth: 720, color: 'rgba(255,255,255,0.78)', fontSize: 15, lineHeight: 1.7 }}>
+              {hero.subtitle}
+            </Typography>
+          ) : null}
+        </div>
+
+        <Button
+          component={Link}
+          to={promotionPath}
+          variant="contained"
+          endIcon={<ArrowRight className='h-4 w-4' />}
+          sx={{
+            justifySelf: { xs: 'start', md: 'end' },
+            borderRadius: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {ctaLabel}
+        </Button>
+      </div>
+    </section>
   );
 });
 
@@ -1158,8 +1310,7 @@ const MarketListingCard = React.memo(function MarketListingCard({
   const directItem = useMemo(() => resolveDirectMarketItem(item), [item]);
   const directItemSkuId = directItem?.skuId || item.skuId;
   const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
-  const basePrice = useMemo(() => getListingBasePrice(item, ships), [item, ships]);
-  const discount = useMemo(() => getListingDiscountPercent(item, ships), [item, ships]);
+  const priceDisplay = useMemo(() => getListingPriceDisplay(item, ships), [item, ships]);
   const displayName = useMemo(() => getMarketItemDisplayName(intl, item, ships), [intl, item, ships]);
   const summary = useMemo(() => getMarketItemSummary(intl, item, ships), [intl, item, ships]);
   const isCredit = item.itemType === 'credit';
@@ -1182,7 +1333,7 @@ const MarketListingCard = React.memo(function MarketListingCard({
           item={item}
           ships={ships}
           height={220}
-          badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
+          badgeText={!isCredit && priceDisplay.promotionDiscountPercent ? formatMarketDiscount(intl, priceDisplay.promotionDiscountPercent) : null}
         />
       </div>
 
@@ -1228,11 +1379,16 @@ const MarketListingCard = React.memo(function MarketListingCard({
                 ? formatMarketPriceFrom(intl, item.price)
                 : formatUsdPrice(intl.locale, item.price)}
             </div>
-            {discount && Number(discount) > 0 && (
+            {priceDisplay.marketPrice > 0 && (
               <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                {formatUsdPrice(intl.locale, basePrice)}
+                {formatUsdPrice(intl.locale, priceDisplay.marketPrice)}
               </div>
             )}
+            {priceDisplay.officialSavingsAmount > 0 ? (
+              <div className='text-xs text-slate-500 dark:text-slate-400'>
+                {formatMarketOfficialSavings(intl, priceDisplay.officialSavingsAmount)}
+              </div>
+            ) : null}
             {typeof item.cost === 'number' && item.cost > 0 && (
               <div className='text-sm text-slate-500 dark:text-slate-400'>
                 {intl.formatMessage(
@@ -2878,7 +3034,7 @@ const Market: React.FC = () => {
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroPointerFocusRef = useRef(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
+  const { cart, cartOpen, addToCart, removeFromCart, replaceCartItem, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
@@ -2917,6 +3073,13 @@ const Market: React.FC = () => {
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const homeContentEnabled = true;
   const { data: marketHomeSettingsResponse } = useMarketHomeSettings({ enabled: homeContentEnabled });
+  const { data: marketHomePromotionsResponse } = useApi<MarketHomePromotionsResponse>(
+    homeContentEnabled ? '/api/promotions' : null,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60_000,
+    },
+  );
   const { data: marketSearchShipsResponse } = useApi<ShipsData>('/api/ships', {
     revalidateOnFocus: false,
     dedupingInterval: 300_000,
@@ -3433,6 +3596,22 @@ const Market: React.FC = () => {
   const activeHeroTranslation = activeHeroSlide
     ? getMarketHeroTranslation(activeHeroSlide, locale as MarketHomeLocaleCode)
     : getMarketHeroTranslation(DEFAULT_MARKET_HERO_SLIDES[0], locale as MarketHomeLocaleCode);
+  const marketHomePromotion = useMemo(() => (
+    (marketHomePromotionsResponse?.promotions || [])
+      .find((promotion) => promotion.status === 'active' || promotion.status === 'scheduled') || null
+  ), [marketHomePromotionsResponse?.promotions]);
+  const marketHomePromotionHero = useMemo(() => (
+    marketHomePromotion
+      ? getMarketHomePromotionHeroContent(marketHomePromotion, locale)
+      : null
+  ), [locale, marketHomePromotion]);
+  const marketHomePromotionImageUrl = useMemo(() => {
+    const rawImageUrl = marketHomePromotionHero?.mobileImageUrl || marketHomePromotionHero?.imageUrl || '';
+    return getMarketImageDisplayUrl(rawImageUrl, {
+      ships: marketSearchShips,
+      variant: 'slideshow',
+    }) || rawImageUrl;
+  }, [marketHomePromotionHero, marketSearchShips]);
   const heroAutoplayActive = heroSlides.length > 1
     && !listingDrawerOpen
     && !mobileFilterDrawerOpen
@@ -4950,8 +5129,7 @@ const Market: React.FC = () => {
             {otherGearItems.map((item) => {
               const directItem = resolveDirectMarketItem(item);
               const availableStock = directItem ? getAvailableStock(directItem) : getAvailableStock(item);
-              const basePrice = getListingBasePrice(item, ships);
-              const discount = getListingDiscountPercent(item, ships);
+              const priceDisplay = getListingPriceDisplay(item, ships);
               const displayName = getMarketItemDisplayName(intl, item, ships);
               const isCcu = item.itemType === 'ccu';
               const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
@@ -4970,7 +5148,7 @@ const Market: React.FC = () => {
                       item={item}
                       ships={ships}
                       height={170}
-                      badgeText={discount ? formatMarketDiscount(intl, discount) : null}
+                      badgeText={priceDisplay.promotionDiscountPercent ? formatMarketDiscount(intl, priceDisplay.promotionDiscountPercent) : null}
                     />
                   </div>
 
@@ -5022,11 +5200,16 @@ const Market: React.FC = () => {
                             ? formatMarketPriceFrom(intl, item.price)
                             : formatUsdPrice(intl.locale, item.price)}
                         </div>
-                        {discount && Number(discount) > 0 && (
+                        {priceDisplay.marketPrice > 0 && (
                           <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                            {formatUsdPrice(intl.locale, basePrice)}
+                            {formatUsdPrice(intl.locale, priceDisplay.marketPrice)}
                           </div>
                         )}
+                        {priceDisplay.officialSavingsAmount > 0 ? (
+                          <div className='text-xs text-slate-500 dark:text-slate-400'>
+                            {formatMarketOfficialSavings(intl, priceDisplay.officialSavingsAmount)}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className='flex items-center justify-between gap-2'>
@@ -5543,6 +5726,14 @@ const Market: React.FC = () => {
               </div>
             </section>
 
+            {marketHomePromotion && marketHomePromotionHero ? (
+              <MarketHomePromotionBanner
+                promotion={marketHomePromotion}
+                hero={marketHomePromotionHero}
+                imageUrl={marketHomePromotionImageUrl}
+              />
+            ) : null}
+
             <MarketHomeSearchBox
               value={searchTerm}
               placeholder={intl.formatMessage({ id: 'market.searchPlaceholder', defaultMessage: 'Search products, ships, bundles...' })}
@@ -5746,6 +5937,7 @@ const Market: React.FC = () => {
           ships={ships}
           onClose={closeCart}
           onRemoveFromCart={removeFromCart}
+          onReplaceCartItem={replaceCartItem}
           onUpdateQuantity={updateItemQuantity}
           getAvailableStock={getAvailableStockByResourceId}
         />

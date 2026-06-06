@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApi } from '../useApi';
-import { ListingItem, Ship, ShipsData } from '@/types';
+import { ListingItem, MarketItemRedirectResponse, Ship, ShipsData } from '@/types';
 
 type FetchError = Error & {
   status?: number;
@@ -10,10 +10,10 @@ export default function useMarketItemData(skuId?: string) {
   const itemPath = skuId ? `/api/market/item/${encodeURIComponent(skuId)}` : null;
 
   const {
-    data: item,
+    data: itemResponse,
     error: itemError,
     isLoading: itemLoading,
-  } = useApi<ListingItem>(itemPath);
+  } = useApi<ListingItem | MarketItemRedirectResponse>(itemPath);
 
   const {
     data: shipsData,
@@ -29,9 +29,12 @@ export default function useMarketItemData(skuId?: string) {
   const loading = itemLoading || shipsLoading;
   const notFound = (itemError as FetchError | undefined)?.status === 404;
   const error = shipsError || (itemError && !notFound) ? 'Failed to load data' : null;
+  const redirect = itemResponse && 'redirectSkuId' in itemResponse ? itemResponse : null;
+  const item = itemResponse && !('redirectSkuId' in itemResponse) ? itemResponse : null;
 
   return {
-    item: notFound ? null : item || null,
+    item: notFound ? null : item,
+    redirect,
     ships,
     loading,
     error,

@@ -151,6 +151,33 @@ export const cartSlice = createSlice({
       const bucket = state[namespace];
       bucket.items = bucket.items.filter(item => item.resource.id !== action.payload.resourceId);
     },
+    replaceItem: (state, action: PayloadAction<{ namespace?: CartNamespace; fromResourceId: string; resource: Resource; quantity?: number }>) => {
+      const namespace = action.payload.namespace || 'market';
+      const bucket = state[namespace];
+      const fromIndex = bucket.items.findIndex(item => item.resource.id === action.payload.fromResourceId);
+      if (fromIndex < 0) {
+        return;
+      }
+
+      const replacementQuantity = Math.max(1, action.payload.quantity || bucket.items[fromIndex].quantity || 1);
+      const existingReplacementIndex = bucket.items.findIndex((item, index) => (
+        index !== fromIndex && item.resource.id === action.payload.resource.id
+      ));
+
+      if (existingReplacementIndex >= 0) {
+        bucket.items[existingReplacementIndex].quantity = Math.max(
+          1,
+          (bucket.items[existingReplacementIndex].quantity || 1) + replacementQuantity,
+        );
+        bucket.items.splice(fromIndex, 1);
+        return;
+      }
+
+      bucket.items[fromIndex] = {
+        resource: action.payload.resource,
+        quantity: replacementQuantity,
+      };
+    },
     clearCart: (state, action: PayloadAction<{ namespace?: CartNamespace } | undefined>) => {
       const namespace = action.payload?.namespace || 'market';
       state[namespace].items = [];
@@ -166,7 +193,7 @@ export const cartSlice = createSlice({
   }
 });
 
-export const { addItem, updateQuantity, removeItem, clearCart, openCart, closeCart } = cartSlice.actions;
+export const { addItem, updateQuantity, removeItem, replaceItem, clearCart, openCart, closeCart } = cartSlice.actions;
 
 // 选择器
 export const selectCartItems = (namespace: CartNamespace = 'market') => (state: { cart: CartState }) => state.cart[namespace].items;

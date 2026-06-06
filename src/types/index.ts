@@ -54,6 +54,7 @@ export interface Resource {
     level: string;
   };
   isPackage: boolean;
+  promotion?: PromotionPriceInfo | null;
 }
 
 export interface ProfileData {
@@ -905,6 +906,22 @@ export interface MarketItemVariant {
   fromImageUrl?: string;
   toImageUrl?: string;
   seller?: MarketSellerSummary | null;
+  promotion?: PromotionPriceInfo | null;
+}
+
+export interface PromotionPriceInfo {
+  promotionId: string;
+  promotionItemId: string;
+  promotionSlug: string;
+  status: 'draft' | 'scheduled' | 'active' | 'ended' | 'canceled' | string;
+  startsAt: string;
+  expiresAt: string;
+  originalSkuId: string;
+  discountSkuId: string;
+  originalPrice: number;
+  discountPrice: number;
+  discountPercent: number;
+  discountAmount: number;
 }
 
 export interface ListingItem {
@@ -961,6 +978,119 @@ export interface ListingItem {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
+  promotion?: PromotionPriceInfo | null;
+}
+
+export interface MarketItemRedirectResponse {
+  redirectSkuId: string;
+  reason: 'promotion_active' | 'promotion_ended' | string;
+  promotion?: PromotionPriceInfo | null;
+  promotionSlug?: string | null;
+}
+
+export type PromotionStatus = 'draft' | 'scheduled' | 'active' | 'ended' | 'canceled' | string;
+
+export type PromotionLocaleCode = 'en' | 'zh-CN' | 'zh-HK' | 'ja-JP' | 'de-DE';
+
+export interface PromotionHeroTranslation {
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  imageUrl?: string;
+  mobileImageUrl?: string;
+  imageAlt?: string;
+}
+
+export interface PromotionSeoTranslation {
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+}
+
+export interface PromotionSection {
+  id: string;
+  type: 'media_text' | 'product_group' | 'benefits' | string;
+  translations?: Record<string, Record<string, string>>;
+  imageUrl?: string;
+  imageAlt?: string;
+  imageSide?: 'left' | 'right';
+  itemSkuIds?: string[];
+  items?: Array<{
+    id: string;
+    translations?: Record<string, Record<string, string>>;
+  }>;
+}
+
+export interface PromotionItemContent {
+  translations?: Record<string, {
+    title?: string;
+    description?: string;
+    badge?: string;
+    buttonLabel?: string;
+    imageAlt?: string;
+  }>;
+  imageUrl?: string;
+}
+
+export interface PromotionItem {
+  id: string;
+  originalSkuId: string;
+  discountSkuId?: string | null;
+  sortOrder: number;
+  discountMode: 'percentage' | 'amount_off' | 'fixed_price' | string;
+  discountValue: number;
+  originalUnitPrice: number;
+  discountUnitPrice: number;
+  itemContent?: PromotionItemContent;
+  active: boolean;
+  originalItem?: ListingItem | null;
+  discountItem?: ListingItem | null;
+  promotion?: PromotionPriceInfo | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Promotion {
+  id: string;
+  slug: string;
+  title: string;
+  status: PromotionStatus;
+  storedStatus: PromotionStatus;
+  startsAt: string;
+  expiresAt: string;
+  heroContent: Record<string, PromotionHeroTranslation>;
+  seoContent: Record<string, PromotionSeoTranslation>;
+  sections: PromotionSection[];
+  publishedAt?: string | null;
+  canceledAt?: string | null;
+  endedAt?: string | null;
+  adminNote?: string | null;
+  promotionUrl: string;
+  createdBy?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  } | null;
+  itemCount: number;
+  discountSkuCount: number;
+  createdAt: string;
+  updatedAt: string;
+  items: PromotionItem[];
+  supportedLocales?: PromotionLocaleCode[];
+}
+
+export interface AdminPromotionListResponse {
+  success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  promotions: Promotion[];
+}
+
+export interface PromotionResponse {
+  success: boolean;
+  promotion: Promotion;
 }
 
 export interface MarketListPagination {
@@ -1134,6 +1264,7 @@ export interface MarketCartItem {
       slideshow?: string;
     }>;
   };
+  promotion?: PromotionPriceInfo | null;
 }
 
 export interface AccountCartItem {
@@ -1706,52 +1837,36 @@ export interface MarketingOfferResponse {
   offer: MarketingOffer;
 }
 
-export type MarketingEmailCampaignStatus = 'draft' | 'sending' | 'sent' | 'canceled' | 'expired';
+export type MarketingEmailCampaignStatus = 'draft' | 'sending' | 'sent' | 'canceled';
 export type MarketingEmailAudienceLocale = 'en' | 'zh-CN' | 'zh-HK';
-export type MarketingEmailLandingSectionType = 'benefits' | 'product_group' | 'media_text';
+export type MarketingEmailAudience = 'selected_users' | 'marketing_consent';
+export type MarketingEmailBlockType = 'hero' | 'text' | 'image' | 'button' | 'product_group' | 'divider';
+export type MarketingEmailLocalizedString = Partial<Record<MarketingEmailAudienceLocale, string>>;
 
-export interface MarketingEmailLandingSectionItem {
+export interface MarketingEmailProduct {
   id: string;
-  title: string;
-  body: string;
+  title: MarketingEmailLocalizedString;
+  body?: MarketingEmailLocalizedString;
+  imageUrl?: string | null;
+  imageAlt?: MarketingEmailLocalizedString;
+  url?: MarketingEmailLocalizedString;
+  buttonLabel?: MarketingEmailLocalizedString;
+  priceLabel?: MarketingEmailLocalizedString;
+  badge?: MarketingEmailLocalizedString;
 }
 
-export interface MarketingEmailLandingSection {
+export interface MarketingEmailBlock {
   id: string;
-  type: MarketingEmailLandingSectionType;
-  eyebrow?: string;
-  title?: string;
-  body?: string;
-  imageUrl?: string;
-  imageAlt?: string;
+  type: MarketingEmailBlockType;
+  eyebrow?: MarketingEmailLocalizedString;
+  title?: MarketingEmailLocalizedString;
+  body?: MarketingEmailLocalizedString;
+  imageUrl?: string | null;
+  imageAlt?: MarketingEmailLocalizedString;
   imageSide?: 'left' | 'right';
-  itemSkuIds?: string[];
-  buttonLabel?: string;
-  items?: MarketingEmailLandingSectionItem[];
-}
-
-export interface MarketingEmailCampaignItem extends ListingItem {
-  quantity: number;
-  offerUnitPrice: number;
-  sortOrder: number;
-  emailHeadline?: string | null;
-  emailDescription?: string | null;
-  emailBadge?: string | null;
-  emailImageUrl?: string | null;
-  buttonLabel?: string | null;
-  productUrl?: string;
-}
-
-export interface MarketingEmailCampaignCoupon {
-  id: string;
-  source?: string;
-  amountOff: number;
-  minimumAmount: number;
-  currency: string;
-  expiresAt: string;
-  claimedAt: string;
-  appliedAt?: string | null;
-  eligibleSkuIds?: string[];
+  url?: MarketingEmailLocalizedString;
+  buttonLabel?: MarketingEmailLocalizedString;
+  products?: MarketingEmailProduct[];
 }
 
 export interface MarketingEmailCampaignRecipient {
@@ -1759,13 +1874,10 @@ export interface MarketingEmailCampaignRecipient {
   userId: string;
   email: string;
   name: string | null;
+  locale: MarketingEmailAudienceLocale;
   status: string;
   emailSentAt?: string | null;
   emailError?: string | null;
-  claimedAt?: string | null;
-  couponId?: string | null;
-  claimUrl?: string;
-  coupon?: MarketingEmailCampaignCoupon | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1773,40 +1885,20 @@ export interface MarketingEmailCampaignRecipient {
 export interface MarketingEmailCampaign {
   id: string;
   title: string;
-  subject?: string;
-  preheader?: string | null;
-  template: string;
   status: MarketingEmailCampaignStatus | string;
-  brandLabel?: string | null;
-  eyebrow?: string | null;
-  subtitle?: string | null;
-  message?: string | null;
-  buttonLabel?: string | null;
-  heroImageUrl?: string | null;
-  heroImageAlt?: string | null;
-  sectionTitle?: string | null;
-  sectionBody?: string | null;
-  footerNote?: string | null;
-  audienceLocale?: MarketingEmailAudienceLocale;
-  claimButtonLabel?: string | null;
-  landingSections?: MarketingEmailLandingSection[];
-  amountOff: number;
-  minimumAmount: number;
-  currency: string;
-  expiresAt: string;
+  subjectContent: MarketingEmailLocalizedString;
+  preheaderContent?: MarketingEmailLocalizedString;
+  blocks: MarketingEmailBlock[];
+  audience: MarketingEmailAudience;
+  defaultLocale: MarketingEmailAudienceLocale;
   sentAt?: string | null;
   canceledAt?: string | null;
-  itemSubtotal: number;
   recipientCount: number;
-  itemCount: number;
   createdBy?: MarketingOfferUserSummary;
   recipient?: MarketingEmailCampaignRecipient;
   recipients?: MarketingEmailCampaignRecipient[];
-  claimUrl?: string;
-  coupon?: MarketingEmailCampaignCoupon | null;
   createdAt: string;
   updatedAt: string;
-  items: MarketingEmailCampaignItem[];
 }
 
 export interface AdminMarketingEmailCampaignListResponse {
@@ -1830,33 +1922,8 @@ export interface AdminMarketingEmailCampaignPreviewResponse {
     title?: string;
     subject?: string;
     preheader?: string;
-    brandLabel?: string;
-    eyebrow?: string;
-    subtitle?: string;
-    message?: string;
-    template?: string;
-    claimUrl?: string;
-    buttonLabel?: string;
-    claimButtonLabel?: string;
-    heroImageUrl?: string;
-    heroImageAlt?: string;
-    sectionTitle?: string;
-    sectionBody?: string;
-    footerNote?: string;
-    amountOff?: string;
-    minimumAmount?: string;
-    expiresAt?: string;
-    items?: Array<{
-      skuId?: string;
-      name: string;
-      headline?: string;
-      description?: string;
-      badge?: string;
-      unitPrice: string;
-      imageUrl?: string;
-      href?: string;
-      buttonLabel?: string;
-    }>;
+    locale?: MarketingEmailAudienceLocale;
+    blocks?: MarketingEmailBlock[];
   };
 }
 

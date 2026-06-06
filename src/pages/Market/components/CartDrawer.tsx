@@ -15,13 +15,13 @@ import {
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { CartItem, MarketItemType, Ship } from '@/types';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from 'react-router';
 import { X, Plus, Minus } from 'lucide-react';
 import { useShipsData } from '@/hooks';
 import { useMarketCartValidation } from '@/hooks';
-import { getMarketItemVisual } from '@/components/marketItemDisplay';
+import { buildMarketResource, getMarketItemVisual } from '@/components/marketItemDisplay';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 // import PaymentMethodMessaging from '@/components/PaymentMethodMessaging';
 
@@ -37,6 +37,7 @@ interface CartDrawerProps {
   onClose: () => void;
   onRemoveFromCart: (resourceId: string) => void;
   onUpdateQuantity?: (resourceId: string, quantity: number) => void;
+  onReplaceCartItem?: (fromResourceId: string, resource: CartItem['resource'], quantity?: number) => void;
   getAvailableStock?: (resourceId: string) => number;
   checkoutPath?: string;
   title?: ReactNode;
@@ -49,6 +50,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   onClose, 
   onRemoveFromCart, 
   onUpdateQuantity,
+  onReplaceCartItem,
   getAvailableStock,
   checkoutPath = '/checkout',
   title,
@@ -61,6 +63,59 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const { ships: loadedShips } = useShipsData({ enabled: !shipsProp });
   const ships = shipsProp || loadedShips;
   const cartValidation = useMarketCartValidation(cart, { enabled: open && checkoutPath === '/checkout' });
+  const replacementKey = useMemo(() => (
+    cartValidation.data?.items
+      .filter((item) => item.replacementSkuId && item.replacementSkuId !== item.skuId)
+      .map((item) => `${item.skuId}->${item.replacementSkuId}`)
+      .sort()
+      .join('|') || ''
+  ), [cartValidation.data?.items]);
+  const lastReplacementKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!open || !onReplaceCartItem || !replacementKey || replacementKey === lastReplacementKeyRef.current) {
+      return;
+    }
+
+    lastReplacementKeyRef.current = replacementKey;
+    let canceled = false;
+
+    void (async () => {
+      const replacements = (cartValidation.data?.items || [])
+        .filter((item) => item.replacementSkuId && item.replacementSkuId !== item.skuId);
+
+      for (const replacement of replacements) {
+        const currentCartItem = cart.find((item) => item.resource.id === replacement.skuId);
+        if (!currentCartItem || !replacement.replacementSkuId) {
+          continue;
+        }
+
+        try {
+          const response = await fetch(`${import.meta.env.VITE_PUBLIC_API_ENDPOINT}/api/market/item/${encodeURIComponent(replacement.replacementSkuId)}`);
+          const payload = await response.json().catch(() => null);
+          if (!response.ok || !payload || 'redirectSkuId' in payload) {
+            continue;
+          }
+
+          if (canceled) {
+            return;
+          }
+
+          onReplaceCartItem(
+            currentCartItem.resource.id,
+            buildMarketResource(payload, ships),
+            currentCartItem.quantity || 1,
+          );
+        } catch (error) {
+          console.warn('Failed to replace cart item for active promotion.', error);
+        }
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [cart, cartValidation.data?.items, onReplaceCartItem, open, replacementKey, ships]);
 
   const getResourceItemType = (item: CartItem['resource']): MarketItemType => {
     const rawItemType = item.itemType || item.subtitle || item.type;

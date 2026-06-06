@@ -17,15 +17,13 @@ import {
 } from '@mui/material';
 import MarkdownPreview from '@uiw/react-markdown-preview';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowRightLeft, Archive, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import useSWR from 'swr';
-import { useSelector } from 'react-redux';
 import RsiIcon from '@/components/RsiIcon';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useApi, useMarketItemData } from '@/hooks';
-import { RootState } from '@/store';
 import {
   CartItem as CartItemType,
   ListingItem,
@@ -54,7 +52,7 @@ import { useCartStore } from '@/hooks/useCartStore';
 import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
 import { getShipDisplayName } from '@/utils/shipDisplay';
 import CartDrawer from './components/CartDrawer';
-import { findShip, getAvailableStock, getListingBasePrice, getListingDiscountPercent } from './marketUtils';
+import { findShip, getAvailableStock, getListingBasePrice, getListingPriceDisplay } from './marketUtils';
 import {
   formatCreditAmountSummary,
   formatCreditFaceValueSummary,
@@ -62,6 +60,7 @@ import {
   formatCreditPriceFormula,
   formatMarketCreditResourceName,
   formatMarketDiscount,
+  formatMarketOfficialSavings,
   formatUsdPrice,
   getMarketItemTypeLabel,
 } from './marketI18n';
@@ -697,14 +696,11 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   const intl = useIntl();
   const { locale } = useLocale();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useSelector((state: RootState) => state.user);
   const { skuId: routeSkuId } = useParams();
   const resolvedSkuId = skuIdProp ?? routeSkuId ?? '';
   const decodedSkuId = decodeURIComponent(resolvedSkuId);
-  const marketingEmailCampaignToken = searchParams.get('mec')?.trim() || '';
-  const { item, ships, loading, error, notFound } = useMarketItemData(decodedSkuId);
-  const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
+  const { item, redirect, ships, loading, error, notFound } = useMarketItemData(decodedSkuId);
+  const { cart, cartOpen, addToCart, removeFromCart, replaceCartItem, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
@@ -738,6 +734,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
       imageUrl: item.imageUrl,
       fromImageUrl: item.fromImageUrl,
       toImageUrl: item.toImageUrl,
+      promotion: item.promotion,
     }];
   }, [item]);
   const ccuCostOptions = useMemo(
@@ -783,71 +780,17 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
   }, [matchingCcuVariants]);
 
   useEffect(() => {
-    if (embedded) {
+    if (embedded || !redirect?.redirectSkuId) {
       return;
     }
 
-    if (!marketingEmailCampaignToken) {
+    const currentSkuId = decodedSkuId;
+    if (redirect.redirectSkuId === currentSkuId) {
       return;
     }
 
-    if (!user?.token) {
-      setSnackbarMessage(intl.formatMessage({
-        id: 'marketingEmail.signInToClaim',
-        defaultMessage: 'Sign in to claim the email coupon for this item.',
-      }));
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      return;
-    }
-
-    let canceled = false;
-    void (async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/marketing-email-campaigns/${encodeURIComponent(marketingEmailCampaignToken)}/claim`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(result?.error || intl.formatMessage({
-            id: 'marketingEmail.claimError',
-            defaultMessage: 'Failed to claim this coupon.',
-          }));
-        }
-
-        if (canceled) {
-          return;
-        }
-
-        setSnackbarMessage(intl.formatMessage({
-          id: 'marketingEmail.autoClaimed',
-          defaultMessage: 'Coupon claimed. It will appear in checkout for eligible recommended items.',
-        }));
-        setSnackbarSeverity('success');
-        setSnackbarOpen(true);
-        const nextSearchParams = new URLSearchParams(window.location.search);
-        nextSearchParams.delete('mec');
-        setSearchParams(nextSearchParams, { replace: true });
-      } catch (error) {
-        if (canceled) {
-          return;
-        }
-
-        setSnackbarMessage(error instanceof Error
-          ? error.message
-          : intl.formatMessage({ id: 'marketingEmail.claimError', defaultMessage: 'Failed to claim this coupon.' }));
-        setSnackbarSeverity('error');
-        setSnackbarOpen(true);
-      }
-    })();
-
-    return () => {
-      canceled = true;
-    };
-  }, [embedded, intl, marketingEmailCampaignToken, setSearchParams, user?.token]);
+    navigate(`/market/${encodeURIComponent(redirect.redirectSkuId)}${window.location.search}`, { replace: true });
+  }, [decodedSkuId, embedded, navigate, redirect?.redirectSkuId]);
 
   const activeItem = useMemo<ListingItem | null>(() => {
     if (!item) {
@@ -1062,7 +1005,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     return cart.find((cartItem) => cartItem.resource.id === resourceId)?.resource.marketAvailableStock ?? 0;
   };
 
-  if (loading && !item && !notFound) {
+  if ((loading && !item && !notFound) || redirect) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height={embedded ? '100%' : '100vh'}>
         <CircularProgress />
@@ -1117,12 +1060,15 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
     : displayItem.price;
   const basePrice = item.itemType === 'credit'
     ? (selectedCreditOption?.amount || getListingBasePrice(item, ships))
-    : getListingBasePrice(displayItem, ships);
+    : 0;
+  const priceDisplay = item.itemType === 'credit'
+    ? null
+    : getListingPriceDisplay(displayItem, ships);
   const discount = item.itemType === 'credit'
     ? (selectedCreditOption && selectedCreditOption.amount > displayPrice
       ? (((selectedCreditOption.amount - displayPrice) / selectedCreditOption.amount) * 100).toFixed(2)
       : null)
-    : getListingDiscountPercent(displayItem, ships);
+    : priceDisplay?.promotionDiscountPercent;
   const selectedCreditSkuId = selectedCreditOption ? `credit-pool:${selectedCreditOption.amount}` : item.skuId;
   const selectedMarketSkuId = item.itemType === 'credit' ? selectedCreditSkuId : displayItem.skuId;
   const inCartItem = cart.find((cartItem: CartItemType) =>
@@ -1323,11 +1269,21 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
         <div className='text-2xl font-semibold text-slate-900 dark:text-slate-100'>
           {formatUsdPrice(intl.locale, displayPrice)}
         </div>
-        {discount && Number(discount) > 0 && (
+        {item.itemType === 'credit' && discount && Number(discount) > 0 && (
           <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
             {formatUsdPrice(intl.locale, basePrice)}
           </div>
         )}
+        {item.itemType !== 'credit' && priceDisplay?.marketPrice ? (
+          <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
+            {formatUsdPrice(intl.locale, priceDisplay.marketPrice)}
+          </div>
+        ) : null}
+        {item.itemType !== 'credit' && priceDisplay?.officialSavingsAmount ? (
+          <div className='text-xs text-slate-500 dark:text-slate-400'>
+            {formatMarketOfficialSavings(intl, priceDisplay.officialSavingsAmount)}
+          </div>
+        ) : null}
         {item.itemType === 'credit' && (
           <div className='text-sm text-slate-500 dark:text-slate-400'>
             <span>
@@ -1891,6 +1847,7 @@ export default function MarketDetail({ skuId: skuIdProp, embedded = false }: Mar
             ships={ships}
             onClose={closeCart}
             onRemoveFromCart={removeFromCart}
+            onReplaceCartItem={replaceCartItem}
             onUpdateQuantity={updateItemQuantity}
             getAvailableStock={getAvailableStockByResourceId}
           />

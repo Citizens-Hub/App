@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { 
   addItem, 
   removeItem,
+  replaceItem,
   updateQuantity,
   clearCart, 
   openCart, 
@@ -43,6 +44,10 @@ export function useCartStore(namespace: CartNamespace = 'market') {
     dispatch(removeItem({ namespace, resourceId }));
   }, [dispatch, namespace]);
 
+  const replaceCartItem = useCallback((fromResourceId: string, resource: Resource, quantity?: number) => {
+    dispatch(replaceItem({ namespace, fromResourceId, resource, quantity }));
+  }, [dispatch, namespace]);
+
   const emptyCart = useCallback(() => {
     dispatch(clearCart({ namespace }));
   }, [dispatch, namespace]);
@@ -76,6 +81,7 @@ export function useCartStore(namespace: CartNamespace = 'market') {
     addToCart,
     updateItemQuantity,
     removeFromCart,
+    replaceCartItem,
     emptyCart,
     openCart: openCartHandler,
     closeCart: closeCartHandler,

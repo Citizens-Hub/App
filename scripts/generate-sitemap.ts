@@ -18,6 +18,15 @@ type MarketSitemapResponse = {
   };
 };
 
+type PromotionSitemapItem = {
+  slug: string;
+  status?: string;
+};
+
+type PromotionSitemapResponse = {
+  promotions?: PromotionSitemapItem[];
+};
+
 // Define public routes that should be included in sitemap
 // Exclude routes that require authentication, have dynamic params, or are not public
 const publicRoutes: SitemapRoute[] = [
@@ -150,6 +159,21 @@ const getMarketItems = async () => {
   return items;
 };
 
+const getPromotions = async () => {
+  const apiBaseUrl = process.env.VITE_PUBLIC_API_ENDPOINT || 'https://worker.citizenshub.app';
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/promotions`);
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json() as PromotionSitemapResponse;
+    return data.promotions || [];
+  } catch {
+    return [];
+  }
+};
+
 const generateSlug = (name: string): string => {
   return name
     .toLowerCase()
@@ -189,6 +213,19 @@ const main = async () => {
     publicRoutes.push({
       path: `/market/${encodeURIComponent(item.skuId)}`,
       priority: 0.7,
+      changefreq: 'daily',
+    });
+  });
+
+  const promotions = await getPromotions();
+  promotions.forEach((promotion) => {
+    if (!promotion?.slug || promotion.status !== 'active') {
+      return;
+    }
+
+    publicRoutes.push({
+      path: `/market/promotions/${encodeURIComponent(promotion.slug)}`,
+      priority: 0.9,
       changefreq: 'daily',
     });
   });

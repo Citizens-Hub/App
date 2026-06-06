@@ -44,12 +44,12 @@ import { getShipDetailImageUrl, getShipDetailThumbnailUrl, getShipSlideshowImage
 import { getAbsoluteAssetUrl, getMarketDetailUrl, getMarketListPath, getSiteUrl } from '@/utils/marketLinks';
 import {
   getAvailableStock,
-  getListingBasePrice,
-  getListingDiscountPercent,
+  getListingPriceDisplay,
   resolveLowestCcuVariant,
 } from './marketUtils';
 import {
   formatMarketDiscount,
+  formatMarketOfficialSavings,
   formatMarketPriceFrom,
   formatPackageContentsSummary,
   formatUsdPrice,
@@ -143,7 +143,7 @@ export default function MarketShipFeature() {
   const { shipId: shipIdParam } = useParams();
   const shipId = Number(shipIdParam);
   const validShipId = Number.isInteger(shipId) && shipId > 0;
-  const { cart, cartOpen, addToCart, removeFromCart, openCart, closeCart, updateItemQuantity } = useCartStore();
+  const { cart, cartOpen, addToCart, removeFromCart, replaceCartItem, openCart, closeCart, updateItemQuantity } = useCartStore();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
@@ -302,8 +302,7 @@ export default function MarketShipFeature() {
       ? cart.find((cartItem: CartItemType) => cartItem.resource.id === directItemSkuId)
       : undefined;
     const inCartQuantity = inCartItem?.quantity || 0;
-    const basePrice = getListingBasePrice(item, ships);
-    const discount = getListingDiscountPercent(item, ships);
+    const priceDisplay = getListingPriceDisplay(item, ships);
     const isCredit = item.itemType === 'credit';
     const isCcu = item.itemType === 'ccu';
     const isVariantPriceRange = isCcu && (item.variantCount || 0) > 1;
@@ -322,7 +321,7 @@ export default function MarketShipFeature() {
             item={item}
             ships={ships}
             height={220}
-            badgeText={!isCredit && discount ? formatMarketDiscount(intl, discount) : null}
+            badgeText={!isCredit && priceDisplay.promotionDiscountPercent ? formatMarketDiscount(intl, priceDisplay.promotionDiscountPercent) : null}
           />
         </div>
 
@@ -368,9 +367,14 @@ export default function MarketShipFeature() {
                   ? formatMarketPriceFrom(intl, item.price)
                   : formatUsdPrice(intl.locale, item.price)}
               </div>
-              {discount && Number(discount) > 0 ? (
+              {priceDisplay.marketPrice > 0 ? (
                 <div className='text-sm text-slate-500 line-through dark:text-slate-400'>
-                  {formatUsdPrice(intl.locale, basePrice)}
+                  {formatUsdPrice(intl.locale, priceDisplay.marketPrice)}
+                </div>
+              ) : null}
+              {priceDisplay.officialSavingsAmount > 0 ? (
+                <div className='text-xs text-slate-500 dark:text-slate-400'>
+                  {formatMarketOfficialSavings(intl, priceDisplay.officialSavingsAmount)}
                 </div>
               ) : null}
               {typeof item.cost === 'number' && item.cost > 0 ? (
@@ -665,6 +669,7 @@ export default function MarketShipFeature() {
           ships={ships}
           onClose={closeCart}
           onRemoveFromCart={removeFromCart}
+          onReplaceCartItem={replaceCartItem}
           onUpdateQuantity={updateItemQuantity}
           getAvailableStock={getAvailableStockByResourceId}
         />

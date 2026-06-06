@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 import useSWR from 'swr';
-import { CartItem, MarketCartItem } from '@/types';
+import { CartItem, MarketCartItem, PromotionPriceInfo } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
 export interface MarketCartValidationItem {
   skuId: string;
+  replacementSkuId?: string | null;
+  replacementReason?: 'promotion_active' | 'promotion_ended' | string | null;
+  promotion?: PromotionPriceInfo | null;
   requestedQuantity: number;
   availableStock: number;
   valid: boolean;
@@ -85,4 +88,3 @@ export function useMarketCartValidation(
     hasInvalidItems: invalidItems.length > 0,
   };
 }
-

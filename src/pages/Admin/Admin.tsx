@@ -18,6 +18,7 @@ import OrdersManager from './components/OrdersManager';
 import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
 import MarketingEmailCampaignsManager from './components/MarketingEmailCampaignsManager';
+import PromotionsManager from './components/PromotionsManager';
 import AdminGraphqlDebugger from './components/AdminGraphqlDebugger';
 import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
@@ -50,6 +51,7 @@ enum Page {
   NewUserCoupon = 'newUserCoupon',
   InvoiceSettings = 'invoiceSettings',
   MarketingOffers = 'marketingOffers',
+  Promotions = 'promotions',
   MarketingEmails = 'marketingEmails',
   GoogleAdsAudience = 'googleAdsAudience',
   Orders = 'orders',
@@ -188,6 +190,15 @@ export default function Admin() {
       groupLabel: groups.operations,
       active: currentPage === Page.MarketingOffers,
       onSelect: () => setCurrentPage(Page.MarketingOffers),
+    },
+    {
+      id: Page.Promotions,
+      title: <FormattedMessage id="admin.promotions.title" defaultMessage="Promotions" />,
+      description: <FormattedMessage id="admin.promotions.navDescription" defaultMessage="Manage public promotion pages and discount SKUs." />,
+      groupId: 'operations',
+      groupLabel: groups.operations,
+      active: currentPage === Page.Promotions,
+      onSelect: () => setCurrentPage(Page.Promotions),
     },
     {
       id: Page.MarketingEmails,
@@ -348,6 +359,7 @@ export default function Admin() {
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
         {currentPage === Page.InvoiceSettings && <InvoiceSettingsManager />}
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
+        {currentPage === Page.Promotions && <PromotionsManager />}
         {currentPage === Page.MarketingEmails && <MarketingEmailCampaignsManager />}
         {currentPage === Page.GoogleAdsAudience && <GoogleAdsAudienceManager />}
         {currentPage === Page.SiteNotification && <SiteNotificationManager />}

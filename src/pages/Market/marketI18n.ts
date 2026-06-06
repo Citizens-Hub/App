@@ -156,6 +156,17 @@ export function formatMarketDiscount(intl: IntlShape, discount: number | string)
   );
 }
 
+export function formatMarketOfficialSavings(intl: IntlShape, amount?: number | null) {
+  if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+    return '';
+  }
+
+  return intl.formatMessage(
+    { id: 'market.officialSavings', defaultMessage: 'Save {amount}' },
+    { amount: formatUsdPrice(intl.locale, amount) },
+  );
+}
+
 export function formatMarketCreditName(intl: IntlShape) {
   return intl.formatMessage(
     { id: 'market.credit.name', defaultMessage: 'Store Credit' },

@@ -43,6 +43,11 @@ export const navigation = [
     hidden: true,
   },
   {
+    name: "navigation.promotions",
+    path: "/market/promotions/:slug",
+    hidden: true,
+  },
+  {
     name: "navigation.market",
     path: "/market/:item",
     hidden: true,
@@ -204,11 +209,6 @@ export const navigation = [
   {
     name: "navigation.offers",
     path: "/offers/:offerId",
-    hidden: true,
-  },
-  {
-    name: "navigation.marketingEmails",
-    path: "/marketing-emails/:token",
     hidden: true,
   },
 ];
