@@ -2,6 +2,7 @@ import type { OrderCheckoutSessionStatus } from '@/types';
 
 const DEFAULT_GOOGLE_ADS_SIGNUP_SEND_TO = 'AW-18222712464/K2V3CKrQ-bocEJCNovFD';
 const DEFAULT_GOOGLE_ADS_ADD_TO_CART_SEND_TO = 'AW-18222712464/jwkKCIKqjrscEJCNovFD';
+const DEFAULT_GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO = 'AW-18222712464/oK-1COmDjrscEJCNovFD';
 const DEFAULT_GOOGLE_ADS_PURCHASE_SEND_TO = 'AW-18222712464/tYgyCNvU8LocEJCNovFD';
 const DEFAULT_GOOGLE_ADS_EVENT_VALUE = 0;
 const DEFAULT_GOOGLE_ADS_EVENT_CURRENCY = 'USD';
@@ -16,6 +17,11 @@ const GOOGLE_ADS_ADD_TO_CART_SEND_TO = (
   || DEFAULT_GOOGLE_ADS_ADD_TO_CART_SEND_TO
 ).trim();
 
+const GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO = (
+  import.meta.env.VITE_PUBLIC_GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO
+  || DEFAULT_GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO
+).trim();
+
 const GOOGLE_ADS_PURCHASE_SEND_TO = (
   import.meta.env.VITE_PUBLIC_GOOGLE_ADS_PURCHASE_SEND_TO
   || DEFAULT_GOOGLE_ADS_PURCHASE_SEND_TO
@@ -26,6 +32,11 @@ type GoogleAdsConversionPayload = {
   value?: number;
   currency?: string;
   transactionId?: string;
+};
+
+type GoogleAdsBeginCheckoutConversionPayload = {
+  value: number;
+  currency?: string;
 };
 
 async function waitForGoogleTag(timeoutMs = 3000) {
@@ -99,6 +110,21 @@ export function sendGoogleAdsAddToCartConversion() {
     sendTo: GOOGLE_ADS_ADD_TO_CART_SEND_TO,
     value: DEFAULT_GOOGLE_ADS_EVENT_VALUE,
     currency: DEFAULT_GOOGLE_ADS_EVENT_CURRENCY,
+  });
+}
+
+export function sendGoogleAdsBeginCheckoutConversion({
+  value,
+  currency = DEFAULT_GOOGLE_ADS_EVENT_CURRENCY,
+}: GoogleAdsBeginCheckoutConversionPayload) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return Promise.resolve(false);
+  }
+
+  return sendGoogleAdsConversion({
+    sendTo: GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO,
+    value,
+    currency,
   });
 }
 

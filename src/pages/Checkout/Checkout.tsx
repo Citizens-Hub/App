@@ -61,12 +61,15 @@ import {
   readDirectCheckoutItems,
   saveDirectCheckoutItems,
 } from '@/utils/directCheckout';
+import { sendGoogleAdsBeginCheckoutConversion } from '@/utils/googleAdsConversions';
 
 const CHECKOUT_PENDING_REQUEST_STORAGE_PREFIX = 'checkout:pending-request';
 const CHECKOUT_PENDING_REQUEST_TTL_MS = 15 * 60 * 1000;
+const GOOGLE_ADS_BEGIN_CHECKOUT_TRACKED_STORAGE_PREFIX = 'google-ads:begin-checkout:';
 const SOFTWARE_SERVICE_FEE_AMOUNT = 0.99;
 const SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD = 5;
 const ACCOUNT_MARKET_SOURCE_KIND = 'account-market';
+const CHECKOUT_TRACKING_CURRENCY = 'USD';
 
 type PendingCheckoutRequestCache = {
   createdAt: number;
@@ -94,6 +97,49 @@ function isListingItemPayload(value: ListingItem | { redirectSkuId?: string } | 
 
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
+}
+
+function buildGoogleAdsBeginCheckoutFingerprint(
+  items: MarketCartItem[],
+  checkoutPath: string,
+) {
+  return JSON.stringify({
+    path: checkoutPath,
+    items: items
+      .map((item) => ({
+        skuId: item.skuId,
+        quantity: item.quantity,
+        price: roundCurrency(item.price || 0),
+      }))
+      .sort((left, right) => {
+        const skuComparison = left.skuId.localeCompare(right.skuId);
+        if (skuComparison !== 0) {
+          return skuComparison;
+        }
+
+        return left.quantity - right.quantity;
+      }),
+  });
+}
+
+function getGoogleAdsBeginCheckoutTrackedKey(fingerprint: string) {
+  return `${GOOGLE_ADS_BEGIN_CHECKOUT_TRACKED_STORAGE_PREFIX}${fingerprint}`;
+}
+
+function hasTrackedGoogleAdsBeginCheckout(fingerprint: string) {
+  try {
+    return window.sessionStorage.getItem(getGoogleAdsBeginCheckoutTrackedKey(fingerprint)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markGoogleAdsBeginCheckoutTracked(fingerprint: string) {
+  try {
+    window.sessionStorage.setItem(getGoogleAdsBeginCheckoutTrackedKey(fingerprint), '1');
+  } catch {
+    // Ignore storage failures so conversion tracking never blocks checkout.
+  }
 }
 
 function buildCheckoutFingerprint(
@@ -447,13 +493,17 @@ export default function Checkout() {
     }
     return params.toString();
   }, [couponPreviewItems, subtotal]);
-  const { data: couponPreview } = useAuthApi<NewUserCouponPreview>(
+  const { data: couponPreview, error: couponPreviewError } = useAuthApi<NewUserCouponPreview>(
     user?.token && !isAccountMarketCart ? `/api/user/new-user-coupon?${couponPreviewQuery}` : null,
   );
   // 判断是否免除服务费
   const isServiceFeeFree = subtotal >= SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD;
   const serviceFee = isServiceFeeFree ? 0 : SOFTWARE_SERVICE_FEE_AMOUNT;
   const availableCoupons = useMemo(() => couponPreview?.availableCoupons || [], [couponPreview?.availableCoupons]);
+  const firstApplicableCoupon = useMemo(
+    () => availableCoupons.find((coupon) => coupon.applicableToCurrentCart) || null,
+    [availableCoupons],
+  );
   const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) || null;
   const normalizedAccountCouponCode = accountCouponCode.trim().toUpperCase();
   const accountCouponApplied = Boolean(
@@ -474,6 +524,21 @@ export default function Checkout() {
   const discountedSubtotal = Math.max(subtotal - effectiveDiscountAmount, 0);
   const totalPrice = discountedSubtotal + serviceFee;
   const canSubmitCheckout = pendingOrder || isAccountMarketCart || checkoutSubmitCart.length > 0;
+  const beginCheckoutTrackingInFlightRef = useRef<Set<string>>(new Set());
+  const shouldWaitForCouponPreview = Boolean(user?.token && !pendingOrder && !isAccountMarketCart);
+  const couponPreviewSettled = !shouldWaitForCouponPreview || Boolean(couponPreview || couponPreviewError);
+  const couponSelectionSettled = isAccountMarketCart || !firstApplicableCoupon || selectedCouponId === firstApplicableCoupon.id;
+  const cartValidationSettled = pendingOrder || isAccountMarketCart || Boolean(cartValidation.data || cartValidation.error);
+  const beginCheckoutTrackingReady = Boolean(
+    !pendingOrder
+    && checkoutSubmitCart.length > 0
+    && canSubmitCheckout
+    && couponPreviewSettled
+    && couponSelectionSettled
+    && cartValidationSettled
+    && !promotionReplacementKey
+    && !accountCouponApplying,
+  );
 
   useEffect(() => {
     if (isAccountMarketCart) {
@@ -494,9 +559,47 @@ export default function Checkout() {
       return;
     }
 
-    const firstApplicableCoupon = availableCoupons.find((coupon) => coupon.applicableToCurrentCart);
     setSelectedCouponId(firstApplicableCoupon?.id || '');
-  }, [availableCoupons, isAccountMarketCart, selectedCouponId]);
+  }, [availableCoupons, firstApplicableCoupon, isAccountMarketCart, selectedCouponId]);
+
+  useEffect(() => {
+    if (!beginCheckoutTrackingReady) {
+      return;
+    }
+
+    const conversionValue = roundCurrency(totalPrice);
+    const fingerprint = buildGoogleAdsBeginCheckoutFingerprint(
+      checkoutSubmitCart,
+      isAccountMarketCheckout ? '/account-market/checkout' : '/checkout',
+    );
+
+    if (
+      hasTrackedGoogleAdsBeginCheckout(fingerprint)
+      || beginCheckoutTrackingInFlightRef.current.has(fingerprint)
+    ) {
+      return;
+    }
+
+    beginCheckoutTrackingInFlightRef.current.add(fingerprint);
+
+    void sendGoogleAdsBeginCheckoutConversion({
+      value: conversionValue,
+      currency: CHECKOUT_TRACKING_CURRENCY,
+    })
+      .then((tracked) => {
+        if (tracked) {
+          markGoogleAdsBeginCheckoutTracked(fingerprint);
+        }
+      })
+      .finally(() => {
+        beginCheckoutTrackingInFlightRef.current.delete(fingerprint);
+      });
+  }, [
+    beginCheckoutTrackingReady,
+    checkoutSubmitCart,
+    isAccountMarketCheckout,
+    totalPrice,
+  ]);
 
   useEffect(() => {
     if (!isAccountMarketCart) {
