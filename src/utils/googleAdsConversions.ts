@@ -123,7 +123,7 @@ export function sendGoogleAdsBeginCheckoutConversion({
 
   return sendGoogleAdsConversion({
     sendTo: GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO,
-    value,
+    value: value / 20,
     currency,
   });
 }
