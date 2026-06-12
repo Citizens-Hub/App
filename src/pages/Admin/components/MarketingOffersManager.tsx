@@ -45,6 +45,14 @@ interface SelectedOfferItem {
   quantity: number;
 }
 
+function getMarketingOfferBaseSkuId(item: ListingItem) {
+  return item.promotion?.originalSkuId || item.skuId;
+}
+
+function getMarketingOfferBasePrice(item: ListingItem) {
+  return item.promotion?.originalPrice ?? item.price;
+}
+
 function getOfferStatusColor(status: string): 'success' | 'warning' | 'error' | 'info' | 'default' {
   if (status === 'active') return 'success';
   if (status === 'creating') return 'info';
@@ -110,7 +118,7 @@ export default function MarketingOffersManager() {
     search,
   });
 
-  const subtotal = selectedItems.reduce((sum, entry) => sum + entry.item.price * entry.quantity, 0);
+  const subtotal = selectedItems.reduce((sum, entry) => sum + getMarketingOfferBasePrice(entry.item) * entry.quantity, 0);
   const discount = Math.min(Number(amountOff) || 0, subtotal);
   const serviceFee = serviceFeeEnabled && subtotal < SOFTWARE_SERVICE_FEE_WAIVER_THRESHOLD && subtotal > 0
     ? SOFTWARE_SERVICE_FEE_AMOUNT
@@ -127,16 +135,16 @@ export default function MarketingOffersManager() {
     }
   }, [message]);
 
-  const selectedSkuIds = useMemo(() => new Set(selectedItems.map((entry) => entry.item.skuId)), [selectedItems]);
+  const selectedSkuIds = useMemo(() => new Set(selectedItems.map((entry) => getMarketingOfferBaseSkuId(entry.item))), [selectedItems]);
 
   const addItem = (item: ListingItem | null) => {
-    if (!item || selectedSkuIds.has(item.skuId)) return;
+    if (!item || selectedSkuIds.has(getMarketingOfferBaseSkuId(item))) return;
     setSelectedItems((current) => [...current, { item, quantity: 1 }]);
     setItemQuery('');
   };
 
   const updateItemQuantity = (skuId: string, quantity: number) => {
-    setSelectedItems((current) => current.map((entry) => entry.item.skuId === skuId
+    setSelectedItems((current) => current.map((entry) => getMarketingOfferBaseSkuId(entry.item) === skuId
       ? { ...entry, quantity: Math.max(1, Math.min(quantity, getAvailableStock(entry.item))) }
       : entry));
   };
@@ -168,7 +176,7 @@ export default function MarketingOffersManager() {
           sendEmail,
           adminNote,
           items: selectedItems.map((entry) => ({
-            skuId: entry.item.skuId,
+            skuId: getMarketingOfferBaseSkuId(entry.item),
             quantity: entry.quantity,
           })),
         }),
@@ -319,7 +327,7 @@ export default function MarketingOffersManager() {
             value={null}
             options={itemOptions}
             loading={marketLoading}
-            getOptionDisabled={(option) => selectedSkuIds.has(option.skuId)}
+            getOptionDisabled={(option) => selectedSkuIds.has(getMarketingOfferBaseSkuId(option))}
             getOptionLabel={(option) => intl.formatMessage(
               {
                 id: 'admin.marketingOffers.itemOption',
@@ -327,7 +335,7 @@ export default function MarketingOffersManager() {
               },
               {
                 name: option.name,
-                price: formatUsdPrice(intl.locale, option.price),
+                price: formatUsdPrice(intl.locale, getMarketingOfferBasePrice(option)),
                 stock: getAvailableStock(option),
                 visibility: option.visibleInMarket === false
                   ? intl.formatMessage({
@@ -363,10 +371,10 @@ export default function MarketingOffersManager() {
                 </TableHead>
                 <TableBody>
                   {selectedItems.map((entry) => (
-                    <TableRow key={entry.item.skuId}>
+                    <TableRow key={getMarketingOfferBaseSkuId(entry.item)}>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{entry.item.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{entry.item.skuId}</Typography>
+                        <Typography variant="caption" color="text.secondary">{getMarketingOfferBaseSkuId(entry.item)}</Typography>
                         {entry.item.visibleInMarket === false && (
                           <Chip
                             size="small"
@@ -379,19 +387,19 @@ export default function MarketingOffersManager() {
                           />
                         )}
                       </TableCell>
-                      <TableCell>{formatUsdPrice(intl.locale, entry.item.price)}</TableCell>
+                      <TableCell>{formatUsdPrice(intl.locale, getMarketingOfferBasePrice(entry.item))}</TableCell>
                       <TableCell>
                         <TextField
                           size="small"
                           type="number"
                           value={entry.quantity}
                           inputProps={{ min: 1, max: getAvailableStock(entry.item) }}
-                          onChange={(event) => updateItemQuantity(entry.item.skuId, Number(event.target.value))}
+                          onChange={(event) => updateItemQuantity(getMarketingOfferBaseSkuId(entry.item), Number(event.target.value))}
                         />
                       </TableCell>
-                      <TableCell>{formatUsdPrice(intl.locale, entry.item.price * entry.quantity)}</TableCell>
+                      <TableCell>{formatUsdPrice(intl.locale, getMarketingOfferBasePrice(entry.item) * entry.quantity)}</TableCell>
                       <TableCell>
-                        <IconButton size="small" onClick={() => setSelectedItems((current) => current.filter((item) => item.item.skuId !== entry.item.skuId))}>
+                        <IconButton size="small" onClick={() => setSelectedItems((current) => current.filter((item) => getMarketingOfferBaseSkuId(item.item) !== getMarketingOfferBaseSkuId(entry.item)))}>
                           <X className="h-4 w-4" />
                         </IconButton>
                       </TableCell>
