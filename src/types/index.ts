@@ -1139,6 +1139,14 @@ export interface MarketReviewItem {
 
 export interface MarketReviewsResponse {
   items: MarketReviewItem[];
+  pagination: MarketListPagination;
+  ratingSummary: {
+    total: number;
+    counts: Array<{
+      rating: number;
+      count: number;
+    }>;
+  };
 }
 
 export type MarketHomeHeroMediaType = 'image' | 'video';

@@ -15,6 +15,9 @@ import {
   Badge,
   ButtonGroup,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Button,
   Divider,
@@ -59,6 +62,8 @@ import {
   LowestMarketCcuResponse,
   MarketCartItem,
   MarketListResponse,
+  type MarketReviewAttachmentSummary,
+  type MarketReviewItem,
   Ship,
   AccountListingItem,
   ShipsData,
@@ -119,7 +124,6 @@ import type { Edge, Node } from 'reactflow';
 import FloatingDiscordButton from '@/components/FloatingDiscordButton';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
-
 type MarketPageSearchState = {
   searchTerm: string;
   selectedItemFilter: MarketItemFilterOption;
@@ -212,6 +216,9 @@ const MARKET_SEARCH_DEBOUNCE_MS = 450;
 const MARKET_HERO_AUTOPLAY_INTERVAL_MS = 6000;
 const COUPON_COUNTDOWN_INTERVAL_MS = 1000;
 const MARKET_HOME_OTHER_ITEMS_LIMIT = 12;
+const MARKET_REVIEW_SECTION_LIMIT = 6;
+const MARKET_REVIEW_DIALOG_LIMIT = 12;
+const MARKET_REVIEW_RATING_FILTERS = [5, 4, 3, 2, 1] as const;
 const MARKET_SEARCH_PARAM_KEYS = ['search', 'itemType', 'browseCategory', 'tag', 'shipTrait', 'shipFocus', 'manufacturerId', 'packageItem', 'sortBy', 'page', 'limit'] as const;
 const STARTER_PACK_GAME_DOWNLOAD_ITEM = 'Star Citizen Digital Download';
 const MARKET_PLANNER_MIN_START_MSRP_CENTS = 2_000;
@@ -226,6 +233,8 @@ const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'n
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 const RSI_BASE_URL = 'https://robertsspaceindustries.com';
+
+type MarketReviewRatingFilter = typeof MARKET_REVIEW_RATING_FILTERS[number] | null;
 
 const MARKET_HOME_LOCALE_FALLBACKS: MarketHomeLocaleCode[] = ['en'];
 
@@ -3060,6 +3069,10 @@ const Market: React.FC = () => {
   const [mobileListingItems, setMobileListingItems] = useState<ListingItem[]>([]);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [heroProgressAnimationKey, setHeroProgressAnimationKey] = useState(0);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState<MarketReviewRatingFilter>(null);
+  const [reviewsDialogOpen, setReviewsDialogOpen] = useState(false);
+  const [reviewsDialogPage, setReviewsDialogPage] = useState(0);
+  const [reviewImagePreview, setReviewImagePreview] = useState<MarketReviewAttachmentSummary | null>(null);
   // const [showAlert, setShowAlert] = useState(import.meta.env.VITE_PUBLIC_ENV !== 'development');
   const [showAlert, setShowAlert] = useState(false);
   const autoClaimAttemptedRef = useRef<string | null>(null);
@@ -3208,6 +3221,10 @@ const Market: React.FC = () => {
     mobileListingPageRequestPendingRef.current = false;
     listingDrawerContentRef.current?.scrollTo({ top: 0 });
   }, [listingSearchKey]);
+
+  useEffect(() => {
+    setReviewsDialogPage(0);
+  }, [reviewRatingFilter]);
 
   const updateMarketSearchParams = useCallback((updater: (nextSearchParams: URLSearchParams) => void) => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -3582,7 +3599,15 @@ const Market: React.FC = () => {
   const {
     data: marketReviewsResponse,
     isLoading: marketReviewsLoading,
-  } = useMarketReviews(12, { enabled: homeContentEnabled });
+  } = useMarketReviews(MARKET_REVIEW_SECTION_LIMIT, { enabled: homeContentEnabled, rating: reviewRatingFilter });
+  const {
+    data: marketReviewsDialogResponse,
+    isLoading: marketReviewsDialogLoading,
+  } = useMarketReviews(MARKET_REVIEW_DIALOG_LIMIT, {
+    enabled: homeContentEnabled && reviewsDialogOpen,
+    page: reviewsDialogPage,
+    rating: reviewRatingFilter,
+  });
   const {
     data: availableShipIdsResponse,
   } = useApi<MarketAvailableShipIdsResponse>('/api/market/available-ship-ids', {
@@ -3590,6 +3615,11 @@ const Market: React.FC = () => {
     dedupingInterval: 300_000,
   });
   const marketReviews = marketReviewsResponse?.items || [];
+  const marketReviewsTotal = marketReviewsResponse?.pagination.total || marketReviews.length;
+  const marketReviewRatingSummary = marketReviewsResponse?.ratingSummary;
+  const marketReviewsDialogItems = marketReviewsDialogResponse?.items || [];
+  const marketReviewsDialogPagination = marketReviewsDialogResponse?.pagination;
+  const marketReviewsDialogRatingSummary = marketReviewsDialogResponse?.ratingSummary;
   const availableShipIds = useMemo(
     () => new Set(availableShipIdsResponse?.data?.shipIds || []),
     [availableShipIdsResponse?.data?.shipIds],
@@ -4919,144 +4949,366 @@ const Market: React.FC = () => {
   );
 
   const renderMarketReviewsSection = () => {
-    if (!marketReviewsLoading && marketReviews.length === 0) {
+    if (!marketReviewsLoading && marketReviews.length === 0 && !reviewRatingFilter) {
       return null;
     }
 
-    return (
-      <section className='min-w-0 max-w-full overflow-hidden border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900 md:p-5'>
-        <div className='flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
-          <div className='min-w-0'>
-            <div className='text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400'>
-              <FormattedMessage id="market.reviews.eyebrow" defaultMessage="Customer reviews" />
+    const renderMarketReviewCard = (review: MarketReviewItem, options?: { compact?: boolean }) => {
+      const rsiName = review.user.rsiDisplayName || review.user.rsiHandle;
+      const reviewAvatarUrl = resolveReviewAvatarUrl(review.user.avatar, review.user.rsiAvatar);
+      const visiblePurchasedItems = review.purchasedItems || [];
+      const hiddenPurchasedItemCount = Math.max(review.purchasedItemCount - visiblePurchasedItems.length, 0);
+      const reviewAttachments = review.reviewAttachments || [];
+      const openReviewImagePreview = (attachment: MarketReviewAttachmentSummary) => {
+        setReviewImagePreview(attachment);
+      };
+
+      return (
+        <article
+          key={review.id}
+          className='flex min-w-0 max-w-full flex-col overflow-hidden border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
+        >
+          <div className='flex min-w-0 items-start gap-3'>
+            {reviewAvatarUrl ? (
+              <Avatar src={reviewAvatarUrl} />
+            ) : (
+              <span className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-black uppercase text-slate-600 dark:bg-neutral-800 dark:text-slate-300'>
+                {review.user.displayName.slice(0, 2)}
+              </span>
+            )}
+
+            <div className='min-w-0 flex-1'>
+              <div className='truncate text-sm font-black text-slate-950 dark:text-white'>
+                {review.user.displayName}
+              </div>
+              {review.user.rsiProfileUrl && rsiName ? (
+                <a
+                  href={review.user.rsiProfileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className='mt-0.5 block truncate text-xs font-semibold text-blue-700 no-underline hover:underline dark:text-blue-300'
+                >
+                  <FormattedMessage
+                    id="market.reviews.rsiAccount"
+                    defaultMessage="RSI: {handle}"
+                    values={{ handle: rsiName }}
+                  />
+                </a>
+              ) : (
+                <div className='mt-0.5 truncate text-xs font-semibold text-slate-500 dark:text-slate-400'>
+                  <FormattedMessage id="market.reviews.noRsiAccount" defaultMessage="RSI Account not provided" />
+                </div>
+              )}
             </div>
-            <Typography variant="h5" component="h2" sx={{ mt: 0.75, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
+          </div>
+
+          <div className='mt-4 flex min-w-0 flex-wrap items-center gap-2'>
+            <Rating value={review.rating} readOnly size="small" sx={{ flexShrink: 0 }} />
+            <span className='text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300'>
+              {intl.formatMessage(
+                { id: 'market.reviews.ratingValue', defaultMessage: '{rating}/5' },
+                { rating: review.rating },
+              )}
+            </span>
+          </div>
+
+          <p className={`${options?.compact ? 'line-clamp-5' : ''} mt-3 min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-200`}>
+            {review.feedback || intl.formatMessage({ id: 'orders.reviewNoComment', defaultMessage: 'No written review provided.' })}
+          </p>
+
+          {reviewAttachments.length > 0 && (
+            <div className='mt-4 grid grid-cols-3 gap-2'>
+              {reviewAttachments.slice(0, 3).map((attachment) => (
+                <Box
+                  component="span"
+                  role="button"
+                  tabIndex={0}
+                  key={attachment.id}
+                  onClick={() => openReviewImagePreview(attachment)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openReviewImagePreview(attachment);
+                    }
+                  }}
+                  className='block cursor-zoom-in overflow-hidden border border-gray-200 bg-white text-left dark:border-gray-800 dark:bg-neutral-900'
+                  aria-label={intl.formatMessage(
+                    { id: 'market.reviews.previewImage', defaultMessage: 'Preview review image {name}' },
+                    { name: attachment.fileName },
+                  )}
+                >
+                  <img
+                    src={attachment.imageUrl}
+                    alt={attachment.fileName}
+                    loading="lazy"
+                    decoding="async"
+                    className='aspect-square w-full object-cover transition duration-200 hover:scale-[1.03]'
+                  />
+                </Box>
+              ))}
+            </div>
+          )}
+
+          {visiblePurchasedItems.length > 0 && (
+            <div className='mt-4 min-w-0 border-t border-gray-200 pt-3 dark:border-gray-800'>
+              <div className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
+                <FormattedMessage id="market.reviews.purchased" defaultMessage="Purchased" />
+              </div>
+              <div className='mt-2 flex min-w-0 flex-wrap gap-2'>
+                {visiblePurchasedItems.map((item, index) => (
+                  <span
+                    key={`${review.id}-${item.name}-${index}`}
+                    className='max-w-full break-words border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200'
+                  >
+                    {item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name}
+                  </span>
+                ))}
+                {hiddenPurchasedItemCount > 0 && (
+                  <span className='border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-300'>
+                    <FormattedMessage
+                      id="market.reviews.morePurchasedItems"
+                      defaultMessage="+{count} more"
+                      values={{ count: hiddenPurchasedItemCount }}
+                    />
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </article>
+      );
+    };
+
+    const renderReviewRatingFilters = (ratingSummary = marketReviewRatingSummary) => {
+      const ratingSummaryTotal = ratingSummary?.total || 0;
+      if (!ratingSummaryTotal) {
+        return null;
+      }
+
+      const ratingSummaryCounts = new Map(
+        (ratingSummary?.counts || []).map((entry) => [entry.rating, entry.count]),
+      );
+
+      return (
+        <div className='flex w-full max-w-[360px] flex-col gap-1'>
+          {MARKET_REVIEW_RATING_FILTERS.map((rating) => {
+            const count = ratingSummaryCounts.get(rating) || 0;
+            const percentage = ratingSummaryTotal > 0 ? (count / ratingSummaryTotal) * 100 : 0;
+            const selected = reviewRatingFilter === rating;
+            const disabled = count <= 0;
+            const handleSelectRating = () => {
+              if (disabled) {
+                return;
+              }
+
+              setReviewRatingFilter((current) => current === rating ? null : rating);
+            };
+
+            return (
+              <Box
+                key={rating}
+                component="span"
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                aria-disabled={disabled}
+                onClick={handleSelectRating}
+                onKeyDown={(event) => {
+                  if (!disabled && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    handleSelectRating();
+                  }
+                }}
+                className={`grid grid-cols-[92px_minmax(80px,1fr)_36px] items-center gap-3 px-1 py-0.5 text-left transition ${disabled ? 'cursor-default opacity-45' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-neutral-900'} ${selected ? 'bg-red-50 ring-1 ring-red-300 dark:bg-red-950/20 dark:ring-red-800' : ''}`}
+                aria-label={intl.formatMessage(
+                  { id: 'market.reviews.filterRatingAria', defaultMessage: '{rating} star reviews' },
+                  { rating },
+                )}
+              >
+                <Rating
+                  value={rating}
+                  readOnly
+                  size="small"
+                  sx={{
+                    color: '#faaf00',
+                    fontSize: 18,
+                    '& .MuiRating-iconEmpty': {
+                      color: disabled
+                        ? (theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.22)')
+                        : '#faaf00',
+                    },
+                  }}
+                />
+                <span className='relative h-2 overflow-hidden bg-slate-100 dark:bg-neutral-800'>
+                  <span
+                    className='absolute inset-y-0 left-0 bg-[#faaf00]'
+                    style={{ width: `${percentage}%` }}
+                  />
+                </span>
+                <span className='text-right text-sm tabular-nums text-slate-500 dark:text-slate-300'>
+                  {count}
+                </span>
+              </Box>
+            );
+          })}
+          {reviewRatingFilter !== null && (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => setReviewRatingFilter(null)}
+              sx={{ alignSelf: 'flex-start', borderRadius: 0, textTransform: 'none' }}
+            >
+              <FormattedMessage id="market.reviews.filterAll" defaultMessage="All ratings" />
+            </Button>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <section className='min-w-0 max-w-full overflow-hidden border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-neutral-900'>
+        <div className='flex flex-col gap-3'>
+          <div className='min-w-0'>
+            <Typography variant="h6" component="h2" sx={{ mt: 0.5, fontWeight: 900, letterSpacing: 0, color: 'text.primary' }}>
               <FormattedMessage id="market.reviews.title" defaultMessage="Reviews from verified purchases" />
             </Typography>
           </div>
+
+          {renderReviewRatingFilters(marketReviewRatingSummary)}
         </div>
 
         {marketReviewsLoading && marketReviews.length === 0 ? (
           <div className='mt-4 flex min-h-32 items-center justify-center border border-dashed border-gray-200 text-slate-500 dark:border-gray-800 dark:text-slate-400'>
             <CircularProgress size={22} />
           </div>
-        ) : (
+        ) : marketReviews.length > 0 ? (
           <div className='mt-4 grid min-w-0 max-w-full gap-3 md:grid-cols-2 xl:grid-cols-3'>
-            {marketReviews.map((review) => {
-              const rsiName = review.user.rsiDisplayName || review.user.rsiHandle;
-              const reviewAvatarUrl = resolveReviewAvatarUrl(review.user.avatar, review.user.rsiAvatar);
-              const visiblePurchasedItems = review.purchasedItems || [];
-              const hiddenPurchasedItemCount = Math.max(review.purchasedItemCount - visiblePurchasedItems.length, 0);
-              const reviewAttachments = review.reviewAttachments || [];
-
-              return (
-                <article
-                  key={review.id}
-                  className='flex min-w-0 max-w-full flex-col overflow-hidden border border-gray-200 bg-slate-50 p-4 text-left dark:border-gray-800 dark:bg-neutral-950'
-                >
-                  <div className='flex min-w-0 items-start gap-3'>
-                    {reviewAvatarUrl ? (
-                      <Avatar
-                        src={reviewAvatarUrl}
-                      />
-                    ) : (
-                      <span className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-black uppercase text-slate-600 dark:bg-neutral-800 dark:text-slate-300'>
-                        {review.user.displayName.slice(0, 2)}
-                      </span>
-                    )}
-
-                    <div className='min-w-0 flex-1'>
-                      <div className='truncate text-sm font-black text-slate-950 dark:text-white'>
-                        {review.user.displayName}
-                      </div>
-                      {review.user.rsiProfileUrl && rsiName ? (
-                        <a
-                          href={review.user.rsiProfileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className='mt-0.5 block truncate text-xs font-semibold text-blue-700 no-underline hover:underline dark:text-blue-300'
-                        >
-                          <FormattedMessage
-                            id="market.reviews.rsiAccount"
-                            defaultMessage="RSI: {handle}"
-                            values={{ handle: rsiName }}
-                          />
-                        </a>
-                      ) : (
-                        <div className='mt-0.5 truncate text-xs font-semibold text-slate-500 dark:text-slate-400'>
-                          <FormattedMessage id="market.reviews.noRsiAccount" defaultMessage="RSI Account not provided" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className='mt-4 flex min-w-0 flex-wrap items-center gap-2'>
-                    <Rating value={review.rating} readOnly size="small" sx={{ flexShrink: 0 }} />
-                    <span className='text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300'>
-                      {intl.formatMessage(
-                        { id: 'market.reviews.ratingValue', defaultMessage: '{rating}/5' },
-                        { rating: review.rating },
-                      )}
-                    </span>
-                  </div>
-
-                  <p className='mt-3 line-clamp-5 min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-200'>
-                    {review.feedback || intl.formatMessage({ id: 'orders.reviewNoComment', defaultMessage: 'No written review provided.' })}
-                  </p>
-
-                  {reviewAttachments.length > 0 && (
-                    <div className='mt-4 grid grid-cols-3 gap-2'>
-                      {reviewAttachments.slice(0, 3).map((attachment) => (
-                        <a
-                          key={attachment.id}
-                          href={attachment.imageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className='block overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-neutral-900'
-                        >
-                          <img
-                            src={attachment.imageUrl}
-                            alt={attachment.fileName}
-                            loading="lazy"
-                            decoding="async"
-                            className='aspect-square w-full object-cover'
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {visiblePurchasedItems.length > 0 && (
-                    <div className='mt-4 min-w-0 border-t border-gray-200 pt-3 dark:border-gray-800'>
-                      <div className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400'>
-                        <FormattedMessage id="market.reviews.purchased" defaultMessage="Purchased" />
-                      </div>
-                      <div className='mt-2 flex min-w-0 flex-wrap gap-2'>
-                        {visiblePurchasedItems.map((item, index) => (
-                          <span
-                            key={`${review.id}-${item.name}-${index}`}
-                            className='max-w-full break-words border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-200'
-                          >
-                            {item.quantity > 1 ? `${item.name} x${item.quantity}` : item.name}
-                          </span>
-                        ))}
-                        {hiddenPurchasedItemCount > 0 && (
-                          <span className='border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 dark:border-gray-800 dark:bg-neutral-900 dark:text-slate-300'>
-                            <FormattedMessage
-                              id="market.reviews.morePurchasedItems"
-                              defaultMessage="+{count} more"
-                              values={{ count: hiddenPurchasedItemCount }}
-                            />
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+            {marketReviews.slice(0, MARKET_REVIEW_SECTION_LIMIT).map((review) => renderMarketReviewCard(review, { compact: true }))}
+          </div>
+        ) : (
+          <div className='mt-4 flex min-h-28 items-center justify-center border border-dashed border-gray-200 px-4 text-center text-sm font-semibold text-slate-500 dark:border-gray-800 dark:text-slate-400'>
+            <FormattedMessage id="market.reviews.emptyForFilter" defaultMessage="No reviews match this rating yet." />
           </div>
         )}
+
+        {marketReviewsTotal > MARKET_REVIEW_SECTION_LIMIT && (
+          <div className='mt-4 flex justify-center'>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setReviewsDialogPage(0);
+                setReviewsDialogOpen(true);
+              }}
+              sx={{ borderRadius: 0, textTransform: 'none' }}
+            >
+              <FormattedMessage
+                id="market.reviews.openMore"
+                defaultMessage="Open more reviews ({count})"
+                values={{ count: marketReviewsTotal }}
+              />
+            </Button>
+          </div>
+        )}
+
+        <Dialog
+          open={reviewsDialogOpen}
+          onClose={() => setReviewsDialogOpen(false)}
+          fullWidth
+          maxWidth="lg"
+          fullScreen={isMobileListingDrawer}
+        >
+          <DialogTitle className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                <FormattedMessage id="market.reviews.dialogTitle" defaultMessage="Customer reviews" />
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <FormattedMessage
+                  id="market.reviews.dialogSummary"
+                  defaultMessage="{count} reviews"
+                  values={{ count: marketReviewsDialogPagination?.total || marketReviewsTotal }}
+                />
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setReviewsDialogOpen(false)} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+              <X className="h-5 w-5" />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent className="!p-0">
+            <div className='border-b border-gray-200 p-4 dark:border-gray-800'>
+              {renderReviewRatingFilters(marketReviewsDialogRatingSummary || marketReviewRatingSummary)}
+            </div>
+            {marketReviewsDialogLoading && marketReviewsDialogItems.length === 0 ? (
+              <div className='flex min-h-60 items-center justify-center'>
+                <CircularProgress size={24} />
+              </div>
+            ) : marketReviewsDialogItems.length > 0 ? (
+              <div className='grid min-w-0 max-w-full gap-3 p-4 md:grid-cols-2'>
+                {marketReviewsDialogItems.map((review) => renderMarketReviewCard(review))}
+              </div>
+            ) : (
+              <div className='flex min-h-48 items-center justify-center px-4 text-center text-sm font-semibold text-slate-500 dark:text-slate-400'>
+                <FormattedMessage id="market.reviews.emptyForFilter" defaultMessage="No reviews match this rating yet." />
+              </div>
+            )}
+            {(marketReviewsDialogPagination?.totalPages || 0) > 1 && (
+              <div className='flex items-center justify-center gap-3 border-t border-gray-200 p-4 dark:border-gray-800'>
+                <Button
+                  variant="outlined"
+                  disabled={reviewsDialogPage <= 0 || marketReviewsDialogLoading}
+                  onClick={() => setReviewsDialogPage((current) => Math.max(current - 1, 0))}
+                  sx={{ borderRadius: 0, textTransform: 'none' }}
+                >
+                  <FormattedMessage id="common.previous" defaultMessage="Previous" />
+                </Button>
+                <span className='text-sm font-semibold text-slate-600 dark:text-slate-300'>
+                  <FormattedMessage
+                    id="market.reviews.pageStatus"
+                    defaultMessage="{page}/{totalPages}"
+                    values={{
+                      page: reviewsDialogPage + 1,
+                      totalPages: marketReviewsDialogPagination?.totalPages || 1,
+                    }}
+                  />
+                </span>
+                <Button
+                  variant="outlined"
+                  disabled={reviewsDialogPage + 1 >= (marketReviewsDialogPagination?.totalPages || 1) || marketReviewsDialogLoading}
+                  onClick={() => setReviewsDialogPage((current) => current + 1)}
+                  sx={{ borderRadius: 0, textTransform: 'none' }}
+                >
+                  <FormattedMessage id="common.next" defaultMessage="Next" />
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(reviewImagePreview)}
+          onClose={() => setReviewImagePreview(null)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
+            <span className='min-w-0 truncate text-base font-bold'>
+              {reviewImagePreview?.fileName || intl.formatMessage({ id: 'market.reviews.imagePreviewTitle', defaultMessage: 'Review image' })}
+            </span>
+            <IconButton onClick={() => setReviewImagePreview(null)} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+              <X className="h-5 w-5" />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent className="!p-0">
+            {reviewImagePreview && (
+              <div className='flex min-h-[280px] items-center justify-center bg-black'>
+                <img
+                  src={reviewImagePreview.imageUrl}
+                  alt={reviewImagePreview.fileName}
+                  className='max-h-[82vh] w-full object-contain'
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </section>
     );
   };
