@@ -108,7 +108,7 @@ export function sendGoogleAdsSignupConversion() {
 export function sendGoogleAdsAddToCartConversion() {
   return sendGoogleAdsConversion({
     sendTo: GOOGLE_ADS_ADD_TO_CART_SEND_TO,
-    value: DEFAULT_GOOGLE_ADS_EVENT_VALUE,
+    value: 1,
     currency: DEFAULT_GOOGLE_ADS_EVENT_CURRENCY,
   });
 }
@@ -123,7 +123,7 @@ export function sendGoogleAdsBeginCheckoutConversion({
 
   return sendGoogleAdsConversion({
     sendTo: GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO,
-    value: value / 20,
+    value: 5,
     currency,
   });
 }

@@ -49,7 +49,7 @@ import {
   type ShipImageCacheSource,
 } from '@/utils/modelCache';
 
-const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY'];
+const CURRENCIES = ['USD', 'EUR', 'CNY', 'GBP', 'JPY', 'TWD', 'HKD', 'AUD'];
 const AVATAR_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const AVATAR_CROP_OUTPUT_SIZE = 512;
 const DEFAULT_AVATAR_CROP_PREVIEW_SIZE = 320;

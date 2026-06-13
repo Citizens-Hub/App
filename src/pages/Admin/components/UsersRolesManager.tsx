@@ -20,6 +20,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Download } from 'lucide-react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAdminUsers } from '@/hooks';
 import { RootState } from '@/store';
@@ -60,6 +61,7 @@ export default function UsersRolesManager() {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingBanUserId, setUpdatingBanUserId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
   const { data, error, isLoading, mutate } = useAdminUsers({
@@ -167,6 +169,70 @@ export default function UsersRolesManager() {
     }
   };
 
+  const handleExportUsers = async () => {
+    setExporting(true);
+    setFlash(null);
+
+    try {
+      const searchParams = new URLSearchParams();
+      const trimmedQuery = query.trim();
+      if (trimmedQuery) {
+        searchParams.set('query', trimmedQuery);
+      }
+
+      if (roleFilter !== 'all') {
+        searchParams.set('role', String(roleFilter));
+      }
+
+      const queryString = searchParams.toString();
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/export.csv${queryString ? `?${queryString}` : ''}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || intl.formatMessage({
+          id: 'admin.users.exportError',
+          defaultMessage: 'Failed to export users.',
+        }));
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = disposition.match(/filename="([^"]+)"/i);
+      const filename = filenameMatch?.[1] || `admin-users-${new Date().toISOString().slice(0, 10)}.csv`;
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+      setFlash({
+        severity: 'success',
+        text: intl.formatMessage({
+          id: 'admin.users.exportSuccess',
+          defaultMessage: 'User export started.',
+        }),
+      });
+    } catch (exportError) {
+      setFlash({
+        severity: 'error',
+        text: exportError instanceof Error
+          ? exportError.message
+          : intl.formatMessage({
+              id: 'admin.users.exportError',
+              defaultMessage: 'Failed to export users.',
+            }),
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 3 }}>
@@ -222,6 +288,19 @@ export default function UsersRolesManager() {
               </MenuItem>
             ))}
           </TextField>
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <Download size={18} />}
+            onClick={() => void handleExportUsers()}
+            disabled={exporting || !token}
+            sx={{ alignSelf: { xs: 'stretch', md: 'center' }, whiteSpace: 'nowrap' }}
+          >
+            {exporting ? (
+              <FormattedMessage id="admin.users.exporting" defaultMessage="Exporting..." />
+            ) : (
+              <FormattedMessage id="admin.users.exportCsv" defaultMessage="Export CSV" />
+            )}
+          </Button>
         </Stack>
       </Paper>
 
