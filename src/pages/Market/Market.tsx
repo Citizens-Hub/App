@@ -5291,7 +5291,7 @@ const Market: React.FC = () => {
         >
           <DialogTitle className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800">
             <span className='min-w-0 truncate text-base font-bold'>
-              {reviewImagePreview?.fileName || intl.formatMessage({ id: 'market.reviews.imagePreviewTitle', defaultMessage: 'Review image' })}
+              {intl.formatMessage({ id: 'market.reviews.imagePreviewTitle', defaultMessage: 'Review image' })}
             </span>
             <IconButton onClick={() => setReviewImagePreview(null)} aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
               <X className="h-5 w-5" />
