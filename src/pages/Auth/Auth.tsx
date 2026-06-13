@@ -37,6 +37,7 @@ interface LoginResponse {
   message: string;
   user: User;
   token: string;
+  isNewUser?: boolean;
   emailVerificationRequired?: boolean;
   emailVerificationSent?: boolean;
 }
@@ -81,6 +82,11 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
 
         if (!response.ok || !data?.success) {
           throw new Error(data?.message || 'message.invalidCredentials');
+        }
+
+        if (data.isNewUser) {
+          void sendGoogleAdsSignupConversion();
+          void sendRedditPixelSignupConversion(data.user.id);
         }
 
         dispatch(login({
