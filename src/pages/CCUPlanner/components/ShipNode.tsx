@@ -45,6 +45,10 @@ interface ShipNodeSourceSelectionOption {
   pricingOption?: CcuConcretePricingOption;
 }
 
+function isManualPriceSource(sourceType: CcuSourceType) {
+  return sourceType === CcuSourceType.OFFICIAL_WB || sourceType === CcuSourceType.THIRD_PARTY;
+}
+
 function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
   const { ship, onUpdateEdge, onDeleteEdge, onDeleteNode, onDuplicateNode, onOpenShipInfo, onOpenShipContextMenu, incomingEdges = [] } = data;
   const [isEditing, setIsEditing] = useState(false);
@@ -430,8 +434,8 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
               onClick={handleEditToggle}
             >
               {isEditing ?
-                <FormattedMessage id="shipNode.finishEditing" defaultMessage="Finish Editing" /> :
-                <FormattedMessage id="shipNode.editUpgradePath" defaultMessage="Edit Upgrade Path" />
+                <span key="finish-editing"><FormattedMessage id="shipNode.finishEditing" defaultMessage="Finish Editing" /></span> :
+                <span key="edit-upgrade-path"><FormattedMessage id="shipNode.editUpgradePath" defaultMessage="Edit Upgrade Path" /></span>
               }
             </Button>
           )}
@@ -505,14 +509,19 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
                   </Select>
                 </div>
 
-                {(selectedSourceType === CcuSourceType.OFFICIAL_WB ||
-                  selectedSourceType === CcuSourceType.THIRD_PARTY) && (
+                {isManualPriceSource(selectedSourceType) && (
                     <div className="mb-2">
                       <label className="text-sm text-gray-600 dark:text-gray-400 block mb-1 text-left">
-                        {selectedSourceType === CcuSourceType.OFFICIAL_WB ?
-                          intl.formatMessage({ id: "shipNode.priceUSD", defaultMessage: "Price (USD)" }) :
-                          intl.formatMessage({ id: "shipNode.priceCNY", defaultMessage: "Price ({currency})" }, { currency })
-                        }:
+                        {selectedSourceType === CcuSourceType.OFFICIAL_WB ? (
+                          <span key="official-wb-price-label">
+                            <FormattedMessage id="shipNode.priceUSD" defaultMessage="Price (USD)" />
+                          </span>
+                        ) : (
+                          <span key={`third-party-price-label-${currency}`}>
+                            <FormattedMessage id="shipNode.priceCNY" defaultMessage="Price ({currency})" values={{ currency }} />
+                          </span>
+                        )}
+                        <span>:</span>
                       </label>
                       <Input
                         type="number"

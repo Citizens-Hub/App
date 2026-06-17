@@ -44,6 +44,40 @@ interface PathFinderPerfStats {
   cWasmSpeedupRatio?: number;
 }
 
+function RouteStepPrice({
+  isUnavailable,
+  sourceType,
+  usdPrice,
+  tpPrice,
+  locale,
+  currency,
+  notAvailableLabel
+}: {
+  isUnavailable: boolean;
+  sourceType: CcuSourceType;
+  usdPrice: number;
+  tpPrice: number;
+  locale: string;
+  currency: string;
+  notAvailableLabel: string;
+}) {
+  const formattedPrice = sourceType === CcuSourceType.THIRD_PARTY || sourceType === CcuSourceType.SUBSCRIPTION
+    ? tpPrice.toLocaleString(locale, { style: 'currency', currency })
+    : usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' });
+
+  return (
+    <span className="text-gray-600 dark:text-gray-400 flex gap-1">
+      <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
+      <span>:</span>
+      {isUnavailable ? (
+        <span key="unavailable-price" className="text-red-600 dark:text-red-400">{notAvailableLabel}</span>
+      ) : (
+        <span key={`price-${sourceType}-${currency}-${formattedPrice}`} className="text-black dark:text-white">{formattedPrice}</span>
+      )}
+    </span>
+  );
+}
+
 if (!String.prototype.getNodeShipId) {
   String.prototype.getNodeShipId = function () {
     return this.split('-')[1];
@@ -1052,7 +1086,7 @@ export default function RouteInfoPanel({
                               <div className="flex justify-between">
                                 <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                   {isEdgeCompleted && <span className="text-green-600 mr-1"><Check className="w-4 h-4" /></span>}
-                                  <span className="text-black dark:text-white">{
+                                  <span key={`route-source-type-${sourceType}`} className="text-black dark:text-white">{
                                     (() => {
                                       return ccuSourceTypeFactory.getStrategy(sourceType).getDisplayName(intl);
                                     })()
@@ -1060,43 +1094,15 @@ export default function RouteInfoPanel({
                                   <span><FormattedMessage id="routeInfoPanel.upgradeType" defaultMessage="Upgrade" /></span>
                                 </span>
 
-                                {
-                                  isPriceUnavailable ? (
-                                    <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                      <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
-                                      <span>:</span>
-                                      <span className="text-red-600 dark:text-red-400">
-                                        {intl.formatMessage({ id: 'common.notAvailable', defaultMessage: 'Not available' })}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <>
-                                      {sourceType === CcuSourceType.SUBSCRIPTION ? (
-                                        <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                          <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
-                                          <span>:</span>
-                                          <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
-                                        </span>
-                                      ) : (
-                                        <>{(sourceType !== CcuSourceType.THIRD_PARTY) ? (
-                                          <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                            <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
-                                            <span>:</span>
-                                            <span className="text-black dark:text-white">
-                                              {usdPrice.toLocaleString(locale, { style: 'currency', currency: 'USD' })}
-                                            </span>
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-600 dark:text-gray-400 flex gap-1">
-                                            <span><FormattedMessage id="routeInfoPanel.price" defaultMessage="Price" /></span>
-                                            <span>:</span>
-                                            <span className="text-black dark:text-white">{tpPrice.toLocaleString(locale, { style: 'currency', currency })}</span>
-                                          </span>
-                                        )}</>
-                                      )}
-                                    </>
-                                  )
-                                }
+                                <RouteStepPrice
+                                  isUnavailable={isPriceUnavailable}
+                                  sourceType={sourceType}
+                                  usdPrice={usdPrice}
+                                  tpPrice={tpPrice}
+                                  locale={locale}
+                                  currency={currency}
+                                  notAvailableLabel={intl.formatMessage({ id: 'common.notAvailable', defaultMessage: 'Not available' })}
+                                />
                               </div>
 
                               {/* {!isPriceUnavailable && officialUpgradeDisplayCost > 0 && (

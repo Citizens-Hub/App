@@ -383,7 +383,7 @@ function App() {
           <Snackbar
             key={visibleSiteNotification?.id || 'site-notification-empty'}
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            onClose={(_, reason) => {
+            onClose={(_, reason: string) => {
               if (reason === 'clickaway') {
                 return;
               }
@@ -410,7 +410,7 @@ function App() {
           <Snackbar
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             autoHideDuration={12000}
-            onClose={(_, reason) => {
+            onClose={(_, reason: string) => {
               if (reason === 'clickaway') {
                 return;
               }

@@ -182,8 +182,9 @@ function CcuEdge({
             }}
             className="bg-red-500 text-white px-2 py-1 rounded-md shadow-md text-sm flex items-center gap-1"
           >
-            ! {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
-            {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
+            <span>!</span>
+            {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
+            {sourceType && <span key={`source-type-${sourceType}`} className="mr-1">{sourceTypeDisplay}</span>}
             {/* +{price.toLocaleString(locale, { style: 'currency', currency })} */}
           </div> : <div
             style={{
@@ -198,13 +199,25 @@ function CcuEdge({
               savingsPercent !== null &&
               <div className='absolute bottom-8 left-[50%] -translate-x-[50%] dark:text-amber-300 text-amber-500 text-nowrap flex items-center gap-1 '>
                 <BadgeDollarSign className='w-3 h-3' />
-                <span>Save {savingsPercent}%</span>
-                <span>(-{savingsUsd.toLocaleString(locale, { style: 'currency', currency: 'USD' })})</span>
+                <span key={`savings-percent-${savingsPercent}`}>
+                  <span>Save</span>
+                  <span> </span>
+                  <span>{savingsPercent}</span>
+                  <span>%</span>
+                </span>
+                <span key={`savings-usd-${savingsUsd}`}>
+                  <span>(-</span>
+                  <span>{savingsUsd.toLocaleString(locale, { style: 'currency', currency: 'USD' })}</span>
+                  <span>)</span>
+                </span>
               </div>
             }
             {isCompleted && <span className="mr-1"><Check className="w-4 h-4" /></span>}
-            {sourceType && <span className="mr-1">{sourceTypeDisplay}</span>}
-            <span>+{price.toLocaleString(locale, { style: 'currency', currency })}</span>
+            {sourceType && <span key={`source-type-${sourceType}`} className="mr-1">{sourceTypeDisplay}</span>}
+            <span key={`price-${currency}-${price}`}>
+              <span>+</span>
+              <span>{price.toLocaleString(locale, { style: 'currency', currency })}</span>
+            </span>
             {/* {
               data.targetShip?.msrp && 
               data.sourceShip?.msrp && 
