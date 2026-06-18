@@ -32,11 +32,17 @@ type GoogleAdsConversionPayload = {
   value?: number;
   currency?: string;
   transactionId?: string;
+  userEmail?: string;
 };
 
 type GoogleAdsBeginCheckoutConversionPayload = {
   value: number;
   currency?: string;
+  userEmail?: string;
+};
+
+type GoogleAdsAddToCartConversionPayload = {
+  userEmail?: string;
 };
 
 async function waitForGoogleTag(timeoutMs = 3000) {
@@ -60,6 +66,7 @@ export async function sendGoogleAdsConversion({
   value,
   currency,
   transactionId,
+  userEmail,
 }: GoogleAdsConversionPayload) {
   const normalizedSendTo = sendTo.trim();
 
@@ -74,7 +81,13 @@ export async function sendGoogleAdsConversion({
     return false;
   }
 
-  const eventPayload: Record<string, number | string> = {
+  const eventPayload: {
+    send_to: string;
+    value?: number;
+    currency?: string;
+    transaction_id?: string;
+    user_email?: string;
+  } = {
     send_to: normalizedSendTo,
   };
 
@@ -92,6 +105,11 @@ export async function sendGoogleAdsConversion({
     eventPayload.transaction_id = normalizedTransactionId;
   }
 
+  const normalizedUserEmail = userEmail?.trim();
+  if (normalizedUserEmail) {
+    eventPayload.user_email = normalizedUserEmail;
+  }
+
   window.gtag('event', 'conversion', eventPayload);
 
   return true;
@@ -105,17 +123,21 @@ export function sendGoogleAdsSignupConversion() {
   });
 }
 
-export function sendGoogleAdsAddToCartConversion() {
+export function sendGoogleAdsAddToCartConversion({
+  userEmail,
+}: GoogleAdsAddToCartConversionPayload = {}) {
   return sendGoogleAdsConversion({
     sendTo: GOOGLE_ADS_ADD_TO_CART_SEND_TO,
     value: 1,
     currency: DEFAULT_GOOGLE_ADS_EVENT_CURRENCY,
+    userEmail,
   });
 }
 
 export function sendGoogleAdsBeginCheckoutConversion({
   value,
   currency = DEFAULT_GOOGLE_ADS_EVENT_CURRENCY,
+  userEmail,
 }: GoogleAdsBeginCheckoutConversionPayload) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return Promise.resolve(false);
@@ -125,6 +147,7 @@ export function sendGoogleAdsBeginCheckoutConversion({
     sendTo: GOOGLE_ADS_BEGIN_CHECKOUT_SEND_TO,
     value: 5,
     currency,
+    userEmail,
   });
 }
 

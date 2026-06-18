@@ -12,29 +12,31 @@ import {
   selectCartOpen, 
   selectCartItemsCount 
 } from '@/store/cartStore';
+import type { RootState } from '@/store';
 import { Resource } from '@/types';
 import { sendGoogleAdsAddToCartConversion } from '@/utils/googleAdsConversions';
 import { sendRedditPixelAddToCartConversion } from '@/utils/redditPixelConversions';
 
 type CartNamespace = 'market' | 'accountMarket';
 
-function deferAddToCartConversions(resource: Resource) {
+function deferAddToCartConversions(resource: Resource, userEmail?: string) {
   window.setTimeout(() => {
-    void sendGoogleAdsAddToCartConversion();
+    void sendGoogleAdsAddToCartConversion({ userEmail });
     void sendRedditPixelAddToCartConversion(resource.id);
   }, 0);
 }
 
 export function useCartStore(namespace: CartNamespace = 'market') {
   const dispatch = useDispatch();
+  const userEmail = useSelector((state: RootState) => state.user.user.email);
   const cartItems = useSelector(selectCartItems(namespace));
   const isCartOpen = useSelector(selectCartOpen(namespace));
   const itemsCount = useSelector(selectCartItemsCount(namespace));
 
   const addToCart = useCallback((resource: Resource) => {
     dispatch(addItem({ namespace, resource }));
-    deferAddToCartConversions(resource);
-  }, [dispatch, namespace]);
+    deferAddToCartConversions(resource, userEmail);
+  }, [dispatch, namespace, userEmail]);
 
   const updateItemQuantity = useCallback((resourceId: string, quantity: number) => {
     dispatch(updateQuantity({ namespace, resourceId, quantity }));

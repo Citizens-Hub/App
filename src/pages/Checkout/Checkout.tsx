@@ -585,6 +585,7 @@ export default function Checkout() {
     void sendGoogleAdsBeginCheckoutConversion({
       value: conversionValue,
       currency: CHECKOUT_TRACKING_CURRENCY,
+      userEmail: accountEmail,
     })
       .then((tracked) => {
         if (tracked) {
@@ -596,6 +597,7 @@ export default function Checkout() {
       });
   }, [
     beginCheckoutTrackingReady,
+    accountEmail,
     checkoutSubmitCart,
     isAccountMarketCheckout,
     totalPrice,
