@@ -14,6 +14,7 @@ import CopyrightWatermarkTool from './components/CopyrightWatermarkTool';
 import ConciergePaintsManager, { SubscriberStoreManager } from './components/ConciergePaintsManager';
 import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
+import ReferralProgramManager from './components/ReferralProgramManager';
 import OrdersManager from './components/OrdersManager';
 import GoogleAdsAudienceManager from './components/GoogleAdsAudienceManager';
 import MarketingOffersManager from './components/MarketingOffersManager';
@@ -50,6 +51,7 @@ enum Page {
   Tickets = 'tickets',
   Users = 'users',
   NewUserCoupon = 'newUserCoupon',
+  Referrals = 'referrals',
   InvoiceSettings = 'invoiceSettings',
   MarketingOffers = 'marketingOffers',
   Promotions = 'promotions',
@@ -182,6 +184,15 @@ export default function Admin() {
       groupLabel: groups.operations,
       active: currentPage === Page.NewUserCoupon,
       onSelect: () => setCurrentPage(Page.NewUserCoupon),
+    },
+    {
+      id: Page.Referrals,
+      title: <FormattedMessage id="admin.referrals.title" defaultMessage="Referral Relationships" />,
+      description: <FormattedMessage id="admin.referrals.navDescription" defaultMessage="View invitation relationships and reward progress." />,
+      groupId: 'operations',
+      groupLabel: groups.operations,
+      active: currentPage === Page.Referrals,
+      onSelect: () => setCurrentPage(Page.Referrals),
     },
     {
       id: Page.InvoiceSettings,
@@ -352,7 +363,7 @@ export default function Admin() {
       items={layoutItems}
       mobileMenuLabel={<FormattedMessage id="admin.switchSection" defaultMessage="切换" />}
       mobileMenuTitle={<FormattedMessage id="admin.sections" defaultMessage="管理后台" />}
-      contentClassName="min-h-0 flex-1 overflow-y-auto p-4"
+      contentClassName="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4"
     >
         {currentPage === Page.Errors && <ErrorsTable />}
         {currentPage === Page.Bi && <BiTable />}
@@ -368,6 +379,7 @@ export default function Admin() {
         {currentPage === Page.MarketHome && <MarketHomeSettingsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
+        {currentPage === Page.Referrals && <ReferralProgramManager />}
         {currentPage === Page.InvoiceSettings && <InvoiceSettingsManager />}
         {currentPage === Page.MarketingOffers && <MarketingOffersManager />}
         {currentPage === Page.Promotions && <PromotionsManager />}

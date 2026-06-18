@@ -85,6 +85,7 @@ const menuGroups: MenuGroupConfig[] = [
     defaultDescription: 'Profile, preferences, and personal settings',
     itemNames: [
       'navigation.appSettings',
+      'navigation.coupons',
     ],
   },
   {
@@ -547,6 +548,9 @@ export default function Header({ darkMode, toggleDarkMode }: HeaderProps) {
               >
                 <MenuItem onClick={() => navigate('/app-settings')} aria-label={intl.formatMessage({ id: "user.profile", defaultMessage: "Profile" })}>
                   <FormattedMessage id="user.profile" defaultMessage="Profile" />
+                </MenuItem>
+                <MenuItem onClick={() => navigate('/coupons')} aria-label={intl.formatMessage({ id: "navigation.coupons", defaultMessage: "My Coupons" })}>
+                  <FormattedMessage id="navigation.coupons" defaultMessage="My Coupons" />
                 </MenuItem>
                 <MenuItem onClick={() => navigate('/tickets')} aria-label={intl.formatMessage({ id: "navigation.tickets", defaultMessage: "Tickets" })}>
                   <FormattedMessage id="navigation.tickets" defaultMessage="Tickets" />

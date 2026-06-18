@@ -8,6 +8,7 @@ import {
   Tabs,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   Close,
@@ -49,6 +50,7 @@ export default function MarketDetailDrawer({
   onExpand,
 }: MarketDetailDrawerProps) {
   const intl = useIntl();
+  const theme = useTheme();
   const tabsRootRef = useRef<HTMLDivElement | null>(null);
   const tabsActionsRef = useRef<{
     updateIndicator: () => void;
@@ -101,7 +103,7 @@ export default function MarketDetailDrawer({
             position: 'fixed',
             right: 0,
             top: '50%',
-            zIndex: 1300,
+            zIndex: theme.zIndex.drawer - 1,
             transform: 'translateY(-50%)',
           }}
         >

@@ -84,6 +84,7 @@ type AccountCouponValidation = {
   subtotal: number;
   discountAmount: number;
 };
+type CouponSelectionMode = 'auto' | 'manual';
 
 function isListingItemPayload(value: ListingItem | { redirectSkuId?: string } | null): value is ListingItem {
   const record = value as Record<string, unknown> | null;
@@ -307,6 +308,7 @@ export default function Checkout() {
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
   const [selectedCouponId, setSelectedCouponId] = useState('');
+  const [couponSelectionMode, setCouponSelectionMode] = useState<CouponSelectionMode>('auto');
   const [accountCouponCode, setAccountCouponCode] = useState('');
   const [accountCouponError, setAccountCouponError] = useState<string | null>(null);
   const [accountCouponValidation, setAccountCouponValidation] = useState<AccountCouponValidation | null>(null);
@@ -315,8 +317,10 @@ export default function Checkout() {
   const { ships: localizedShips } = useShipsData();
   const effectiveShips = stateShips?.length ? stateShips : localizedShips;
   const accountEmail = userSession?.user?.email?.trim() || user?.email?.trim() || '';
-  const isAccountMarketCart = cart.some((item) => item.sourceKind === ACCOUNT_MARKET_SOURCE_KIND)
-    || pendingOrder?.items?.some((item) => item.marketItem.sourceKind === ACCOUNT_MARKET_SOURCE_KIND);
+  const isAccountMarketCart = cart.length > 0
+    ? cart.every((item) => item.sourceKind === ACCOUNT_MARKET_SOURCE_KIND)
+    : Boolean(pendingOrder?.items?.length)
+      && Boolean(pendingOrder?.items?.every((item) => item.marketItem.sourceKind === ACCOUNT_MARKET_SOURCE_KIND));
   const expectedAccountCouponCode = useMemo(() => getMonthlyAccountCouponCode(), []);
   const cartValidation = useMarketCartValidation(cart, { enabled: !pendingOrder && !isAccountMarketCart });
   const promotionReplacementKey = useMemo(() => (
@@ -527,7 +531,10 @@ export default function Checkout() {
   const beginCheckoutTrackingInFlightRef = useRef<Set<string>>(new Set());
   const shouldWaitForCouponPreview = Boolean(user?.token && !pendingOrder && !isAccountMarketCart);
   const couponPreviewSettled = !shouldWaitForCouponPreview || Boolean(couponPreview || couponPreviewError);
-  const couponSelectionSettled = isAccountMarketCart || !firstApplicableCoupon || selectedCouponId === firstApplicableCoupon.id;
+  const couponSelectionSettled = isAccountMarketCart
+    || couponSelectionMode === 'manual'
+    || !firstApplicableCoupon
+    || selectedCouponId === firstApplicableCoupon.id;
   const cartValidationSettled = pendingOrder || isAccountMarketCart || Boolean(cartValidation.data || cartValidation.error);
   const beginCheckoutTrackingReady = Boolean(
     !pendingOrder
@@ -545,12 +552,18 @@ export default function Checkout() {
       if (selectedCouponId) {
         setSelectedCouponId('');
       }
+      if (couponSelectionMode !== 'auto') {
+        setCouponSelectionMode('auto');
+      }
       return;
     }
 
     if (!availableCoupons.length) {
       if (selectedCouponId) {
         setSelectedCouponId('');
+      }
+      if (couponSelectionMode !== 'auto') {
+        setCouponSelectionMode('auto');
       }
       return;
     }
@@ -559,8 +572,15 @@ export default function Checkout() {
       return;
     }
 
+    if (couponSelectionMode === 'manual') {
+      if (selectedCouponId) {
+        setSelectedCouponId('');
+      }
+      return;
+    }
+
     setSelectedCouponId(firstApplicableCoupon?.id || '');
-  }, [availableCoupons, firstApplicableCoupon, isAccountMarketCart, selectedCouponId]);
+  }, [availableCoupons, couponSelectionMode, firstApplicableCoupon, isAccountMarketCart, selectedCouponId]);
 
   useEffect(() => {
     if (!beginCheckoutTrackingReady) {
@@ -1402,7 +1422,10 @@ export default function Checkout() {
                   fullWidth
                   label={intl.formatMessage({ id: 'checkout.couponSelect', defaultMessage: 'Coupon' })}
                   value={selectedCouponId}
-                  onChange={(event) => setSelectedCouponId(event.target.value)}
+                  onChange={(event) => {
+                    setCouponSelectionMode('manual');
+                    setSelectedCouponId(event.target.value);
+                  }}
                   sx={{
                     '& .MuiSelect-select': {
                       textAlign: 'left',

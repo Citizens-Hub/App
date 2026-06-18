@@ -49,7 +49,7 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
   const formatDateTime = (value?: string | null) => value ? new Date(value).toLocaleString(intl.locale) : '-';
 
   return (
-    <Box sx={{ display: 'grid', gap: 3 }}>
+    <Box sx={{ display: 'grid', gap: 3, textAlign: 'left' }}>
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 3 }}>
         {showHeader && (
           <>

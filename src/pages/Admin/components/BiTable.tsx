@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { FormattedMessage, useIntl, type IntlShape } from "react-intl";
 import {
   Box,
@@ -15,16 +15,19 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
   type ChartOptions,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { useDailyBiReports } from "@/hooks/swr/admin/useDailyBiReports";
 import { BiSlots } from "@/report";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend);
 
 type JsonDialogState = {
   title: string;
@@ -49,6 +52,19 @@ type LabeledMetric = {
   value: number;
 };
 
+type KpiMetric = {
+  label: string;
+  value: string;
+  helper?: string;
+};
+
+type PlannerHourlyMetric = {
+  hour: string;
+  total: number;
+  valid: number;
+  invalid: number;
+};
+
 const BI_SLOT_VALUES = new Set<string>(Object.values(BiSlots));
 
 const SLOT_LABEL_MESSAGES: Record<BiSlots, { id: string; defaultMessage: string }> = {
@@ -60,6 +76,10 @@ const SLOT_LABEL_MESSAGES: Record<BiSlots, { id: string; defaultMessage: string 
   [BiSlots.PLANNER_USE]: { id: "admin.bi.slot.PU", defaultMessage: "Planner Use" },
   [BiSlots.ADD_RSI_CART]: { id: "admin.bi.slot.ARC", defaultMessage: "Add RSI Cart" },
   [BiSlots.VIEW_GUIDE]: { id: "admin.bi.slot.VG", defaultMessage: "View Guide" },
+  [BiSlots.MARKET_CCU_PLANNER_SELECTION]: { id: "admin.bi.slot.MCPS", defaultMessage: "Market CCU Planner Selection" },
+  [BiSlots.MARKET_CCU_PLANNER_ROUTE_RESULT]: { id: "admin.bi.slot.MCPR", defaultMessage: "Market CCU Planner Route Result" },
+  [BiSlots.MARKET_CCU_PLANNER_ADD_TO_CART]: { id: "admin.bi.slot.MCPA", defaultMessage: "Market CCU Planner Add to Cart" },
+  [BiSlots.MARKET_CCU_PLANNER_CHECKOUT]: { id: "admin.bi.slot.MCPC", defaultMessage: "Market CCU Planner Checkout" },
   [BiSlots.NAVIGATE_RSI_HANGAR]: { id: "admin.bi.slot.NRH", defaultMessage: "Navigate RSI Hangar" },
 };
 
@@ -213,6 +233,36 @@ function findNumericValue(value: unknown, depth = 0): number | null {
   }
 
   return null;
+}
+
+function getNumericAtPath(root: Record<string, unknown>, path: string[], fallback = 0): number {
+  const value = getAtPath(root, path);
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function getArrayAtPath<T = unknown>(root: Record<string, unknown>, path: string[]): T[] {
+  const value = getAtPath(root, path);
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+function formatInteger(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatPercent(value: number, locale: string): string {
+  return `${formatNumber(value, locale)}%`;
+}
+
+function formatUsd(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function parseSlotContainer(container: unknown): SlotMetric[] {
@@ -405,6 +455,10 @@ function chartCommonOptions(maxX: number): ChartOptions<"bar"> {
         grid: {
           display: false,
         },
+        ticks: {
+          autoSkip: false,
+          padding: 6,
+        },
       },
     },
     plugins: {
@@ -418,6 +472,91 @@ function chartCommonOptions(maxX: number): ChartOptions<"bar"> {
       },
     },
   };
+}
+
+function KpiCard({ metric }: { metric: KpiMetric }) {
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", p: 2, bgcolor: "background.paper", minHeight: 104, minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        {metric.label}
+      </Typography>
+      <Typography variant="h6" sx={{ mt: 0.75, fontWeight: 800, overflowWrap: "anywhere" }}>
+        {metric.value}
+      </Typography>
+      {metric.helper ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, overflowWrap: "anywhere" }}>
+          {metric.helper}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+}
+
+function SectionPanel({
+  title,
+  description,
+  children,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", p: 2, minWidth: 0 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+        {title}
+      </Typography>
+      {description ? (
+        <Typography variant="caption" color="text.secondary">
+          {description}
+        </Typography>
+      ) : null}
+      <Box sx={{ mt: 1.5, minWidth: 0 }}>
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
+function TopList({ items, emptyLabel }: { items: LabeledMetric[]; emptyLabel: ReactNode }) {
+  if (!items.length) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+        {emptyLabel}
+      </Typography>
+    );
+  }
+
+  return (
+    <Box sx={{ display: "grid", gap: 0.75 }}>
+      {items.slice(0, 8).map((item) => (
+        <Box key={item.label} sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 1, alignItems: "center" }}>
+          <Typography variant="body2" sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.label}
+          </Typography>
+          <Chip size="small" label={item.value} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function ChartFrame({
+  height,
+  minWidth,
+  children,
+}: {
+  height: number;
+  minWidth?: number;
+  children: ReactNode;
+}) {
+  return (
+    <Box sx={{ mt: 1, minWidth: 0, overflowX: minWidth ? "auto" : "visible", overflowY: "hidden", pb: minWidth ? 1 : 0 }}>
+      <Box sx={{ height, minWidth: minWidth ? { xs: minWidth, lg: 0 } : 0, width: "100%", position: "relative" }}>
+        {children}
+      </Box>
+    </Box>
+  );
 }
 
 export default function BiTable() {
@@ -513,11 +652,15 @@ export default function BiTable() {
           data: dimensionMetrics.map((item) => item.value),
           backgroundColor: dimensionMetrics.map((item) => DIMENSION_COLORS[item.category]),
           borderRadius: 6,
-          barThickness: 16,
+          categoryPercentage: 0.72,
+          barPercentage: 0.82,
         },
       ],
     };
   }, [dimensionMetrics, intl]);
+
+  const slotChartHeight = Math.max(280, slotMetrics.length * 34 + 64);
+  const dimensionChartHeight = Math.max(320, dimensionMetrics.length * 38 + 72);
 
   const slotChartOptions = useMemo(
     () => chartCommonOptions(Math.max(...slotMetrics.map((item) => item.value), 1)),
@@ -549,6 +692,234 @@ export default function BiTable() {
 
     return options;
   }, [dimensionMetrics, intl]);
+
+  const kpiMetrics = useMemo<KpiMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    const biEventsTotal = getNumericAtPath(report, ["summary", "biEvents", "total"]);
+    const paidOrders = getNumericAtPath(report, ["summary", "commerce", "paidOrders"]);
+    const revenue = getNumericAtPath(report, ["summary", "commerce", "grossOrderRevenue"]);
+    const newUsers = getNumericAtPath(report, ["summary", "acquisition", "newUsers"]);
+    const referredSignups = getNumericAtPath(report, ["summary", "acquisition", "referredSignups"]);
+    const plannerValidRate = getNumericAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "validRate"]);
+    const plannerCartRate = getNumericAtPath(report, ["summary", "marketCcuPlanner", "conversions", "addToCartRateFromValidRouteSessions"]);
+
+    return [
+      {
+        label: intl.formatMessage({ id: "admin.bi.kpi.events", defaultMessage: "BI events" }),
+        value: formatInteger(biEventsTotal, intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.kpi.revenue", defaultMessage: "Paid order revenue" }),
+        value: formatUsd(revenue, intl.locale),
+        helper: intl.formatMessage(
+          { id: "admin.bi.kpi.paidOrders", defaultMessage: "{count} paid orders" },
+          { count: formatInteger(paidOrders, intl.locale) },
+        ),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.kpi.newUsers", defaultMessage: "New users" }),
+        value: formatInteger(newUsers, intl.locale),
+        helper: intl.formatMessage(
+          { id: "admin.bi.kpi.referredUsers", defaultMessage: "{count} referred signups" },
+          { count: formatInteger(referredSignups, intl.locale) },
+        ),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.kpi.plannerValidRate", defaultMessage: "CCU route valid rate" }),
+        value: formatPercent(plannerValidRate, intl.locale),
+        helper: intl.formatMessage(
+          { id: "admin.bi.kpi.plannerCartRate", defaultMessage: "{rate} add-to-cart from valid routes" },
+          { rate: formatPercent(plannerCartRate, intl.locale) },
+        ),
+      },
+    ];
+  }, [intl, report]);
+
+  const commerceKpis = useMemo<KpiMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return [
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.ordersCreated", defaultMessage: "Orders created" }),
+        value: formatInteger(getNumericAtPath(report, ["summary", "commerce", "ordersCreated"]), intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.averageOrderValue", defaultMessage: "Avg paid order" }),
+        value: formatUsd(getNumericAtPath(report, ["summary", "commerce", "averagePaidOrderValue"]), intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.discounts", defaultMessage: "Discounts" }),
+        value: formatUsd(getNumericAtPath(report, ["summary", "commerce", "discountTotal"]), intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.couponApplyRate", defaultMessage: "Coupon apply rate" }),
+        value: formatPercent(getNumericAtPath(report, ["summary", "coupons", "appliedRate"]), intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.referralSignupRate", defaultMessage: "Referral signup rate" }),
+        value: formatPercent(getNumericAtPath(report, ["summary", "acquisition", "referralSignupRate"]), intl.locale),
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.commerce.referralRewards", defaultMessage: "Referral rewards earned" }),
+        value: formatUsd(getNumericAtPath(report, ["summary", "acquisition", "referralRewardAmount"]), intl.locale),
+      },
+    ];
+  }, [intl, report]);
+
+  const plannerRouteNumbers = useMemo(() => {
+    if (!report) {
+      return {
+        total: 0,
+        valid: 0,
+        invalid: 0,
+        addToCartSessions: 0,
+        checkoutSessions: 0,
+      };
+    }
+
+    return {
+      total: getNumericAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "total"]),
+      valid: getNumericAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "valid"]),
+      invalid: getNumericAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "invalid"]),
+      addToCartSessions: getNumericAtPath(report, ["summary", "marketCcuPlanner", "conversions", "addToCartSessions"]),
+      checkoutSessions: getNumericAtPath(report, ["summary", "marketCcuPlanner", "conversions", "checkoutSessions"]),
+    };
+  }, [report]);
+
+  const plannerDoughnutData = useMemo(() => ({
+    labels: [
+      intl.formatMessage({ id: "admin.bi.planner.validRoutes", defaultMessage: "Valid routes" }),
+      intl.formatMessage({ id: "admin.bi.planner.noRoutes", defaultMessage: "No route" }),
+      intl.formatMessage({ id: "admin.bi.planner.addToCartSessions", defaultMessage: "Add-to-cart sessions" }),
+      intl.formatMessage({ id: "admin.bi.planner.checkoutSessions", defaultMessage: "Checkout sessions" }),
+    ],
+    datasets: [
+      {
+        data: [
+          plannerRouteNumbers.valid,
+          plannerRouteNumbers.invalid,
+          plannerRouteNumbers.addToCartSessions,
+          plannerRouteNumbers.checkoutSessions,
+        ],
+        backgroundColor: ["#10b981", "#f59e0b", "#3b82f6", "#6366f1"],
+        borderWidth: 0,
+      },
+    ],
+  }), [intl, plannerRouteNumbers]);
+
+  const plannerDoughnutOptions = useMemo<ChartOptions<"doughnut">>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom",
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${ctx.parsed}`,
+        },
+      },
+    },
+  }), []);
+
+  const plannerHourlyMetrics = useMemo<PlannerHourlyMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return getArrayAtPath<Record<string, unknown>>(report, ["summary", "marketCcuPlanner", "routeResults", "byHour"])
+      .map((item) => ({
+        hour: typeof item.hour === "string" ? item.hour : "",
+        total: findNumericValue(item.total) ?? 0,
+        valid: findNumericValue(item.valid) ?? 0,
+        invalid: findNumericValue(item.invalid) ?? 0,
+      }))
+      .filter((item) => item.hour);
+  }, [report]);
+
+  const plannerHourlyData = useMemo(() => ({
+    labels: plannerHourlyMetrics.map((item) => item.hour),
+    datasets: [
+      {
+        label: intl.formatMessage({ id: "admin.bi.planner.validRoutes", defaultMessage: "Valid routes" }),
+        data: plannerHourlyMetrics.map((item) => item.valid),
+        borderColor: "#10b981",
+        backgroundColor: "rgba(16, 185, 129, 0.15)",
+        tension: 0.25,
+      },
+      {
+        label: intl.formatMessage({ id: "admin.bi.planner.noRoutes", defaultMessage: "No route" }),
+        data: plannerHourlyMetrics.map((item) => item.invalid),
+        borderColor: "#f59e0b",
+        backgroundColor: "rgba(245, 158, 11, 0.15)",
+        tension: 0.25,
+      },
+    ],
+  }), [intl, plannerHourlyMetrics]);
+
+  const plannerHourlyOptions = useMemo<ChartOptions<"line">>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+        },
+        grid: {
+          color: "rgba(148, 163, 184, 0.15)",
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        position: "bottom",
+      },
+    },
+  }), []);
+
+  const plannerTopStartShips = useMemo<LabeledMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return parseNamedCountContainer(
+      getAtPath(report, ["summary", "marketCcuPlanner", "selections", "topStartShips"]),
+      ["value", "ship", "name"],
+    );
+  }, [report]);
+
+  const plannerNoRouteStartShips = useMemo<LabeledMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return parseNamedCountContainer(
+      getAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "noRouteStartShips"]),
+      ["value", "ship", "name"],
+    );
+  }, [report]);
+
+  const couponSourceMetrics = useMemo<LabeledMetric[]>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return parseNamedCountContainer(
+      getAtPath(report, ["summary", "coupons", "bySource"]),
+      ["value", "source", "name"],
+    );
+  }, [report]);
 
   const applyDateFilter = () => {
     setPage(1);
@@ -649,61 +1020,166 @@ export default function BiTable() {
         </Button>
       </Box>
 
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" },
-          gap: 2,
-        }}
-      >
-        <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, p: 2, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            <FormattedMessage id="admin.bi.chart.slot" defaultMessage="Slot Data" />
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            <FormattedMessage id="admin.bi.chart.slotDescription" defaultMessage="Daily usage per BI slot" />
-          </Typography>
-
-          <Box sx={{ flex: 1, minHeight: 280, mt: 1 }}>
-            {slotMetrics.length > 0 ? (
-              <Bar data={slotChartData} options={slotChartOptions} />
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                <FormattedMessage id="admin.bi.chart.noSlotData" defaultMessage="No slot data for this day" />
-              </Typography>
-            )}
-          </Box>
+      <Box sx={{ display: "grid", gap: 2, minWidth: 0 }}>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, minWidth: 0 }}>
+          {kpiMetrics.map((metric) => (
+            <KpiCard key={metric.label} metric={metric} />
+          ))}
         </Box>
 
-        <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, p: 2, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            <FormattedMessage id="admin.bi.chart.combined" defaultMessage="Device / Error / Version" />
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            <FormattedMessage
-              id="admin.bi.chart.combinedDescription"
-              defaultMessage="Merged chart: topDeviceTags + byErrorType + byAppVersion"
-            />
-          </Typography>
-
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
-            {dimensionLegend.map((legend) => (
-              <Chip key={legend.category} size="small" label={legend.label} sx={{ bgcolor: legend.color, color: "#fff" }} />
-            ))}
-          </Box>
-
-          <Box sx={{ flex: 1, minHeight: 280, mt: 1 }}>
-            {dimensionMetrics.length > 0 ? (
-              <Bar data={dimensionChartData} options={dimensionChartOptions} />
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                <FormattedMessage id="admin.bi.chart.noDimensionData" defaultMessage="No topDeviceTags/byErrorType/byAppVersion data" />
+        <SectionPanel
+          title={<FormattedMessage id="admin.bi.section.commerce" defaultMessage="Commerce and acquisition" />}
+          description={<FormattedMessage id="admin.bi.section.commerceDescription" defaultMessage="Orders, coupon usage, signups, and referral growth for the report day." />}
+        >
+          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "2fr minmax(220px, 1fr)" }, minWidth: 0 }}>
+            <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" }, minWidth: 0 }}>
+              {commerceKpis.map((metric) => (
+                <KpiCard key={metric.label} metric={metric} />
+              ))}
+            </Box>
+            <Box sx={{ borderLeft: { lg: 1 }, borderColor: "divider", pl: { lg: 2 }, minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                <FormattedMessage id="admin.bi.coupons.bySource" defaultMessage="Coupons by source" />
               </Typography>
-            )}
+              <TopList
+                items={couponSourceMetrics}
+                emptyLabel={<FormattedMessage id="admin.bi.coupons.noSourceData" defaultMessage="No coupon source data" />}
+              />
+            </Box>
           </Box>
-        </Box>
+        </SectionPanel>
+
+        <SectionPanel
+          title={<FormattedMessage id="admin.bi.section.marketPlanner" defaultMessage="Market CCU planner funnel" />}
+          description={<FormattedMessage id="admin.bi.section.marketPlannerDescription" defaultMessage="Starting ship choices, route validity, and add-to-cart or checkout conversions." />}
+        >
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", lg: "minmax(260px, 0.8fr) minmax(0, 1.2fr)" },
+              minWidth: 0,
+              "@media (min-width: 1800px)": {
+                gridTemplateColumns: "320px minmax(0, 1fr) 320px",
+              },
+            }}
+          >
+            <Box sx={{ height: 300, minWidth: 0 }}>
+              {plannerRouteNumbers.total > 0 || plannerRouteNumbers.addToCartSessions > 0 ? (
+                <Doughnut data={plannerDoughnutData} options={plannerDoughnutOptions} />
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <FormattedMessage id="admin.bi.planner.noFunnelData" defaultMessage="No Market CCU planner funnel data for this day" />
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ height: 300, minWidth: 0 }}>
+              {plannerHourlyMetrics.length > 0 && plannerRouteNumbers.total > 0 ? (
+                <Line data={plannerHourlyData} options={plannerHourlyOptions} />
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <FormattedMessage id="admin.bi.planner.noHourlyData" defaultMessage="No hourly route data" />
+                </Typography>
+              )}
+            </Box>
+
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                minWidth: 0,
+                gridColumn: { lg: "1 / -1" },
+                "@media (min-width: 1800px)": {
+                  gridColumn: "auto",
+                },
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  <FormattedMessage id="admin.bi.planner.topStartShips" defaultMessage="Top starting ships" />
+                </Typography>
+                <TopList
+                  items={plannerTopStartShips}
+                  emptyLabel={<FormattedMessage id="admin.bi.planner.noStartShipData" defaultMessage="No starting ship data" />}
+                />
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  <FormattedMessage id="admin.bi.planner.noRouteStartShips" defaultMessage="No-route starting ships" />
+                </Typography>
+                <TopList
+                  items={plannerNoRouteStartShips}
+                  emptyLabel={<FormattedMessage id="admin.bi.planner.noNoRouteData" defaultMessage="No no-route data" />}
+                />
+              </Box>
+            </Box>
+          </Box>
+        </SectionPanel>
+
+        <SectionPanel
+          title={<FormattedMessage id="admin.bi.section.eventQuality" defaultMessage="Event quality and errors" />}
+          description={<FormattedMessage id="admin.bi.section.eventQualityDescription" defaultMessage="Raw BI slot volume, device tags, app versions, and caught error dimensions." />}
+        >
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: 3,
+              alignItems: "start",
+              minWidth: 0,
+              "@media (min-width: 1800px)": {
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+              },
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <FormattedMessage id="admin.bi.chart.slot" defaultMessage="Slot Data" />
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <FormattedMessage id="admin.bi.chart.slotDescription" defaultMessage="Daily usage per BI slot" />
+              </Typography>
+              {slotMetrics.length > 0 ? (
+                <ChartFrame height={slotChartHeight} minWidth={420}>
+                  <Bar data={slotChartData} options={slotChartOptions} />
+                </ChartFrame>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <FormattedMessage id="admin.bi.chart.noSlotData" defaultMessage="No slot data for this day" />
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <FormattedMessage id="admin.bi.chart.combined" defaultMessage="Device / Error / Version" />
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                <FormattedMessage
+                  id="admin.bi.chart.combinedDescription"
+                  defaultMessage="Merged chart: topDeviceTags + byErrorType + byAppVersion"
+                />
+              </Typography>
+
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                {dimensionLegend.map((legend) => (
+                  <Chip key={legend.category} size="small" label={legend.label} sx={{ bgcolor: legend.color, color: "#fff" }} />
+                ))}
+              </Box>
+
+              {dimensionMetrics.length > 0 ? (
+                <ChartFrame height={dimensionChartHeight} minWidth={560}>
+                  <Bar data={dimensionChartData} options={dimensionChartOptions} />
+                </ChartFrame>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  <FormattedMessage id="admin.bi.chart.noDimensionData" defaultMessage="No topDeviceTags/byErrorType/byAppVersion data" />
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </SectionPanel>
       </Box>
 
       <Dialog open={!!jsonDialog} onClose={() => setJsonDialog(null)} maxWidth="lg" fullWidth>

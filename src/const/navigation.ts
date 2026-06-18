@@ -103,6 +103,10 @@ export const navigation = [
     path: "/app-settings",
   },
   {
+    name: "navigation.coupons",
+    path: "/coupons",
+  },
+  {
     name: "navigation.blog",
     path: "/blog/:slug",
     hidden: true,

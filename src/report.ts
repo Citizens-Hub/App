@@ -24,6 +24,10 @@ export enum BiSlots {
   PLANNER_USE = "PU", // 🆗
   ADD_RSI_CART = "ARC", // 🆗
   VIEW_GUIDE = "VG", // 🆗
+  MARKET_CCU_PLANNER_SELECTION = "MCPS",
+  MARKET_CCU_PLANNER_ROUTE_RESULT = "MCPR",
+  MARKET_CCU_PLANNER_ADD_TO_CART = "MCPA",
+  MARKET_CCU_PLANNER_CHECKOUT = "MCPC",
   // hangar
   NAVIGATE_RSI_HANGAR = "NRH" // 🆗
 }
@@ -40,11 +44,17 @@ export const reportBi = <T>(info: {
   slot: BiSlots,
   data: T
 }) => {
-  fetch(`${import.meta.env.VITE_PUBLIC_BI_ENDPOINT}/api/bi/info`, {
+  void fetch(`${import.meta.env.VITE_PUBLIC_BI_ENDPOINT}/api/bi/info`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    keepalive: true,
     body: JSON.stringify({
       ...info,
       deviceTag: getDeviceTag()
     }),
+  }).catch(() => {
+    // BI must never interrupt user flows.
   });
 };

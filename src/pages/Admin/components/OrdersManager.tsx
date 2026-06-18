@@ -235,6 +235,29 @@ export default function OrdersManager() {
           </Typography>
           <Typography variant="body2">{formatOrderUsdPrice(intl.locale, order.price)}</Typography>
         </Box>
+        {(order.discountAmount || 0) > 0 && (
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              <FormattedMessage id="orderDetail.discountAmount" defaultMessage="Discount" />
+            </Typography>
+            <Typography variant="body2" color="success.main">
+              -{formatOrderUsdPrice(intl.locale, order.discountAmount || 0)}
+            </Typography>
+          </Box>
+        )}
+        {order.appliedCoupon && (
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              <FormattedMessage id="checkout.couponSelect" defaultMessage="Coupon" />
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {order.appliedCoupon.id}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {order.appliedCoupon.source} · {formatOrderUsdPrice(intl.locale, order.appliedCoupon.amountOff)}
+            </Typography>
+          </Box>
+        )}
         <Box>
           <Typography variant="caption" color="text.secondary">
             <FormattedMessage id="orders.charged" defaultMessage="Charged" />

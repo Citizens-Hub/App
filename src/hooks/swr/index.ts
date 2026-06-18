@@ -56,7 +56,7 @@ export { default as usePriceHistoryData } from './priceHistory/usePriceHistoryDa
 
 // Watchlist相关钩子
 export { default as useWatchlistData } from './watchlist/useWatchlistData';
-export { useNewUserCoupon, useAdminNewUserCouponSettings } from './useNewUserCoupon';
+export { useNewUserCoupon, useAdminNewUserCouponSettings, useAdminReferrals, useMyCoupons } from './useNewUserCoupon';
 export { useAdminInvoiceSettings } from './useInvoiceSettings';
 export { useSiteNotification, useAdminSiteNotification } from './useSiteNotification';
 export { useAdminUsers } from './admin/useAdminUsers';

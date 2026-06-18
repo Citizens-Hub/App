@@ -61,7 +61,7 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8">
+    <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8 text-left">
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <div className="flex items-center gap-3">

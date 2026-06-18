@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -47,7 +47,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [referralCode] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
   const [marketingEmailConsent, setMarketingEmailConsent] = useState<boolean | null>(null);
   const [adsAudienceConsent, setAdsAudienceConsent] = useState(false);
@@ -75,6 +75,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
           method: 'POST',
           body: JSON.stringify({
             token: tokenResponse.access_token,
+            referralCode: referralCode.trim() || undefined,
             emailLocale,
           }),
         });
@@ -113,6 +114,14 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = typeof location.state === 'string' && location.state ? location.state : '/';
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('referral') || params.get('referralCode') || params.get('invite');
+    if (code) {
+      setReferralCode(code.trim().toUpperCase());
+    }
+  }, [location.search]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -402,7 +411,7 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
               />
             )}
 
-            {/* {action === 'register' && (
+            {action === 'register' && (
               <TextField
                 margin="normal"
                 fullWidth
@@ -411,8 +420,9 @@ const Auth = ({ action }: { action: 'login' | 'register' }) => {
                 id="referralCode"
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                autoComplete="off"
               />
-            )} */}
+            )}
 
             {action === 'register' && (
               <Box sx={{ mt: 1, display: 'grid', gap: 1 }}>

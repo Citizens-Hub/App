@@ -143,7 +143,7 @@ export default function TicketReplyPage() {
 
   if (isLoading) {
     return (
-      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8">
+      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8 text-left">
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
           <CircularProgress />
         </Box>
@@ -153,7 +153,7 @@ export default function TicketReplyPage() {
 
   if (error || !ticket) {
     return (
-      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8">
+      <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8 text-left">
         <Alert severity="error">
           <FormattedMessage id="admin.tickets.detailLoadError" defaultMessage="Failed to load ticket detail." />
         </Alert>
@@ -162,7 +162,7 @@ export default function TicketReplyPage() {
   }
 
   return (
-    <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8">
+    <div className="absolute left-0 right-0 top-[65px] h-[calc(100vh-65px)] overflow-auto px-4 py-4 md:px-8 text-left">
       <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/admin/tickets/${ticket.id}`)}>

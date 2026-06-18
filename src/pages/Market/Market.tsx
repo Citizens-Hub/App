@@ -20,6 +20,7 @@ import {
   DialogTitle,
   MenuItem,
   Button,
+  Collapse,
   Divider,
   Drawer,
   Stack,
@@ -56,6 +57,7 @@ import {
   MarketSortMode,
   Resource,
   NewUserCouponPreview,
+  ReferralProgramOverview,
   CcusData,
   CcuSourceType,
   HangarItem,
@@ -68,7 +70,23 @@ import {
   AccountListingItem,
   ShipsData,
 } from '@/types';
-import { ArrowRight, ChevronLeft, ChevronRight, ListFilter, Plus, ShoppingCart, Minus, X, ChevronsRight, Timer } from 'lucide-react';
+import {
+  ArrowRight,
+  BadgeDollarSign,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronsRight,
+  Gift,
+  ListFilter,
+  Minus,
+  Plus,
+  ShoppingCart,
+  TicketPercent,
+  Timer,
+  X,
+} from 'lucide-react';
 import { useAccountMarketData, useApi, useAuthApi, useMarketData, useMarketHomeSettings, useMarketReviews } from '@/hooks';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Helmet } from 'react-helmet';
@@ -122,6 +140,7 @@ import type { FlowData, PlannerWorkspaceData } from '@/pages/CCUPlanner/services
 import { getCompletedPathsStorageKeyForTab } from '@/pages/CCUPlanner/services/completedPathsStorage';
 import type { Edge, Node } from 'reactflow';
 import FloatingDiscordButton from '@/components/FloatingDiscordButton';
+import { BiSlots, reportBi } from '@/report';
 
 type MarketItemFilterOption = 'all' | MarketItemType | MarketBrowseCategory;
 type MarketPageSearchState = {
@@ -371,6 +390,13 @@ function getDefaultRouteName(locale: string, index: number) {
 
 function createMarketPlannerRouteId() {
   return `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createMarketPlannerSessionId() {
+  const randomId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 12);
+  return `market-ccu-${Date.now()}-${randomId}`;
 }
 
 function createFlowDataFromMarketRoute(route: MarketRouteResult): FlowData | null {
@@ -2035,6 +2061,9 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [plannerSessionId, setPlannerSessionId] = useState(createMarketPlannerSessionId);
+  const lastReportedSelectionRef = useRef('');
+  const lastReportedRouteResultRef = useRef('');
 
   const plannerHangarItems = useMemo<HangarItem[]>(() => selectedHangarItems.ccus.map((upgrade, index) => ({
     id: index,
@@ -2284,6 +2313,139 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
       : 0,
     [displayedPlannerRoute, plannerOrderTotal, plannerStartShip, plannerTargetShip],
   );
+  const routeDataLoading = ccusLoading || marketRouteLoading;
+  const routeDataError = Boolean(ccusError || marketRouteError);
+  const invalidRange = Boolean(plannerStartShip && plannerTargetShip && plannerTargetShip.msrp <= plannerStartShip.msrp);
+  const routeCalculating = plannerRouteCalculating && Boolean(plannerStartShip && plannerTargetShip && !invalidRange);
+  const getPlannerShipAnalyticsPayload = useCallback((ship: Ship | null) => ship
+    ? {
+        id: ship.id,
+        name: ship.name,
+        manufacturer: ship.manufacturer?.name,
+        msrp: ship.msrp / 100,
+      }
+    : null, []);
+  const getPlannerStartSource = useCallback((ship: Ship | null) => {
+    if (!ship) {
+      return 'unknown';
+    }
+
+    if (plannerHangarStartShipIds.has(ship.id)) {
+      return 'hangar';
+    }
+
+    if (plannerLtiSeedShipIds.has(ship.id)) {
+      return 'rsi_lti_seed';
+    }
+
+    return 'catalog';
+  }, [plannerHangarStartShipIds, plannerLtiSeedShipIds]);
+  const buildPlannerAnalyticsPayload = useCallback((options?: {
+    action?: string;
+    routeFound?: boolean;
+    itemCount?: number;
+  }) => {
+    const route = displayedPlannerRoute;
+
+    return {
+      sessionId: plannerSessionId,
+      action: options?.action,
+      startShip: getPlannerShipAnalyticsPayload(plannerStartShip),
+      targetShip: getPlannerShipAnalyticsPayload(plannerTargetShip),
+      startSource: getPlannerStartSource(plannerStartShip),
+      includeHangarCcus: plannerIncludeHangarCcus,
+      routeFound: options?.routeFound ?? Boolean(route),
+      hasValidPath: options?.routeFound ?? Boolean(route),
+      edgeCount: route?.edges.length || 0,
+      marketEdgeCount: plannerRouteMarketEdges.length,
+      hangarEdgeCount: plannerHangarEdgeCount,
+      purchasableCcuCount: plannerRoutePurchasableCcuCount,
+      officialCashSpend: plannerOfficialCashSpend,
+      officialStoreCreditSpend: plannerOfficialStoreCreditSpend,
+      marketListingPrice: plannerMarketListingPrice,
+      creditFaceValue: plannerCreditFaceValue,
+      creditPrice: plannerCreditPrice,
+      orderTotal: plannerOrderTotal,
+      instantSavings: plannerInstantSavings,
+      itemCount: options?.itemCount,
+    };
+  }, [
+    displayedPlannerRoute,
+    getPlannerShipAnalyticsPayload,
+    getPlannerStartSource,
+    plannerCreditFaceValue,
+    plannerCreditPrice,
+    plannerHangarEdgeCount,
+    plannerIncludeHangarCcus,
+    plannerInstantSavings,
+    plannerMarketListingPrice,
+    plannerOfficialCashSpend,
+    plannerOfficialStoreCreditSpend,
+    plannerOrderTotal,
+    plannerRouteMarketEdges.length,
+    plannerRoutePurchasableCcuCount,
+    plannerSessionId,
+    plannerStartShip,
+    plannerTargetShip,
+  ]);
+
+  useEffect(() => {
+    if (!plannerStartShip && !plannerTargetShip) {
+      return;
+    }
+
+    const selectionKey = [
+      plannerSessionId,
+      plannerStartShip?.id || '',
+      plannerTargetShip?.id || '',
+      plannerIncludeHangarCcus ? 'hangar' : 'no-hangar',
+    ].join(':');
+    if (selectionKey === lastReportedSelectionRef.current) {
+      return;
+    }
+
+    lastReportedSelectionRef.current = selectionKey;
+    reportBi({
+      slot: BiSlots.MARKET_CCU_PLANNER_SELECTION,
+      data: buildPlannerAnalyticsPayload({ action: 'selection' }),
+    });
+  }, [buildPlannerAnalyticsPayload, plannerIncludeHangarCcus, plannerSessionId, plannerStartShip, plannerTargetShip]);
+
+  useEffect(() => {
+    if (!plannerStartShip || !plannerTargetShip || routeCalculating || routeDataLoading || routeDataError || invalidRange) {
+      return;
+    }
+
+    const routeFound = Boolean(displayedPlannerRoute);
+    const routeKey = [
+      plannerSessionId,
+      plannerStartShip.id,
+      plannerTargetShip.id,
+      plannerIncludeHangarCcus ? 'hangar' : 'no-hangar',
+      routeFound ? 'valid' : 'invalid',
+      displayedPlannerRoute?.edges.length || 0,
+    ].join(':');
+    if (routeKey === lastReportedRouteResultRef.current) {
+      return;
+    }
+
+    lastReportedRouteResultRef.current = routeKey;
+    reportBi({
+      slot: BiSlots.MARKET_CCU_PLANNER_ROUTE_RESULT,
+      data: buildPlannerAnalyticsPayload({ action: 'route_result', routeFound }),
+    });
+  }, [
+    buildPlannerAnalyticsPayload,
+    displayedPlannerRoute,
+    invalidRange,
+    plannerIncludeHangarCcus,
+    plannerSessionId,
+    plannerStartShip,
+    plannerTargetShip,
+    routeCalculating,
+    routeDataError,
+    routeDataLoading,
+  ]);
   const plannerTargetShipListingRecommendation = useMemo(() => {
     if (!plannerTargetShip) {
       return null;
@@ -2578,6 +2740,15 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
       return;
     }
 
+    reportBi({
+      slot: BiSlots.MARKET_CCU_PLANNER_CHECKOUT,
+      data: buildPlannerAnalyticsPayload({
+        action: 'checkout',
+        routeFound: true,
+        itemCount: purchaseItems.checkoutItems.length,
+      }),
+    });
+
     saveDirectCheckoutItems(purchaseItems.checkoutItems);
     navigate(getDirectCheckoutPath(), {
       state: {
@@ -2585,7 +2756,7 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
         ships,
       },
     });
-  }, [buildPlannerRoutePurchaseItems, displayedPlannerRoute, intl, navigate, ships]);
+  }, [buildPlannerAnalyticsPayload, buildPlannerRoutePurchaseItems, displayedPlannerRoute, intl, navigate, ships]);
 
   const handlePlanRouteAddToCart = useCallback(() => {
     const purchaseItems = buildPlannerRoutePurchaseItems();
@@ -2625,6 +2796,15 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
       }
     });
 
+    reportBi({
+      slot: BiSlots.MARKET_CCU_PLANNER_ADD_TO_CART,
+      data: buildPlannerAnalyticsPayload({
+        action: 'add_to_cart',
+        routeFound: true,
+        itemCount: purchaseItems.cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      }),
+    });
+
     setSnackbarMessage(intl.formatMessage({
       id: 'market.ccuPlanner.addedToCart',
       defaultMessage: 'Route items added to cart',
@@ -2634,6 +2814,7 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
     openCart();
   }, [
     addToCart,
+    buildPlannerAnalyticsPayload,
     buildPlannerRoutePurchaseItems,
     cart,
     displayedPlannerRoute,
@@ -2643,10 +2824,6 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
     validatePlannerCartStock,
   ]);
 
-  const routeDataLoading = ccusLoading || marketRouteLoading;
-  const routeDataError = Boolean(ccusError || marketRouteError);
-  const invalidRange = Boolean(plannerStartShip && plannerTargetShip && plannerTargetShip.msrp <= plannerStartShip.msrp);
-  const routeCalculating = plannerRouteCalculating && Boolean(plannerStartShip && plannerTargetShip && !invalidRange);
   const needsCredit = plannerOfficialStoreCreditSpend > 0;
   const creditUnavailable = needsCredit && !plannerCreditLoading && (!plannerSelectedCreditOptions?.length || !plannerCreditListing || Boolean(plannerCreditError));
   const targetShipRecommendationItem = plannerTargetShipListingRecommendation?.item || null;
@@ -2718,6 +2895,9 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
             getOptionLabel={(option) => getShipDisplayName(option)}
             isOptionEqualToValue={(option, value) => option.id === value.id}
             onChange={(_event, value) => {
+              setPlannerSessionId(createMarketPlannerSessionId());
+              lastReportedSelectionRef.current = '';
+              lastReportedRouteResultRef.current = '';
               setPlannerRouteCalculating(Boolean(value && plannerTargetShip && plannerTargetShip.msrp > value.msrp));
               setPlannerStartShipId(value?.id || '');
               if (value && plannerTargetShip && plannerTargetShip.msrp <= value.msrp) {
@@ -2780,6 +2960,9 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
             getOptionLabel={(option) => getShipDisplayName(option)}
             isOptionEqualToValue={(option, value) => option.id === value.id}
             onChange={(_event, value) => {
+              setPlannerSessionId(createMarketPlannerSessionId());
+              lastReportedSelectionRef.current = '';
+              lastReportedRouteResultRef.current = '';
               setPlannerRouteCalculating(Boolean(plannerStartShip && value && value.msrp > plannerStartShip.msrp));
               setPlannerTargetShipId(value?.id || '');
             }}
@@ -2825,6 +3008,9 @@ const MarketCcuRoutePlanner = React.memo(function MarketCcuRoutePlanner({
                   size="small"
                   checked={plannerIncludeHangarCcus}
                   onChange={(event) => {
+                    setPlannerSessionId(createMarketPlannerSessionId());
+                    lastReportedSelectionRef.current = '';
+                    lastReportedRouteResultRef.current = '';
                     setPlannerRouteCalculating(Boolean(plannerStartShip && plannerTargetShip && plannerTargetShip.msrp > plannerStartShip.msrp));
                     setPlannerIncludeHangarCcus(event.target.checked);
                   }}
@@ -3035,6 +3221,7 @@ const Market: React.FC = () => {
     backgroundColor: marketDrawerBackground,
     backgroundImage: 'none',
   };
+  const marketFloatingZIndex = theme.zIndex.drawer - 1;
   const { user } = useSelector((state: RootState) => state.user);
   const pageContainerRef = useRef<HTMLDivElement | null>(null);
   const listingDrawerContentRef = useRef<HTMLDivElement | null>(null);
@@ -3061,6 +3248,7 @@ const Market: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [couponPopupDismissed, setCouponPopupDismissed] = useState(false);
+  const [referralPanelExpanded, setReferralPanelExpanded] = useState(false);
   const [couponNow, setCouponNow] = useState(Date.now());
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
   const [listingDrawerOpen, setListingDrawerOpen] = useState(false);
@@ -3081,6 +3269,10 @@ const Market: React.FC = () => {
   const { data: couponPreview, mutate: mutateCouponPreview } = useAuthApi<NewUserCouponPreview>(
     user.token ? '/api/user/new-user-coupon' : null,
   );
+  const { data: referralProgram, mutate: mutateReferralProgram } = useAuthApi<ReferralProgramOverview>(
+    user.token ? '/api/user/referral-program' : null,
+  );
+  const [redeemingReferralAmount, setRedeemingReferralAmount] = useState<number | null>(null);
   useEffect(() => {
     cartRef.current = cart;
   }, [cart]);
@@ -3837,6 +4029,77 @@ const Market: React.FC = () => {
     }
   }, [accountCouponCode, intl]);
 
+  const handleCopyReferralLink = useCallback(async () => {
+    if (!referralProgram?.invitationLink) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(referralProgram.invitationLink);
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.referral.copySuccess',
+        defaultMessage: 'Invitation link copied.',
+      }));
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Failed to copy referral link:', error);
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.referral.copyError',
+        defaultMessage: 'Failed to copy invitation link.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  }, [intl, referralProgram?.invitationLink]);
+
+  const handleRedeemReferralReward = useCallback(async (amount: number) => {
+    if (!user.token) {
+      navigate('/login', { state: '/market' });
+      return;
+    }
+
+    setRedeemingReferralAmount(amount);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/referral-program/redeem`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to redeem referral reward');
+      }
+
+      await mutateReferralProgram(payload as ReferralProgramOverview, { revalidate: true });
+      await mutateCouponPreview();
+      setSnackbarMessage(intl.formatMessage(
+        {
+          id: 'market.referral.redeemSuccess',
+          defaultMessage: 'Redeemed a {amount} coupon.',
+        },
+        {
+          amount: formatUsdPrice(intl.locale, amount),
+        },
+      ));
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Failed to redeem referral reward:', error);
+      setSnackbarMessage(intl.formatMessage({
+        id: 'market.referral.redeemError',
+        defaultMessage: 'Failed to redeem referral reward.',
+      }));
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setRedeemingReferralAmount(null);
+    }
+  }, [intl, mutateCouponPreview, mutateReferralProgram, navigate, user.token]);
+
   const manufacturerOptions = useMemo(() => {
     const options = new Map<number, { id: number; name: string; logoPath: string | null }>();
     const addManufacturer = (manufacturer: { id?: number | null; name?: string | null; localizedName?: string | null }) => {
@@ -4273,6 +4536,28 @@ const Market: React.FC = () => {
   const couponCountdownText = Number.isFinite(activeCouponExpiresAt)
     ? formatCouponCountdown(activeCouponExpiresAt - couponNow)
     : '';
+  const referralSignupCouponAmountText = formatUsdPrice(intl.locale, referralProgram?.signupCoupon.amountOff ?? 5);
+  const referralSignupCouponMinimumText = formatUsdPrice(intl.locale, referralProgram?.signupCoupon.minimumAmount ?? 20);
+  const referralRewardBalanceText = formatUsdPrice(intl.locale, referralProgram?.rewardBalance ?? 0);
+  const referralEarnedTotalText = formatUsdPrice(intl.locale, referralProgram?.earnedTotal ?? 0);
+  const referralRedeemOptions = referralProgram?.redeemOptions || [5, 10, 20, 50, 100].map((amount) => ({
+    amount,
+    available: false,
+  }));
+  const referralRewardTiers = referralProgram?.rewardTiers?.length ? referralProgram.rewardTiers : [
+    { thresholdAmount: 50, rewardAmount: 5 },
+    { thresholdAmount: 200, rewardAmount: 10 },
+    { thresholdAmount: 500, rewardAmount: 20 },
+  ];
+  const referralHighestRewardText = formatUsdPrice(
+    intl.locale,
+    referralRewardTiers.reduce((total, tier) => total + tier.rewardAmount, 0),
+  );
+  const referralHighestThresholdText = formatUsdPrice(
+    intl.locale,
+    referralRewardTiers.reduce((highest, tier) => Math.max(highest, tier.thresholdAmount), 0),
+  );
+  const referralSignupCouponLifetimeDays = referralProgram?.signupCoupon.lifetimeDays ?? 365;
   const hasActiveFilters = hasActiveMarketSearchParams;
   const pageUrl = typeof window !== 'undefined'
     ? window.location.href
@@ -5802,7 +6087,7 @@ const Market: React.FC = () => {
               right: 0,
               top: '30%',
               transform: 'translateY(-50%)',
-              zIndex: 1200,
+              zIndex: marketFloatingZIndex,
               width: 48,
               minWidth: 42,
               minHeight: 156,
@@ -6242,55 +6527,449 @@ const Market: React.FC = () => {
           </Alert>
         </Snackbar>
 
-        {isCouponPopupVisible && activeCoupon && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: { xs: 16, sm: 24 },
+            bottom: { xs: 16, sm: 24 },
+            zIndex: marketFloatingZIndex,
+            width: { xs: 'calc(100vw - 32px)', sm: 420 },
+            maxHeight: { xs: '76vh', sm: 'min(78vh, 700px)' },
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.25,
+          }}
+        >
           <Box
             sx={{
-              position: 'fixed',
-              left: { xs: 16, sm: 24 },
-              bottom: { xs: 16, sm: 24 },
-              zIndex: 1300,
-              width: { xs: 'calc(100vw - 32px)', sm: 388 },
+              order: 2,
               borderRadius: 0,
               border: '1px solid',
-              borderColor: 'warning.main',
-              backgroundColor: 'background.paper',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: -1,
-                left: -1,
-                right: -1,
-                height: 4,
-                backgroundColor: 'warning.main',
-              },
+              borderColor: theme.palette.mode === 'dark' ? 'rgba(245, 158, 11, 0.52)' : 'warning.light',
+              backgroundColor: theme.palette.mode === 'dark' ? '#111111' : '#fffaf3',
+              boxShadow: 'none',
+              overflow: 'hidden',
             }}
           >
-            <Box sx={{ position: 'relative', p: 2.5, pt: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
-                <Box sx={{ minWidth: 0, pr: 1 }}>
-                  <Box
+            <Box sx={{ p: referralPanelExpanded ? 1.5 : 1 }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Box
+                  sx={{
+                    width: referralPanelExpanded ? 34 : 28,
+                    height: referralPanelExpanded ? 34 : 28,
+                    flex: '0 0 auto',
+                    borderRadius: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(245, 158, 11, 0.18)' : 'rgba(237, 108, 2, 0.12)',
+                    color: 'warning.main',
+                  }}
+                >
+                  <Gift size={referralPanelExpanded ? 18 : 15} />
+                </Box>
+
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'warning.dark', fontWeight: 800, lineHeight: 1.1 }}>
+                    <FormattedMessage id="market.referral.badge" defaultMessage="Invite & earn" />
+                  </Typography>
+                  <Typography
+                    variant={referralPanelExpanded ? 'subtitle1' : 'body2'}
+                    sx={{ mt: 0.15, fontWeight: 900, lineHeight: 1.2 }}
+                    noWrap={!referralPanelExpanded}
+                  >
+                    <FormattedMessage id="market.referral.title" defaultMessage="Give friends a coupon. Earn rewards." />
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    flex: '0 0 auto',
+                    minWidth: referralPanelExpanded ? 82 : 68,
+                    px: 0.85,
+                    py: referralPanelExpanded ? 0.75 : 0.45,
+                    borderRadius: 0,
+                    border: '1px solid',
+                    borderColor: theme.palette.mode === 'dark' ? 'rgba(245, 158, 11, 0.24)' : 'rgba(237, 108, 2, 0.2)',
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255, 255, 255, 0.72)',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.1 }}>
+                    {user.token ? (
+                      <FormattedMessage id="market.referral.balance" defaultMessage="Ready to redeem" />
+                    ) : (
+                      <FormattedMessage id="market.referral.maxReward" defaultMessage="Up to" />
+                    )}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.15, fontWeight: 900, lineHeight: 1.1 }}>
+                    {user.token ? referralRewardBalanceText : referralHighestRewardText}
+                  </Typography>
+                </Box>
+
+                <Tooltip
+                  title={intl.formatMessage({
+                    id: referralPanelExpanded ? 'common.collapse' : 'common.expand',
+                    defaultMessage: referralPanelExpanded ? 'Collapse' : 'Expand',
+                  })}
+                >
+                  <IconButton
+                    size="small"
+                    onClick={() => setReferralPanelExpanded((value) => !value)}
+                    aria-expanded={referralPanelExpanded}
+                    aria-label={intl.formatMessage({
+                      id: referralPanelExpanded ? 'common.collapse' : 'common.expand',
+                      defaultMessage: referralPanelExpanded ? 'Collapse' : 'Expand',
+                    })}
                     sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      px: 1,
-                      py: 0.375,
+                      width: referralPanelExpanded ? 32 : 28,
+                      height: referralPanelExpanded ? 32 : 28,
+                      flex: '0 0 auto',
                       borderRadius: 0,
                       border: '1px solid',
-                      borderColor: 'warning.main',
-                      backgroundColor: 'rgba(237, 108, 2, 0.08)',
-                      color: 'warning.dark',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      letterSpacing: '0.08em',
+                      borderColor: 'divider',
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.82)',
                     }}
                   >
-                    <FormattedMessage
-                      id="market.newUserCoupon.popupTitle"
-                      defaultMessage="New user offer"
-                    />
+                    {referralPanelExpanded ? <ChevronUp size={17} /> : <ChevronDown size={16} />}
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            </Box>
+
+            <Collapse in={referralPanelExpanded} timeout="auto" unmountOnExit>
+              <Box
+                sx={{
+                  px: 1.5,
+                  pb: 1.5,
+                  height: { xs: '42vh', sm: 430 },
+                  maxHeight: 'calc(76vh - 150px)',
+                  overflowY: 'auto',
+                  overscrollBehavior: 'contain',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+                  <FormattedMessage
+                    id="market.referral.subtitle"
+                    defaultMessage="Share your link: friends save on their first order, and you unlock shopping rewards as they buy."
+                  />
+                </Typography>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'auto 1fr',
+                      gap: 1,
+                      p: 1.25,
+                      borderRadius: 0,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.72)',
+                    }}
+                  >
+                    <TicketPercent size={18} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.2 }}>
+                        <FormattedMessage id="market.referral.friendGets" defaultMessage="Friend gets" />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 900, lineHeight: 1.3 }}>
+                        <FormattedMessage
+                          id="market.referral.friendCouponValue"
+                          defaultMessage="{amountOff} off over {minimumAmount}"
+                          values={{
+                            amountOff: referralSignupCouponAmountText,
+                            minimumAmount: referralSignupCouponMinimumText,
+                          }}
+                        />
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.35, color: 'text.secondary', lineHeight: 1.35 }}>
+                        <FormattedMessage
+                          id="market.referral.friendCouponDetail"
+                          defaultMessage="Valid for {days} days after registration from your link."
+                          values={{ days: referralSignupCouponLifetimeDays }}
+                        />
+                      </Typography>
+                    </Box>
                   </Box>
 
-                  <Typography variant="h6" sx={{ mt: 1.5, fontWeight: 800, lineHeight: 1.45 }}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'auto 1fr',
+                      gap: 1,
+                      p: 1.25,
+                      borderRadius: 0,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.72)',
+                    }}
+                  >
+                    <BadgeDollarSign size={18} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.2 }}>
+                        <FormattedMessage id="market.referral.youGet" defaultMessage="You get" />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 900, lineHeight: 1.3 }}>
+                        <FormattedMessage
+                          id="market.referral.youRewardValue"
+                          defaultMessage="Up to {reward} in shopping rewards"
+                          values={{ reward: referralHighestRewardText }}
+                        />
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.35, color: 'text.secondary', lineHeight: 1.35 }}>
+                        <FormattedMessage
+                          id="market.referral.youRewardDetail"
+                          defaultMessage="Rewards unlock as your friend reaches purchase milestones."
+                        />
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ mt: 1.5, p: 1.25, borderRadius: 0, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.62)' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 850 }}>
+                    <FormattedMessage id="market.referral.inviterRuleTitle" defaultMessage="How rewards unlock" />
+                  </Typography>
+                  <Stack spacing={0.75} sx={{ mt: 1 }}>
+                    {referralRewardTiers.map((tier) => (
+                      <Box
+                        key={`${tier.thresholdAmount}-${tier.rewardAmount}`}
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr auto',
+                          alignItems: 'center',
+                          gap: 1,
+                          py: 0.35,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          '&:last-of-type': {
+                            borderBottom: 0,
+                          },
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.35 }}>
+                          <FormattedMessage
+                            id="market.referral.tierSpend"
+                            defaultMessage="Friend spends {threshold}"
+                            values={{ threshold: formatUsdPrice(intl.locale, tier.thresholdAmount) }}
+                          />
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 900, color: 'warning.dark', lineHeight: 1.35 }}>
+                          <FormattedMessage
+                            id="market.referral.tierReward"
+                            defaultMessage="Unlock {reward}"
+                            values={{ reward: formatUsdPrice(intl.locale, tier.rewardAmount) }}
+                          />
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.85, color: 'text.secondary', lineHeight: 1.45 }}>
+                    <FormattedMessage
+                      id="market.referral.stackRule"
+                      defaultMessage="Rewards stack by tier. When a friend reaches {threshold}, you unlock {reward} in total."
+                      values={{
+                        threshold: referralHighestThresholdText,
+                        reward: referralHighestRewardText,
+                      }}
+                    />
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary', lineHeight: 1.45 }}>
+                    <FormattedMessage
+                      id="market.referral.settlementRule"
+                      defaultMessage="Rewards enter your redeemable balance 7 days after the qualifying order is paid."
+                    />
+                  </Typography>
+                </Box>
+
+                {user.token ? (
+                  <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 0, p: 1, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.78)' }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 800, lineHeight: 1.2 }}>
+                          <FormattedMessage id="market.referral.invitationLink" defaultMessage="Invitation link" />
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                          {referralProgram?.invitationLink || '-'}
+                        </Typography>
+                      </Box>
+                      <Tooltip title={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })} arrow>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={handleCopyReferralLink}
+                            disabled={!referralProgram?.invitationLink}
+                            aria-label={intl.formatMessage({ id: 'common.copy', defaultMessage: 'Copy' })}
+                            sx={{ borderRadius: 0, border: '1px solid', borderColor: 'divider' }}
+                          >
+                            <ContentCopy fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
+
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0, p: 1, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.78)' }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.2 }}>
+                          <FormattedMessage id="market.referral.balance" defaultMessage="Ready to redeem" />
+                        </Typography>
+                        <Typography variant="h6" sx={{ mt: 0.25, fontWeight: 900, lineHeight: 1.2 }}>
+                          {referralRewardBalanceText}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 0, p: 1, backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.78)' }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.2 }}>
+                          <FormattedMessage id="market.referral.earnedTotal" defaultMessage="Unlocked total" />
+                        </Typography>
+                        <Typography variant="h6" sx={{ mt: 0.25, fontWeight: 900, lineHeight: 1.2 }}>
+                          {referralEarnedTotalText}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="body2" sx={{ display: 'block', mb: 0.75, fontWeight: 850 }}>
+                        <FormattedMessage id="market.referral.redeemTitle" defaultMessage="Redeem shopping coupons" />
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                        {referralRedeemOptions.map((option) => (
+                          <Button
+                            key={option.amount}
+                            size="small"
+                            variant={option.available ? 'contained' : 'outlined'}
+                            disabled={!option.available || redeemingReferralAmount !== null}
+                            onClick={() => handleRedeemReferralReward(option.amount)}
+                            sx={{ borderRadius: 0, minWidth: 58, px: 1 }}
+                          >
+                            {redeemingReferralAmount === option.amount ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              formatUsdPrice(intl.locale, option.amount)
+                            )}
+                          </Button>
+                        ))}
+                      </Box>
+                      {/* <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: 'text.secondary', lineHeight: 1.45 }}>
+                        <FormattedMessage
+                          id="market.referral.redeemHint"
+                          defaultMessage="Redeemed coupons have no minimum spend and can be used on future eligible orders."
+                        />
+                      </Typography> */}
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Button
+                    component={Link}
+                    to="/login"
+                    state="/market"
+                    variant="contained"
+                    endIcon={<ArrowRight className="h-4 w-4" />}
+                    sx={{ mt: 1.5, borderRadius: 0, alignSelf: 'flex-start' }}
+                  >
+                    <FormattedMessage id="market.referral.signInCta" defaultMessage="Sign in to get your link" />
+                  </Button>
+                )}
+              </Box>
+            </Collapse>
+          </Box>
+
+          {isCouponPopupVisible && activeCoupon && (
+            <Box
+              sx={{
+                order: 1,
+                borderRadius: 0,
+                border: '1px solid',
+                borderColor: theme.palette.mode === 'dark' ? 'rgba(34, 197, 94, 0.44)' : 'success.light',
+                backgroundColor: theme.palette.mode === 'dark' ? '#0f1412' : '#f7fff9',
+                boxShadow: 'none',
+                overflow: 'hidden',
+              }}
+            >
+              <Box sx={{ p: 1.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1.25}>
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      flex: '0 0 auto',
+                      borderRadius: 0,
+                      display: 'grid',
+                      placeItems: 'center',
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(34, 197, 94, 0.16)' : 'rgba(46, 125, 50, 0.1)',
+                      color: 'success.main',
+                    }}
+                  >
+                    <TicketPercent size={20} />
+                  </Box>
+
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 800, lineHeight: 1.2 }}>
+                      <FormattedMessage id="market.newUserCoupon.popupTitle" defaultMessage="New user offer" />
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ mt: 0.25, fontWeight: 900, lineHeight: 1.25 }}>
+                      <FormattedMessage
+                        id="market.newUserCoupon.collapsedSummary"
+                        defaultMessage="{amountOff} off over {minimumAmount}"
+                        values={{
+                          amountOff: couponAmountOffText,
+                          minimumAmount: couponMinimumAmountText,
+                        }}
+                      />
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: { xs: 'none', sm: 'flex' },
+                      alignItems: 'center',
+                      gap: 0.5,
+                      flex: '0 0 auto',
+                      px: 1,
+                      py: 0.75,
+                      borderRadius: 0,
+                      border: '1px solid',
+                      borderColor: theme.palette.mode === 'dark' ? 'rgba(34, 197, 94, 0.22)' : 'rgba(46, 125, 50, 0.18)',
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.76)',
+                    }}
+                  >
+                    <Timer size={15} />
+                    <Typography variant="body2" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                      {couponCountdownText}
+                    </Typography>
+                  </Box>
+
+                  <Tooltip title={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setCouponPopupDismissed(true)}
+                      aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        flex: '0 0 auto',
+                        borderRadius: 0,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.82)',
+                      }}
+                    >
+                      <X size={17} />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Box>
+
+              <Box
+                sx={{
+                  px: 1.5,
+                  pb: 1.5,
+                  maxHeight: { xs: '26vh', sm: 180 },
+                  overflowY: 'auto',
+                  overscrollBehavior: 'contain',
+                }}
+              >
+                <Box sx={{ p: 1.1, borderRadius: 0, border: '1px solid', borderColor: 'divider', backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.78)' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.35 }}>
                     <FormattedMessage
                       id="market.newUserCoupon.popupBody"
                       defaultMessage="Get {amountOff} off a minimum purchase of {minimumAmount}."
@@ -6300,60 +6979,24 @@ const Market: React.FC = () => {
                       }}
                     />
                   </Typography>
-
+                  <Box sx={{ mt: 0.85, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                    <Timer size={15} />
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                      <FormattedMessage id="market.newUserCoupon.popupCountdownPrefix" defaultMessage="Expires in:" />
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 900, color: 'success.dark', lineHeight: 1 }}>
+                      {couponCountdownText}
+                    </Typography>
+                  </Box>
                 </Box>
-
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => setCouponPopupDismissed(true)}
-                  sx={{
-                    minWidth: 'auto',
-                    p: 0.5,
-                    borderRadius: 0,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                      borderColor: 'text.primary',
-                      backgroundColor: 'transparent',
-                    },
-                  }}
-                  aria-label={intl.formatMessage({ id: 'common.close', defaultMessage: 'Close' })}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {/* <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: 'text.secondary', lineHeight: 1.45 }}>
+                  <FormattedMessage id="market.newUserCoupon.popupHint" defaultMessage="The coupon will be applied automatically at checkout." />
+                </Typography> */}
               </Box>
-
-              <Box
-                sx={{
-                  mt: 2,
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 1,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  <FormattedMessage
-                    id="market.newUserCoupon.popupCountdownPrefix"
-                    defaultMessage="Expires in:"
-                  />
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 900, color: 'warning.dark', letterSpacing: '0.1em', lineHeight: 1 }}>
-                  {couponCountdownText}
-                </Typography>
-              </Box>
-
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                <FormattedMessage
-                  id="market.newUserCoupon.popupHint"
-                  defaultMessage="The coupon will be applied automatically at checkout."
-                />
-              </Typography>
             </Box>
-          </Box>
-        )}
+          )}
+        </Box>
+
       </div>
     </>
   );

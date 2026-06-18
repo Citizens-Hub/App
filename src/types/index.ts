@@ -1378,6 +1378,14 @@ export interface Order {
   subtotal?: number;
   discountAmount?: number;
   serviceFee?: number;
+  appliedCoupon?: {
+    id: string;
+    source: string;
+    amountOff: number;
+    minimumAmount: number;
+    appliedAt?: string | null;
+    invalidatedAt?: string | null;
+  } | null;
   discountSettlementStatus?: 'pending' | 'settled' | 'review';
   paidFinalizedAt?: string | null;
   paidFinalizationError?: string | null;
@@ -1699,6 +1707,34 @@ export interface ActiveUserCoupon {
   projectedDiscountAmount?: number;
 }
 
+export type UserCouponStatus = 'available' | 'reserved' | 'used' | 'invalidated';
+
+export interface UserCouponListItem {
+  id: string;
+  source: string;
+  status: UserCouponStatus;
+  amountOff: number;
+  currency: string;
+  minimumAmount: number;
+  eligibleSkuIds: string[];
+  expiresAt: string;
+  claimedAt: string;
+  appliedAt?: string | null;
+  invalidatedAt?: string | null;
+  appliedOrderId?: number | null;
+}
+
+export interface UserCouponsOverview {
+  coupons: UserCouponListItem[];
+  summary: {
+    total: number;
+    available: number;
+    reserved: number;
+    used: number;
+    invalidated: number;
+  };
+}
+
 export interface NewUserCouponPreview {
   enabled: boolean;
   currency: string;
@@ -1718,6 +1754,116 @@ export interface NewUserCouponSettings {
     minimumAmount: number;
     probability: number;
   }>;
+}
+
+export interface ReferralProgramOverview {
+  referralCode: string;
+  invitationLink: string;
+  rewardBalance: number;
+  earnedTotal: number;
+  redeemedTotal: number;
+  pendingRewards: Array<{
+    id: string;
+    inviteeUserId: string;
+    inviteeEmail: string;
+    thresholdAmount: number;
+    rewardAmount: number;
+    remainingRewardAmount: number;
+    triggerOrderId: number;
+    earnedAt: string;
+    availableAt: string;
+    available: boolean;
+  }>;
+  redeemOptions: Array<{
+    amount: number;
+    available: boolean;
+  }>;
+  rewardTiers: Array<{
+    thresholdAmount: number;
+    rewardAmount: number;
+  }>;
+  signupCoupon: {
+    amountOff: number;
+    minimumAmount: number;
+    lifetimeDays: number;
+  };
+  redeemedCoupons: Array<{
+    id: string;
+    couponId: string;
+    amount: number;
+    createdAt: string;
+    expiresAt: string;
+    appliedAt?: string | null;
+  }>;
+  referrals: Array<{
+    id: string;
+    email: string;
+    createdAt: string;
+    paidSubtotal: number;
+    earnedReward: number;
+    nextThresholdAmount: number | null;
+    nextRewardAmount: number | null;
+  }>;
+}
+
+export interface AdminReferralUserSummary {
+  id: string;
+  email: string;
+  name: string | null;
+  referralCode?: string | null;
+  createdAt?: string;
+}
+
+export interface AdminReferralTierProgress {
+  thresholdAmount: number;
+  rewardAmount: number;
+  progressAmount: number;
+  progressPercent: number;
+  achieved: boolean;
+  ledgerId: string | null;
+  triggerOrderId: number | null;
+  earnedAt: string | null;
+  availableAt: string | null;
+  available: boolean;
+  redeemedAt: string | null;
+  redemptionId: string | null;
+}
+
+export interface AdminReferralListItem {
+  inviter: AdminReferralUserSummary;
+  invitee: AdminReferralUserSummary & {
+    createdAt: string;
+  };
+  paidSubtotal: number;
+  earnedReward: number;
+  pendingReward: number;
+  availableReward: number;
+  nextThresholdAmount: number | null;
+  nextRewardAmount: number | null;
+  tiers: AdminReferralTierProgress[];
+}
+
+export interface AdminReferralListResponse {
+  success: boolean;
+  relationships: AdminReferralListItem[];
+  rewardTiers: Array<{
+    thresholdAmount: number;
+    rewardAmount: number;
+  }>;
+  summary: {
+    totalRelationships: number;
+    totalPaidSubtotal: number;
+    totalEarnedReward: number;
+    totalAvailableReward: number;
+    totalPendingReward: number;
+    achievedTierCount: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface InvoiceSettings {
