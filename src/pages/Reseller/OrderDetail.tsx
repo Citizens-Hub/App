@@ -155,8 +155,8 @@ function parseRsiUrlFromExternalRef(value?: string | null) {
   return normalizeAbsoluteUrl(raw);
 }
 
-function getConciergePaintStoreUrl(item?: DetailedOrderItem['marketItem'] | null) {
-  if (!item || item.sourceKind !== 'rsi-concierge-paint-sync') {
+function getManagedRsiStoreUrl(item?: DetailedOrderItem['marketItem'] | null) {
+  if (!item || !['rsi-concierge-paint-sync', 'rsi-subscriber-store-sync'].includes(item.sourceKind || '')) {
     return null;
   }
 
@@ -1110,7 +1110,7 @@ const OrderDetail = () => {
                       && itemConfirmed
                       && !item.shipped
                       && activeQty > 0;
-                    const conciergePaintStoreUrl = getConciergePaintStoreUrl(marketItem);
+                    const managedRsiStoreUrl = getManagedRsiStoreUrl(marketItem);
 
                     return (
                       <TableRow
@@ -1247,13 +1247,13 @@ const OrderDetail = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Stack spacing={1} alignItems="center">
-                            {conciergePaintStoreUrl && (
+                            {managedRsiStoreUrl && (
                               <Button
                                 size="small"
                                 variant="text"
                                 color="inherit"
                                 endIcon={<OpenInNew fontSize="small" />}
-                                onClick={() => window.open(conciergePaintStoreUrl, '_blank', 'noopener,noreferrer')}
+                                onClick={() => window.open(managedRsiStoreUrl, '_blank', 'noopener,noreferrer')}
                               >
                                 <FormattedMessage id="reseller.order.openRsiStore" defaultMessage="Open RSI Store" />
                               </Button>

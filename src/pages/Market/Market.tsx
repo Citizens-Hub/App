@@ -228,7 +228,7 @@ const MARKET_PLANNER_ROUTE_NODE_Y = 120;
 const CCU_PLANNER_STORAGE_KEY = 'ccu-planner-data';
 const CCU_PLANNER_WORKSPACE_VERSION = 2;
 const VALID_MARKET_ITEM_TYPE_FILTERS = new Set<MarketItemType>(['ccu', 'credit']);
-const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'other']);
+const VALID_MARKET_BROWSE_CATEGORY_FILTERS = new Set<MarketBrowseCategory>(['standalone_ship', 'ship_package', 'paint', 'subscriber_store', 'other']);
 const VALID_MARKET_SHIP_TRAIT_FILTERS = new Set<MarketShipTraitFilter>(['oc', 'non_oc', 'lti']);
 const VALID_MARKET_SORT_MODES = new Set<MarketSortMode>(['recommended', 'newest', 'priceDesc', 'priceAsc']);
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -1553,6 +1553,7 @@ const MarketFilterPanel = React.memo(function MarketFilterPanel({
         <FormControlLabel control={<Radio size="small" />} value="standalone_ship" label={intl.formatMessage({ id: 'market.filter.standaloneShip', defaultMessage: 'Standalone Ship' })} />
         <FormControlLabel control={<Radio size="small" />} value="ship_package" label={intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })} />
         <FormControlLabel control={<Radio size="small" />} value="paint" label={intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })} />
+        <FormControlLabel control={<Radio size="small" />} value="subscriber_store" label={intl.formatMessage({ id: 'market.filter.subscriberStore', defaultMessage: 'Subscriber Store' })} />
         <FormControlLabel control={<Radio size="small" />} value="other" label={intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' })} />
         <FormControlLabel control={<Radio size="small" />} value="credit" label={intl.formatMessage({ id: 'market.filter.credit', defaultMessage: 'Credit' })} />
       </RadioGroup>
@@ -3479,6 +3480,7 @@ const Market: React.FC = () => {
       case 'standalone_ship':
       case 'ship_package':
       case 'paint':
+      case 'subscriber_store':
       case 'other':
         browseCategories.push(selectedItemFilter);
         break;
@@ -3592,6 +3594,15 @@ const Market: React.FC = () => {
   } = useMarketData({
     enabled: homeContentEnabled,
     browseCategories: ['paint'],
+    sortBy: 'recommended',
+    page: 0,
+    limit: 1,
+  });
+  const {
+    listingItems: subscriberStorePreviewItems,
+  } = useMarketData({
+    enabled: homeContentEnabled,
+    browseCategories: ['subscriber_store'],
     sortBy: 'recommended',
     page: 0,
     limit: 1,
@@ -3954,6 +3965,8 @@ const Market: React.FC = () => {
     const paintImageUrl = getMarketHomeListingImage(paintPreviewItems[0], categoryShips)
       || getMarketHomeListingImage(otherGearItems[0], categoryShips)
       || standaloneImageUrl;
+    const subscriberStoreImageUrl = getMarketHomeListingImage(subscriberStorePreviewItems[0], categoryShips)
+      || paintImageUrl;
     const creditImageUrl = '/imgs/credit.webp';
 
     return [
@@ -3986,6 +3999,13 @@ const Market: React.FC = () => {
         accentClassName: 'bg-violet-500',
       },
       {
+        value: 'subscriber_store',
+        label: intl.formatMessage({ id: 'market.home.category.subscriberStore.label', defaultMessage: 'Subscriber Store' }),
+        description: intl.formatMessage({ id: 'market.home.category.subscriberStore.description', defaultMessage: 'Browse subscriber-store exclusives and extras.' }),
+        imageUrl: subscriberStoreImageUrl,
+        accentClassName: 'bg-teal-500',
+      },
+      {
         value: 'credit',
         label: intl.formatMessage({ id: 'market.home.category.credit.label', defaultMessage: 'Store Credit' }),
         description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Buy discounted store credit.' }),
@@ -4004,6 +4024,7 @@ const Market: React.FC = () => {
     ships,
     standalonePreviewItems,
     starterPackItems,
+    subscriberStorePreviewItems,
   ]);
 
   useEffect(() => {
@@ -4779,10 +4800,10 @@ const Market: React.FC = () => {
             <FormattedMessage id="market.home.category.title" defaultMessage="Start from the product type you need" />
           </Typography>
           <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary', fontSize: 14, lineHeight: 1.7 }}>
-            <FormattedMessage
-              id="market.home.category.description"
-              defaultMessage="Jump into ships, starter packages, CCUs, paints, or store credit with filters already applied."
-            />
+              <FormattedMessage
+                id="market.home.category.description"
+                defaultMessage="Jump into ships, starter packages, CCUs, paints, subscriber-store items, or store credit with filters already applied."
+              />
           </Typography>
         </div>
         <Button

@@ -103,6 +103,10 @@ export function isPaintListing(item: ListingItem) {
   return item.browseCategory === 'paint';
 }
 
+export function isSubscriberStoreListing(item: ListingItem) {
+  return item.browseCategory === 'subscriber_store';
+}
+
 export function isOtherListing(item: ListingItem) {
   return item.browseCategory === 'other';
 }

@@ -133,6 +133,10 @@ function getRelatedGroupKey(item: ListingItem) {
     return 'paint';
   }
 
+  if (item.browseCategory === 'subscriber_store') {
+    return 'subscriber_store';
+  }
+
   return 'other';
 }
 
@@ -631,7 +635,7 @@ export default function MarketShipFeature() {
                 <FormattedMessage id="market.ship.noRelatedProducts" defaultMessage="No related products are currently available." />
               </div>
             ) : (
-              ['ship', 'package', 'ccu', 'paint', 'other'].map((groupKey) => {
+              ['ship', 'package', 'ccu', 'paint', 'subscriber_store', 'other'].map((groupKey) => {
                 const items = groupedItems.get(groupKey) || [];
                 if (!items.length) {
                   return null;
@@ -645,7 +649,9 @@ export default function MarketShipFeature() {
                       ? intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' })
                       : groupKey === 'paint'
                         ? intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' })
-                        : intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' });
+                        : groupKey === 'subscriber_store'
+                          ? intl.formatMessage({ id: 'market.filter.subscriberStore', defaultMessage: 'Subscriber Store' })
+                          : intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' });
 
                 return (
                   <div key={groupKey} className='grid gap-3'>

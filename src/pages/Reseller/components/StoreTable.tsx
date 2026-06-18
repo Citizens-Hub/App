@@ -149,6 +149,10 @@ function getDisplayTypeLabel(type: StoreListingDisplayType, intl: IntlShape) {
     return intl.formatMessage({ id: "market.filter.paint", defaultMessage: "Paint" });
   }
 
+  if (type === "subscriber_store") {
+    return intl.formatMessage({ id: "market.filter.subscriberStore", defaultMessage: "Subscriber Store" });
+  }
+
   if (type === "other") {
     return intl.formatMessage({ id: "market.filter.other", defaultMessage: "Other" });
   }
@@ -171,6 +175,10 @@ function getSourceKindLabel(sourceKind: string | null | undefined, intl: IntlSha
 
   if (sourceKind === "rsi-concierge-paint-sync") {
     return intl.formatMessage({ id: "market.sourceKind.conciergePaintSync", defaultMessage: "Concierge paint sync" });
+  }
+
+  if (sourceKind === "rsi-subscriber-store-sync") {
+    return intl.formatMessage({ id: "market.sourceKind.subscriberStoreSync", defaultMessage: "Subscriber store sync" });
   }
 
   return sourceKind || "";
@@ -516,6 +524,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [showStandaloneShips, setShowStandaloneShips] = useState(true);
   const [showShipPackages, setShowShipPackages] = useState(true);
   const [showPaints, setShowPaints] = useState(true);
+  const [showSubscriberStore, setShowSubscriberStore] = useState(true);
   const [showOthers, setShowOthers] = useState(true);
   const [showCredits, setShowCredits] = useState(true);
   const [isAdjustStockDialogOpen, setIsAdjustStockDialogOpen] = useState(false);
@@ -581,6 +590,10 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       browseCategories.push("paint");
     }
 
+    if (showSubscriberStore) {
+      browseCategories.push("subscriber_store");
+    }
+
     if (showOthers) {
       browseCategories.push("other");
     }
@@ -591,7 +604,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
       hasSelectedFilters: itemTypes.length > 0 || browseCategories.length > 0,
       shouldCombineTypeFiltersWithOr: itemTypes.length > 0 && browseCategories.length > 0,
     };
-  }, [showCcus, showCredits, showOthers, showPaints, showShipPackages, showStandaloneShips]);
+  }, [showCcus, showCredits, showOthers, showPaints, showShipPackages, showStandaloneShips, showSubscriberStore]);
 
   const fetchListingItems = useCallback(async (signal?: AbortSignal) => {
     if (!id || !listingFilters.hasSelectedFilters) {
@@ -1262,6 +1275,13 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
               setPage(0);
             }} size="small" />}
             label={intl.formatMessage({ id: "market.filter.paint", defaultMessage: "Paint" })}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={showSubscriberStore} onChange={(event) => {
+              setShowSubscriberStore(event.target.checked);
+              setPage(0);
+            }} size="small" />}
+            label={intl.formatMessage({ id: "market.filter.subscriberStore", defaultMessage: "Subscriber Store" })}
           />
           <FormControlLabel
             control={<Checkbox checked={showOthers} onChange={(event) => {

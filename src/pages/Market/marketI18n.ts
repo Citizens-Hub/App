@@ -48,6 +48,8 @@ export function getMarketBrowseCategoryLabel(intl: IntlShape, browseCategory?: M
       return intl.formatMessage({ id: 'market.filter.shipPackage', defaultMessage: 'Ship Package' });
     case 'paint':
       return intl.formatMessage({ id: 'market.filter.paint', defaultMessage: 'Paint' });
+    case 'subscriber_store':
+      return intl.formatMessage({ id: 'market.filter.subscriberStore', defaultMessage: 'Subscriber Store' });
     case 'other':
       return intl.formatMessage({ id: 'market.filter.other', defaultMessage: 'Other' });
     default:

@@ -1,4 +1,4 @@
-import { ListingItem, MarketCartItem, MarketItemType, MarketSkuTagCode, PromotionPriceInfo, Resource, Ship } from '@/types';
+import { ListingItem, MarketBrowseCategory, MarketCartItem, MarketItemType, MarketSkuTagCode, PromotionPriceInfo, Resource, Ship } from '@/types';
 import {
   getMarketImageAssetUrl,
   getMarketImageDisplayUrl,
@@ -11,7 +11,7 @@ type MarketDisplayItem = {
   skuId?: string;
   name: string;
   itemType: MarketItemType;
-  browseCategory?: 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+  browseCategory?: MarketBrowseCategory;
   tags?: MarketSkuTagCode[];
   fromShipId?: number;
   toShipId?: number;
@@ -176,6 +176,10 @@ export function isConciergeListing(item?: Pick<MarketDisplayItem, 'tags'> | null
   return Boolean(item?.tags?.includes('concierge'));
 }
 
+export function isSubscriberStoreListing(item?: Pick<MarketDisplayItem, 'browseCategory'> | null) {
+  return item?.browseCategory === 'subscriber_store';
+}
+
 export function isLtiShipListing(item?: Pick<MarketDisplayItem, 'itemType' | 'browseCategory' | 'insuranceType'> | null) {
   const insuranceType = item?.insuranceType?.trim();
   if (!insuranceType || !/(?:\blti\b|lifetime\s+insurance)/i.test(insuranceType)) {
@@ -189,7 +193,11 @@ export function isLtiShipListing(item?: Pick<MarketDisplayItem, 'itemType' | 'br
 
 export function resolveMarketImageBadgeKind(
   item?: Pick<MarketDisplayItem, 'itemType' | 'browseCategory' | 'tags' | 'insuranceType'> | null,
-): 'oc' | 'concierge' | 'lti' | null {
+): 'oc' | 'concierge' | 'lti' | 'subscriber_store' | null {
+  if (isSubscriberStoreListing(item)) {
+    return 'subscriber_store';
+  }
+
   if (isOcShipListing(item)) {
     return 'oc';
   }

@@ -11,7 +11,7 @@ import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
 import CopyrightWatermarkTool from './components/CopyrightWatermarkTool';
-import ConciergePaintsManager from './components/ConciergePaintsManager';
+import ConciergePaintsManager, { SubscriberStoreManager } from './components/ConciergePaintsManager';
 import TicketsManager from './components/TicketsManager';
 import NewUserCouponSettingsManager from './components/NewUserCouponSettingsManager';
 import OrdersManager from './components/OrdersManager';
@@ -42,6 +42,7 @@ enum Page {
   WatermarkDebug = 'watermarkDebug',
   CopyrightWatermark = 'copyrightWatermark',
   ConciergePaints = 'conciergePaints',
+  SubscriberStore = 'subscriberStore',
   GameShops = 'gameShops',
   MarketHome = 'marketHome',
   AccountingReport = 'accountingReport',
@@ -145,6 +146,15 @@ export default function Admin() {
       groupLabel: groups.catalog,
       active: currentPage === Page.ConciergePaints,
       onSelect: () => setCurrentPage(Page.ConciergePaints),
+    },
+    {
+      id: Page.SubscriberStore,
+      title: <FormattedMessage id="admin.subscriberStore.title" defaultMessage="Subscriber Store" />,
+      description: <FormattedMessage id="admin.subscriberStore.description" defaultMessage="批量同步订阅商店目录。" />,
+      groupId: 'catalog',
+      groupLabel: groups.catalog,
+      active: currentPage === Page.SubscriberStore,
+      onSelect: () => setCurrentPage(Page.SubscriberStore),
     },
     {
       id: Page.MarketHome,
@@ -354,6 +364,7 @@ export default function Admin() {
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.CopyrightWatermark && <CopyrightWatermarkTool />}
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
+        {currentPage === Page.SubscriberStore && <SubscriberStoreManager />}
         {currentPage === Page.MarketHome && <MarketHomeSettingsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}

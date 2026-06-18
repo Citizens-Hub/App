@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
-type MarketImageBadgeKind = 'oc' | 'concierge' | 'lti';
+type MarketImageBadgeKind = 'oc' | 'concierge' | 'lti' | 'subscriber_store';
 
 interface MarketImageBadgeProps {
   kind: MarketImageBadgeKind;
@@ -35,6 +35,15 @@ function getPalette(kind: MarketImageBadgeKind): Palette {
     };
   }
 
+  if (kind === 'subscriber_store') {
+    return {
+      fill: 'rgba(45, 212, 191, 0.92)',
+      glow: 'rgba(94, 234, 212, 0.32)',
+      brandText: '#042f2e',
+      labelText: '#042f2e',
+    };
+  }
+
   return {
     fill: 'rgba(56, 189, 248, 0.92)',
     glow: 'rgba(125, 211, 252, 0.30)',
@@ -56,7 +65,9 @@ export default function MarketImageBadge({
     ? intl.formatMessage({ id: 'market.detail.ocShipBadge', defaultMessage: 'Original Concept' })
     : kind === 'concierge'
       ? intl.formatMessage({ id: 'market.detail.conciergeBadge', defaultMessage: 'Concierge' })
-      : intl.formatMessage({ id: 'market.detail.ltiShipBadge', defaultMessage: 'LTI' });
+      : kind === 'subscriber_store'
+        ? intl.formatMessage({ id: 'market.detail.subscriberStoreBadge', defaultMessage: 'Subscriber' })
+        : intl.formatMessage({ id: 'market.detail.ltiShipBadge', defaultMessage: 'LTI' });
   const cssHeight = size === 'detail' ? 84 : 68;
   const bottomClass = raised ? 'bottom-12' : 'bottom-0';
 

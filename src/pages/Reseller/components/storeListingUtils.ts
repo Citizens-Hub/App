@@ -1,16 +1,16 @@
-import { ListingItem, MarketPackageItem, MarketPackageShip, MarketSkuTagCode, Ship } from '@/types';
+import { ListingItem, MarketBrowseCategory, MarketPackageItem, MarketPackageShip, MarketSkuTagCode, Ship } from '@/types';
 import { BundleItem, CCUItem, ShipItem, UserInfo } from '@/store/upgradesStore';
 import { getShipThumbLarge } from '@/utils/shipImage';
 import { resolveStoredCcuShip } from '@/utils/shipDisplay';
 
 export type StoreInventoryType = 'ccu' | 'standalone_ship' | 'bundle';
-export type StoreListingDisplayType = StoreInventoryType | 'ship_package' | 'paint' | 'other' | 'credit';
+export type StoreListingDisplayType = StoreInventoryType | 'ship_package' | 'paint' | 'subscriber_store' | 'other' | 'credit';
 
 export interface StoreInventoryItem {
   sourceKey: string;
   itemType: 'ccu' | 'package';
   displayType: StoreInventoryType;
-  browseCategory?: 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+  browseCategory?: MarketBrowseCategory;
   tags?: MarketSkuTagCode[];
   name: string;
   price: number;
@@ -255,6 +255,10 @@ export function getListingDisplayType(item: ListingItem): StoreListingDisplayTyp
 
   if (item.browseCategory === 'paint') {
     return 'paint';
+  }
+
+  if (item.browseCategory === 'subscriber_store') {
+    return 'subscriber_store';
   }
 
   return 'other';

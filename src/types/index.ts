@@ -468,25 +468,60 @@ export interface AdminConciergePaintListResponse {
     defaultStock: number;
     activeCount: number;
     inactiveCount: number;
+    latestSyncJob?: AdminManagedRsiStoreSyncJob | null;
     items: AdminConciergePaintListingItem[];
   };
+}
+
+export type AdminManagedRsiStoreSyncJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export interface AdminManagedRsiStoreSyncResult {
+  markupPercent: number;
+  sourceCount: number;
+  vipCount: number;
+  syncCount?: number;
+  createdCount: number;
+  updatedCount: number;
+  restoredCount: number;
+  unchangedCount: number;
+  removedCount: number;
+  activeCount: number;
+  inactiveCount: number;
+  items?: AdminConciergePaintListingItem[];
+}
+
+export interface AdminManagedRsiStoreSyncJob {
+  jobId: string;
+  sourceKind: string;
+  userId: string;
+  status: AdminManagedRsiStoreSyncJobStatus;
+  markupPercent: number;
+  sourceCount: number;
+  vipCount: number;
+  syncCount?: number;
+  createdAt: string;
+  queuedAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  result?: AdminManagedRsiStoreSyncResult;
+  errorMessage?: string;
 }
 
 export interface AdminConciergePaintSyncResponse {
   success: boolean;
   message?: string;
   data: {
-    markupPercent: number;
-    sourceCount: number;
-    vipCount: number;
-    createdCount: number;
-    updatedCount: number;
-    restoredCount: number;
-    unchangedCount: number;
-    removedCount: number;
-    activeCount: number;
-    inactiveCount: number;
-    items: AdminConciergePaintListingItem[];
+    job: AdminManagedRsiStoreSyncJob;
+  };
+}
+
+export interface AdminConciergePaintSyncJobResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    job: AdminManagedRsiStoreSyncJob;
   };
 }
 
@@ -719,7 +754,7 @@ export interface ImportItem {
 
 export type MarketItemType = 'ccu' | 'package' | 'misc' | 'credit';
 export type MarketPackageKind = 'standalone_ship' | 'bundle';
-export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'other';
+export type MarketBrowseCategory = 'standalone_ship' | 'ship_package' | 'paint' | 'subscriber_store' | 'other';
 export type MarketSkuTagCode = 'oc' | 'concierge';
 export type MarketShipTraitFilter = 'oc' | 'non_oc' | 'lti';
 export type MarketShipFocusFilter = string;
@@ -1197,6 +1232,7 @@ export interface MarketShipRelatedItemsResponse {
       ship: number;
       package: number;
       paint: number;
+      subscriberStore: number;
       other: number;
     };
   };

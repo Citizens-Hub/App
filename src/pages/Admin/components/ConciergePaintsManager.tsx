@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import {
@@ -25,6 +25,9 @@ import type {
   AdminConciergePaintListResponse,
   AdminConciergePaintListingItem,
   AdminConciergePaintSyncResponse,
+  AdminConciergePaintSyncJobResponse,
+  AdminManagedRsiStoreSyncJob,
+  AdminManagedRsiStoreSyncResult,
   ConciergePaintSourceItem,
 } from '@/types';
 import type { RootState } from '@/store';
@@ -35,6 +38,9 @@ const RSI_GRAPHQL_URL = 'https://robertsspaceindustries.com/graphql';
 const RSI_PAGE_LIMIT = 100;
 const RSI_DETAIL_BATCH_LIMIT = 20;
 const RESPONSE_TIMEOUT_MS = 20_000;
+const SYNC_JOB_POLL_INTERVAL_MS = 10_000;
+const CONCIERGE_PAINTS_API_PATH = '/api/admin/concierge-paints';
+const SUBSCRIBER_STORE_API_PATH = '/api/admin/subscriber-store';
 const RSI_IMAGE_COMPOSER_CONFIG = [
   {
     name: '1024',
@@ -60,6 +66,40 @@ type FlashState = {
   severity: 'success' | 'error';
   text: string;
 } | null;
+
+type ManagedRsiStoreCatalogKind = 'conciergePaints' | 'subscriberStore';
+
+type ManagedRsiStoreSyncConfig = {
+  kind: ManagedRsiStoreCatalogKind;
+  apiPath: string;
+  titleId: string;
+  titleDefault: string;
+  descriptionId: string;
+  descriptionDefault: string;
+  sourceRequestPrefix: string;
+  detailRequestPrefix: string;
+  graphqlOperationName: string;
+  graphqlQuery: string;
+  graphqlProducts: number[];
+  graphqlFacetIdentifiers: string[];
+  requireVipDetails: boolean;
+  emptyId: string;
+  emptyDefault: string;
+  loadFailedId: string;
+  loadFailedDefault: string;
+  syncFailedId: string;
+  syncFailedDefault: string;
+  timeoutId: string;
+  timeoutDefault: string;
+  flashSuccessId: string;
+  flashSuccessDefault: string;
+  summaryPrimaryId: string;
+  summaryPrimaryDefault: string;
+  itemTypeBundleId: string;
+  itemTypeBundleDefault: string;
+  itemTypeSingleId: string;
+  itemTypeSingleDefault: string;
+};
 
 type GraphqlBatchEntry = {
   data?: {
@@ -182,9 +222,73 @@ type GraphqlPaintDetailResource = {
   } | null;
 };
 
-const RSI_PAINTS_QUERY = "query GetBrowseSkusPaintsByFilter($query: SearchQuery, $storeFront: String = \"pledge\") {\n  store(browse: true, name: $storeFront) {\n    listing: search(query: $query) {\n      resources {\n        ...TyItemBrowseFragment\n        __typename\n      }\n      count\n      totalCount\n      heapTagFiltersOptions {\n        ...StoreListingHeapTagFiltersOptionsFragment\n        __typename\n      }\n      paintFiltersOptions {\n        ...StoreListingPaintFiltersOptions\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment TyItemBrowseFragment on TyItem {\n  id\n  slug\n  name\n  title\n  subtitle\n  url\n  body\n  excerpt\n  type\n  media {\n    thumbnail {\n      slideshow\n      storeSmall\n      __typename\n    }\n    list {\n      slideshow\n      __typename\n    }\n    __typename\n  }\n  nativePrice {\n    amount\n    discounted\n    discountDescription\n    __typename\n  }\n  price {\n    amount\n    discounted\n    taxDescription\n    discountDescription\n    __typename\n  }\n  stock {\n    ...TyStockFragment\n    __typename\n  }\n  tags {\n    ...TyHeapTagFragment\n    __typename\n  }\n  ... on TySku {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TySkuBrowseFragment\n    __typename\n  }\n  ... on TyProduct {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TyProductBrowseFragment\n    __typename\n  }\n  __typename\n}\n\nfragment TySkuBrowseFragment on TySku {\n  label\n  customizable\n  isWarbond\n  isPackage\n  isVip\n  isDirectCheckout\n  __typename\n}\n\nfragment TyProductBrowseFragment on TyProduct {\n  skus {\n    id\n    title\n    isDirectCheckout\n    __typename\n  }\n  isVip\n  __typename\n}\n\nfragment TyStockFragment on TyStock {\n  unlimited\n  show\n  available\n  backOrder\n  qty\n  backOrderQty\n  level\n  __typename\n}\n\nfragment TyHeapTagFragment on HeapTag {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment StoreListingHeapTagFiltersOptionsFragment on HeapTagGroup {\n  groupIdentifier\n  facets {\n    facet\n    tagIdentifiers {\n      identifier\n      name\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment StoreListingPaintFiltersOptions on PaintFilters {\n  standalonePaint {\n    label\n    value\n    __typename\n  }\n  paintPack {\n    label\n    value\n    __typename\n  }\n  __typename\n}"
+const RSI_BROWSE_SKUS_QUERY = "query GetBrowseSkusByFilter($query: SearchQuery, $storeFront: String = \"pledge\") {\n  store(browse: true, name: $storeFront) {\n    listing: search(query: $query) {\n      resources {\n        ...TyItemBrowseFragment\n        __typename\n      }\n      count\n      totalCount\n      heapTagFiltersOptions {\n        ...StoreListingHeapTagFiltersOptionsFragment\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment TyItemBrowseFragment on TyItem {\n  id\n  slug\n  name\n  title\n  subtitle\n  url\n  body\n  excerpt\n  type\n  media {\n    thumbnail {\n      slideshow\n      storeSmall\n      __typename\n    }\n    list {\n      slideshow\n      __typename\n    }\n    __typename\n  }\n  nativePrice {\n    amount\n    discounted\n    discountDescription\n    __typename\n  }\n  price {\n    amount\n    discounted\n    taxDescription\n    discountDescription\n    __typename\n  }\n  stock {\n    ...TyStockFragment\n    __typename\n  }\n  tags {\n    ...TyHeapTagFragment\n    __typename\n  }\n  ... on TySku {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TySkuBrowseFragment\n    __typename\n  }\n  ... on TyProduct {\n    imageComposer {\n      ...ImageComposerFragment\n      __typename\n    }\n    ...TyProductBrowseFragment\n    __typename\n  }\n  __typename\n}\n\nfragment TySkuBrowseFragment on TySku {\n  label\n  customizable\n  isWarbond\n  isPackage\n  isVip\n  isDirectCheckout\n  __typename\n}\n\nfragment TyProductBrowseFragment on TyProduct {\n  skus {\n    id\n    title\n    isDirectCheckout\n    __typename\n  }\n  isVip\n  __typename\n}\n\nfragment TyStockFragment on TyStock {\n  unlimited\n  show\n  available\n  backOrder\n  qty\n  backOrderQty\n  level\n  __typename\n}\n\nfragment TyHeapTagFragment on HeapTag {\n  name\n  __typename\n}\n\nfragment ImageComposerFragment on ImageComposer {\n  name\n  slot\n  url\n  __typename\n}\n\nfragment StoreListingHeapTagFiltersOptionsFragment on HeapTagGroup {\n  groupIdentifier\n  facets {\n    facet\n    tagIdentifiers {\n      identifier\n      name\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
 
 const RSI_PAINT_DETAIL_QUERY = "query GetSkus($query: SearchQuery!, $storeFront: String = \"pledge\") {\n  store(name: $storeFront, browse: true) {\n    search(query: $query) {\n      count\n      resources {\n        __typename\n        ... on TySku {\n          id\n          slug\n          productId\n          title\n          subtitle\n          label\n          name\n          body\n          excerpt\n          url\n          type\n          isDirectCheckout\n          isVip\n          isWarbond\n          isPackage\n          hasShips\n          customizable\n          ships {\n            id\n            title\n            name\n            __typename\n          }\n          gameItems {\n            name\n            kind\n            code\n            imageComposer {\n              slot\n              name\n              url\n              __typename\n            }\n            media {\n              thumbnail {\n                storeSmall\n                slideshow\n                __typename\n              }\n              __typename\n            }\n            __typename\n          }\n          stock {\n            unlimited\n            show\n            available\n            backOrder\n            qty\n            backOrderQty\n            level\n            __typename\n          }\n          nativePrice {\n            amount\n            discounted\n            __typename\n          }\n          price {\n            amount\n            discounted\n            __typename\n          }\n          imageComposer {\n            slot\n            name\n            url\n            __typename\n          }\n          media {\n            thumbnail {\n              storeSmall\n              slideshow\n              __typename\n            }\n            __typename\n          }\n          __typename\n        }\n      }\n      __typename\n    }\n    __typename\n  }\n}";
+
+const CONCIERGE_PAINTS_SYNC_CONFIG: ManagedRsiStoreSyncConfig = {
+  kind: 'conciergePaints',
+  apiPath: CONCIERGE_PAINTS_API_PATH,
+  titleId: 'admin.conciergePaints.title',
+  titleDefault: 'Concierge Paints',
+  descriptionId: 'admin.conciergePaints.description',
+  descriptionDefault: 'Use the browser extension to read RSI paint listings, filter concierge items by isVip, then batch list, replace changed versions, or delist the managed paint catalog.',
+  sourceRequestPrefix: 'admin-concierge-paints',
+  detailRequestPrefix: 'admin-concierge-paints',
+  graphqlOperationName: 'GetBrowseSkusByFilter',
+  graphqlQuery: RSI_BROWSE_SKUS_QUERY,
+  graphqlProducts: [268],
+  graphqlFacetIdentifiers: ['paints'],
+  requireVipDetails: true,
+  emptyId: 'admin.conciergePaints.empty',
+  emptyDefault: 'No managed concierge paints yet.',
+  loadFailedId: 'admin.conciergePaints.error.loadFailed',
+  loadFailedDefault: 'Failed to load managed concierge paint listings.',
+  syncFailedId: 'admin.conciergePaints.error.syncFailed',
+  syncFailedDefault: 'Failed to sync concierge paints.',
+  timeoutId: 'admin.conciergePaints.error.timeout',
+  timeoutDefault: "The extension request timed out. Make sure the Citizens' Hub extension is installed, enabled, and logged into RSI.",
+  flashSuccessId: 'admin.conciergePaints.flash.syncSuccess',
+  flashSuccessDefault: 'Sync complete: fetched {sourceCount} paints, {primaryCount} concierge items; created {created}, replaced {updated}, delisted {removed}.',
+  summaryPrimaryId: 'admin.conciergePaints.summary.vipCount',
+  summaryPrimaryDefault: 'VIP {count}',
+  itemTypeBundleId: 'admin.conciergePaints.itemType.bundle',
+  itemTypeBundleDefault: 'Paint Pack',
+  itemTypeSingleId: 'admin.conciergePaints.itemType.paint',
+  itemTypeSingleDefault: 'Paint',
+};
+
+const SUBSCRIBER_STORE_SYNC_CONFIG: ManagedRsiStoreSyncConfig = {
+  kind: 'subscriberStore',
+  apiPath: SUBSCRIBER_STORE_API_PATH,
+  titleId: 'admin.subscriberStore.title',
+  titleDefault: 'Subscriber Store',
+  descriptionId: 'admin.subscriberStore.description',
+  descriptionDefault: 'Use the browser extension to read the RSI subscriber store, then batch list, replace changed versions, or delist the managed subscriber-store catalog.',
+  sourceRequestPrefix: 'admin-subscriber-store',
+  detailRequestPrefix: 'admin-subscriber-store',
+  graphqlOperationName: 'GetBrowseSkusByFilter',
+  graphqlQuery: RSI_BROWSE_SKUS_QUERY,
+  graphqlProducts: [65],
+  graphqlFacetIdentifiers: ['extras-subscribers-store'],
+  requireVipDetails: false,
+  emptyId: 'admin.subscriberStore.empty',
+  emptyDefault: 'No managed subscriber store items yet.',
+  loadFailedId: 'admin.subscriberStore.error.loadFailed',
+  loadFailedDefault: 'Failed to load managed subscriber store listings.',
+  syncFailedId: 'admin.subscriberStore.error.syncFailed',
+  syncFailedDefault: 'Failed to sync subscriber store items.',
+  timeoutId: 'admin.subscriberStore.error.timeout',
+  timeoutDefault: "The extension request timed out. Make sure the Citizens' Hub extension is installed, enabled, and logged into RSI with subscriber-store access.",
+  flashSuccessId: 'admin.subscriberStore.flash.syncSuccess',
+  flashSuccessDefault: 'Sync complete: fetched {sourceCount} subscriber store items, synced {primaryCount}; created {created}, replaced {updated}, delisted {removed}.',
+  summaryPrimaryId: 'admin.subscriberStore.summary.syncCount',
+  summaryPrimaryDefault: 'Synced {count}',
+  itemTypeBundleId: 'admin.subscriberStore.itemType.bundle',
+  itemTypeBundleDefault: 'Bundle',
+  itemTypeSingleId: 'admin.subscriberStore.itemType.item',
+  itemTypeSingleDefault: 'Item',
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -274,12 +378,20 @@ function getManagedStatusColor(isActive: boolean): 'success' | 'default' {
   return isActive ? 'success' : 'default';
 }
 
-function getManagedTypeLabel(item: AdminConciergePaintListingItem, intl: ReturnType<typeof useIntl>): string {
+function isManagedSyncJobActive(job?: AdminManagedRsiStoreSyncJob | null) {
+  return job?.status === 'queued' || job?.status === 'running';
+}
+
+function getManagedTypeLabel(
+  item: AdminConciergePaintListingItem,
+  intl: ReturnType<typeof useIntl>,
+  config: ManagedRsiStoreSyncConfig,
+): string {
   if (item.listing.itemType === 'package') {
-    return intl.formatMessage({ id: 'admin.conciergePaints.itemType.bundle', defaultMessage: 'Paint Pack' });
+    return intl.formatMessage({ id: config.itemTypeBundleId, defaultMessage: config.itemTypeBundleDefault });
   }
 
-  return intl.formatMessage({ id: 'admin.conciergePaints.itemType.paint', defaultMessage: 'Paint' });
+  return intl.formatMessage({ id: config.itemTypeSingleId, defaultMessage: config.itemTypeSingleDefault });
 }
 
 function extractGraphqlBatchEntries(value: unknown): GraphqlBatchEntry[] {
@@ -291,7 +403,7 @@ function extractGraphqlBatchEntries(value: unknown): GraphqlBatchEntry[] {
   return responseData as GraphqlBatchEntry[];
 }
 
-function parsePaintCatalogPage(value: unknown): { items: ConciergePaintSourceItem[]; totalCount: number } {
+function parseManagedCatalogPage(value: unknown): { items: ConciergePaintSourceItem[]; totalCount: number } {
   const entries = extractGraphqlBatchEntries(value);
   const firstEntry = entries[0];
 
@@ -372,7 +484,7 @@ function parsePaintCatalogPage(value: unknown): { items: ConciergePaintSourceIte
   };
 }
 
-function parsePaintDetailBatch(value: unknown): ConciergePaintSourceItem[] {
+function parseManagedDetailBatch(value: unknown): ConciergePaintSourceItem[] {
   const entries = extractGraphqlBatchEntries(value);
   const firstEntry = entries[0];
 
@@ -469,14 +581,14 @@ function parsePaintDetailBatch(value: unknown): ConciergePaintSourceItem[] {
   }, []);
 }
 
-async function fetchPaintCatalogPage(page: number, intl: ReturnType<typeof useIntl>) {
+async function fetchManagedCatalogPage(page: number, intl: ReturnType<typeof useIntl>, config: ManagedRsiStoreSyncConfig) {
   return requestViaExtension({
     url: RSI_GRAPHQL_URL,
     responseType: 'json',
     method: 'post',
     data: [
       {
-        operationName: 'GetBrowseSkusPaintsByFilter',
+        operationName: config.graphqlOperationName,
         variables: {
           "storeFront": "pledge",
           "query": {
@@ -485,13 +597,9 @@ async function fetchPaintCatalogPage(page: number, intl: ReturnType<typeof useIn
             "skus": {
               "filtersFromTags": {
                 "tagIdentifiers": [],
-                "facetIdentifiers": [
-                  "paints"
-                ]
+                "facetIdentifiers": config.graphqlFacetIdentifiers
               },
-              "products": [
-                268
-              ]
+              "products": config.graphqlProducts
             },
             "sort": {
               "field": "weight",
@@ -499,20 +607,20 @@ async function fetchPaintCatalogPage(page: number, intl: ReturnType<typeof useIn
             }
           }
         },
-        query: RSI_PAINTS_QUERY,
+        query: config.graphqlQuery,
       },
     ],
   }, {
     timeoutMs: RESPONSE_TIMEOUT_MS,
     timeoutMessage: intl.formatMessage({
-      id: 'admin.conciergePaints.error.timeout',
-      defaultMessage: "扩展请求超时，请确认 Citizens' Hub 扩展已安装、启用，并且已登录 RSI。",
+      id: config.timeoutId,
+      defaultMessage: config.timeoutDefault,
     }),
-    requestIdPrefix: `admin-concierge-paints-page-${page}`,
+    requestIdPrefix: `${config.sourceRequestPrefix}-page-${page}`,
   });
 }
 
-async function fetchPaintDetailBatch(slugs: string[], intl: ReturnType<typeof useIntl>) {
+async function fetchManagedDetailBatch(slugs: string[], intl: ReturnType<typeof useIntl>, config: ManagedRsiStoreSyncConfig) {
   return requestViaExtension({
     url: RSI_GRAPHQL_URL,
     responseType: 'json',
@@ -539,21 +647,21 @@ async function fetchPaintDetailBatch(slugs: string[], intl: ReturnType<typeof us
   }, {
     timeoutMs: RESPONSE_TIMEOUT_MS,
     timeoutMessage: intl.formatMessage({
-      id: 'admin.conciergePaints.error.timeout',
-      defaultMessage: "扩展请求超时，请确认 Citizens' Hub 扩展已安装、启用，并且已登录 RSI。",
+      id: config.timeoutId,
+      defaultMessage: config.timeoutDefault,
     }),
-    requestIdPrefix: `admin-concierge-paints-detail-${slugs[0] || 'batch'}`,
+    requestIdPrefix: `${config.detailRequestPrefix}-detail-${slugs[0] || 'batch'}`,
   });
 }
 
-async function fetchAllPaintCatalog(intl: ReturnType<typeof useIntl>) {
+async function fetchAllManagedCatalog(intl: ReturnType<typeof useIntl>, config: ManagedRsiStoreSyncConfig) {
   const deduped = new Map<number, ConciergePaintSourceItem>();
   let page = 1;
   let totalCount = 0;
 
   while (true) {
-    const response = await fetchPaintCatalogPage(page, intl);
-    const parsed = parsePaintCatalogPage(response);
+    const response = await fetchManagedCatalogPage(page, intl, config);
+    const parsed = parseManagedCatalogPage(response);
     totalCount = parsed.totalCount;
 
     parsed.items.forEach((item) => {
@@ -567,15 +675,15 @@ async function fetchAllPaintCatalog(intl: ReturnType<typeof useIntl>) {
     page += 1;
   }
 
-  const vipSlugs = [...deduped.values()]
-    .filter((item) => item.isVip)
+  const detailSlugs = [...deduped.values()]
+    .filter((item) => !config.requireVipDetails || item.isVip)
     .map((item) => item.slug)
     .filter((slug, index, values) => values.indexOf(slug) === index);
 
-  for (let index = 0; index < vipSlugs.length; index += RSI_DETAIL_BATCH_LIMIT) {
-    const batch = vipSlugs.slice(index, index + RSI_DETAIL_BATCH_LIMIT);
-    const response = await fetchPaintDetailBatch(batch, intl);
-    const detailItems = parsePaintDetailBatch(response);
+  for (let index = 0; index < detailSlugs.length; index += RSI_DETAIL_BATCH_LIMIT) {
+    const batch = detailSlugs.slice(index, index + RSI_DETAIL_BATCH_LIMIT);
+    const response = await fetchManagedDetailBatch(batch, intl, config);
+    const detailItems = parseManagedDetailBatch(response);
 
     detailItems.forEach((item) => {
       const existing = deduped.get(item.officialSkuId);
@@ -594,20 +702,22 @@ async function fetchAllPaintCatalog(intl: ReturnType<typeof useIntl>) {
   };
 }
 
-export default function ConciergePaintsManager() {
+function ManagedRsiStoreManager({ config }: { config: ManagedRsiStoreSyncConfig }) {
   const intl = useIntl();
   const { user } = useSelector((state: RootState) => state.user);
   const [markupPercentInput, setMarkupPercentInput] = useState('15');
   const [syncing, setSyncing] = useState(false);
   const [flash, setFlash] = useState<FlashState>(null);
-  const [lastSyncResult, setLastSyncResult] = useState<AdminConciergePaintSyncResponse['data'] | null>(null);
+  const [currentSyncJob, setCurrentSyncJob] = useState<AdminManagedRsiStoreSyncJob | null>(null);
+  const [lastSyncResult, setLastSyncResult] = useState<AdminManagedRsiStoreSyncResult | null>(null);
+  const hasAnnouncedCompletionRef = useRef<string | null>(null);
 
   const {
     data,
     error,
     isLoading,
     mutate,
-  } = useAuthApi<AdminConciergePaintListResponse>('/api/admin/concierge-paints', {
+  } = useAuthApi<AdminConciergePaintListResponse>(config.apiPath, {
     revalidateOnFocus: false,
   });
 
@@ -623,6 +733,113 @@ export default function ConciergePaintsManager() {
       return left.listing.name.localeCompare(right.listing.name);
     });
   }, [data?.data.items]);
+  const currentSyncJobId = currentSyncJob?.jobId || '';
+  const currentSyncJobActive = currentSyncJob ? isManagedSyncJobActive(currentSyncJob) : false;
+
+  useEffect(() => {
+    const latestSyncJob = data?.data.latestSyncJob || null;
+    if (!latestSyncJob) {
+      return;
+    }
+
+    setCurrentSyncJob((currentJob) => currentJob?.jobId === latestSyncJob.jobId ? currentJob : latestSyncJob);
+    if (latestSyncJob.result) {
+      setLastSyncResult(latestSyncJob.result);
+    }
+  }, [data?.data.latestSyncJob]);
+
+  useEffect(() => {
+    if (!currentSyncJobId || !currentSyncJobActive) {
+      setSyncing(false);
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}${config.apiPath}/sync/${encodeURIComponent(currentSyncJobId)}`, {
+          headers: {
+            Authorization: user.token ? `Bearer ${user.token}` : '',
+          },
+        });
+        const payload = await response.json() as AdminConciergePaintSyncJobResponse;
+        if (cancelled || !response.ok || !payload.success) {
+          return;
+        }
+
+        const job = payload.data.job;
+        setCurrentSyncJob(job);
+        setSyncing(isManagedSyncJobActive(job));
+
+        if (job.result) {
+          setLastSyncResult(job.result);
+        }
+
+        if (job.status === 'completed' && hasAnnouncedCompletionRef.current !== job.jobId && job.result) {
+          hasAnnouncedCompletionRef.current = job.jobId;
+          const primaryCount = config.kind === 'subscriberStore'
+            ? (job.result.syncCount ?? job.result.vipCount)
+            : job.result.vipCount;
+          setFlash({
+            severity: 'success',
+            text: intl.formatMessage(
+              {
+                id: config.flashSuccessId,
+                defaultMessage: config.flashSuccessDefault,
+              },
+              {
+                sourceCount: job.result.sourceCount,
+                vipCount: job.result.vipCount,
+                primaryCount,
+                created: job.result.createdCount,
+                updated: job.result.updatedCount,
+                removed: job.result.removedCount,
+              },
+            ),
+          });
+          await mutate();
+        }
+
+        if (job.status === 'failed' && hasAnnouncedCompletionRef.current !== job.jobId) {
+          hasAnnouncedCompletionRef.current = job.jobId;
+          setFlash({
+            severity: 'error',
+            text: job.errorMessage || intl.formatMessage({
+              id: config.syncFailedId,
+              defaultMessage: config.syncFailedDefault,
+            }),
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setSyncing(false);
+        }
+      }
+    };
+
+    setSyncing(true);
+    void poll();
+    const intervalId = window.setInterval(() => {
+      void poll();
+    }, SYNC_JOB_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    config.apiPath,
+    config.flashSuccessDefault,
+    config.flashSuccessId,
+    config.kind,
+    config.syncFailedDefault,
+    config.syncFailedId,
+    currentSyncJobActive,
+    currentSyncJobId,
+    intl,
+    mutate,
+    user.token,
+  ]);
 
   const handleRefresh = async () => {
     await mutate();
@@ -646,8 +863,8 @@ export default function ConciergePaintsManager() {
     setFlash(null);
 
     try {
-      const catalog = await fetchAllPaintCatalog(intl);
-      const response = await fetch(`${API_BASE_URL}/api/admin/concierge-paints/sync`, {
+      const catalog = await fetchAllManagedCatalog(intl, config);
+      const response = await fetch(`${API_BASE_URL}${config.apiPath}/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -662,55 +879,50 @@ export default function ConciergePaintsManager() {
       const payload = await response.json() as AdminConciergePaintSyncResponse;
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || intl.formatMessage({
-          id: 'admin.conciergePaints.error.syncFailed',
-          defaultMessage: '礼宾涂装同步失败。',
+          id: config.syncFailedId,
+          defaultMessage: config.syncFailedDefault,
         }));
       }
 
-      setLastSyncResult(payload.data);
+      const job = payload.data.job;
+      hasAnnouncedCompletionRef.current = null;
+      setCurrentSyncJob(job);
+      setLastSyncResult(job.result || null);
+      setSyncing(isManagedSyncJobActive(job));
       setFlash({
         severity: 'success',
         text: intl.formatMessage(
-          {
-            id: 'admin.conciergePaints.flash.syncSuccess',
-            defaultMessage: '同步完成：抓取 {sourceCount} 个涂装，礼宾 {vipCount} 个；新建 {created}，替换版本 {updated}，下架 {removed}。',
-          },
-          {
-            sourceCount: payload.data.sourceCount,
-            vipCount: payload.data.vipCount,
-            created: payload.data.createdCount,
-            updated: payload.data.updatedCount,
-            removed: payload.data.removedCount,
-          },
+          { id: 'admin.conciergePaints.flash.syncQueued', defaultMessage: 'Sync job queued. You can keep this page open while it runs in the background.' },
         ),
       });
-
-      await mutate();
     } catch (syncError) {
       setFlash({
         severity: 'error',
         text: syncError instanceof Error
           ? syncError.message
           : intl.formatMessage({
-            id: 'admin.conciergePaints.error.syncFailed',
-            defaultMessage: '礼宾涂装同步失败。',
+            id: config.syncFailedId,
+            defaultMessage: config.syncFailedDefault,
           }),
       });
-    } finally {
       setSyncing(false);
+    } finally {
+      // Active jobs are tracked by the polling effect; failed submission should stop immediately.
     }
   };
+
+  const activeSyncJob = currentSyncJob && isManagedSyncJobActive(currentSyncJob) ? currentSyncJob : null;
 
   return (
     <Stack spacing={3}>
       <Box>
         <Typography variant="h5" gutterBottom>
-          {intl.formatMessage({ id: 'admin.conciergePaints.title', defaultMessage: 'Concierge Paints' })}
+          {intl.formatMessage({ id: config.titleId, defaultMessage: config.titleDefault })}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {intl.formatMessage({
-            id: 'admin.conciergePaints.description',
-            defaultMessage: 'Use the browser extension to read RSI paint listings, filter concierge items by isVip, then batch list, replace changed versions, or delist the managed paint catalog.',
+            id: config.descriptionId,
+            defaultMessage: config.descriptionDefault,
           })}
         </Typography>
       </Box>
@@ -721,11 +933,28 @@ export default function ConciergePaintsManager() {
         </Alert>
       )}
 
+      {activeSyncJob && (
+        <Alert severity="info">
+          {intl.formatMessage(
+            { id: 'admin.conciergePaints.syncJobRunning', defaultMessage: 'Sync job {jobId} is {status}. The catalog will refresh automatically after completion.' },
+            {
+              jobId: activeSyncJob.jobId.slice(0, 8),
+              status: intl.formatMessage({
+                id: activeSyncJob.status === 'queued'
+                  ? 'admin.conciergePaints.syncStatus.queued'
+                  : 'admin.conciergePaints.syncStatus.running',
+                defaultMessage: activeSyncJob.status === 'queued' ? 'queued' : 'running',
+              }),
+            },
+          )}
+        </Alert>
+      )}
+
       {error && (
         <Alert severity="error">
           {intl.formatMessage({
-            id: 'admin.conciergePaints.error.loadFailed',
-            defaultMessage: 'Failed to load managed concierge paint listings.',
+            id: config.loadFailedId,
+            defaultMessage: config.loadFailedDefault,
           })}
         </Alert>
       )}
@@ -801,8 +1030,8 @@ export default function ConciergePaintsManager() {
           />
           <Chip
             label={intl.formatMessage(
-              { id: 'admin.conciergePaints.summary.vipCount', defaultMessage: 'VIP {count}' },
-              { count: lastSyncResult.vipCount },
+              { id: config.summaryPrimaryId, defaultMessage: config.summaryPrimaryDefault },
+              { count: config.kind === 'subscriberStore' ? (lastSyncResult.syncCount ?? lastSyncResult.vipCount) : lastSyncResult.vipCount },
             )}
             size="small"
             color="success"
@@ -861,8 +1090,8 @@ export default function ConciergePaintsManager() {
                 <TableCell colSpan={9}>
                   <Typography variant="body2" color="text.secondary">
                     {intl.formatMessage({
-                      id: 'admin.conciergePaints.empty',
-                      defaultMessage: 'No managed concierge paints yet.',
+                      id: config.emptyId,
+                      defaultMessage: config.emptyDefault,
                     })}
                   </Typography>
                 </TableCell>
@@ -885,7 +1114,7 @@ export default function ConciergePaintsManager() {
                       )}
                     </Stack>
                   </TableCell>
-                  <TableCell>{getManagedTypeLabel(item, intl)}</TableCell>
+                  <TableCell>{getManagedTypeLabel(item, intl, config)}</TableCell>
                   <TableCell>{formatUsd(intl.locale, item.listing.price)}</TableCell>
                   <TableCell>{formatUsd(intl.locale, item.listing.cost)}</TableCell>
                   <TableCell>{item.listing.stock}</TableCell>
@@ -921,4 +1150,12 @@ export default function ConciergePaintsManager() {
       </TableContainer>
     </Stack>
   );
+}
+
+export function SubscriberStoreManager() {
+  return <ManagedRsiStoreManager config={SUBSCRIBER_STORE_SYNC_CONFIG} />;
+}
+
+export default function ConciergePaintsManager() {
+  return <ManagedRsiStoreManager config={CONCIERGE_PAINTS_SYNC_CONFIG} />;
 }

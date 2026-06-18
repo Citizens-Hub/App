@@ -352,7 +352,7 @@ export default function PromotionsManager() {
     inStockOnly: true,
     groupCcus: false,
     itemTypes: ['ccu', 'package', 'misc'],
-    browseCategories: ['standalone_ship', 'ship_package', 'paint', 'other'],
+    browseCategories: ['standalone_ship', 'ship_package', 'paint', 'subscriber_store', 'other'],
     combineTypeFiltersWithOr: true,
     page: 0,
     limit: 20,
