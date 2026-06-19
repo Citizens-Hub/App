@@ -52,6 +52,14 @@ type LabeledMetric = {
   value: number;
 };
 
+type PlannerTargetRouteMetric = {
+  label: string;
+  total: number;
+  valid: number;
+  invalid: number;
+  validRate: number;
+};
+
 type KpiMetric = {
   label: string;
   value: string;
@@ -240,6 +248,10 @@ function getNumericAtPath(root: Record<string, unknown>, path: string[], fallbac
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function getFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function getArrayAtPath<T = unknown>(root: Record<string, unknown>, path: string[]): T[] {
   const value = getAtPath(root, path);
   return Array.isArray(value) ? value as T[] : [];
@@ -365,6 +377,44 @@ function parseNamedCountContainer(container: unknown, labelKeys: string[]): Labe
   }
 
   return output.sort((a, b) => b.value - a.value);
+}
+
+function parsePlannerTargetRouteMetrics(container: unknown): PlannerTargetRouteMetric[] {
+  if (!Array.isArray(container)) {
+    return [];
+  }
+
+  return container
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null;
+      }
+
+      const rawLabel = [item.value, item.ship, item.name, item.label]
+        .find((value) => typeof value === "string") as string | undefined;
+      const total = getFiniteNumber(item.count) ?? getFiniteNumber(item.total) ?? 0;
+      const valid = getFiniteNumber(item.validRouteCount) ?? getFiniteNumber(item.valid) ?? 0;
+      const invalid = getFiniteNumber(item.invalidRouteCount) ?? getFiniteNumber(item.invalid) ?? Math.max(0, total - valid);
+      const validRate = getFiniteNumber(item.validRate) ?? (total > 0 ? (valid / total) * 100 : 0);
+
+      if (!rawLabel || total <= 0) {
+        return null;
+      }
+
+      return {
+        label: rawLabel,
+        total,
+        valid,
+        invalid,
+        validRate,
+      };
+    })
+    .filter((item): item is PlannerTargetRouteMetric => item !== null)
+    .sort((left, right) => {
+      if (right.total !== left.total) return right.total - left.total;
+      if (right.valid !== left.valid) return right.valid - left.valid;
+      return left.label.localeCompare(right.label);
+    });
 }
 
 function extractDimensionMetrics(report: Record<string, unknown>): DimensionMetric[] {
@@ -535,6 +585,56 @@ function TopList({ items, emptyLabel }: { items: LabeledMetric[]; emptyLabel: Re
             {item.label}
           </Typography>
           <Chip size="small" label={item.value} />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function PlannerTargetRouteList({ items, emptyLabel }: { items: PlannerTargetRouteMetric[]; emptyLabel: ReactNode }) {
+  const intl = useIntl();
+
+  if (!items.length) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+        {emptyLabel}
+      </Typography>
+    );
+  }
+
+  return (
+    <Box sx={{ display: "grid", gap: 0.75 }}>
+      {items.slice(0, 8).map((item) => (
+        <Box
+          key={item.label}
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) auto auto auto",
+            gap: 0.75,
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="body2" sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.label}
+          </Typography>
+          <Chip
+            size="small"
+            color={item.valid > 0 ? "success" : "default"}
+            label={intl.formatMessage(
+              { id: "admin.bi.planner.targetValidSummary", defaultMessage: "{valid}/{total} valid" },
+              { valid: formatInteger(item.valid, intl.locale), total: formatInteger(item.total, intl.locale) },
+            )}
+          />
+          <Chip
+            size="small"
+            color={item.invalid > 0 ? "warning" : "default"}
+            variant="outlined"
+            label={intl.formatMessage(
+              { id: "admin.bi.planner.targetNoRouteSummary", defaultMessage: "{count} no route" },
+              { count: formatInteger(item.invalid, intl.locale) },
+            )}
+          />
+          <Chip size="small" variant="outlined" label={formatPercent(item.validRate, intl.locale)} />
         </Box>
       ))}
     </Box>
@@ -888,24 +988,23 @@ export default function BiTable() {
     },
   }), []);
 
-  const plannerTopStartShips = useMemo<LabeledMetric[]>(() => {
+  const plannerTargetRouteMetrics = useMemo<PlannerTargetRouteMetric[]>(() => {
     if (!report) {
       return [];
     }
 
-    return parseNamedCountContainer(
-      getAtPath(report, ["summary", "marketCcuPlanner", "selections", "topStartShips"]),
-      ["value", "ship", "name"],
+    return parsePlannerTargetRouteMetrics(
+      getAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "byTargetShip"]),
     );
   }, [report]);
 
-  const plannerNoRouteStartShips = useMemo<LabeledMetric[]>(() => {
+  const plannerNoRouteTargetShips = useMemo<LabeledMetric[]>(() => {
     if (!report) {
       return [];
     }
 
     return parseNamedCountContainer(
-      getAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "noRouteStartShips"]),
+      getAtPath(report, ["summary", "marketCcuPlanner", "routeResults", "noRouteTargetShips"]),
       ["value", "ship", "name"],
     );
   }, [report]);
@@ -1051,7 +1150,7 @@ export default function BiTable() {
 
         <SectionPanel
           title={<FormattedMessage id="admin.bi.section.marketPlanner" defaultMessage="Market CCU planner funnel" />}
-          description={<FormattedMessage id="admin.bi.section.marketPlannerDescription" defaultMessage="Starting ship choices, route validity, and add-to-cart or checkout conversions." />}
+          description={<FormattedMessage id="admin.bi.section.marketPlannerDescription" defaultMessage="Target ship choices, route validity, and add-to-cart or checkout conversions." />}
         >
           <Box
             sx={{
@@ -1097,20 +1196,20 @@ export default function BiTable() {
             >
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  <FormattedMessage id="admin.bi.planner.topStartShips" defaultMessage="Top starting ships" />
+                  <FormattedMessage id="admin.bi.planner.targetShipRouteResults" defaultMessage="Target ship route results" />
                 </Typography>
-                <TopList
-                  items={plannerTopStartShips}
-                  emptyLabel={<FormattedMessage id="admin.bi.planner.noStartShipData" defaultMessage="No starting ship data" />}
+                <PlannerTargetRouteList
+                  items={plannerTargetRouteMetrics}
+                  emptyLabel={<FormattedMessage id="admin.bi.planner.noTargetRouteData" defaultMessage="No target ship route data" />}
                 />
               </Box>
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  <FormattedMessage id="admin.bi.planner.noRouteStartShips" defaultMessage="No-route starting ships" />
+                  <FormattedMessage id="admin.bi.planner.noRouteTargetShips" defaultMessage="No-route target ships" />
                 </Typography>
                 <TopList
-                  items={plannerNoRouteStartShips}
-                  emptyLabel={<FormattedMessage id="admin.bi.planner.noNoRouteData" defaultMessage="No no-route data" />}
+                  items={plannerNoRouteTargetShips}
+                  emptyLabel={<FormattedMessage id="admin.bi.planner.noTargetShipData" defaultMessage="No target ship data" />}
                 />
               </Box>
             </Box>
