@@ -4235,7 +4235,7 @@ const Market: React.FC = () => {
       || standaloneImageUrl;
     const subscriberStoreImageUrl = getMarketHomeListingImage(subscriberStorePreviewItems[0], categoryShips)
       || paintImageUrl;
-    const creditImageUrl = '/imgs/credit.webp';
+    // const creditImageUrl = '/imgs/credit.webp';
 
     return [
       {
@@ -4273,13 +4273,13 @@ const Market: React.FC = () => {
         imageUrl: subscriberStoreImageUrl,
         accentClassName: 'bg-teal-500',
       },
-      {
-        value: 'credit',
-        label: intl.formatMessage({ id: 'market.home.category.credit.label', defaultMessage: 'Store Credit' }),
-        description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Buy discounted store credit.' }),
-        imageUrl: creditImageUrl,
-        accentClassName: 'bg-amber-500',
-      },
+      // {
+      //   value: 'credit',
+      //   label: intl.formatMessage({ id: 'market.home.category.credit.label', defaultMessage: 'Store Credit' }),
+      //   description: intl.formatMessage({ id: 'market.home.category.credit.description', defaultMessage: 'Buy discounted store credit.' }),
+      //   imageUrl: creditImageUrl,
+      //   accentClassName: 'bg-amber-500',
+      // },
     ];
   }, [
     activeHeroImageFallbackUrl,
@@ -6538,7 +6538,7 @@ const Market: React.FC = () => {
             left: { xs: 16, sm: 24 },
             bottom: { xs: 16, sm: 24 },
             zIndex: marketFloatingZIndex,
-            width: { xs: 'calc(100vw - 32px)', sm: 420 },
+            width: { xs: referralPanelExpanded ? 'calc(100vw - 32px)' : 'calc(100vw - 222px)', sm: 420 },
             maxHeight: { xs: '76vh', sm: 'min(78vh, 700px)' },
             display: 'flex',
             flexDirection: 'column',
