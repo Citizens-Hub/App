@@ -14,6 +14,7 @@ export interface MarketRouteEdge {
   sourceType: CcuSourceType;
   cost: number;
   listing?: LowestMarketCcuGroup['listing'];
+  premiumAmount?: number;
 }
 
 export interface MarketRouteResult {
@@ -29,6 +30,8 @@ interface MarketRouteScore {
   officialCount: number;
   marketCount: number;
   hangarCount: number;
+  premiumMarketCount: number;
+  premiumMarketCost: number;
   warbondCost: number;
   totalCost: number;
   stepCount: number;
@@ -71,9 +74,25 @@ function isSavingsMarketCcuEdge(sourceShip: Ship, targetShip: Ship, price: numbe
   return price < getRouteStepOfficialValue(sourceShip, targetShip) - MARKET_ROUTE_PRICE_EPSILON;
 }
 
+function getMarketCcuPremiumAmount(sourceShip: Ship, targetShip: Ship, price: number): number {
+  if (!Number.isFinite(price)) {
+    return 0;
+  }
+
+  return Math.max(0, price - getRouteStepOfficialValue(sourceShip, targetShip));
+}
+
 function compareMarketRouteScore(left: MarketRouteScore, right: MarketRouteScore): number {
+  if (left.premiumMarketCount !== right.premiumMarketCount) {
+    return left.premiumMarketCount - right.premiumMarketCount;
+  }
+
   if (Math.abs(left.totalCost - right.totalCost) > MARKET_ROUTE_PRICE_EPSILON) {
     return left.totalCost - right.totalCost;
+  }
+
+  if (Math.abs(left.premiumMarketCost - right.premiumMarketCost) > MARKET_ROUTE_PRICE_EPSILON) {
+    return left.premiumMarketCost - right.premiumMarketCost;
   }
 
   if (left.hangarCount !== right.hangarCount) {
@@ -279,148 +298,13 @@ export function buildSelectedCreditListing(
   };
 }
 
-export function buildCurrentMarketRoute(params: {
+function findBestMarketRouteInGraph(params: {
   startShip: Ship;
   targetShip: Ship;
-  ships: Ship[];
-  ccus: Ccu[];
-  hangarItems?: HangarItem[];
-  marketGroups: LowestMarketCcuGroup[];
+  candidateShips: Ship[];
+  outgoingEdges: Map<number, MarketRouteEdge[]>;
 }): MarketRouteResult | null {
-  const { startShip, targetShip, ships, ccus, marketGroups } = params;
-  const hangarItems = params.hangarItems || [];
-  const candidateShips = ships
-    .filter(ship => ship.msrp >= startShip.msrp && ship.msrp <= targetShip.msrp)
-    .sort((left, right) => left.msrp - right.msrp || left.id - right.id);
-
-  const shipById = new Map(candidateShips.map(ship => [ship.id, ship]));
-  const shipIdByName = new Map<string, number>();
-  candidateShips.forEach(ship => {
-    const key = normalizeMarketRouteShipName(ship.name);
-    if (!shipIdByName.has(key)) {
-      shipIdByName.set(key, ship.id);
-    }
-  });
-
-  const resolveShip = (shipId?: number, shipName?: string): Ship | null => {
-    if (typeof shipId === 'number') {
-      return shipById.get(shipId) || null;
-    }
-
-    if (shipName) {
-      const resolvedId = shipIdByName.get(normalizeMarketRouteShipName(shipName));
-      if (typeof resolvedId === 'number') {
-        return shipById.get(resolvedId) || null;
-      }
-    }
-
-    return null;
-  };
-
-  const outgoingEdges = new Map<number, MarketRouteEdge[]>();
-  const addEdge = (edge: MarketRouteEdge) => {
-    if (edge.targetShip.msrp <= edge.sourceShip.msrp) {
-      return;
-    }
-
-    const sourceEdges = outgoingEdges.get(edge.sourceShip.id) || [];
-    sourceEdges.push(edge);
-    outgoingEdges.set(edge.sourceShip.id, sourceEdges);
-  };
-
-  const hangarEdgeKeys = new Set<string>();
-  const sortedHangarItems = [...hangarItems].sort((left, right) => {
-    const leftPrice = typeof left.price === 'number' && Number.isFinite(left.price) ? left.price : 0;
-    const rightPrice = typeof right.price === 'number' && Number.isFinite(right.price) ? right.price : 0;
-
-    return leftPrice - rightPrice;
-  });
-
-  sortedHangarItems.forEach((item, index) => {
-    if (!item.fromShip || !item.toShip) {
-      return;
-    }
-
-    const sourceShip = resolveShip(undefined, item.fromShip);
-    const nextShip = resolveShip(undefined, item.toShip);
-    if (!sourceShip || !nextShip) {
-      return;
-    }
-
-    const key = `${sourceShip.id}->${nextShip.id}`;
-    if (hangarEdgeKeys.has(key)) {
-      return;
-    }
-
-    hangarEdgeKeys.add(key);
-    addEdge({
-      key: `hangar:${key}:${index}`,
-      sourceShip,
-      targetShip: nextShip,
-      sourceType: CcuSourceType.HANGER,
-      cost: typeof item.price === 'number' && Number.isFinite(item.price) ? Math.max(0, item.price) : 0,
-    });
-  });
-
-  marketGroups.forEach(group => {
-    const sourceShip = resolveShip(group.fromShipId, group.fromShipName);
-    const nextShip = resolveShip(group.toShipId, group.toShipName);
-    if (!sourceShip || !nextShip) {
-      return;
-    }
-
-    if (!isSavingsMarketCcuEdge(sourceShip, nextShip, group.listing.price)) {
-      return;
-    }
-
-    addEdge({
-      key: `market:${group.listing.skuId}`,
-      sourceShip,
-      targetShip: nextShip,
-      sourceType: CcuSourceType.THIRD_PARTY,
-      cost: group.listing.price,
-      listing: group.listing,
-    });
-  });
-
-  const hasOfficialSkuByShipId = new Map<number, boolean>();
-  const warbondPriceByShipId = new Map<number, number | null>();
-  candidateShips.forEach(ship => {
-    hasOfficialSkuByShipId.set(ship.id, hasCurrentOfficialSku(ship, ccus));
-    warbondPriceByShipId.set(ship.id, getCurrentWarbondPriceCents(ship, ccus));
-  });
-
-  candidateShips.forEach(sourceShip => {
-    candidateShips.forEach(nextShip => {
-      if (nextShip.msrp <= sourceShip.msrp) {
-        return;
-      }
-
-      if (hasOfficialSkuByShipId.get(nextShip.id)) {
-        addEdge({
-          key: `official:${sourceShip.id}->${nextShip.id}`,
-          sourceShip,
-          targetShip: nextShip,
-          sourceType: CcuSourceType.OFFICIAL,
-          cost: getRouteStepOfficialValue(sourceShip, nextShip),
-        });
-      }
-
-      const warbondPriceCents = warbondPriceByShipId.get(nextShip.id) ?? null;
-      if (warbondPriceCents === null || sourceShip.msrp >= warbondPriceCents) {
-        return;
-      }
-
-      addEdge({
-        key: `available-wb:${sourceShip.id}->${nextShip.id}:${warbondPriceCents}`,
-        sourceShip,
-        targetShip: nextShip,
-        sourceType: CcuSourceType.AVAILABLE_WB,
-        cost: Math.max(0, (warbondPriceCents - sourceShip.msrp) / 100),
-      });
-    });
-  });
-
+  const { startShip, targetShip, candidateShips, outgoingEdges } = params;
   const bestScoreByShipId = new Map<number, MarketRouteScore>();
   const previousEdgeByShipId = new Map<number, { previousShipId: number; edge: MarketRouteEdge }>();
   bestScoreByShipId.set(startShip.id, {
@@ -428,6 +312,8 @@ export function buildCurrentMarketRoute(params: {
     officialCount: 0,
     marketCount: 0,
     hangarCount: 0,
+    premiumMarketCount: 0,
+    premiumMarketCost: 0,
     warbondCost: 0,
     totalCost: 0,
     stepCount: 0,
@@ -441,11 +327,14 @@ export function buildCurrentMarketRoute(params: {
 
     const edges = outgoingEdges.get(ship.id) || [];
     edges.forEach(edge => {
+      const premiumAmount = edge.sourceType === CcuSourceType.THIRD_PARTY ? Math.max(0, edge.premiumAmount || 0) : 0;
       const nextScore: MarketRouteScore = {
         availableWbCount: currentScore.availableWbCount + (edge.sourceType === CcuSourceType.AVAILABLE_WB ? 1 : 0),
         officialCount: currentScore.officialCount + (edge.sourceType === CcuSourceType.OFFICIAL ? 1 : 0),
         marketCount: currentScore.marketCount + (edge.sourceType === CcuSourceType.THIRD_PARTY ? 1 : 0),
         hangarCount: currentScore.hangarCount + (edge.sourceType === CcuSourceType.HANGER ? 1 : 0),
+        premiumMarketCount: currentScore.premiumMarketCount + (premiumAmount > MARKET_ROUTE_PRICE_EPSILON ? 1 : 0),
+        premiumMarketCost: currentScore.premiumMarketCost + premiumAmount,
         warbondCost: currentScore.warbondCost + (edge.sourceType === CcuSourceType.AVAILABLE_WB ? edge.cost : 0),
         totalCost: currentScore.totalCost + edge.cost,
         stepCount: currentScore.stepCount + 1,
@@ -501,4 +390,197 @@ export function buildCurrentMarketRoute(params: {
     marketCount: routeSummary.marketCount,
     hangarCount: routeSummary.hangarCount,
   };
+}
+
+function cloneMarketRouteEdgeMap(edgeMap: Map<number, MarketRouteEdge[]>): Map<number, MarketRouteEdge[]> {
+  return new Map(Array.from(edgeMap.entries()).map(([shipId, edges]) => [shipId, [...edges]]));
+}
+
+export function buildCurrentMarketRoute(params: {
+  startShip: Ship;
+  targetShip: Ship;
+  ships: Ship[];
+  ccus: Ccu[];
+  hangarItems?: HangarItem[];
+  marketGroups: LowestMarketCcuGroup[];
+}): MarketRouteResult | null {
+  const { startShip, targetShip, ships, ccus, marketGroups } = params;
+  const hangarItems = params.hangarItems || [];
+  const candidateShips = ships
+    .filter(ship => ship.msrp >= startShip.msrp && ship.msrp <= targetShip.msrp)
+    .sort((left, right) => left.msrp - right.msrp || left.id - right.id);
+
+  const shipById = new Map(candidateShips.map(ship => [ship.id, ship]));
+  const shipIdByName = new Map<string, number>();
+  candidateShips.forEach(ship => {
+    const key = normalizeMarketRouteShipName(ship.name);
+    if (!shipIdByName.has(key)) {
+      shipIdByName.set(key, ship.id);
+    }
+  });
+
+  const resolveShip = (shipId?: number, shipName?: string): Ship | null => {
+    if (typeof shipId === 'number') {
+      return shipById.get(shipId) || null;
+    }
+
+    if (shipName) {
+      const resolvedId = shipIdByName.get(normalizeMarketRouteShipName(shipName));
+      if (typeof resolvedId === 'number') {
+        return shipById.get(resolvedId) || null;
+      }
+    }
+
+    return null;
+  };
+
+  const baseOutgoingEdges = new Map<number, MarketRouteEdge[]>();
+  const finalPremiumMarketEdges: MarketRouteEdge[] = [];
+  const allPremiumMarketEdges: MarketRouteEdge[] = [];
+  const addEdgeToMap = (edgeMap: Map<number, MarketRouteEdge[]>, edge: MarketRouteEdge) => {
+    if (edge.targetShip.msrp <= edge.sourceShip.msrp) {
+      return;
+    }
+
+    const sourceEdges = edgeMap.get(edge.sourceShip.id) || [];
+    sourceEdges.push(edge);
+    edgeMap.set(edge.sourceShip.id, sourceEdges);
+  };
+  const addBaseEdge = (edge: MarketRouteEdge) => {
+    addEdgeToMap(baseOutgoingEdges, edge);
+  };
+
+  const hangarEdgeKeys = new Set<string>();
+  const sortedHangarItems = [...hangarItems].sort((left, right) => {
+    const leftPrice = typeof left.price === 'number' && Number.isFinite(left.price) ? left.price : 0;
+    const rightPrice = typeof right.price === 'number' && Number.isFinite(right.price) ? right.price : 0;
+
+    return leftPrice - rightPrice;
+  });
+
+  sortedHangarItems.forEach((item, index) => {
+    if (!item.fromShip || !item.toShip) {
+      return;
+    }
+
+    const sourceShip = resolveShip(undefined, item.fromShip);
+    const nextShip = resolveShip(undefined, item.toShip);
+    if (!sourceShip || !nextShip) {
+      return;
+    }
+
+    const key = `${sourceShip.id}->${nextShip.id}`;
+    if (hangarEdgeKeys.has(key)) {
+      return;
+    }
+
+    hangarEdgeKeys.add(key);
+    addBaseEdge({
+      key: `hangar:${key}:${index}`,
+      sourceShip,
+      targetShip: nextShip,
+      sourceType: CcuSourceType.HANGER,
+      cost: typeof item.price === 'number' && Number.isFinite(item.price) ? Math.max(0, item.price) : 0,
+    });
+  });
+
+  marketGroups.forEach(group => {
+    const sourceShip = resolveShip(group.fromShipId, group.fromShipName);
+    const nextShip = resolveShip(group.toShipId, group.toShipName);
+    if (!sourceShip || !nextShip) {
+      return;
+    }
+
+    const premiumAmount = getMarketCcuPremiumAmount(sourceShip, nextShip, group.listing.price);
+    const edge: MarketRouteEdge = {
+      key: `market:${group.listing.skuId}`,
+      sourceShip,
+      targetShip: nextShip,
+      sourceType: CcuSourceType.THIRD_PARTY,
+      cost: group.listing.price,
+      listing: group.listing,
+      premiumAmount,
+    };
+
+    if (isSavingsMarketCcuEdge(sourceShip, nextShip, group.listing.price)) {
+      addBaseEdge(edge);
+      return;
+    }
+
+    if (nextShip.id === targetShip.id) {
+      finalPremiumMarketEdges.push(edge);
+    }
+    allPremiumMarketEdges.push(edge);
+  });
+
+  const hasOfficialSkuByShipId = new Map<number, boolean>();
+  const warbondPriceByShipId = new Map<number, number | null>();
+  candidateShips.forEach(ship => {
+    hasOfficialSkuByShipId.set(ship.id, hasCurrentOfficialSku(ship, ccus));
+    warbondPriceByShipId.set(ship.id, getCurrentWarbondPriceCents(ship, ccus));
+  });
+
+  candidateShips.forEach(sourceShip => {
+    candidateShips.forEach(nextShip => {
+      if (nextShip.msrp <= sourceShip.msrp) {
+        return;
+      }
+
+      if (hasOfficialSkuByShipId.get(nextShip.id)) {
+        addBaseEdge({
+          key: `official:${sourceShip.id}->${nextShip.id}`,
+          sourceShip,
+          targetShip: nextShip,
+          sourceType: CcuSourceType.OFFICIAL,
+          cost: getRouteStepOfficialValue(sourceShip, nextShip),
+        });
+      }
+
+      const warbondPriceCents = warbondPriceByShipId.get(nextShip.id) ?? null;
+      if (warbondPriceCents === null || sourceShip.msrp >= warbondPriceCents) {
+        return;
+      }
+
+      addBaseEdge({
+        key: `available-wb:${sourceShip.id}->${nextShip.id}:${warbondPriceCents}`,
+        sourceShip,
+        targetShip: nextShip,
+        sourceType: CcuSourceType.AVAILABLE_WB,
+        cost: Math.max(0, (warbondPriceCents - sourceShip.msrp) / 100),
+      });
+    });
+  });
+
+  const baseRoute = findBestMarketRouteInGraph({
+    startShip,
+    targetShip,
+    candidateShips,
+    outgoingEdges: baseOutgoingEdges,
+  });
+  if (baseRoute) {
+    return baseRoute;
+  }
+
+  // Preserve existing routes exactly: premium market CCUs are only considered after
+  // the savings/official/hangar graph cannot connect the requested target.
+  const withFinalPremiumEdges = cloneMarketRouteEdgeMap(baseOutgoingEdges);
+  finalPremiumMarketEdges.forEach(edge => addEdgeToMap(withFinalPremiumEdges, edge));
+  const finalPremiumRoute = findBestMarketRouteInGraph({
+    startShip,
+    targetShip,
+    candidateShips,
+    outgoingEdges: withFinalPremiumEdges,
+  });
+  if (finalPremiumRoute) {
+    return finalPremiumRoute;
+  }
+
+  const withAllPremiumEdges = cloneMarketRouteEdgeMap(baseOutgoingEdges);
+  allPremiumMarketEdges.forEach(edge => addEdgeToMap(withAllPremiumEdges, edge));
+  return findBestMarketRouteInGraph({
+    startShip,
+    targetShip,
+    candidateShips,
+    outgoingEdges: withAllPremiumEdges,
+  });
 }
