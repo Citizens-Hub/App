@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import { useRelatedOrdersData } from '@/hooks/swr/orders';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useNavigate } from 'react-router';
 import { Order, OrderItem as MarketOrderItem, OrderStatus } from '@/types';
 import { formatOrderPublicId } from '@/utils/orderId';
 
@@ -69,9 +68,18 @@ function canConfirmOrder(order: Order, resellerItems: MarketOrderItem[]) {
     && hasUnconfirmedItems(resellerItems);
 }
 
+function getResellerOrderUrl(orderId: string) {
+  const orderPath = `/reseller/orders/${encodeURIComponent(orderId)}`;
+
+  if (import.meta.env.VITE_PUBLIC_CN_MIRROR === 'true') {
+    return `${window.location.origin}${window.location.pathname}${window.location.search}#${orderPath}`;
+  }
+
+  return orderPath;
+}
+
 const OrdersTable: React.FC = () => {
   const intl = useIntl();
-  const navigate = useNavigate();
   const { orders, pagination, loading, handlePageChange, userInfo } = useRelatedOrdersData();
   const currentResellerId = userInfo?.id || '';
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -86,9 +94,9 @@ const OrdersTable: React.FC = () => {
     setSearchTerm(event.target.value);
   };
 
-  // Navigate to order detail page
+  // Open order detail page in a new tab so the reseller order list stays in place.
   const handleOrderClick = (orderId: string) => {
-    navigate(`/reseller/orders/${orderId}`);
+    window.open(getResellerOrderUrl(orderId), '_blank', 'noopener,noreferrer');
   };
 
   // Calculate order total

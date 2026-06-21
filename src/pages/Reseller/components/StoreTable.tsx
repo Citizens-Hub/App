@@ -74,6 +74,17 @@ type ManualPackageItemDraft = {
 };
 
 type DisplayableMarketItem = StoreInventoryItem | ListingItem;
+type ResellerStoreSortMode =
+  | "recommended"
+  | "newest"
+  | "typeAsc"
+  | "typeDesc"
+  | "priceAsc"
+  | "priceDesc"
+  | "costAsc"
+  | "costDesc"
+  | "quantityAsc"
+  | "quantityDesc";
 type ListingNotice = {
   severity: "success" | "error";
   message: string;
@@ -518,6 +529,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
   const [listingNotice, setListingNotice] = useState<ListingNotice | null>(null);
   const [isListingLoading, setIsListingLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [listingSortBy, setListingSortBy] = useState<ResellerStoreSortMode>("recommended");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [showCcus, setShowCcus] = useState(true);
@@ -622,6 +634,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         groupCcus: "false",
         page: String(page),
         limit: String(rowsPerPage),
+        sortBy: listingSortBy,
       });
       const trimmedSearch = deferredSearchTerm.trim();
 
@@ -676,7 +689,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
         setIsListingLoading(false);
       }
     }
-  }, [deferredSearchTerm, id, intl, listingFilters, page, rowsPerPage, token]);
+  }, [deferredSearchTerm, id, intl, listingFilters, listingSortBy, page, rowsPerPage, token]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1218,7 +1231,7 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2, flexWrap: "wrap" }}>
         <TextField
-          sx={{ flexGrow: 1, minWidth: 320 }}
+          sx={{ flexGrow: 1, minWidth: { xs: "100%", sm: 320 } }}
           variant="outlined"
           placeholder={intl.formatMessage({ id: "market.searchListings", defaultMessage: "Search current listings..." })}
           value={searchTerm}
@@ -1237,6 +1250,48 @@ export default function StoreTable({ ships }: { ships: Ship[] }) {
           }}
           size="small"
         />
+        <TextField
+          select
+          size="small"
+          label={intl.formatMessage({ id: "market.sort", defaultMessage: "Sort" })}
+          value={listingSortBy}
+          onChange={(event) => {
+            setListingSortBy(event.target.value as ResellerStoreSortMode);
+            setPage(0);
+          }}
+          sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0 }}
+        >
+          <MenuItem value="recommended">
+            {intl.formatMessage({ id: "market.sort.recommended", defaultMessage: "Recommended" })}
+          </MenuItem>
+          <MenuItem value="newest">
+            {intl.formatMessage({ id: "market.sort.newest", defaultMessage: "Newest" })}
+          </MenuItem>
+          <MenuItem value="typeAsc">
+            {intl.formatMessage({ id: "market.sort.typeAsc", defaultMessage: "Type: Ascending" })}
+          </MenuItem>
+          <MenuItem value="typeDesc">
+            {intl.formatMessage({ id: "market.sort.typeDesc", defaultMessage: "Type: Descending" })}
+          </MenuItem>
+          <MenuItem value="priceAsc">
+            {intl.formatMessage({ id: "market.sort.priceAsc", defaultMessage: "Price: Low to High" })}
+          </MenuItem>
+          <MenuItem value="priceDesc">
+            {intl.formatMessage({ id: "market.sort.priceDesc", defaultMessage: "Price: High to Low" })}
+          </MenuItem>
+          <MenuItem value="costAsc">
+            {intl.formatMessage({ id: "market.sort.costAsc", defaultMessage: "Cost: Low to High" })}
+          </MenuItem>
+          <MenuItem value="costDesc">
+            {intl.formatMessage({ id: "market.sort.costDesc", defaultMessage: "Cost: High to Low" })}
+          </MenuItem>
+          <MenuItem value="quantityAsc">
+            {intl.formatMessage({ id: "market.sort.quantityAsc", defaultMessage: "Quantity: Low to High" })}
+          </MenuItem>
+          <MenuItem value="quantityDesc">
+            {intl.formatMessage({ id: "market.sort.quantityDesc", defaultMessage: "Quantity: High to Low" })}
+          </MenuItem>
+        </TextField>
         <Button
           variant="contained"
           startIcon={<PlusCircle />}
