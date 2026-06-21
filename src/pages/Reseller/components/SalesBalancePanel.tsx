@@ -257,7 +257,7 @@ export default function SalesBalancePanel() {
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
               <FormattedMessage
                 id="reseller.balance.description"
-                defaultMessage="Track the money tied to your sold items in real time. Entries become withdrawable 7 days after shipment, while paid but unsettled entries remain pending."
+                defaultMessage="Track the money tied to your sold items in real time. Entries become withdrawable 14 days after shipment, while paid but unsettled entries remain pending."
               />
             </Typography>
           </div>
@@ -287,7 +287,7 @@ export default function SalesBalancePanel() {
               caption={intl.formatMessage(
                 {
                   id: 'reseller.balance.withdrawableHelp',
-                  defaultMessage: 'Income from orders shipped for at least 7 days, minus pending and paid withdrawals.',
+                  defaultMessage: 'Income from orders shipped for at least 14 days, minus pending and paid withdrawals.',
                 },
               )}
             />
@@ -310,7 +310,7 @@ export default function SalesBalancePanel() {
               caption={intl.formatMessage(
                 {
                   id: 'reseller.balance.pendingHelp',
-                  defaultMessage: '{count} paid transactions are waiting for shipment or the 7-day settlement window to pass.',
+                  defaultMessage: '{count} paid transactions are waiting for shipment or the 14-day settlement window to pass.',
                 },
                 { count: summary.pendingCount },
               )}
@@ -336,7 +336,7 @@ export default function SalesBalancePanel() {
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
               <FormattedMessage
                 id="reseller.withdrawal.description"
-                defaultMessage="Submit the amount you want to withdraw together with your payout account details. Only orders shipped for at least 7 days count toward the withdrawable balance."
+                defaultMessage="Submit the amount you want to withdraw together with your payout account details. Only orders shipped for at least 14 days count toward the withdrawable balance."
               />
             </Typography>
 
