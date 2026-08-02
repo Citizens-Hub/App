@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useState } from 'react';
 import {
   Box,
   Dialog,
   DialogContent,
   DialogTitle,
   IconButton,
-  Skeleton,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -14,10 +12,7 @@ import BrokenImageOutlinedIcon from '@mui/icons-material/BrokenImageOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useIntl } from 'react-intl';
-import { RootState } from '@/store';
 import { TicketAttachment } from '@/types';
-
-const API_BASE_URL = (import.meta.env.VITE_PUBLIC_API_ENDPOINT || '').replace(/\/$/, '');
 
 type TicketAttachmentGalleryProps = {
   attachments: TicketAttachment[];
@@ -25,51 +20,8 @@ type TicketAttachmentGalleryProps = {
 
 function TicketAttachmentPreview({ attachment }: { attachment: TicketAttachment }) {
   const intl = useIntl();
-  const token = useSelector((state: RootState) => state.user.user.token);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let objectUrl: string | null = null;
-    setImageUrl(null);
-    setFailed(false);
-
-    const loadImage = async () => {
-      try {
-        const endpoint = attachment.url.startsWith('http')
-          ? attachment.url
-          : `${API_BASE_URL}${attachment.url.startsWith('/') ? '' : '/'}${attachment.url}`;
-        const response = await fetch(endpoint, {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : '',
-          },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to load ticket image');
-        }
-
-        objectUrl = URL.createObjectURL(await response.blob());
-        setImageUrl(objectUrl);
-      } catch (loadError) {
-        if (!(loadError instanceof DOMException && loadError.name === 'AbortError')) {
-          setFailed(true);
-        }
-      }
-    };
-
-    void loadImage();
-
-    return () => {
-      controller.abort();
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [attachment.url, token]);
 
   if (failed) {
     return (
@@ -88,10 +40,6 @@ function TicketAttachmentPreview({ attachment }: { attachment: TicketAttachment 
         <BrokenImageOutlinedIcon />
       </Box>
     );
-  }
-
-  if (!imageUrl) {
-    return <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3', height: 'auto', borderRadius: 1 }} />;
   }
 
   return (
@@ -123,8 +71,11 @@ function TicketAttachmentPreview({ attachment }: { attachment: TicketAttachment 
       >
         <Box
           component="img"
-          src={imageUrl}
+          src={attachment.url}
           alt={attachment.fileName}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
           sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       </Box>
@@ -138,7 +89,7 @@ function TicketAttachmentPreview({ attachment }: { attachment: TicketAttachment 
             <Tooltip title={intl.formatMessage({ id: 'common.download', defaultMessage: 'Download' })}>
               <IconButton
                 component="a"
-                href={imageUrl}
+                href={attachment.url}
                 download={attachment.fileName}
                 aria-label={intl.formatMessage({ id: 'common.download', defaultMessage: 'Download' })}
               >
@@ -158,8 +109,9 @@ function TicketAttachmentPreview({ attachment }: { attachment: TicketAttachment 
         <DialogContent dividers sx={{ p: 1, display: 'grid', placeItems: 'center', bgcolor: 'common.black' }}>
           <Box
             component="img"
-            src={imageUrl}
+            src={attachment.url}
             alt={attachment.fileName}
+            decoding="async"
             sx={{ display: 'block', maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
           />
         </DialogContent>
