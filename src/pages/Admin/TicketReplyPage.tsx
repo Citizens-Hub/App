@@ -15,6 +15,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { RootState } from '@/store';
 import { useAuthApi } from '@/hooks';
 import { AdminTicketDetailResponse, TicketStatus } from '@/types';
+import TicketImagePicker from '@/components/tickets/TicketImagePicker';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -28,6 +29,7 @@ export default function TicketReplyPage() {
     { revalidateOnFocus: true },
   );
   const [replyContent, setReplyContent] = useState('');
+  const [replyImages, setReplyImages] = useState<File[]>([]);
   const [closeTicket, setCloseTicket] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
@@ -41,16 +43,19 @@ export default function TicketReplyPage() {
       setSubmitting(true);
       setFlash(null);
 
+      const formData = new FormData();
+      formData.append('content', replyContent);
+      if (closeTicket) {
+        formData.append('status', 'closed' as TicketStatus);
+      }
+      replyImages.forEach((image) => formData.append('images', image));
+
       const response = await fetch(`${API_BASE_URL}/api/admin/tickets/${ticketId}`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify({
-          content: replyContent || undefined,
-          status: closeTicket ? 'closed' as TicketStatus : undefined,
-        }),
+        body: formData,
       });
 
       const payload = await response.json().catch(() => null);
@@ -204,6 +209,11 @@ export default function TicketReplyPage() {
                   textAlign: 'left',
                 },
               }}
+            />
+            <TicketImagePicker
+              files={replyImages}
+              onChange={setReplyImages}
+              disabled={ticket.status !== 'open' || submitting}
             />
             <label className="flex items-center gap-2 text-sm">
               <input

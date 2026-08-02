@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { useIntl } from 'react-intl';
 import { TicketMessage } from '@/types';
+import TicketAttachmentGallery from './TicketAttachmentGallery';
 
 type TicketConversationProps = {
   messages: TicketMessage[];
@@ -39,6 +40,7 @@ export default function TicketConversation({ messages }: TicketConversationProps
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', textAlign: 'left' }}>
             {message.content}
           </Typography>
+          <TicketAttachmentGallery attachments={message.attachments || []} />
         </Box>
       ))}
     </Box>

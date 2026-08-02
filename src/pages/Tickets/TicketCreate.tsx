@@ -16,6 +16,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { RootState } from '@/store';
 import { useTicketOrderOptions } from '@/hooks';
 import { formatOrderPublicId } from '@/utils/orderId';
+import TicketImagePicker from '@/components/tickets/TicketImagePicker';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -28,6 +29,7 @@ export default function TicketCreate() {
   const [subject, setSubject] = useState(searchParams.get('subject') || '');
   const [content, setContent] = useState(searchParams.get('content') || '');
   const [relatedOrderId, setRelatedOrderId] = useState(searchParams.get('orderId') || '');
+  const [images, setImages] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
@@ -41,17 +43,18 @@ export default function TicketCreate() {
       setSubmitting(true);
       setFlash(null);
 
+      const formData = new FormData();
+      formData.append('subject', subject);
+      formData.append('content', content);
+      formData.append('relatedOrderId', relatedOrderId);
+      images.forEach((image) => formData.append('images', image));
+
       const response = await fetch(`${API_BASE_URL}/api/tickets`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify({
-          subject,
-          content,
-          relatedOrderId: relatedOrderId || null,
-        }),
+        body: formData,
       });
 
       const payload = await response.json().catch(() => null);
@@ -141,6 +144,7 @@ export default function TicketCreate() {
               minRows={8}
               fullWidth
             />
+            <TicketImagePicker files={images} onChange={setImages} disabled={submitting} />
             {orderOptionsLoading && (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
                 <CircularProgress size={20} />

@@ -20,6 +20,7 @@ import { formatOrderPublicId } from '@/utils/orderId';
 import TicketStatusChip from '@/components/tickets/TicketStatusChip';
 import TicketConversation from '@/components/tickets/TicketConversation';
 import TicketRelatedOrderCard from '@/components/tickets/TicketRelatedOrderCard';
+import TicketImagePicker from '@/components/tickets/TicketImagePicker';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
 
@@ -31,6 +32,7 @@ export default function TicketDetail() {
   const token = useSelector((state: RootState) => state.user.user.token);
   const { data: ticket, error, isLoading, mutate } = useTicketData(ticketId);
   const [replyContent, setReplyContent] = useState('');
+  const [replyImages, setReplyImages] = useState<File[]>([]);
   const [feedbackRating, setFeedbackRating] = useState<number | null>(ticket?.rating ?? null);
   const [feedbackText, setFeedbackText] = useState(ticket?.feedback || '');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -82,15 +84,16 @@ export default function TicketDetail() {
       setSubmitting(true);
       setFlash(null);
 
+      const formData = new FormData();
+      formData.append('content', replyContent.trim());
+      replyImages.forEach((image) => formData.append('images', image));
+
       const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/reply`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify({
-          content: replyContent.trim(),
-        }),
+        body: formData,
       });
 
       const payload = await response.json().catch(() => null);
@@ -102,6 +105,7 @@ export default function TicketDetail() {
       }
 
       setReplyContent('');
+      setReplyImages([]);
       await mutate();
       setFlash({
         severity: 'success',
@@ -419,8 +423,19 @@ export default function TicketDetail() {
                 },
               }}
             />
+            <TicketImagePicker
+              files={replyImages}
+              onChange={setReplyImages}
+              disabled={ticket.status !== 'open' || submitting}
+            />
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-              <Button onClick={() => setReplyContent('')} disabled={submitting || !replyContent}>
+              <Button
+                onClick={() => {
+                  setReplyContent('');
+                  setReplyImages([]);
+                }}
+                disabled={submitting || (!replyContent && replyImages.length === 0)}
+              >
                 <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
               </Button>
               <Button

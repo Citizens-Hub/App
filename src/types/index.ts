@@ -1507,6 +1507,15 @@ export interface TicketMessageAuthor {
   role?: number;
 }
 
+export interface TicketAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  url: string;
+  createdAt: string;
+}
+
 export interface TicketMessage {
   id: number;
   content: string;
@@ -1514,6 +1523,7 @@ export interface TicketMessage {
   createdAt: string;
   updatedAt: string;
   author: TicketMessageAuthor;
+  attachments: TicketAttachment[];
 }
 
 export interface TicketOrderSummary {
