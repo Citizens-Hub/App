@@ -25,6 +25,7 @@ import AdminRsiOrderAutomation from './components/AdminRsiOrderAutomation';
 import AdminCcuAutoCheckout from './components/AdminCcuAutoCheckout';
 import SiteNotificationManager from './components/SiteNotificationManager';
 import MarketHomeSettingsManager from './components/MarketHomeSettingsManager';
+import MarketSalesSettingsManager from './components/MarketSalesSettingsManager';
 import AdminRecaptchaV3Tool from './components/AdminRecaptchaV3Tool';
 import InvoiceSettingsManager from './components/InvoiceSettingsManager';
 import AdminMaintenanceManager from './components/AdminMaintenanceManager';
@@ -46,6 +47,7 @@ enum Page {
   SubscriberStore = 'subscriberStore',
   GameShops = 'gameShops',
   MarketHome = 'marketHome',
+  MarketSales = 'marketSales',
   AccountingReport = 'accountingReport',
   Withdrawals = 'withdrawals',
   Tickets = 'tickets',
@@ -166,6 +168,15 @@ export default function Admin() {
       groupLabel: groups.catalog,
       active: currentPage === Page.MarketHome,
       onSelect: () => setCurrentPage(Page.MarketHome),
+    },
+    {
+      id: Page.MarketSales,
+      title: <FormattedMessage id="admin.marketSales.title" defaultMessage="Market Sales" />,
+      description: <FormattedMessage id="admin.marketSales.navDescription" defaultMessage="Open or close sales by category." />,
+      groupId: 'catalog',
+      groupLabel: groups.catalog,
+      active: currentPage === Page.MarketSales,
+      onSelect: () => setCurrentPage(Page.MarketSales),
     },
     {
       id: Page.GameShops,
@@ -377,6 +388,7 @@ export default function Admin() {
         {currentPage === Page.ConciergePaints && <ConciergePaintsManager />}
         {currentPage === Page.SubscriberStore && <SubscriberStoreManager />}
         {currentPage === Page.MarketHome && <MarketHomeSettingsManager />}
+        {currentPage === Page.MarketSales && <MarketSalesSettingsManager />}
         {currentPage === Page.GameShops && <GameShopsManager />}
         {currentPage === Page.NewUserCoupon && <NewUserCouponSettingsManager />}
         {currentPage === Page.Referrals && <ReferralProgramManager />}
