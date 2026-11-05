@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Alert,
@@ -13,12 +13,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuthApi } from '@/hooks';
 import { AdminTicketListResponse, TicketStatus } from '@/types';
+import { buildTicketListPath, initialTicketListState, ticketListReducer, TICKETS_PAGE_SIZE, lastTicketPage } from './ticketPagination';
 import { formatOrderPublicId } from '@/utils/orderId';
 
 type TicketsManagerProps = {
@@ -29,23 +31,25 @@ type TicketsManagerProps = {
 export default function TicketsManager({ showOpenPageButton = true, showHeader = true }: TicketsManagerProps) {
   const intl = useIntl();
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
-  const [query, setQuery] = useState('');
-
-  const listPath = useMemo(() => {
-    const search = new URLSearchParams();
-    search.set('page', '1');
-    search.set('limit', '100');
-    if (statusFilter !== 'all') search.set('status', statusFilter);
-    if (query.trim()) search.set('query', query.trim());
-    return `/api/admin/tickets?${search.toString()}`;
-  }, [statusFilter, query]);
+  const [listState, dispatch] = useReducer(ticketListReducer, initialTicketListState);
+  const { page, statusFilter, query } = listState;
+  const listPath = buildTicketListPath(listState);
 
   const { data, error, isLoading } = useAuthApi<AdminTicketListResponse>(listPath, {
     revalidateOnFocus: true,
+    keepPreviousData: false,
   });
 
-  const tickets = data?.tickets || [];
+  // A refresh can reduce the total (for example after a ticket is closed).
+  // Only reconcile a response for this page, never a previous request's data.
+  const currentData = data?.page === page + 1 ? data : undefined;
+  const total = currentData?.total ?? 0;
+  const pageOutOfRange = Boolean(currentData && page > lastTicketPage(total));
+  useEffect(() => {
+    if (currentData) dispatch({ type: 'total', total: currentData.total });
+  }, [currentData]);
+
+  const tickets = pageOutOfRange ? [] : currentData?.tickets || [];
   const formatDateTime = (value?: string | null) => value ? new Date(value).toLocaleString(intl.locale) : '-';
 
   return (
@@ -67,7 +71,7 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
             select
             label={intl.formatMessage({ id: 'admin.tickets.filter.status', defaultMessage: 'Status' })}
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as 'all' | TicketStatus)}
+            onChange={(event) => dispatch({ type: 'status', value: event.target.value as 'all' | TicketStatus })}
             size="small"
             sx={{
               minWidth: 180,
@@ -92,7 +96,7 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
           <TextField
             label={intl.formatMessage({ id: 'admin.tickets.filter.query', defaultMessage: 'Search tickets' })}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => dispatch({ type: 'query', value: event.target.value })}
             size="small"
             sx={{
               minWidth: 260,
@@ -140,7 +144,7 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
             </TableRow>
           </TableHead>
           <TableBody>
-            {isLoading ? (
+            {isLoading || pageOutOfRange ? (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   <FormattedMessage id="loading" defaultMessage="Loading..." />
@@ -183,6 +187,17 @@ export default function TicketsManager({ showOpenPageButton = true, showHeader =
           </TableBody>
         </Table>
       </TableContainer>
+      {currentData && !pageOutOfRange && (
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          rowsPerPage={TICKETS_PAGE_SIZE}
+          rowsPerPageOptions={[TICKETS_PAGE_SIZE]}
+          onPageChange={(_event, nextPage) => dispatch({ type: 'page', page: nextPage, total })}
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${intl.formatMessage({ id: 'pagination.total', defaultMessage: 'Total' })} ${count}`}
+        />
+      )}
     </Box>
   );
 }
