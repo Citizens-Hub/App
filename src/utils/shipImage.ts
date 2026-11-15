@@ -39,6 +39,12 @@ export function toApiAssetUrl(value?: string | null, options?: { source?: 'citiz
   if (options?.source === 'rsi') {
     return toRsiAssetUrl(value);
   }
+  // Dynamic aliases are served by the Worker, never by the R2 image domain.
+  if (/^\/?(?:api\/)?ship-images\//.test(value)) {
+    const url = new URL(value.startsWith('/') ? value : `/${value}`, 'https://localhost');
+    url.searchParams.set('v', '2');
+    return `${API_BASE_URL}${url.pathname}${url.search}`;
+  }
   return toImageBaseUrl(value);
 }
 
@@ -46,7 +52,7 @@ function getWorkerShipImageUrl(
   shipId: number,
   variant: 'thumb-small' | 'thumb-large' | 'slideshow',
 ) {
-  return `${API_BASE_URL}/ship-images/${shipId}/${variant}`;
+  return `${API_BASE_URL}/ship-images/${shipId}/${variant}?v=2`;
 }
 
 function getWorkerShipDetailImageUrl(
@@ -54,7 +60,7 @@ function getWorkerShipDetailImageUrl(
   entry: Pick<ShipDetailImage, 'slot'> | null | undefined,
   index: number,
 ) {
-  return `${API_BASE_URL}/ship-images/${shipId}/detail/${normalizeShipImageSlot(entry?.slot)}/${index + 1}`;
+  return `${API_BASE_URL}/ship-images/${shipId}/detail/${normalizeShipImageSlot(entry?.slot)}/${index + 1}?v=2`;
 }
 
 function getShipMediaUrl(

@@ -1,7 +1,7 @@
 const DB_NAME = 'citizens-hub-model-cache';
 const DB_VERSION = 1;
 const MODEL_STORE = 'models';
-const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v1';
+const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v2';
 const IMAGE_CACHE_NAME_PREFIX = 'citizens-hub-image-cache-';
 const FONT_CACHE_NAME = 'citizens-hub-font-cache-v1';
 const FONT_CACHE_NAME_PREFIX = 'citizens-hub-font-cache-';
@@ -473,6 +473,11 @@ async function putOwnedImageResponse(cache, request, response, requestUrl) {
 }
 
 async function handleOwnedImageRequest(event, request, requestUrl) {
+  // Mutable aliases must reach the network; only versioned objects can be kept
+  // indefinitely in CacheStorage. Bypass old browser HTTP entries as well.
+  if (isShipImagePath(requestUrl.pathname)) {
+    return fetch(new Request(request, { cache: 'no-cache' }));
+  }
   const cache = await caches.open(IMAGE_CACHE_NAME);
   const cachedResponse = await cache.match(request);
 
