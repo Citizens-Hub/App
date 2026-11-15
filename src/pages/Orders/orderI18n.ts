@@ -3,6 +3,7 @@ import type { IntlShape } from 'react-intl';
 import { getMarketItemVisual } from '@/components/marketItemDisplay';
 import { OrderStatus, type Order, type OrderItem, type Ship } from '@/types';
 import { getShipDisplayName } from '@/utils/shipDisplay';
+import { hasRecordedOrderPayment } from '@/utils/orderPayment';
 
 import {
   formatMarketCcuResourceName,
@@ -29,7 +30,8 @@ export function formatOrderChargedLabel(intl: IntlShape, order: Order) {
     });
   }
 
-  if (order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished) {
+  if (order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed || order.status === OrderStatus.Finished
+    || (order.status === OrderStatus.Canceled && hasRecordedOrderPayment(order))) {
     return formatOrderUsdPrice(intl.locale, getOrderChargedAmount(order));
   }
 

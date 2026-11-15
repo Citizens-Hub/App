@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Alert,
@@ -27,7 +27,9 @@ import { useAuthApi } from '@/hooks';
 import { RootState } from '@/store';
 import { AdminOrderDetailResponse, AdminOrderItem, AdminOrderListResponse, OrderStatus } from '@/types';
 import { formatOrderPublicId } from '@/utils/orderId';
+import { hasRecordedOrderPayment } from '@/utils/orderPayment';
 import { formatOrderUsdPrice, getOrderChargedAmount } from '@/pages/Orders/orderI18n';
+import { canCloseAdminOrder, closeAdminOrder } from '../services/closeAdminOrder';
 
 const STATUS_OPTIONS: Array<'all' | OrderStatus> = [
   'all',
@@ -47,6 +49,10 @@ export default function OrdersManager() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [resendingReceipt, setResendingReceipt] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [closingOrder, setClosingOrder] = useState(false);
+  const closeInFlight = useRef(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
@@ -208,6 +214,53 @@ export default function OrdersManager() {
     }
   };
 
+  const handleCloseOrder = async () => {
+    if (!selectedOrder || !canCloseAdminOrder(selectedOrder) || closeInFlight.current) return;
+
+    const orderId = selectedOrder.id;
+    closeInFlight.current = true;
+    setClosingOrder(true);
+    setCloseError(null);
+    setFlash(null);
+    try {
+      const result = await closeAdminOrder(import.meta.env.VITE_PUBLIC_API_ENDPOINT, orderId, token);
+      setConfirmCloseOpen(false);
+      setFlash({
+        severity: 'success',
+        text: result.manualRefundRequired
+          ? intl.formatMessage({ id: 'admin.orders.closePaidSuccess', defaultMessage: 'Order closed and all items canceled. This action did not issue a refund. Verify and handle any refund manually in Stripe.' })
+          : intl.formatMessage({ id: 'admin.orders.closeSuccess', defaultMessage: 'Order closed successfully.' }),
+      });
+      // Apply the confirmed result immediately, even if revalidation is unavailable.
+      await Promise.all([
+        mutate(current => {
+          if (!current) return current;
+          const keepClosedOrder = statusFilter === 'all' || statusFilter === OrderStatus.Canceled;
+          const wasVisible = current.orders.some(order => order.id === orderId);
+          return {
+            ...current,
+            total: current.total - (!keepClosedOrder && wasVisible ? 1 : 0),
+            orders: current.orders.flatMap(order => order.id !== orderId
+              ? [order]
+              : keepClosedOrder ? [{ ...order, status: OrderStatus.Canceled, items: order.items.map(item => ({ ...item, cancelledQuantity: item.quantity })) }] : []),
+          };
+        }, { revalidate: false }),
+        mutateDetail(current => current && current.order.id === orderId
+          ? { ...current, order: { ...current.order, status: OrderStatus.Canceled, items: current.order.items.map(item => ({ ...item, cancelledQuantity: item.quantity })) } }
+          : current, { revalidate: false }),
+      ]);
+      void Promise.all([mutate(), mutateDetail()]).catch(console.error);
+    } catch (error) {
+      setCloseError(error instanceof Error ? error.message : intl.formatMessage({
+        id: 'admin.orders.closeError', defaultMessage: 'Failed to close order. Refresh its status before retrying.',
+      }));
+      void Promise.all([mutate(), mutateDetail()]).catch(console.error);
+    } finally {
+      closeInFlight.current = false;
+      setClosingOrder(false);
+    }
+  };
+
   const renderSummary = (order: AdminOrderItem) => {
     const chargedAmount = order.status === OrderStatus.PaymentReview
       ? intl.formatMessage({
@@ -275,7 +328,7 @@ export default function OrdersManager() {
           <FormattedMessage id="admin.orders.title" defaultMessage="Order Management" />
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          <FormattedMessage id="admin.orders.description" defaultMessage="Review all orders, inspect buyer information, and manually resend receipts." />
+          <FormattedMessage id="admin.orders.description" defaultMessage="Review orders, close unshipped orders, inspect buyer information, and manually resend receipts." />
         </Typography>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -373,7 +426,7 @@ export default function OrdersManager() {
                 <TableCell>{formatOrderUsdPrice(intl.locale, order.price)}</TableCell>
                 <TableCell>{formatDateTime(order.createdAt)}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => setSelectedOrderId(order.id)}>
+                  <Button size="small" onClick={() => { setFlash(null); setSelectedOrderId(order.id); }}>
                     <FormattedMessage id="common.view" defaultMessage="View" />
                   </Button>
                 </TableCell>
@@ -385,7 +438,8 @@ export default function OrdersManager() {
 
       <Dialog
         open={Boolean(selectedOrderId)}
-        onClose={() => setSelectedOrderId(null)}
+        onClose={() => { if (!closeInFlight.current) { setConfirmCloseOpen(false); setSelectedOrderId(null); } }}
+        disableEscapeKeyDown={closingOrder}
         fullWidth
         maxWidth="lg"
       >
@@ -393,6 +447,7 @@ export default function OrdersManager() {
           <FormattedMessage id="admin.orders.detailTitle" defaultMessage="Order Detail" />
         </DialogTitle>
         <DialogContent dividers>
+          {flash && <Alert severity={flash.severity} sx={{ mb: 2 }}>{flash.text}</Alert>}
           {detailLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
               <CircularProgress />
@@ -403,6 +458,11 @@ export default function OrdersManager() {
             </Alert>
           ) : selectedOrder ? (
             <Box sx={{ display: 'grid', gap: 3 }}>
+              {selectedOrder.status === OrderStatus.Canceled && hasRecordedOrderPayment(selectedOrder) && (
+                <Alert severity="warning">
+                  <FormattedMessage id="admin.orders.closedPaidWarning" defaultMessage="This order was paid before closure. Closing it does not issue a refund. Verify and process any refund manually in Stripe." />
+                </Alert>
+              )}
               <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 2.5 }}>
                 <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' } }}>
                   <Box sx={{ display: 'grid', gap: 1.5 }}>
@@ -632,16 +692,80 @@ export default function OrdersManager() {
           ) : null}
         </DialogContent>
         <DialogActions>
+          {selectedOrder && canCloseAdminOrder(selectedOrder) && (
+            <Button
+              color="error"
+              disabled={closingOrder || resendingReceipt || Boolean(cancellingInviteId)}
+              onClick={() => { setCloseError(null); setConfirmCloseOpen(true); }}
+            >
+              {selectedOrder?.status === OrderStatus.Canceled
+                ? <FormattedMessage id="admin.orders.retryClose" defaultMessage="Retry close cleanup" />
+                : <FormattedMessage id="admin.orders.closeOrder" defaultMessage="Close order" />}
+            </Button>
+          )}
           {selectedOrder && (
             <Button
               onClick={() => void handleResendReceipt(selectedOrder.id)}
-              disabled={resendingReceipt || ![OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(selectedOrder.status)}
+              disabled={closingOrder || resendingReceipt || ![OrderStatus.Paid, OrderStatus.Confirmed, OrderStatus.Finished, OrderStatus.PaymentReview].includes(selectedOrder.status)}
             >
               <FormattedMessage id="admin.orders.resendReceipt" defaultMessage="Resend Receipt" />
             </Button>
           )}
-          <Button onClick={() => setSelectedOrderId(null)}>
+          <Button disabled={closingOrder} onClick={() => setSelectedOrderId(null)}>
             <FormattedMessage id="common.close" defaultMessage="Close" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={confirmCloseOpen}
+        onClose={() => { if (!closeInFlight.current) setConfirmCloseOpen(false); }}
+        disableEscapeKeyDown={closingOrder}
+        aria-labelledby="admin-close-order-title"
+        aria-describedby="admin-close-order-description"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="admin-close-order-title">
+          {selectedOrder?.status === OrderStatus.Canceled
+            ? <FormattedMessage id="admin.orders.retryCloseTitle" defaultMessage="Retry cleanup for order {orderId}?" values={{ orderId: formatOrderPublicId(selectedOrder.id) }} />
+            : <FormattedMessage id="admin.orders.closeTitle" defaultMessage="Close order {orderId}?" values={{ orderId: selectedOrder ? formatOrderPublicId(selectedOrder.id) : '' }} />}
+        </DialogTitle>
+        <DialogContent>
+          <Typography id="admin-close-order-description">
+            {selectedOrder?.status === OrderStatus.Canceled
+              ? <FormattedMessage id="admin.orders.retryCloseDescription" defaultMessage="Retry any unfinished item cancellation and reservation cleanup for this closed order. Completed cleanup is not repeated. This does not issue a refund." />
+              : <FormattedMessage
+                  id="admin.orders.closeDescription"
+                  defaultMessage="This cancels every unshipped item and releases its reserved inventory. Unpaid payment links and discount reservations are released. Payment records and used discounts are preserved for paid orders. This cannot be undone."
+                />}
+          </Typography>
+          {selectedOrder && (hasRecordedOrderPayment(selectedOrder) || [OrderStatus.Paid, OrderStatus.Confirmed].includes(selectedOrder.status)) && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <FormattedMessage id="admin.orders.closePaidWarning" defaultMessage="This order is paid. No Stripe refund will be issued. You must calculate and process the refund manually; closing only cancels the items locally." />
+            </Alert>
+          )}
+          <Box component="ul" sx={{ pl: 3, mb: 0 }}>
+            {selectedOrder?.items.filter(item => item.quantity > (item.cancelledQuantity || 0)).map(item => (
+              <li key={item.id}>{item.marketItem.name} × {item.quantity - (item.cancelledQuantity || 0)}</li>
+            ))}
+          </Box>
+          {closeError && <Alert severity="error" sx={{ mt: 2 }}>{closeError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button autoFocus disabled={closingOrder} onClick={() => setConfirmCloseOpen(false)}>
+            <FormattedMessage id="common.cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={closingOrder || !selectedOrder || !canCloseAdminOrder(selectedOrder)}
+            onClick={() => void handleCloseOrder()}
+            startIcon={closingOrder ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            {selectedOrder?.status === OrderStatus.Canceled
+                ? <FormattedMessage id="admin.orders.retryClose" defaultMessage="Retry close cleanup" />
+                : <FormattedMessage id="admin.orders.closeOrder" defaultMessage="Close order" />}
           </Button>
         </DialogActions>
       </Dialog>
