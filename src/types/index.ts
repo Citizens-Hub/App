@@ -133,6 +133,7 @@ export interface ShipDetailImage {
   slot?: string;
   url?: string;
   source?: 'citizenshub' | 'rsi';
+  sourceUrl?: string;
 }
 
 export interface ShipDetail {

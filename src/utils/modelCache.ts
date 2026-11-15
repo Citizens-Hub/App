@@ -1,3 +1,6 @@
+import { buildShipImageManifest } from './shipImage';
+import type { Ship } from '@/types';
+
 export type ModelCacheType = 'glb' | 'sog';
 
 export type ShipImageCacheSource = 'app' | 'worker' | 'workerShipImage' | 'r2' | 'unknown';
@@ -83,6 +86,7 @@ const MODEL_CACHE_SERVICE_WORKER_MESSAGES = {
 const IMAGE_CACHE_SERVICE_WORKER_MESSAGES = {
   list: 'CH_IMAGE_CACHE_LIST',
   clear: 'CH_IMAGE_CACHE_CLEAR',
+  manifest: 'CH_IMAGE_CACHE_MANIFEST',
 } as const;
 
 const EMPTY_MODEL_CACHE_RESULT: ModelCacheListResult = {
@@ -205,12 +209,22 @@ export function registerModelCacheServiceWorker() {
   }
 
   const basePath = getBasePath();
-  const serviceWorkerUrl = new URL(`${basePath}service-worker.js`, window.location.origin).toString();
+  const serviceWorkerUrl = new URL(`${basePath}service-worker.js`, window.location.origin);
+  const imageEndpoint = import.meta.env.VITE_PUBLIC_IMAGES_ENDPOINT?.trim() || 'https://images.citizenshub.app';
+  serviceWorkerUrl.searchParams.set('images_origin', new URL(imageEndpoint, window.location.origin).origin);
   const scope = new URL(basePath, window.location.origin).toString();
 
-  navigator.serviceWorker.register(serviceWorkerUrl, { scope }).catch((error) => {
+  navigator.serviceWorker.register(serviceWorkerUrl.href, { scope }).catch((error) => {
     console.warn('Failed to register cache service worker.', error);
   });
+}
+
+export function updateShipImageManifest(ships: Ship[]) {
+  if (!isServiceWorkerAvailable()) return;
+  // Keep image refresh work independent from rendering/API success.
+  void postServiceWorkerMessage(IMAGE_CACHE_SERVICE_WORKER_MESSAGES.manifest, {
+    entries: buildShipImageManifest(ships),
+  }).catch((error) => console.warn('Failed to update ship image manifest.', error));
 }
 
 export async function listModelCacheEntries() {

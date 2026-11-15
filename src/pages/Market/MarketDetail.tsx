@@ -51,6 +51,7 @@ import { localizeShipFocus, localizeShipSize, localizeShipStatus, localizeShipTy
 import { useCartStore } from '@/hooks/useCartStore';
 import { appendShipLocaleToPath } from '@/hooks/swr/shipLocale';
 import { getShipDisplayName } from '@/utils/shipDisplay';
+import { updateShipImageManifest } from '@/utils/modelCache';
 import CartDrawer from './components/CartDrawer';
 import { findShip, getAvailableStock, getListingBasePrice, getListingPriceDisplay } from './marketUtils';
 import {
@@ -582,6 +583,7 @@ function usePackageShipDetails(shipIds: number[], locale: ReturnType<typeof useL
           }
 
           const payload = await response.json() as ShipResponse;
+          updateShipImageManifest([payload.data.ship]);
           return payload.data.ship;
         }),
       );
@@ -594,6 +596,7 @@ function usePackageShipDetails(shipIds: number[], locale: ReturnType<typeof useL
         return acc;
       }, {});
     },
+    { refreshInterval: 5 * 60 * 1000, revalidateOnFocus: true },
   );
 
   return {

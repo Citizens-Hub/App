@@ -2,8 +2,7 @@ import type { Ship, ShipDetailImage } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT.replace(/\/+$/, '');
 const PUBLIC_IMAGES_BASE_URL = import.meta.env.VITE_PUBLIC_IMAGES_ENDPOINT?.trim().replace(/\/+$/, '') || '';
-const HAS_PUBLIC_IMAGES_ENDPOINT = Boolean(PUBLIC_IMAGES_BASE_URL);
-const IMAGE_BASE_URL = HAS_PUBLIC_IMAGES_ENDPOINT ? PUBLIC_IMAGES_BASE_URL : API_BASE_URL;
+const IMAGE_BASE_URL = PUBLIC_IMAGES_BASE_URL || API_BASE_URL;
 const RSI_BASE_URL = 'https://robertsspaceindustries.com';
 
 function isAbsoluteUrl(value: string) {
@@ -26,7 +25,11 @@ function isDetailThumbnailSlot(value?: string | null) {
 }
 
 function toImageBaseUrl(value: string) {
-  return `${IMAGE_BASE_URL}${value.startsWith('/') ? value : `/${value}`}`;
+  const pathname = value.startsWith('/') ? value : `/${value}`;
+  const baseUrl = !PUBLIC_IMAGES_BASE_URL && /^\/ships\/\d+\//.test(pathname)
+    ? 'https://images.citizenshub.app'
+    : IMAGE_BASE_URL;
+  return `${baseUrl}${pathname}`;
 }
 
 function toRsiAssetUrl(value: string) {
@@ -39,22 +42,24 @@ export function toApiAssetUrl(value?: string | null, options?: { source?: 'citiz
   if (options?.source === 'rsi') {
     return toRsiAssetUrl(value);
   }
+  // Dynamic aliases are served by the Worker, never by the R2 image domain.
+  if (/^\/?(?:api\/)?ship-images\//.test(value)) {
+    const url = new URL(value.startsWith('/') ? value : `/${value}`, 'https://localhost');
+    url.searchParams.set('v', '2');
+    return `${API_BASE_URL}${url.pathname}${url.search}`;
+  }
   return toImageBaseUrl(value);
 }
 
-function getWorkerShipImageUrl(
-  shipId: number,
-  variant: 'thumb-small' | 'thumb-large' | 'slideshow',
-) {
-  return `${API_BASE_URL}/ship-images/${shipId}/${variant}`;
+function isShipImageAlias(value: string) {
+  const url = new URL(value, 'https://localhost');
+  return /^\/(?:api\/)?ship-images\//.test(url.pathname);
 }
 
-function getWorkerShipDetailImageUrl(
-  shipId: number,
-  entry: Pick<ShipDetailImage, 'slot'> | null | undefined,
-  index: number,
-) {
-  return `${API_BASE_URL}/ship-images/${shipId}/detail/${normalizeShipImageSlot(entry?.slot)}/${index + 1}`;
+function resolveShipImage(value?: string | null) {
+  // Older API caches may still contain mutable aliases. Use the ship's RSI
+  // media below until the refreshed image list contains a versioned R2 object.
+  return value && !isShipImageAlias(value) ? toApiAssetUrl(value) : '';
 }
 
 function getShipMediaUrl(
@@ -66,62 +71,29 @@ function getShipMediaUrl(
 
 export function getShipThumbSmall(ship?: Ship | null) {
   if (!ship) return '';
-  if (!HAS_PUBLIC_IMAGES_ENDPOINT && ship.id > 0) {
-    return getWorkerShipImageUrl(ship.id, 'thumb-small');
-  }
 
-  return (
-    ship?.imageUrls?.thumbSmall
-    ? toApiAssetUrl(ship.imageUrls.thumbSmall)
-    : getShipMediaUrl(
-      ship?.medias?.productThumbMediumAndSmall,
-      ship?.medias?.source,
-    )
-  );
+  return resolveShipImage(ship.imageUrls?.thumbSmall)
+    || getShipMediaUrl(ship.medias?.productThumbMediumAndSmall, ship.medias?.source)
+    || getShipMediaUrl(ship.medias?.slideShow, ship.medias?.source);
 }
 
 export function getShipThumbLarge(ship?: Ship | null) {
   if (!ship) return '';
-  if (!HAS_PUBLIC_IMAGES_ENDPOINT && ship.id > 0) {
-    return getWorkerShipImageUrl(ship.id, 'thumb-large');
-  }
 
-  return (
-    ship?.imageUrls?.thumbLarge
-    ? toApiAssetUrl(ship.imageUrls.thumbLarge)
-    : ship?.imageUrls?.slideshow
-      ? toApiAssetUrl(ship.imageUrls.slideshow)
-      : ship?.imageUrls?.thumbSmall
-        ? toApiAssetUrl(ship.imageUrls.thumbSmall)
-        : getShipMediaUrl(
-          ship?.medias?.productThumbMediumAndSmall,
-          ship?.medias?.source,
-        ) || getShipMediaUrl(
-          ship?.medias?.slideShow,
-          ship?.medias?.source,
-        )
-  );
+  return resolveShipImage(ship.imageUrls?.thumbLarge)
+    || resolveShipImage(ship.imageUrls?.slideshow)
+    || resolveShipImage(ship.imageUrls?.thumbSmall)
+    || getShipMediaUrl(ship.medias?.productThumbMediumAndSmall, ship.medias?.source)
+    || getShipMediaUrl(ship.medias?.slideShow, ship.medias?.source);
 }
 
 export function getShipSlideshowImage(ship?: Ship | null) {
   if (!ship) return '';
-  if (!HAS_PUBLIC_IMAGES_ENDPOINT && ship.id > 0) {
-    return getWorkerShipImageUrl(ship.id, 'slideshow');
-  }
 
-  return (
-    ship?.imageUrls?.slideshow
-    ? toApiAssetUrl(ship.imageUrls.slideshow)
-    : ship?.imageUrls?.thumbLarge
-      ? toApiAssetUrl(ship.imageUrls.thumbLarge)
-      : getShipMediaUrl(
-        ship?.medias?.slideShow,
-        ship?.medias?.source,
-      ) || getShipMediaUrl(
-        ship?.medias?.productThumbMediumAndSmall,
-        ship?.medias?.source,
-      )
-  );
+  return resolveShipImage(ship.imageUrls?.slideshow)
+    || resolveShipImage(ship.imageUrls?.thumbLarge)
+    || getShipMediaUrl(ship.medias?.slideShow, ship.medias?.source)
+    || getShipMediaUrl(ship.medias?.productThumbMediumAndSmall, ship.medias?.source);
 }
 
 export function getShipBestImage(ship?: Ship | null) {
@@ -135,10 +107,8 @@ export function getShipDetailImageUrl(
 ) {
   if (!entry?.url) return '';
 
-  const shipId = ship?.id;
-  if (!HAS_PUBLIC_IMAGES_ENDPOINT && typeof shipId === 'number' && shipId > 0) {
-    return getWorkerShipDetailImageUrl(shipId, entry, index);
-  }
+  const sourceUrl = entry.sourceUrl || ship?.details?.imageComposer?.[index]?.sourceUrl;
+  if (isShipImageAlias(entry.url) && sourceUrl) return toRsiAssetUrlIfRelative(sourceUrl);
 
   return toApiAssetUrl(entry.url, { source: entry.source });
 }
@@ -155,4 +125,36 @@ export function getShipDetailThumbnailUrl(ship?: Ship | null) {
   }
 
   return getShipDetailImageUrl(ship, detailImages[0], 0);
+}
+
+function toRsiAssetUrlIfRelative(value: string) {
+  return isAbsoluteUrl(value) ? value : toRsiAssetUrl(value);
+}
+
+export interface ShipImageManifestEntry {
+  id: string;
+  url: string;
+  sourceUrl?: string;
+}
+
+/** The API's current image URLs are the manifest; content hashes are versions. */
+export function buildShipImageManifest(ships: Ship[]): ShipImageManifestEntry[] {
+  return ships.flatMap((ship) => {
+    const coverSource = ship.medias?.productThumbMediumAndSmall || ship.medias?.slideShow;
+    const slideshowSource = ship.medias?.slideShow || coverSource;
+    const entries: ShipImageManifestEntry[] = [
+      { id: `${ship.id}:thumb-small`, url: getShipThumbSmall(ship), sourceUrl: coverSource },
+      { id: `${ship.id}:thumb-large`, url: getShipThumbLarge(ship), sourceUrl: slideshowSource },
+      { id: `${ship.id}:slideshow`, url: getShipSlideshowImage(ship), sourceUrl: slideshowSource },
+      ...(ship.details?.imageComposer || []).map((entry, index) => ({
+        id: `${ship.id}:detail:${index}`,
+        url: getShipDetailImageUrl(ship, entry, index),
+        sourceUrl: entry.sourceUrl || (entry.source === 'rsi' ? entry.url : undefined),
+      })),
+    ];
+    return entries.filter((entry) => entry.url).map((entry) => ({
+      ...entry,
+      sourceUrl: entry.sourceUrl ? toRsiAssetUrlIfRelative(entry.sourceUrl) : undefined,
+    }));
+  });
 }

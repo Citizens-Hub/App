@@ -1,8 +1,12 @@
 const DB_NAME = 'citizens-hub-model-cache';
 const DB_VERSION = 1;
 const MODEL_STORE = 'models';
-const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v1';
+const IMAGE_CACHE_NAME = 'citizens-hub-image-cache-v2';
 const IMAGE_CACHE_NAME_PREFIX = 'citizens-hub-image-cache-';
+const IMAGE_MANIFEST_CACHE_NAME = 'citizens-hub-ship-image-manifest-v1';
+const IMAGE_MANIFEST_URL = new URL('/__ship-image-manifest', self.location.origin).href;
+let imageManifestUpdate = Promise.resolve();
+const CONFIGURED_IMAGES_ORIGIN = new URL(self.location.href).searchParams.get('images_origin');
 const FONT_CACHE_NAME = 'citizens-hub-font-cache-v1';
 const FONT_CACHE_NAME_PREFIX = 'citizens-hub-font-cache-';
 const VIDEO_CACHE_NAME = 'citizens-hub-video-cache-v1';
@@ -32,6 +36,7 @@ const MODEL_CACHE_MESSAGE_TYPES = {
 const IMAGE_CACHE_MESSAGE_TYPES = {
   list: 'CH_IMAGE_CACHE_LIST',
   clear: 'CH_IMAGE_CACHE_CLEAR',
+  manifest: 'CH_IMAGE_CACHE_MANIFEST',
 };
 
 const DEFAULT_NOTIFICATION_URL = '/reseller';
@@ -371,12 +376,14 @@ function isShipImagePath(pathname) {
 
 function isOwnedImageRequest(request, requestUrl) {
   return isImageLikeRequest(request, requestUrl)
-    && (requestUrl.hostname === 'images.citizenshub.app'
+    && ((requestUrl.origin === CONFIGURED_IMAGES_ORIGIN && /^\/ships\/\d+\//.test(requestUrl.pathname))
+      || requestUrl.hostname === 'images.citizenshub.app'
       || requestUrl.hostname === 'materials.citizenshub.app');
 }
 
 function getImageCacheSource(requestUrl) {
-  if (requestUrl.hostname === 'r2.citizenshub.app') {
+  if (requestUrl.origin === CONFIGURED_IMAGES_ORIGIN
+    || requestUrl.hostname === 'r2.citizenshub.app' || requestUrl.hostname === 'images.citizenshub.app') {
     return IMAGE_CACHE_SOURCES.r2;
   }
 
@@ -431,12 +438,7 @@ async function shouldCacheOwnedImageResponse(requestUrl, response) {
   }
 
   if (isShipImagePath(requestUrl.pathname)) {
-    if (response.type === 'opaque') {
-      return false;
-    }
-
-    const shipImageCacheState = (response.headers.get('X-Ship-Image-Cache') || '').toLowerCase();
-    return shipImageCacheState === 'hit';
+    return false;
   }
 
   if (response.type === 'opaque') {
@@ -480,7 +482,20 @@ async function handleOwnedImageRequest(event, request, requestUrl) {
     return cachedResponse;
   }
 
-  const networkResponse = await fetchOwnedImageResponse(request, requestUrl);
+  let networkResponse;
+  try {
+    networkResponse = await fetchOwnedImageResponse(request, requestUrl);
+  } catch (error) {
+    const fallback = await fetchShipImageFallback(request);
+    if (fallback) return fallback;
+    throw error;
+  }
+  // An opaque response can hide a 404. If CORS fails, use the known RSI source
+  // instead of returning an unreadable response that may be a broken image.
+  if (!networkResponse.ok) {
+    const fallback = await fetchShipImageFallback(request);
+    if (fallback) return fallback;
+  }
   const shouldCache = await shouldCacheOwnedImageResponse(requestUrl, networkResponse.clone());
 
   if (shouldCache) {
@@ -492,6 +507,100 @@ async function handleOwnedImageRequest(event, request, requestUrl) {
   }
 
   return networkResponse;
+}
+
+function isManifestImageUrl(value) {
+  const url = new URL(value);
+  return (url.protocol === 'https:' || url.origin === CONFIGURED_IMAGES_ORIGIN)
+    && isOwnedImageRequest({ destination: 'image' }, url)
+    && /^\/ships\/\d+\//.test(url.pathname);
+}
+
+function isRsiImageUrl(value) {
+  if (!value) return false;
+  const url = new URL(value);
+  return url.protocol === 'https:' && (url.hostname === 'robertsspaceindustries.com'
+    || url.hostname.endsWith('.robertsspaceindustries.com'));
+}
+
+async function readShipImageManifest() {
+  const cache = await caches.open(IMAGE_MANIFEST_CACHE_NAME);
+  const response = await cache.match(IMAGE_MANIFEST_URL);
+  return response ? response.json() : [];
+}
+
+async function fetchShipImageFallback(request) {
+  const entries = await readShipImageManifest();
+  const sourceUrl = entries.find((entry) => entry.url === request.url)?.sourceUrl;
+  if (!isRsiImageUrl(sourceUrl)) return null;
+  // Never put an RSI response under an immutable R2 cache key.
+  return fetch(sourceUrl, { mode: request.mode, credentials: 'omit', cache: 'no-store' });
+}
+
+async function updateShipImageManifest(payload) {
+  if (!Array.isArray(payload?.entries)) throw new Error('Invalid ship image manifest');
+  const entries = payload.entries.filter((entry) => (
+    typeof entry.id === 'string' && typeof entry.url === 'string' && isManifestImageUrl(entry.url)
+  )).map((entry) => ({
+    id: entry.id,
+    url: entry.url,
+    sourceUrl: isRsiImageUrl(entry.sourceUrl) ? entry.sourceUrl : undefined,
+  }));
+  const previous = await readShipImageManifest();
+  const byId = new Map(previous.map((entry) => [entry.id, entry]));
+  const cache = await caches.open(IMAGE_CACHE_NAME);
+  const refreshedUrls = new Map();
+  const manifestCache = await caches.open(IMAGE_MANIFEST_CACHE_NAME);
+  const pending = new Map(byId);
+  for (const entry of entries) {
+    const old = byId.get(entry.id);
+    const cachedUrl = old?.cachedUrl || old?.url;
+    pending.set(entry.id, cachedUrl && cachedUrl !== entry.url ? { ...entry, cachedUrl } : entry);
+  }
+  // Publish fallback destinations before downloads, including across SW restarts.
+  await manifestCache.put(IMAGE_MANIFEST_URL, Response.json([...pending.values()]));
+
+  // Only refresh images the user has actually cached. Unseen images stay lazy.
+  for (const entry of entries) {
+    const old = byId.get(entry.id);
+    const cachedUrl = old?.cachedUrl || old?.url;
+    if (cachedUrl && cachedUrl !== entry.url && await cache.match(cachedUrl)) {
+      let refreshed = refreshedUrls.get(entry.url);
+      if (refreshed === undefined) {
+        refreshed = Boolean(await cache.match(entry.url));
+        if (!refreshed) {
+          try {
+            const request = new Request(entry.url);
+            const url = new URL(entry.url);
+            const response = await fetchOwnedImageResponse(request, url);
+            if (await shouldCacheOwnedImageResponse(url, response)) {
+              await putOwnedImageResponse(cache, request, response, url);
+              refreshed = true;
+            }
+          } catch (error) {
+            console.warn('[ImageCache] Keeping previous image after refresh failure.', error);
+          }
+        }
+        refreshedUrls.set(entry.url, refreshed);
+      }
+      // Retain both the old bytes and version so the next manifest retries.
+      if (!refreshed) {
+        byId.set(entry.id, { ...entry, cachedUrl });
+        continue;
+      }
+    }
+    byId.set(entry.id, entry);
+  }
+
+  // Keep previous entries during a temporary RSI fallback while sync is pending.
+  const next = [...byId.values()];
+  await manifestCache.put(IMAGE_MANIFEST_URL, Response.json(next));
+  const retainedUrls = new Set(next.flatMap((entry) => [entry.url, entry.cachedUrl].filter(Boolean)));
+  for (const entry of previous) {
+    for (const url of [entry.url, entry.cachedUrl].filter(Boolean)) {
+      if (!retainedUrls.has(url)) await cache.delete(url);
+    }
+  }
 }
 
 async function getImageResponseSize(response) {
@@ -1006,6 +1115,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Compatibility for old API snapshots: aliases are never CacheStorage keys.
+  if (isShipImagePath(requestUrl.pathname)
+    && (requestUrl.hostname === 'worker.citizenshub.app'
+      || requestUrl.origin === self.location.origin
+      || isOwnedImageRequest(request, requestUrl))) {
+    event.respondWith(fetch(new Request(request, { cache: 'no-cache' })));
+    return;
+  }
+
   if (isOwnedImageRequest(request, requestUrl)) {
     event.respondWith(handleOwnedImageRequest(event, request, requestUrl));
   }
@@ -1087,6 +1205,15 @@ self.addEventListener('message', (event) => {
   const respond = (payload) => {
     port.postMessage(payload);
   };
+
+  if (message.type === IMAGE_CACHE_MESSAGE_TYPES.manifest) {
+    imageManifestUpdate = imageManifestUpdate
+      .then(() => updateShipImageManifest(message.payload))
+      .catch((error) => console.warn('[ImageCache] Failed to update manifest.', error));
+    event.waitUntil(imageManifestUpdate);
+    respond({ ok: true, result: { accepted: true } });
+    return;
+  }
 
   if (message.type === MODEL_CACHE_MESSAGE_TYPES.list) {
     if (typeof indexedDB === 'undefined') {
