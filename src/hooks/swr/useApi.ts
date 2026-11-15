@@ -2,9 +2,10 @@ import useSWR, { SWRConfiguration } from 'swr';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { fetcher, authFetcher } from './swr-config';
-import { ShipsData, UserInfo } from '@/types';
+import { ShipResponse, ShipsData, UserInfo } from '@/types';
 import { useLocale } from '@/contexts/LocaleContext';
 import { appendShipLocaleToPath } from './shipLocale';
+import { updateShipImageManifest } from '@/utils/modelCache';
 
 // API基础URL
 const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_ENDPOINT;
@@ -23,8 +24,13 @@ function isShipsDataResponse(value: unknown): value is ShipsData {
       && typeof value === 'object'
       && 'data' in value
       && typeof (value as { data?: unknown }).data === 'object'
-      && (value as { data?: { ships?: unknown } }).data?.ships instanceof Array,
+      && Array.isArray((value as { data?: { ships?: unknown } }).data?.ships),
   );
+}
+
+function isShipDataResponse(value: unknown): value is ShipResponse {
+  const ship = (value as { data?: { ship?: { id?: unknown } } } | null)?.data?.ship;
+  return typeof ship?.id === 'number';
 }
 
 function mergeShipLocalizations(baseShipsData: ShipsData, localizedShipsData: ShipsData) {
@@ -61,6 +67,7 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
   const fullUrl = localizedPath ? `${API_BASE_URL}${localizedPath}` : null;
   const requestUrl = localizedPath ? new URL(localizedPath, 'http://localhost') : null;
   const isShipListRequest = requestUrl?.pathname === '/api/ships';
+  const isShipDetailRequest = requestUrl?.pathname === '/api/ship';
   const hasExplicitShipLocale = Boolean(requestUrl?.searchParams.has('locale'));
   const shouldMergeShipLocalizations = locale !== 'en' && shipNameTranslationEnabled && !hasExplicitShipLocale;
   const swrKey = fullUrl
@@ -72,12 +79,17 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
     const [requestUrlString] = url.split('#');
     const data = await fetcher(requestUrlString);
 
+    if (isShipListRequest && isShipsDataResponse(data)) {
+      updateShipImageManifest(data.data.ships);
+    } else if (isShipDetailRequest && isShipDataResponse(data)) {
+      updateShipImageManifest([data.data.ship]);
+    }
+
     if (!shouldMergeShipLocalizations) {
       return data as T;
     }
 
-    const requestUrl = new URL(requestUrlString);
-    if (requestUrl.pathname !== '/api/ships' || !isShipsDataResponse(data)) {
+    if (!isShipListRequest || !isShipsDataResponse(data)) {
       return data as T;
     }
 
@@ -100,7 +112,9 @@ export function useApi<T>(path: string | null, options?: SWRConfiguration) {
   return useSWR<T>(
     swrKey,
     swrFetcher,
-    options
+    isShipListRequest || isShipDetailRequest
+      ? { refreshInterval: 5 * 60 * 1000, revalidateOnFocus: true, ...options }
+      : options
   );
 }
 
