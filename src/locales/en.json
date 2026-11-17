@@ -3836,5 +3836,8 @@
   "shipPhotos.cleanupHint": "Manually remove unreferenced public copies, not pending review images. Attempts from the last 10 minutes are kept; retry later.",
   "shipPhotos.cleanupAction": "Retry cleanup",
   "shipPhotos.cleanupDone": "This batch was checked. Repeat if needed; attempts from the last 10 minutes were not processed.",
-  "shipPhotos.cleanupFailure": "Cleanup did not complete. Select Retry cleanup."
+  "shipPhotos.cleanupFailure": "Cleanup did not complete. Select Retry cleanup.",
+  "shipPhotos.moderationFailed": "Review could not finish",
+  "shipPhotos.moderationReview": "Awaiting manual review",
+  "shipPhotos.retryModeration": "Retry review"
 }

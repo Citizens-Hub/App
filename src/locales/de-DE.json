@@ -3836,5 +3836,8 @@
   "shipPhotos.cleanupHint": "Nur nicht referenzierte öffentliche Kopien manuell entfernen, keine ausstehenden Bilder. Versuche der letzten 10 Minuten bleiben erhalten.",
   "shipPhotos.cleanupAction": "Bereinigung wiederholen",
   "shipPhotos.cleanupDone": "Dieser Stapel wurde geprüft. Bei Bedarf wiederholen; die letzten 10 Minuten wurden nicht verarbeitet.",
-  "shipPhotos.cleanupFailure": "Bereinigung nicht abgeschlossen. Bitte erneut versuchen."
+  "shipPhotos.cleanupFailure": "Bereinigung nicht abgeschlossen. Bitte erneut versuchen.",
+  "shipPhotos.moderationFailed": "Prüfung konnte nicht abgeschlossen werden",
+  "shipPhotos.moderationReview": "Manuelle Prüfung ausstehend",
+  "shipPhotos.retryModeration": "Prüfung wiederholen"
 }

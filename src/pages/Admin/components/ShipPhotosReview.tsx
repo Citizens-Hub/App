@@ -5,6 +5,8 @@ import { useSelector } from 'react-redux';
 import { UserRole } from '@/types';
 import type { RootState } from '@/store';
 import { photoErrorKey, photoRequest, usePhotos, type ShipPhoto } from '@/components/ShipPhotos/api';
+import RetryModeration from '@/components/ShipPhotos/RetryModeration';
+import { moderationLabel } from '@/components/ShipPhotos/moderationState';
 import PhotoImage from '@/components/ShipPhotos/PhotoImage';
 
 function ReviewCard({ photo, token, refresh }: { photo: ShipPhoto; token: string; refresh: () => Promise<unknown> }) {
@@ -13,6 +15,7 @@ function ReviewCard({ photo, token, refresh }: { photo: ShipPhoto; token: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const inFlight = useRef(false);
+  const awaitingModeration = photo.status === 'pending' && ['queued', 'processing'].includes(photo.moderationStatus || '');
   const [lastDecision, setLastDecision] = useState<'approve' | 'reject' | null>(null);
   async function review(decision: 'approve' | 'reject') {
     if (inFlight.current || !Number.isInteger(photo.version)) return;
@@ -27,12 +30,13 @@ function ReviewCard({ photo, token, refresh }: { photo: ShipPhoto; token: string
   }
   return <Card variant="outlined"><CardContent><Stack spacing={1.5}>
     <Typography variant="subtitle1">{photo.uploaderName} · #{photo.shipId}</Typography>
-    <Typography variant="caption">{new Date(photo.createdAt).toLocaleString(intl.locale)} · {t(photo.status || 'approved')}</Typography>
+    <Typography variant="caption">{new Date(photo.createdAt).toLocaleString(intl.locale)} · {t(moderationLabel(photo))}</Typography>
     <PhotoImage id={photo.id} token={token} caption={photo.caption || t('title')} />
     <Typography sx={{ overflowWrap: 'anywhere' }}>{photo.caption}</Typography>
+    <RetryModeration photo={photo} token={token} onRetried={() => { void refresh(); }} />
     {photo.reason && <Alert severity="info">{photo.reason}</Alert>}
     {error && <Alert severity="error" action={lastDecision && <Button color="inherit" disabled={busy} onClick={() => review(lastDecision)}>{t('retryAction')}</Button>}>{error}</Alert>}
-    <Stack direction="row" spacing={1}><Button disabled={busy || photo.status === 'approved'} onClick={() => review('approve')} variant="contained" color="success">{t('approve')}</Button><Button disabled={busy || photo.status === 'rejected'} onClick={() => review('reject')} variant="outlined" color="error">{t('reject')}</Button></Stack>
+    <Stack direction="row" spacing={1}><Button disabled={busy || awaitingModeration || photo.status === 'approved'} onClick={() => review('approve')} variant="contained" color="success">{t('approve')}</Button><Button disabled={busy || awaitingModeration || photo.status === 'rejected'} onClick={() => review('reject')} variant="outlined" color="error">{t('reject')}</Button></Stack>
   </Stack></CardContent></Card>;
 }
 export default function ShipPhotosReview() {
@@ -54,7 +58,7 @@ export default function ShipPhotosReview() {
     } catch (e) { const key = photoErrorKey(e); setCleanupError(t(['error401', 'error403'].includes(key) ? key : 'cleanupFailure')); }
     finally { cleanupInFlight.current = false; setCleanupBusy(false); }
   }
-  const { data, error, isLoading, mutate } = usePhotos(user.token && user.role === UserRole.Admin ? `/api/admin/ship-photos?status=${status}&page=${page}&pageSize=24` : null, user.token);
+  const { data, error, isLoading, mutate } = usePhotos(user.token && user.role === UserRole.Admin ? `/api/admin/ship-photos?status=${status}&page=${page}&pageSize=24` : null, user.token, true);
   if (user.role !== UserRole.Admin) return <Alert severity="error">{t('error403')}</Alert>;
   return <Stack spacing={2}>
     <Typography variant="h5">{t('reviewTitle')}</Typography>
