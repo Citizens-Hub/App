@@ -3836,5 +3836,8 @@
   "shipPhotos.cleanupHint": "承認済み写真から参照されていない公開コピーのみ手動で削除します。審査待ち画像と直近10分の処理は保持されます。",
   "shipPhotos.cleanupAction": "整理を再試行",
   "shipPhotos.cleanupDone": "このバッチを確認しました。必要に応じて再試行してください。直近10分の処理は対象外です。",
-  "shipPhotos.cleanupFailure": "整理が完了しませんでした。「整理を再試行」を選んでください。"
+  "shipPhotos.cleanupFailure": "整理が完了しませんでした。「整理を再試行」を選んでください。",
+  "shipPhotos.moderationFailed": "審査を完了できませんでした",
+  "shipPhotos.moderationReview": "手動審査待ち",
+  "shipPhotos.retryModeration": "審査を再試行"
 }

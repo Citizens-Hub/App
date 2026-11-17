@@ -50,15 +50,62 @@ export async function validateSource(file: File) {
   if (!dimensions.width || !dimensions.height || dimensions.width * dimensions.height > 40_000_000 || Math.max(dimensions.width, dimensions.height) > 16384) throw new Error('imageDimensions');
   return dimensions;
 }
+/** Safari may decode WebP but cannot encode it with canvas. Use a worker only
+ * when native WebP encoding is unavailable, keeping the codec off the main bundle. */
+async function encodeWebP(canvas: HTMLCanvasElement): Promise<Blob> {
+  const native = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.86));
+  if (native?.type === 'image/webp') {
+    if (native.size <= 8 * 1024 * 1024) return native;
+    for (const quality of [0.76, 0.64]) {
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+      if (blob?.type === 'image/webp' && blob.size <= 8 * 1024 * 1024) return blob;
+    }
+    throw new Error('imageEncoding');
+  }
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('imageEncoding');
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  const worker = new Worker(new URL('./webpEncoder.worker.ts', import.meta.url), { type: 'module' });
+  try {
+    return await new Promise<Blob>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('imageEncoding')), 60_000);
+      worker.onmessage = ({ data }: MessageEvent<{ buffer?: ArrayBuffer; error?: string }>) => {
+        clearTimeout(timer);
+        if (data.buffer) resolve(new Blob([data.buffer], { type: 'image/webp' }));
+        else reject(new Error('imageEncoding'));
+      };
+      worker.onerror = () => { clearTimeout(timer); reject(new Error('imageEncoding')); };
+      worker.postMessage({ pixels }, [pixels.data.buffer]);
+    });
+  } finally { worker.terminate(); }
+}
+
+async function decodePhoto(file: File): Promise<{ source: CanvasImageSource; width: number; height: number; close: () => void }> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    } catch { /* Older WebKit has incomplete bitmap decoding; Image is the fallback. */ }
+  }
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve(); image.onerror = () => reject(new Error('imageEncoding')); image.src = url;
+    });
+    return { source: image, width: image.naturalWidth, height: image.naturalHeight, close: () => { image.src = ''; URL.revokeObjectURL(url); } };
+  } catch (error) { URL.revokeObjectURL(url); throw error; }
+}
+
 export async function exportPhoto(file: File, edit: PhotoEdit): Promise<File> {
   await validateSource(file);
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const bitmap = await decodePhoto(file);
+  const canvas = document.createElement('canvas');
   try {
-    if (bitmap.width * bitmap.height > 40_000_000) throw new Error('imageDimensions');
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 40_000_000) throw new Error('imageDimensions');
     const rect = cropPixels(bitmap.width, bitmap.height, edit);
     // Render the cropped viewport directly. Avoid allocating a full-resolution rotated canvas.
     const scale = Math.min(1, 2560 / Math.max(rect.width, rect.height));
-    const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(rect.width * scale));
     canvas.height = Math.max(1, Math.round(rect.height * scale));
     const context = canvas.getContext('2d');
@@ -67,13 +114,9 @@ export async function exportPhoto(file: File, edit: PhotoEdit): Promise<File> {
     context.translate(-rect.x, -rect.y);
     context.translate(rect.rotatedWidth / 2, rect.rotatedHeight / 2);
     context.rotate(edit.rotation * Math.PI / 180);
-    context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
-    let blob: Blob | null = null;
-    for (const quality of [0.86, 0.76, 0.64]) {
-      blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
-      if (blob && blob.type === 'image/webp' && blob.size <= 8 * 1024 * 1024) break;
-    }
-    if (!blob || blob.type !== 'image/webp' || blob.size > 8 * 1024 * 1024) throw new Error('imageEncoding');
+    context.drawImage(bitmap.source, -bitmap.width / 2, -bitmap.height / 2);
+    const blob = await encodeWebP(canvas);
+    if (!blob.size || blob.size > 8 * 1024 * 1024) throw new Error('imageEncoding');
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'screenshot'}.webp`, { type: 'image/webp' });
-  } finally { bitmap.close(); }
+  } finally { bitmap.close(); canvas.width = 0; canvas.height = 0; }
 }

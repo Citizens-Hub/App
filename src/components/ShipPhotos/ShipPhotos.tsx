@@ -10,6 +10,8 @@ import { usePhotoFeed, usePhotos } from './api';
 import PhotoImage from './PhotoImage';
 import PhotoRating from './PhotoRating';
 import SharePhotos from './SharePhotos';
+import RetryModeration from './RetryModeration';
+import { moderationLabel } from './moderationState';
 import addIcon from '@/assets/ship-photos/add.svg';
 
 export default function ShipPhotos({ shipId, shipName }: { shipId: number; shipName?: string }) {
@@ -21,7 +23,7 @@ export default function ShipPhotos({ shipId, shipName }: { shipId: number; shipN
   const [activeGroup, setActiveGroup] = useState<{ id: string; own: boolean } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const publicPhotos = usePhotoFeed(endpoint, token);
-  const mine = usePhotoFeed(token ? `${endpoint}/mine` : null, token);
+  const mine = usePhotoFeed(token ? `${endpoint}/mine` : null, token, true);
   const own = token ? mine.data?.flatMap(batch => batch.photos) ?? [] : [];
   const ownIds = new Set([...own.map(photo => photo.id), ...(publicPhotos.data?.flatMap(batch => batch.photos).filter(photo => photo.isOwn).map(photo => photo.id) ?? [])]);
   const photos = useMemo(() => mergePhotoPages(publicPhotos.data, token ? mine.data : []), [publicPhotos.data, mine.data, token]);
@@ -87,7 +89,7 @@ export default function ShipPhotos({ shipId, shipName }: { shipId: number; shipN
     if (direction > 0 && edges.right) void loadMore();
   }
   const selected = photos.find(photo => photo.id === selectedId);
-  const group = usePhotos(activeGroup ? `/api/ships/${shipId}/photo-reviews/${encodeURIComponent(activeGroup.id)}` : null, activeGroup?.own ? token : undefined);
+  const group = usePhotos(activeGroup ? `/api/ships/${shipId}/photo-reviews/${encodeURIComponent(activeGroup.id)}` : null, activeGroup?.own ? token : undefined, Boolean(activeGroup?.own));
   const related = group.data?.photos ?? photos.filter(photo => selected && (selected.groupId ? photo.groupId === selected.groupId : photo.id === selected.id));
   const selectedPhoto = related.find(photo => photo.id === selectedId) ?? selected;
   const selectedIndex = related.findIndex(photo => photo.id === selectedId);
@@ -103,7 +105,7 @@ export default function ShipPhotos({ shipId, shipName }: { shipId: number; shipN
     return () => cancelAnimationFrame(frame);
   }, [selectedId, detailPhotoId]);
   const t = (key: string) => { const id = `shipPhotos.${key}`; return intl.formatMessage({ id }); };
-  const refresh = () => { void publicPhotos.mutate(); if (token) void mine.mutate(); };
+  const refresh = () => { void publicPhotos.mutate(); if (token) void mine.mutate(); void group.mutate(); };
   const date = (value: string) => new Date(value).toLocaleDateString(intl.locale, { month: 'short', day: 'numeric' });
   return <section className="flex flex-col gap-3" aria-label={t('title')}>
     <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -121,8 +123,9 @@ export default function ShipPhotos({ shipId, shipName }: { shipId: number; shipN
       {photos.map(photo => <Stack data-card data-photo-id={photo.id} key={photo.id} spacing={1} sx={{ minWidth: 0 }}>
         <ButtonBase aria-label={photo.caption || t('details')} aria-expanded={selectedId === photo.id} onClick={() => { setSelectedId(selectedId === photo.id ? null : photo.id); setActiveGroup(photo.groupId ? { id: photo.groupId, own: ownIds.has(photo.id) } : null); }} sx={{ display: 'block', width: '100%', position: 'relative', borderRadius: '4px', outline: selectedId === photo.id ? '2px solid' : undefined, outlineColor: 'primary.main', overflow: 'hidden' }}>
           <PhotoImage id={photo.id} token={ownIds.has(photo.id) ? token : undefined} caption={photo.caption || t('title')} mode="tile" />
-          {ownIds.has(photo.id) && <Box sx={{ position: 'absolute', top: 8, left: 8, bgcolor: 'background.paper', color: 'text.primary', borderRadius: '4px', px: '6px', py: '4px', fontSize: 11 }}>{t('yours')}{photo.status && photo.status !== 'approved' && ` · ${t(photo.status)}`}</Box>}
+          {ownIds.has(photo.id) && <Box sx={{ position: 'absolute', top: 8, left: 8, bgcolor: 'background.paper', color: 'text.primary', borderRadius: '4px', px: '6px', py: '4px', fontSize: 11 }}>{t('yours')}{photo.status && photo.status !== 'approved' && ` · ${t(moderationLabel(photo))}`}</Box>}
         </ButtonBase>
+        {ownIds.has(photo.id) && <RetryModeration photo={photo} token={token} onRetried={refresh} />}
         <PhotoRating value={photo.rating} />
         {photo.caption && <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{photo.caption}</Typography>}
         <Typography variant="caption" color="text.secondary">{ownIds.has(photo.id) && photo.status === 'pending' ? t('onlyYou') : `${photo.uploaderName} · ${date(photo.createdAt)}`}</Typography>

@@ -3836,5 +3836,8 @@
   "shipPhotos.cleanupHint": "僅手動清理未被已通過照片引用的公開副本，不刪除待審核圖片。最近 10 分鐘的操作會保留，請稍後再次點擊。",
   "shipPhotos.cleanupAction": "重試清理",
   "shipPhotos.cleanupDone": "本批檢查完成。如仍有異常，可再次清理；最近 10 分鐘的記錄尚未處理。",
-  "shipPhotos.cleanupFailure": "清理未完成，請點擊「重試清理」。"
+  "shipPhotos.cleanupFailure": "清理未完成，請點擊「重試清理」。",
+  "shipPhotos.moderationFailed": "審核暫未完成",
+  "shipPhotos.moderationReview": "待人工覆核",
+  "shipPhotos.retryModeration": "重試審核"
 }
