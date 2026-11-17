@@ -10,6 +10,7 @@ import ShipItemIdMappingsManager from './components/ShipItemIdMappingsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
 import ShipPhotosReview from './components/ShipPhotosReview';
+import ModerationTests from './components/ModerationTests';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
 import CopyrightWatermarkTool from './components/CopyrightWatermarkTool';
 import ConciergePaintsManager, { SubscriberStoreManager } from './components/ConciergePaintsManager';
@@ -42,6 +43,7 @@ enum Page {
   ShipSogModels = 'shipSogModels',
   ShipImages = 'shipImages',
   ShipPhotos = 'shipPhotos',
+  ModerationTests = 'moderationTests',
   ShipItemIds = 'shipItemIds',
   WatermarkDebug = 'watermarkDebug',
   CopyrightWatermark = 'copyrightWatermark',
@@ -81,6 +83,14 @@ export default function Admin() {
     tools: <FormattedMessage id="admin.group.tools" defaultMessage="管理工具" />,
   } as const;
   const layoutItems: ResponsiveSectionLayoutItem[] = [
+    {
+      id: Page.ModerationTests,
+      title: <FormattedMessage id="moderationTests.title" />,
+      description: <FormattedMessage id="moderationTests.description" />,
+      groupId: 'content', groupLabel: groups.content,
+      active: currentPage === Page.ModerationTests,
+      onSelect: () => setCurrentPage(Page.ModerationTests),
+    },
     {
       id: Page.ShipPhotos,
       title: <FormattedMessage id="shipPhotos.reviewTitle" />,
@@ -393,6 +403,7 @@ export default function Admin() {
         {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
         {currentPage === Page.ShipImages && <ShipImagesManager />}
         {currentPage === Page.ShipPhotos && <ShipPhotosReview />}
+        {currentPage === Page.ModerationTests && <ModerationTests />}
         {currentPage === Page.ShipItemIds && <ShipItemIdMappingsManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.CopyrightWatermark && <CopyrightWatermarkTool />}
