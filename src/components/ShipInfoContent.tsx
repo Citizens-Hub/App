@@ -43,6 +43,8 @@ import { useApi } from '@/hooks';
 import { Ship, ShipDetailComponent, ShipGameShopAvailabilityResponse, ShipResponse } from '@/types';
 import { getShipDetailImageUrl, getShipSlideshowImage, getShipThumbLarge, getShipThumbSmall } from '@/utils/shipImage';
 import ShipModelPreview from './ShipModelPreview';
+import ShipPhotos from './ShipPhotos/ShipPhotos';
+import ShipPriceHistorySummary from './ShipPriceHistorySummary';
 
 interface ShipInfoContentProps {
   open: boolean;
@@ -754,6 +756,8 @@ export default function ShipInfoContent({ open, ship, extraSections }: ShipInfoC
               ))}
             </div>
 
+            {open && ship && <ShipPhotos key={ship.id} shipId={ship.id} shipName={detailedShip.name} />}
+
             <section className="flex flex-col gap-2">
               <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                 <FormattedMessage id="ccuPlanner.shipInfo.description" defaultMessage="Description" />
@@ -780,6 +784,8 @@ export default function ShipInfoContent({ open, ship, extraSections }: ShipInfoC
                 )}
               </div>
             </section>
+
+            {open && ship && <ShipPriceHistorySummary shipId={ship.id} shipName={detailedShip.name} />}
 
             {!!shipGameShops?.summary.shopCount && (
               <section className="flex flex-col gap-3">

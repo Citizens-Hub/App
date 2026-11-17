@@ -9,6 +9,7 @@ import GameShopsManager from './components/GameShopsManager';
 import ShipItemIdMappingsManager from './components/ShipItemIdMappingsManager';
 import WithdrawalRequestsManager from './components/WithdrawalRequestsManager';
 import ShipImagesManager from './components/ShipImagesManager';
+import ShipPhotosReview from './components/ShipPhotosReview';
 import WatermarkDebugTool from './components/WatermarkDebugTool';
 import CopyrightWatermarkTool from './components/CopyrightWatermarkTool';
 import ConciergePaintsManager, { SubscriberStoreManager } from './components/ConciergePaintsManager';
@@ -40,6 +41,7 @@ enum Page {
   ManufacturerTranslations = 'manufacturerTranslations',
   ShipSogModels = 'shipSogModels',
   ShipImages = 'shipImages',
+  ShipPhotos = 'shipPhotos',
   ShipItemIds = 'shipItemIds',
   WatermarkDebug = 'watermarkDebug',
   CopyrightWatermark = 'copyrightWatermark',
@@ -79,6 +81,14 @@ export default function Admin() {
     tools: <FormattedMessage id="admin.group.tools" defaultMessage="管理工具" />,
   } as const;
   const layoutItems: ResponsiveSectionLayoutItem[] = [
+    {
+      id: Page.ShipPhotos,
+      title: <FormattedMessage id="shipPhotos.reviewTitle" />,
+      description: <FormattedMessage id="shipPhotos.reviewDescription" />,
+      groupId: 'content', groupLabel: groups.content,
+      active: currentPage === Page.ShipPhotos,
+      onSelect: () => setCurrentPage(Page.ShipPhotos),
+    },
     {
       id: Page.Errors,
       title: <FormattedMessage id="admin.errors" defaultMessage="Catched Errors" />,
@@ -382,6 +392,7 @@ export default function Admin() {
         {currentPage === Page.ManufacturerTranslations && <ManufacturerTranslationsManager />}
         {currentPage === Page.ShipSogModels && <ShipSogModelsManager />}
         {currentPage === Page.ShipImages && <ShipImagesManager />}
+        {currentPage === Page.ShipPhotos && <ShipPhotosReview />}
         {currentPage === Page.ShipItemIds && <ShipItemIdMappingsManager />}
         {currentPage === Page.WatermarkDebug && <WatermarkDebugTool />}
         {currentPage === Page.CopyrightWatermark && <CopyrightWatermarkTool />}

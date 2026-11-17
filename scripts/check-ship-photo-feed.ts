@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { mergePhotoPages, hasNextPhotoPage } from '../src/components/ShipPhotos/photoFeed';
+import type { ShipPhoto } from '../src/components/ShipPhotos/api';
+const photo = (id: string, status?: ShipPhoto['status']): ShipPhoto => ({ id, shipId: 1, caption: '', createdAt: '2026-01-01', uploaderName: '', status });
+const publicPages = [{ photos: [photo('a'), photo('b'), photo('private', 'pending')], total: 4 }, { photos: [photo('b'), photo('c')], total: 4 }];
+const mine = [{ photos: [photo('a', 'approved'), photo('d', 'pending')], total: 2 }];
+const merged = mergePhotoPages(publicPages, mine);
+assert.deepEqual(merged.map(item => item.id), ['a', 'b', 'c', 'd']);
+assert.equal(merged[0].status, 'approved');
+assert.deepEqual(mergePhotoPages(publicPages).map(item => item.id), ['a', 'b', 'c']);
+assert.equal(hasNextPhotoPage(), false);
+assert.equal(hasNextPhotoPage([{ photos: [photo('a')], total: 2 }]), true);
+assert.equal(hasNextPhotoPage([{ photos: [photo('a')], total: 1 }]), false);
+assert.equal(hasNextPhotoPage([{ photos: [], total: 9 }]), false);
+assert.equal(hasNextPhotoPage([{ photos: [photo('a')], total: 2 }, { photos: [photo('b')], total: 2 }]), false);
+console.log('Photo feed deduplication, owner precedence, public filtering and end-of-feed checks passed.');
