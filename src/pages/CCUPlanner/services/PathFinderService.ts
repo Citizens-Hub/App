@@ -6,6 +6,7 @@ import {
   parseStoredCompletedPaths,
   setActiveCompletedPathsStorageKey
 } from './completedPathsStorage';
+import type { FlowData } from './ImportExportService';
 
 interface PathNode {
   nodeId: string;
@@ -40,6 +41,23 @@ export interface CompletedPath {
   pathId: string;  // 唯一标识符
   ship: Partial<Ship>;      // 完成到的船只
   path: CompletePath; // 完整路径信息
+}
+
+export interface CompletedPathsRemoval {
+  storageKey: string;
+  removedPaths: CompletedPath[];
+  remainingPathIds: Set<string>;
+}
+
+type CanvasConnections = Pick<FlowData, 'nodes' | 'edges'>;
+
+function getConnectionSourceType(edge: Edge<CcuEdgeData>): CcuSourceType {
+  return edge.data?.sourceType || CcuSourceType.OFFICIAL;
+}
+
+function getConnectionVariantKey(edge: Edge<CcuEdgeData>): string {
+  // Stored completions recreate edge IDs on reload, so match the actual endpoints and saved CCU variant.
+  return JSON.stringify([edge.source, edge.target, getConnectionSourceType(edge), edge.data?.price || 0]);
 }
 
 // 新增：添加边的识别信息接口
@@ -189,11 +207,11 @@ export class PathFinderService {
 
     this.nodeBestCost[startNode.id] = totalCost;
 
-    // If the ship ID of the reached node is the same as the ship ID of the target node, add the current path to all paths
-    if (startNode.id.getNodeShipId() === endNodeId.getNodeShipId()) {
+    // Canvas instances, not ship models, define graph connectivity.
+    if (startNode.id === endNodeId) {
       allPaths.push([...currentPath]);
     } else {
-      const outgoingEdges = edges.filter(edge => edge.source.getNodeShipId() === startNode.id.getNodeShipId());
+      const outgoingEdges = edges.filter(edge => edge.source === startNode.id);
 
       for (const edge of outgoingEdges) {
         const targetNode = nodes.find(node => node.id === edge.target);
@@ -283,7 +301,7 @@ export class PathFinderService {
       }
 
       for (let i = 0; i < pathId.length - 1; i++) {
-        const edge = edges.find(e => e.source.getNodeShipId() === pathId[i].getNodeShipId() && e.target === pathId[i + 1]);
+        const edge = edges.find(e => e.source === pathId[i] && e.target === pathId[i + 1]);
 
         if (edge) {
           const sourceNode = nodes.find(n => n.id === pathId[i])!;
@@ -355,6 +373,72 @@ export class PathFinderService {
     this.saveCompletedPathsToStorage();
   }
 
+  removeCompletedPathsContainingNodes(nodeIds: ReadonlySet<string>, activeStorageKey: string): CompletedPathsRemoval | null {
+    if (!nodeIds.size) return null;
+    return this.removeCompletedPathsMatching(activeStorageKey, path => path.path.some(node => nodeIds.has(node.nodeId)));
+  }
+
+  reconcileCompletedPathsAfterGraphUndo(before: CanvasConnections, after: CanvasConnections, activeStorageKey: string): void {
+    if (activeStorageKey !== this.completedPathsStorageKey || !this.completedPaths.length) return;
+
+    const remainingNodeIds = new Set(after.nodes.map(node => node.id));
+    const removedNodeIds = new Set(before.nodes.filter(node => !remainingNodeIds.has(node.id)).map(node => node.id));
+    const remainingEdgesById = new Map(after.edges.map(edge => [edge.id, edge]));
+    const remainingConnectionVariants = new Set(after.edges.map(getConnectionVariantKey));
+    const removedConnectionVariants = new Set<string>();
+
+    for (const edge of before.edges) {
+      const restored = remainingEdgesById.get(edge.id);
+      // A price-only edit keeps the CCU source; switching source changes which inventory the route uses.
+      if (restored && restored.source === edge.source && restored.target === edge.target &&
+          getConnectionSourceType(restored) === getConnectionSourceType(edge)) continue;
+      const variant = getConnectionVariantKey(edge);
+      if (!remainingConnectionVariants.has(variant)) removedConnectionVariants.add(variant);
+    }
+
+    if (!removedNodeIds.size && !removedConnectionVariants.size) return;
+    const previousNodeIds = new Set(before.nodes.map(node => node.id));
+    const previousConnectionVariants = new Set(before.edges.map(getConnectionVariantKey));
+    this.removeCompletedPathsMatching(activeStorageKey, path => {
+      const losesSupport = path.path.some(node => removedNodeIds.has(node.nodeId)) ||
+        path.edges.some(({ edge }) => removedConnectionVariants.has(getConnectionVariantKey(edge)));
+      // Existing orphan records are not newly disconnected by this Undo.
+      return losesSupport && path.path.every(node => previousNodeIds.has(node.nodeId)) &&
+        path.edges.every(({ edge }) => previousConnectionVariants.has(getConnectionVariantKey(edge)));
+    });
+  }
+
+  private removeCompletedPathsMatching(activeStorageKey: string, shouldRemove: (path: CompletePath) => boolean): CompletedPathsRemoval | null {
+    if (activeStorageKey !== this.completedPathsStorageKey) return null;
+
+    const removedPaths: CompletedPath[] = [];
+    const remainingPaths = this.completedPaths.filter(completedPath => {
+      if (!shouldRemove(completedPath.path)) return true;
+      removedPaths.push(completedPath);
+      return false;
+    });
+    if (!removedPaths.length) return null;
+
+    this.completedPaths = remainingPaths;
+    this.saveCompletedPathsToStorage();
+    return {
+      storageKey: activeStorageKey,
+      removedPaths,
+      remainingPathIds: new Set(remainingPaths.map(path => path.pathId)),
+    };
+  }
+
+  restoreCompletedPathsAfterUndo(removal: CompletedPathsRemoval): boolean {
+    // Do not reallocate CCUs if another completion change has taken place since deletion.
+    if (removal.storageKey !== this.completedPathsStorageKey ||
+        removal.remainingPathIds.size !== this.completedPaths.length ||
+        !this.completedPaths.every(path => removal.remainingPathIds.has(path.pathId))) return false;
+
+    this.completedPaths = [...this.completedPaths, ...removal.removedPaths];
+    this.saveCompletedPathsToStorage();
+    return true;
+  }
+
   /**
    * 判断指定的边是否属于已完成路径
    * @param sourceShipId 源船只ID
@@ -397,7 +481,9 @@ export class PathFinderService {
           const edgePrice = edge.data?.price || 0;
           
           // 边的所有属性都匹配
-          return pathEdgeSourceId === sourceShipId && 
+          return pathEdge.edge.source === edge.source &&
+               pathEdge.edge.target === edge.target &&
+               pathEdgeSourceId === sourceShipId &&
                  pathEdgeTargetId === targetShipId &&
                  pathEdgeSourceType === edgeSourceType &&
                  pathEdgePrice === edgePrice;
@@ -421,7 +507,8 @@ export class PathFinderService {
     for (const completedPath of this.completedPaths) {
       // 检查起点和终点是否匹配
       if (completedPath.path.startNodeId === path.startNodeId && 
-          completedPath.ship.id === path.path[path.path.length - 1].ship.id) {
+          completedPath.path.path.length === path.path.length &&
+          completedPath.path.path.every((node, index) => node.nodeId === path.path[index].nodeId)) {
         
         // 检查路径中的所有边是否匹配
         const allEdgesMatch = path.edges.every(edge => {
@@ -440,7 +527,9 @@ export class PathFinderService {
             const completedEdgeSourceType = completedEdge.edge.data.sourceType || CcuSourceType.OFFICIAL;
             const completedEdgePrice = completedEdge.edge.data.price || 0;
             
-            return edgeSourceId === completedEdgeSourceId &&
+            return edge.edge.source === completedEdge.edge.source &&
+                   edge.edge.target === completedEdge.edge.target &&
+                   edgeSourceId === completedEdgeSourceId &&
                    edgeTargetId === completedEdgeTargetId &&
                    edgeSourceType === completedEdgeSourceType &&
                    edgePrice === completedEdgePrice;
@@ -465,6 +554,13 @@ export class PathFinderService {
     return [...this.completedPaths];
   }
 
+  getCompletedPathsMissingCanvasNodes(nodes: readonly Pick<Node, 'id'>[]): CompletedPath[] {
+    const canvasNodeIds = new Set(nodes.map(node => node.id));
+    return this.completedPaths.filter(({ path }) =>
+      !path.path.length || path.path.some(node => !canvasNodeIds.has(node.nodeId))
+    );
+  }
+
   /**
    * 新增：清理所有已完成的路径
    */
@@ -487,11 +583,11 @@ export class PathFinderService {
     
     for (const completedPath of this.completedPaths) {
       // 如果有任何一个已完成路径是当前路径的前缀，则认为是扩展
-      const completedPathEndShipId = completedPath.ship.id;
+      const completedPathEndNodeId = completedPath.path.path[completedPath.path.path.length - 1]?.nodeId;
       
       // 检查已完成路径的终点是否在当前路径的中间节点
       for (let i = 0; i < path.path.length - 1; i++) {
-        if (path.path[i].ship.id === completedPathEndShipId) {
+        if (path.path[i].nodeId === completedPathEndNodeId) {
           return true;
         }
       }
@@ -674,7 +770,9 @@ export class PathFinderService {
         const pathEdgePrice = pathEdge.edge.data.price || 0;
         
         // 比较所有属性
-        return pathEdgeSourceId === sourceShipId && 
+        return pathEdge.edge.source === edge.source &&
+               pathEdge.edge.target === edge.target &&
+               pathEdgeSourceId === sourceShipId &&
                pathEdgeTargetId === targetShipId &&
                pathEdgeSourceType === edgeSourceType &&
                pathEdgePrice === edgePrice;

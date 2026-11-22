@@ -1,7 +1,6 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
 import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
-import { loadHangarState } from "@/store/hangarStorage";
 import { areShipNamesEqual } from "@/utils/shipDisplay";
 import {
   getConcretePricingOptionsForType,
@@ -250,63 +249,35 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
   }
   
-  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp?: boolean } {
-    const hangarItems = options?.hangarItems || [];
-    
-    const hangarCcu = hangarItems.find(item => {
-      if (item.type.toLowerCase() !== 'ccu') return false;
+  private getInventory(sourceShip: Ship, targetShip: Ship, hangarItems: HangarItem[]) {
+    const matchingItems = hangarItems.filter(item =>
+      item.type.toLowerCase() === 'ccu' &&
+      areShipNamesEqual(item.fromShip, sourceShip.name) &&
+      areShipNamesEqual(item.toShip, targetShip.name)
+    );
+    const totalQuantity = matchingItems.reduce((total, item) => total + (item.quantity || 1), 0);
+    const price = matchingItems[0]?.price || 0;
+    if (!totalQuantity) return { price, remainingQuantity: 0 };
 
-      return areShipNamesEqual(item.fromShip, sourceShip.name)
-        && areShipNamesEqual(item.toShip, targetShip.name);
-    });
-    
-    // 如果找到了机库中的CCU，检查它是否已经用完
-    if (hangarCcu) {
-      try {
-        // 计算此CCU已经使用的数量
-        const completedPaths = readStoredCompletedPathsForActiveTab();
-        
-        let usedCount = 0;
-        completedPaths.forEach(path => {
-          path.path.edges?.forEach(edge => {
-            if (edge.sourceType === CcuSourceType.HANGER &&
-                edge.sourceShipId === sourceShip.id &&
-                edge.targetShipId === targetShip.id) {
-              usedCount++;
-            }
-          });
-        });
-        
-        // 从localStorage中获取CCU总数量
-        const state = JSON.parse(loadHangarState() || '{}');
-        const ccus = state.items?.ccus || [];
-        const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string } }) => {
-          const parsed = ccu.parsed || {};
-          return areShipNamesEqual(parsed.from, sourceShip.name)
-            && areShipNamesEqual(parsed.to, targetShip.name);
-        });
-        
-        // 如果已使用数量大于等于总数量，则标记CCU已用完，但仍返回正常价格
-        const totalQuantity = matchingCcu?.quantity || 1;
-        if (usedCount >= totalQuantity) {
-          return {
-            price: hangarCcu?.price || 0,
-            currency: 'USD',
-            isUsedUp: true
-          };
-        }
-      } catch (error) {
-        console.error('Error checking CCU usage in HangarStrategy:', error);
-      }
+    try {
+      const usedQuantity = readStoredCompletedPathsForActiveTab().reduce((total, route) =>
+        total + (route.path.edges ?? []).filter(edge =>
+          edge.sourceType === CcuSourceType.HANGER &&
+          edge.sourceShipId === sourceShip.id &&
+          edge.targetShipId === targetShip.id
+        ).length, 0);
+      return { price, remainingQuantity: totalQuantity - usedQuantity };
+    } catch (error) {
+      console.error('Error checking CCU usage in HangarStrategy:', error);
+      return { price, remainingQuantity: totalQuantity };
     }
-    
-    return {
-      price: hangarCcu?.price || 0,
-      currency: 'USD',
-      isUsedUp: false
-    };
   }
-  
+
+  calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp: boolean } {
+    const { price, remainingQuantity } = this.getInventory(sourceShip, targetShip, options?.hangarItems ?? []);
+    return { price, currency: 'USD', isUsedUp: remainingQuantity <= 0 };
+  }
+
   getEdgeStyle(): { edgeColor: string; bgColor: string; } {
     return {
       edgeColor: 'stroke-cyan-300',
@@ -315,65 +286,15 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
   }
   
   isApplicable(
-    sourceShip: Ship, 
-    targetShip: Ship, 
-    _ccus: Ccu[], 
-    _wbHistory: WbHistoryData[], 
-    hangarItems: Array<{
-      id: number;
-      name: string;
-      type: string;
-      fromShip?: string;
-      toShip?: string;
-      price?: number;
-    }>
+    sourceShip: Ship,
+    targetShip: Ship,
+    _ccus: Ccu[],
+    _wbHistory: WbHistoryData[],
+    hangarItems: HangarItem[]
   ): boolean {
-    // 先检查是否有匹配的CCU
-    const hasMatchingCcu = hangarItems.some(item => {
-      if (item.type.toLowerCase() !== 'ccu') return false;
-
-      return areShipNamesEqual(item.fromShip, sourceShip.name)
-        && areShipNamesEqual(item.toShip, targetShip.name);
-    });
-
-    // 如果没有匹配的CCU，直接返回false
-    if (!hasMatchingCcu) return false;
-
-    // 如果有匹配的CCU，检查是否已经用完
-    try {
-      // 计算此CCU已经使用的数量
-      const completedPaths = readStoredCompletedPathsForActiveTab();
-      
-      let usedCount = 0;
-      completedPaths.forEach(path => {
-        path.path.edges?.forEach(edge => {
-          if (edge.sourceType === CcuSourceType.HANGER &&
-              edge.sourceShipId === sourceShip.id &&
-              edge.targetShipId === targetShip.id) {
-            usedCount++;
-          }
-        });
-      });
-      
-      // 从localStorage中获取CCU总数量
-      const state = JSON.parse(loadHangarState() || '{}');
-      const ccus = state.items?.ccus || [];
-      const matchingCcu = ccus.find((ccu: { parsed?: { from?: string; to?: string }; quantity?: number }) => {
-        const parsed = ccu.parsed || {};
-        return areShipNamesEqual(parsed.from, sourceShip.name)
-          && areShipNamesEqual(parsed.to, targetShip.name);
-      });
-      
-      // 如果已使用数量大于等于总数量，则表示此CCU已用完，返回false
-      const totalQuantity = matchingCcu?.quantity || 1;
-      return usedCount < totalQuantity;
-    } catch (error) {
-      console.error('Error checking CCU usage in HangarStrategy.isApplicable:', error);
-      // 如果出错，保守地假设CCU可用
-      return true;
-    }
+    return this.getInventory(sourceShip, targetShip, hangarItems).remainingQuantity > 0;
   }
-  
+
   getPriority(): number {
     return 50; // Highest priority, user's own CCUs are used first
   }

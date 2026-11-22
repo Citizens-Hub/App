@@ -743,6 +743,7 @@ export interface HangarItem {
   fromShip?: string;
   toShip?: string;
   price?: number;
+  quantity?: number;
 }
 
 export interface ImportItem {

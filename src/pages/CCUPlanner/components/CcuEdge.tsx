@@ -18,6 +18,8 @@ interface CcuEdgeProps extends EdgeProps {
 
 function CcuEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -46,16 +48,16 @@ function CcuEdge({
   const isCompleted = useMemo(() => {
     if (!data?.sourceShip || !data?.targetShip) return false;
 
-    // Build a complete Edge<CcuEdgeData> object
+    // Use the physical canvas endpoints to distinguish otherwise identical routes.
     const edge: Edge<CcuEdgeData> = {
       id,
-      source: '',  // These fields are not used in the check
-      target: '',
+      source,
+      target,
       data
     };
 
     return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
-  }, [data, id]);
+  }, [data, id, source, target]);
 
   // Check if the edge is in the currently selected path
   const isInSelectedPath = useMemo(() => {

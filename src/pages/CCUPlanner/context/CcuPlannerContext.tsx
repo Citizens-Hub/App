@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, ReactNode, useState } from 'react';
-import { Ship, Ccu, WbHistoryData, HangarItem, PriceHistoryEntity } from '../../../types';
+import { Ship, Ccu, WbHistoryData, PriceHistoryEntity } from '../../../types';
 import { useSelector } from 'react-redux';
 import { selectUsersHangarItems } from '../../../store/upgradesStore';
 import { selectImportItems } from '../../../store/importStore';
@@ -7,6 +7,7 @@ import { CcuEdgeService } from '../services/CcuEdgeService';
 import PathBuilderService from '../services/PathBuilderService';
 import ImportExportService from '../services/ImportExportService';
 import pathFinderService from '../services/PathFinderService';
+import { toPlannerHangarItems } from '../services/plannerHangarItems';
 import { CcuPlannerContext, CcuPlannerContextType, ServiceData } from './useCcuPlanner';
 
 // Provider component for the context
@@ -40,15 +41,7 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
   const importExportService = useMemo(() => new ImportExportService(), []);
   
-  // Convert upgrades to HangarItem format
-  const hangarItems: HangarItem[] = useMemo(() => upgrades.ccus.map(upgrade => ({
-    id: Date.now() + Math.random(), // Generate unique ID
-    name: upgrade.name,
-    type: 'ccu',
-    fromShip: upgrade.parsed.from,
-    toShip: upgrade.parsed.to,
-    price: upgrade.value
-  })), [upgrades.ccus]);
+  const hangarItems = useMemo(() => toPlannerHangarItems(upgrades.ccus), [upgrades.ccus]);
   
   // Handle path completion status change
   const handlePathCompletionChange = useCallback((showAlert: boolean = true) => {

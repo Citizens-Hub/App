@@ -67,11 +67,8 @@ interface WasmPathFinderResult {
   stats: WasmStats;
 }
 
-function extractShipIdFromNodeId(nodeId: string): string {
-  const segments = nodeId.split('-');
-  return segments.length >= 2 ? segments[1] : nodeId;
-}
-
+// The WASM ABI calls these fields ship IDs; use full canvas node IDs
+// as traversal identity so repeated ship models stay independent.
 function toFiniteNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -83,7 +80,7 @@ function buildWasmGraphRequest(params: Pick<WasmPathFinderParams, 'nodes' | 'edg
   params.nodes.forEach(node => {
     nodeMap.set(node.id, {
       id: node.id,
-      shipId: extractShipIdFromNodeId(node.id)
+      shipId: node.id
     });
   });
 
@@ -98,7 +95,7 @@ function buildWasmGraphRequest(params: Pick<WasmPathFinderParams, 'nodes' | 'edg
 
     edges.push({
       sourceNodeId: edge.source,
-      sourceShipId: extractShipIdFromNodeId(edge.source),
+      sourceShipId: edge.source,
       targetNodeId: edge.target,
       usdPrice: toFiniteNumber(priceInfo.usdPrice, 0),
       tpPrice: toFiniteNumber(priceInfo.tpPrice, 0),
@@ -339,7 +336,7 @@ class PathFinderCWasmService {
         startNodes: params.startNodes,
         startShipPrices: params.startShipPrices
       }, nodeIdSet),
-      endShipId: extractShipIdFromNodeId(params.endNodeId),
+      endShipId: params.endNodeId,
       exchangeRate: toFiniteNumber(params.exchangeRate, 1),
       conciergeValue: toFiniteNumber(params.conciergeValue, 0),
       pruneOpt: params.pruneOpt
