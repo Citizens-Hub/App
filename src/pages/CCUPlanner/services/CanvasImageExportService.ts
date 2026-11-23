@@ -472,9 +472,11 @@ function buildPreparedEdge(
     customPrice: edge.data.customPrice,
     priceHistoryMap: options.priceHistoryMap
   });
-  const price = pathFinderService.getCompletedHangarAllocation(edge)?.unitPrice ?? quotedPrice;
+  const allocation = pathFinderService.getCompletedHangarAllocation(edge);
+  const price = allocation?.unitPrice ?? quotedPrice;
   const { showsPriceWarning, isHangarOutOfStock } = getCcuEdgeDisplayWarning({
-    data: edge.data, price, isCompleted, isUsedUp, hangarItems: options.hangarItems, pooledHangarItems: options.pooledHangarItems
+    data: edge.data, price, isCompleted, hasCompletedHangarAllocation: !!allocation, isUsedUp,
+    hangarItems: options.hangarItems, pooledHangarItems: options.pooledHangarItems
   });
 
   const officialUpgradePriceUsd = edge.data.targetShip.msrp && edge.data.sourceShip.msrp
@@ -516,11 +518,11 @@ function buildPreparedEdge(
     })}`;
 
   const strokeColor = (() => {
-    if (isCompleted) {
-      return isSelected ? '#50fa7e' : '#4caf50';
-    }
     if (isHangarOutOfStock) {
       return CCU_OUT_OF_STOCK_COLOR;
+    }
+    if (isCompleted) {
+      return isSelected ? '#50fa7e' : '#4caf50';
     }
     if (isSelected) {
       return '#2196f3';
@@ -528,11 +530,13 @@ function buildPreparedEdge(
     return resolveColor(strategyStyle.edgeColor, '#3b82f6');
   })();
 
-  const labelMainFill = isCompleted
-    ? '#16a34a'
-    : showsPriceWarning
-      ? CCU_OUT_OF_STOCK_COLOR
-      : resolveColor(strategyStyle.bgColor, '#1d4ed8');
+  const labelMainFill = isHangarOutOfStock
+    ? CCU_OUT_OF_STOCK_COLOR
+    : isCompleted
+      ? '#16a34a'
+      : showsPriceWarning
+        ? CCU_OUT_OF_STOCK_COLOR
+        : resolveColor(strategyStyle.bgColor, '#1d4ed8');
 
   const sourceX = sourceNode.position.x + sourceMetrics.width + offsetX;
   const sourceY = sourceNode.position.y + EXPORT_NODE_HANDLE_Y + offsetY;
@@ -552,7 +556,7 @@ function buildPreparedEdge(
     id: edge.id,
     path,
     strokeColor,
-    lineDash: isCompleted ? [10, 8] : [],
+    lineDash: isCompleted && !isHangarOutOfStock ? [10, 8] : [],
     labelX,
     labelY,
     labelMainText,

@@ -42,6 +42,11 @@ type PairUsage = Map<string, StoredCompletedPathUsageEdge[]>;
 type HangarLotBalance = { item: HangarItem; remaining: number };
 const parsedLotKeys = new WeakMap<HangarCcuAllocation, ParsedLotKey | undefined>();
 
+export function isReservableHangarItem(item: HangarItem): boolean {
+  return !!item.lot?.lotKey && Number.isSafeInteger(item.lot.ownerId) &&
+    item.lot.ownerId !== -1 && Number.isFinite(item.lot.unitPrice);
+}
+
 function parseLotKey(key?: string): ParsedLotKey | undefined {
   if (!key) return undefined;
   try {
@@ -110,7 +115,8 @@ export function getHangarCcuBalances(
   target: ShipIdentity,
   items: readonly HangarItem[],
   snapshot = getActiveCompletedPathsSnapshot(),
-  pending: readonly StoredCompletedPathUsageEdge[] = []
+  pending: readonly StoredCompletedPathUsageEdge[] = [],
+  countUnassignedUsage = true
 ): HangarLotBalance[] {
   const matches = items.flatMap(item => {
     if (item.type.toLowerCase() !== 'ccu') return [];
@@ -138,6 +144,7 @@ export function getHangarCcuBalances(
     if (lotKey && used) known.set(lotKey, known.get(lotKey)! - used);
     return { item, remaining: quantity - used };
   });
+  if (!countUnassignedUsage) return balances;
   for (const balance of balances) {
     if (balance.item.countUnassignedUsage === false) continue;
     const used = Math.min(legacy, balance.remaining);

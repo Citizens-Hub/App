@@ -109,12 +109,12 @@ function CcuEdge({
   const allocation = isCompleted ? pathFinderService.getCompletedHangarAllocation({ id, source, target, data }) : undefined;
   const price = allocation?.unitPrice ?? quotedPrice;
   const { showsPriceWarning, isHangarOutOfStock } = getCcuEdgeDisplayWarning({
-    data, price, isCompleted, isUsedUp, hangarItems, pooledHangarItems
+    data, price, isCompleted, hasCompletedHangarAllocation: !!allocation, isUsedUp, hangarItems, pooledHangarItems
   });
-  const edgeStyle = isCompleted
-    ? { ...style, stroke: isInSelectedPath ? '#50FA7E' : '#4caf50', strokeDasharray: '5,5', strokeWidth: 3 }
-    : isHangarOutOfStock
-      ? { ...style, stroke: CCU_OUT_OF_STOCK_COLOR, strokeWidth: 3 }
+  const edgeStyle = isHangarOutOfStock
+    ? { ...style, stroke: CCU_OUT_OF_STOCK_COLOR, strokeWidth: 3 }
+    : isCompleted
+      ? { ...style, stroke: isInSelectedPath ? '#50FA7E' : '#4caf50', strokeDasharray: '5,5', strokeWidth: 3 }
       : isInSelectedPath
         ? { ...style, stroke: '#2196f3', strokeWidth: 3 }
         : { ...style, strokeWidth: 2 };

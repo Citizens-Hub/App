@@ -1,8 +1,19 @@
 import { CcuSourceType, HangarCcuAllocation } from '../../../types';
 
 export const LEGACY_COMPLETED_PATHS_STORAGE_KEY = 'completedPaths';
+export const LEGACY_SINGLE_ROUTE_TAB_ID = 'legacy-route-1';
+export const DEFAULT_PLANNER_TAB_ID = 'route-1';
 const ACTIVE_COMPLETED_PATHS_STORAGE_KEY = 'ccu-planner-active-completed-paths-key';
 const COMPLETED_PATHS_STORAGE_KEY_PREFIX = 'completedPaths:';
+
+let legacyFallbackKey = getCompletedPathsStorageKeyForTab(LEGACY_SINGLE_ROUTE_TAB_ID);
+
+export function scopeLegacyCompletedPathsFallback(tabIds: readonly string[]): void {
+  // Only the original workspace tab may inherit the pre-workspace ledger. An
+  // explicit tab ledger (including []) always wins over that global snapshot.
+  const tabId = [LEGACY_SINGLE_ROUTE_TAB_ID, DEFAULT_PLANNER_TAB_ID, 'legacy-tab-1'].find(id => tabIds.includes(id)) ?? tabIds[0];
+  legacyFallbackKey = tabId ? getCompletedPathsStorageKeyForTab(tabId) : '';
+}
 
 export interface StoredCompletedPathUsageEdge {
   sourceShipId: number;
@@ -66,7 +77,7 @@ export function readStoredCompletedPathsForActiveTab(): StoredCompletedPathUsage
 
 export function readCompletedPathsRaw(storageKey: string): string | null {
   const activeRaw = localStorage.getItem(storageKey);
-  return activeRaw ?? (storageKey === LEGACY_COMPLETED_PATHS_STORAGE_KEY ? null : localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY));
+  return activeRaw ?? (storageKey === legacyFallbackKey ? localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY) : null);
 }
 
 export function getActiveCompletedPathsSnapshot(storageKey = getActiveCompletedPathsStorageKey()): string | null {

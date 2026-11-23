@@ -753,6 +753,8 @@ export interface HangarCcuAllocation {
   ownerId: number;
   lotKey: string;
   unitPrice: number;
+  // A compatible lot assigned on upgrade, not a verified historical purchase price.
+  inferredFromLegacy?: true;
 }
 
 export interface ImportItem {

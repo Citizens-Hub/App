@@ -7,16 +7,25 @@ import type { CCUItem } from '../src/store/upgradesStore';
 import type { CcuEdgeData, Ship } from '../src/types';
 
 const storage = new Map<string, string>();
+let rejectingStorageKey: string | undefined;
+let onStorageRead: ((key: string) => void) | undefined;
 Object.defineProperty(globalThis, 'localStorage', { value: {
-  getItem: (key: string) => storage.get(key) ?? null,
-  setItem: (key: string, value: string) => storage.set(key, value),
+  getItem: (key: string) => {
+    onStorageRead?.(key);
+    return storage.get(key) ?? null;
+  },
+  setItem: (key: string, value: string) => {
+    if (key === rejectingStorageKey) throw new Error('Simulated localStorage write failure');
+    storage.set(key, value);
+  },
   removeItem: (key: string) => storage.delete(key),
 } });
 const { default: service } = await import('../src/pages/CCUPlanner/services/PathFinderService');
 const { hasCanvasConnection } = await import('../src/pages/CCUPlanner/services/CcuEdgeService');
 const { HangarStrategy } = await import('../src/pages/CCUPlanner/services/CcuSourceTypeStrategy');
 const { getHangarCcuBalances, getHangarCcuRemainingByItem, toPlannerHangarItems } = await import('../src/pages/CCUPlanner/services/plannerHangarItems');
-const { readStoredCompletedPathsForActiveTab } = await import('../src/pages/CCUPlanner/services/completedPathsStorage');
+const { DEFAULT_PLANNER_TAB_ID, LEGACY_SINGLE_ROUTE_TAB_ID, getCompletedPathsStorageKeyForTab, readStoredCompletedPathsForActiveTab, scopeLegacyCompletedPathsFallback } =
+  await import('../src/pages/CCUPlanner/services/completedPathsStorage');
 const { CcuSourceType } = await import('../src/types');
 const hangarStrategy = new HangarStrategy();
 const ships = [
@@ -351,11 +360,18 @@ const io = new ImportExportService();
 const legacyFlow = { nodes: a.slice(0, 2), edges: [edges[0]], startShipPrices: {} };
 const imported = io.importFromFlowData(legacyFlow, ships, { ...data, hangarItems: pooled });
 assert.equal(imported?.edges[0].data?.sourceType, CcuSourceType.HANGER, 'old workspace/exported JSON requires no new graph fields');
+io.saveToLocalStorage(legacyFlow);
+const oldWorkspace = io.loadWorkspaceFromLocalStorage(ships, [], [], []);
+assert.equal(oldWorkspace?.activeTabId, LEGACY_SINGLE_ROUTE_TAB_ID, 'read an actual pre-tab workspace in its converted canonical tab');
+const legacyTabKey = getCompletedPathsStorageKeyForTab(LEGACY_SINGLE_ROUTE_TAB_ID);
+scopeLegacyCompletedPathsFallback(['lot-test', oldWorkspace!.activeTabId]);
 
 for (const useLegacyGlobalFallback of [false, true]) {
-  storage.delete(lotsKey);
+  const fixtureKey = useLegacyGlobalFallback ? legacyTabKey : lotsKey;
+  storage.delete(fixtureKey);
   storage.delete('completedPaths');
-  storage.set(useLegacyGlobalFallback ? 'completedPaths' : lotsKey, legacyRaw);
+  storage.set(useLegacyGlobalFallback ? 'completedPaths' : fixtureKey, legacyRaw);
+  service.setCompletedPathsStorageKey(fixtureKey);
   service.loadCompletedPathsFromStorage();
   assert.equal(service.isPathCompleted(accountAPath).pathId, oldStoredRoute.pathId);
   assert.equal(service.getCompletedHangarAllocation(edges[0]), undefined, 'legacy edge cannot be assigned to an owner using its display price');
@@ -373,6 +389,7 @@ for (const useLegacyGlobalFallback of [false, true]) {
 }
 console.log('CCU: pre-lot workspace/JSON, per-route records and legacy global fallback remain readable, cancellable and unassigned');
 
+service.setCompletedPathsStorageKey(lotsKey);
 storage.set(lotsKey, legacyRaw);
 service.loadCompletedPathsFromStorage();
 const cappedRows = [lotRows[0], lotRows[2]];
@@ -440,9 +457,11 @@ service.clearCompletedPaths();
 const warningInventory = toPlannerHangarItems([lotRows[0], { ...lotRows[1], quantity: 1 }]);
 const warningState = (edge: Edge<CcuEdgeData>, hangarItems = warningInventory, pooledHangarItems = hangarItems) => {
   const isCompleted = service.isSingleEdgeInAnyCompletedPath(edge);
-  const price = service.getPriceInfo(edge, { ...data, hangarItems }, service.getCompletedHangarAllocation(edge));
+  const allocation = service.getCompletedHangarAllocation(edge);
+  const price = service.getPriceInfo(edge, { ...data, hangarItems }, allocation);
   return { ...price, ...getCcuEdgeDisplayWarning({
-    data: edge.data!, price: price.usdPrice, isCompleted, isUsedUp: price.isUsedUp, hangarItems, pooledHangarItems,
+    data: edge.data!, price: price.usdPrice, isCompleted, hasCompletedHangarAllocation: !!allocation, isUsedUp: price.isUsedUp,
+    hangarItems, pooledHangarItems,
   }) };
 };
 assert.equal(warningState(thirdEdges[0]).usdPrice, 10);
@@ -477,3 +496,116 @@ assert.equal(service.markPathAsCompleted(accountBPath, ships[1], cappedA, capped
 assert.equal(warningState(thirdEdges[0], cappedB, cappedPool).isUsedUp, false, 'selected owner has an apparent unit');
 assert.equal(warningState(thirdEdges[0], cappedB, cappedPool).showsPriceWarning, true, 'pending edge reflects the effective pooled legacy cap');
 console.log('CCU: shared canvas/export red warning follows exhaustion, completion, release, undo and the pooled cap');
+
+const migrationKey = 'completedPaths:existing-custom-route';
+service.setCompletedPathsStorageKey(migrationKey);
+service.clearCompletedPaths();
+assert.equal(service.markPathAsCompleted(accountBPath, ships[1], cappedA, cappedPool), true);
+const explicitRecord = JSON.parse(storage.get(migrationKey)!)[0];
+const oldThirdRoute = {
+  ...oldStoredRoute, pathId: 'old-queue-two',
+  path: {
+    ...oldStoredRoute.path, startNodeId: third[0].id,
+    nodes: oldStoredRoute.path.nodes.map((node, index) => ({ ...node, nodeId: third[index].id })),
+  },
+};
+const unrelatedPair = toPlannerHangarItems([
+  row(ships[1], ships[0], 1, 7, { belongsTo: 55 }),
+  row(ships[0], ships[1], 2, 7, { belongsTo: 55, isBuyBack: true }),
+  row(ships[0], ships[1], 3, 7, { belongsTo: -1 }),
+]);
+const unupgraded = JSON.stringify([oldStoredRoute, oldThirdRoute, explicitRecord]);
+storage.set(migrationKey, unupgraded);
+service.loadCompletedPathsFromStorage();
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, []), false, 'empty or delayed inventory leaves the old records byte-for-byte intact');
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, [], cappedPool), false, 'wait for the canonical ship catalog');
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, unrelatedPair), false, 'reverse pair, buyback and ownerless stock cannot be adopted');
+assert.equal(storage.get(migrationKey), unupgraded);
+assert.equal(service.isPathCompleted(accountAPath).completed, true, 'unmatched route remains complete in history');
+assert.equal(warningState(edges[0], unrelatedPair).showsPriceWarning, true, 'preserved legacy completion gets red ! when it has no eligible stock');
+assert.equal(warningState(edges[2], unrelatedPair).showsPriceWarning, false, 'the explicitly allocated completed route stays green');
+assert.equal(service.migrateLegacyHangarAllocations(lotsKey, ships, cappedPool), false, 'no work on an old active tab or detached ledger');
+
+rejectingStorageKey = migrationKey;
+const originalConsoleError = console.error;
+try {
+  console.error = (...args) => { if (args[0] !== 'Failed to upgrade legacy completed Hangar paths:') originalConsoleError(...args); };
+  assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, cappedPool), false);
+} finally {
+  console.error = originalConsoleError;
+  rejectingStorageKey = undefined;
+}
+assert.equal(storage.get(migrationKey), unupgraded, 'a failed write leaves storage unchanged');
+assert.equal(service.getCompletedHangarAllocation(edges[0]), undefined, 'a failed write never updates memory');
+let reads = 0;
+const interveningSnapshot = JSON.stringify([oldStoredRoute, oldThirdRoute, explicitRecord, { extraUnknownField: true }]);
+onStorageRead = key => {
+  if (key === migrationKey && ++reads === 2) storage.set(key, interveningSnapshot);
+};
+try {
+  assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, cappedPool), false);
+} finally {
+  onStorageRead = undefined;
+}
+assert.equal(storage.get(migrationKey), interveningSnapshot, 'an intervening change before write is not overwritten');
+assert.equal(service.getCompletedHangarAllocation(edges[0]), undefined);
+
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, cappedPool), true, 'inventory arriving later upgrades only what fits');
+const afterFirstMigration = storage.get(migrationKey)!;
+const [upgradedRoute, deferredRoute, keptExplicit, keptUnknown] = JSON.parse(afterFirstMigration);
+const adoptedLot = upgradedRoute.path.edges[0].hangarAllocation;
+assert.deepEqual(adoptedLot, { ...cappedPool[1].lot, inferredFromLegacy: true }, 'explicit owner 44 holds the first lot, so the old route adopts actual owner 55');
+delete upgradedRoute.path.edges[0].hangarAllocation;
+assert.deepEqual(upgradedRoute, oldStoredRoute, 'completion identity, recorded totals, price and old edge fields are not rewritten');
+assert.deepEqual(deferredRoute, oldThirdRoute, 'a second legacy completion may not reserve the same physical unit twice');
+assert.deepEqual(keptExplicit, explicitRecord);
+assert.deepEqual(keptUnknown, { extraUnknownField: true }, 'unknown legacy data is preserved during migration');
+assert.deepEqual(lots(cappedPool), [0, 0]);
+assert.deepEqual(lots(cappedA), [0]);
+assert.deepEqual(lots(cappedB), [0], 'owner-specific remaining now reports the assigned unit');
+assert.equal(warningState(edges[0], cappedA, cappedPool).showsPriceWarning, false, 'selected owner cannot turn an assigned completed edge red');
+assert.equal(warningState(thirdEdges[0], cappedA, cappedPool).showsPriceWarning, true, 'unresolved legacy completion is red after the available lot was assigned to an earlier record');
+const pendingMigrationEdge = makeEdge(makeNode(ships[0], 'pending-migration'), makeNode(ships[1], 'pending-migration'));
+assert.equal(warningState(pendingMigrationEdge, cappedPool).showsPriceWarning, true, 'pending exact-pair edges are red too');
+assert.equal(service.buildCompletePaths([aIds.slice(0, 2)], edges, nodes, {}, { ...data, hangarItems: cappedA })[0].totalUsdPrice, 10, 'live rebuilding does not replace historical route price with the inferred $19 lot');
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, cappedPool), false);
+assert.equal(storage.get(migrationKey), afterFirstMigration, 'repeat runs add no inventory debit');
+service.loadCompletedPathsFromStorage();
+assert.deepEqual(service.getCompletedHangarAllocation(edges[0]), adoptedLot, 'allocation survives reload');
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, [...cappedPool].reverse()), false, 'reordering cannot reassign migrated or explicit lots');
+const replenished = toPlannerHangarItems([lotRows[0], lotRows[2], lotRows[1]]);
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, replenished), true);
+assert.equal(service.getCompletedHangarAllocation(thirdEdges[0])?.unitPrice, 15, 'a later real replenishment resolves the deferred completion');
+service.unmarkCompletedPath(oldStoredRoute.pathId);
+assert.deepEqual(lots(replenished), [0, 1, 5], 'unmarking releases only its own formerly legacy lot');
+
+storage.set(migrationKey, JSON.stringify([oldStoredRoute, explicitRecord]));
+service.loadCompletedPathsFromStorage();
+const migrationUndo = service.removeCompletedPathsContainingNodes(new Set([b[1].id]), migrationKey);
+assert.ok(migrationUndo);
+assert.equal(service.migrateLegacyHangarAllocations(migrationKey, ships, cappedA), true, 'stock is now reserved by a previously unallocated completion');
+assert.equal(service.restoreCompletedPathsAfterUndo(migrationUndo), false, 'Undo will not steal it back even though the other path IDs did not change');
+assert.deepEqual(lots(cappedA), [0]);
+
+storage.set('completedPaths', legacyRaw);
+storage.delete(legacyTabKey);
+const blankDefaultKey = getCompletedPathsStorageKeyForTab(DEFAULT_PLANNER_TAB_ID);
+storage.delete(blankDefaultKey);
+scopeLegacyCompletedPathsFallback([DEFAULT_PLANNER_TAB_ID, LEGACY_SINGLE_ROUTE_TAB_ID, 'other-blank']);
+service.setCompletedPathsStorageKey(blankDefaultKey);
+service.loadCompletedPathsFromStorage();
+assert.equal(service.getCompletedPaths().length, 0, 'another tab without a ledger does not inherit global records');
+assert.deepEqual(lots(cappedPool), [1, 1], 'sidebar does not reserve a different tab’s global fallback');
+assert.equal(service.migrateLegacyHangarAllocations(blankDefaultKey, ships, cappedPool), false);
+assert.equal(storage.has(blankDefaultKey), false);
+service.setCompletedPathsStorageKey(legacyTabKey);
+service.loadCompletedPathsFromStorage();
+assert.equal(service.isPathCompleted(accountAPath).completed, true, 'the old global ledger belongs to its upgraded workspace tab');
+assert.equal(service.migrateLegacyHangarAllocations(legacyTabKey, ships, cappedPool), true);
+assert.equal(storage.get('completedPaths'), legacyRaw, 'the global compatibility snapshot is never rewritten');
+assert.equal(service.getCompletedHangarAllocation(edges[0])?.ownerId, 44, 'unambiguous stock or a tie uses first available full-inventory lot order');
+service.unmarkCompletedPath(oldStoredRoute.pathId);
+service.loadCompletedPathsFromStorage();
+assert.equal(service.migrateLegacyHangarAllocations(legacyTabKey, ships, cappedPool), false);
+assert.equal(storage.get(legacyTabKey), '[]', 'explicit empty tab remains authoritative after cancellation');
+console.log('CCU: scoped idempotent legacy upgrade uses exact pooled lots, protects explicit holds/Undo, and preserves unresolved red warnings and historical totals');

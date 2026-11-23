@@ -43,7 +43,7 @@ import { BiSlots, reportBi } from '@/report';
 import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
 import { MousePointer2, Plus, Route, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
-import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
+import { cleanupCompletedPathsStorageForTabIds, DEFAULT_PLANNER_TAB_ID, getCompletedPathsStorageKeyForTab, scopeLegacyCompletedPathsFallback } from '../services/completedPathsStorage';
 import ShipInfoDialog from '@/components/ShipInfoDialog';
 import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslationEditorDialog';
 import { RootState } from '@/store';
@@ -52,7 +52,6 @@ import routeImagePayloadService from '../services/RouteImagePayloadService';
 import { areShipNamesEqual } from '@/utils/shipDisplay';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
-const DEFAULT_TAB_ID = 'route-1';
 const MAX_HISTORY_STEPS = 100;
 const CANVAS_MIN_ZOOM = 0.05;
 type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -133,6 +132,7 @@ interface FlowHistoryEntry {
 interface NodeDeletionCompletionChange {
   nodeIds: ReadonlySet<string>;
   inventory: HangarItem[];
+  pooledInventory: HangarItem[];
   removal: CompletedPathsRemoval;
 }
 
@@ -559,7 +559,9 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     const removal = pathFinderService.removeCompletedPathsContainingNodes(nodeIds, getCompletedPathsStorageKeyForTab(activeTabId));
     if (removal) {
       const changes = pendingCompletionRemovalsByTabRef.current[activeTabId] ?? [];
-      pendingCompletionRemovalsByTabRef.current[activeTabId] = [...changes, { nodeIds, inventory: hangarItems, removal }];
+      pendingCompletionRemovalsByTabRef.current[activeTabId] = [
+        ...changes, { nodeIds, inventory: hangarItems, pooledInventory: pooledHangarItems, removal }
+      ];
       refreshEdgesOnPathCompletion(false);
     }
 
@@ -573,7 +575,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     });
     setSelectedNode(current => current && nodeIds.has(current.id) ? null : current);
     setSelectedPathEdgeIds([]);
-  }, [activeTabId, hangarItems, refreshEdgesOnPathCompletion, setNodes, setEdges, setSelectedPathEdgeIds]);
+  }, [activeTabId, hangarItems, pooledHangarItems, refreshEdgesOnPathCompletion, setNodes, setEdges, setSelectedPathEdgeIds]);
 
   // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
@@ -1686,7 +1688,9 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
 
     for (const change of [...lastStep.completionRemovals].reverse()) {
       // The inventory may have been synced or the selected account changed after deletion.
-      if (change.inventory === hangarItems) pathFinderService.restoreCompletedPathsAfterUndo(change.removal);
+      if (change.inventory === hangarItems && change.pooledInventory === pooledHangarItems) {
+        pathFinderService.restoreCompletedPathsAfterUndo(change.removal);
+      }
     }
 
     pathFinderService.reconcileCompletedPathsAfterGraphUndo(currentFlowData, restoredFlow, getCompletedPathsStorageKeyForTab(activeTabId));
@@ -1722,6 +1726,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     currentFlowData,
     hangarItems,
     persistWorkspace,
+    pooledHangarItems,
     refreshEdgesOnPathCompletion,
     setEdges,
     setNodes,
@@ -1940,6 +1945,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         : initialTabs[0].id;
       const initialActiveTab = initialTabs.find(tab => tab.id === initialActiveTabId) || initialTabs[0];
 
+      if (!hasWorkspaceInitializedRef.current) scopeLegacyCompletedPathsFallback(initialTabs.map(tab => tab.id));
       hasWorkspaceInitializedRef.current = true;
       setPlannerTabs(initialTabs);
       setActiveTabId(initialActiveTabId);
@@ -1947,13 +1953,14 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       persistWorkspace(initialTabs, initialActiveTabId);
     } else {
       const defaultTab: PlannerTabState = {
-        id: DEFAULT_TAB_ID,
+        id: DEFAULT_PLANNER_TAB_ID,
         name: getNextRouteName([]),
         flowData: createEmptyFlowData(),
         autoSaveStatus: 'idle',
         lastAutoSavedAt: null
       };
 
+      if (!hasWorkspaceInitializedRef.current) scopeLegacyCompletedPathsFallback([defaultTab.id]);
       hasWorkspaceInitializedRef.current = true;
       setPlannerTabs([defaultTab]);
       setActiveTabId(defaultTab.id);
@@ -1969,6 +1976,13 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       window.clearTimeout(enableAutoSaveTimer);
     };
   }, [reactFlowInstance, importExportService, ships, wbHistory, ccus, hangarItems, clearAutoSaveTimer, AUTO_SAVE_BOOTSTRAP_DELAY_MS, loadTabIntoCanvas, getNextRouteName, persistWorkspace]);
+
+  useEffect(() => {
+    if (!activeTabId || !hasWorkspaceInitializedRef.current) return;
+    if (pathFinderService.migrateLegacyHangarAllocations(getCompletedPathsStorageKeyForTab(activeTabId), ships, pooledHangarItems)) {
+      refreshEdgesOnPathCompletion(false);
+    }
+  }, [activeTabId, ships, pooledHangarItems, refreshEdgesOnPathCompletion]);
 
   const needsEmptySnapshot = !nodes.length && plannerTabs.some(tab => tab.id === activeTabId && tab.flowData.nodes.length > 0);
   useEffect(() => {

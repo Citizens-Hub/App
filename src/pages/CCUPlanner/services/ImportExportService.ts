@@ -1,5 +1,6 @@
 import { Node, Edge, ReactFlowInstance } from 'reactflow';
 import { Ccu, CcuEdgeData, CcuSourceType, HangarItem, Ship, WbHistoryData } from '../../../types';
+import { LEGACY_SINGLE_ROUTE_TAB_ID } from './completedPathsStorage';
 
 const CCU_PLANNER_STORAGE_KEY = 'ccu-planner-data';
 const WORKSPACE_VERSION = 2;
@@ -234,7 +235,7 @@ export class ImportExportService {
       return null;
     }
 
-    const legacyTabId = 'legacy-route-1';
+    const legacyTabId = LEGACY_SINGLE_ROUTE_TAB_ID;
     return {
       version: WORKSPACE_VERSION,
       activeTabId: legacyTabId,

@@ -8,7 +8,7 @@ import {
   setActiveCompletedPathsStorageKey,
   type StoredCompletedPathUsageEdge
 } from './completedPathsStorage';
-import { getHangarCcuBalances } from './plannerHangarItems';
+import { getHangarCcuBalances, isReservableHangarItem } from './plannerHangarItems';
 import type { FlowData } from './ImportExportService';
 
 interface PathNode {
@@ -51,7 +51,7 @@ export interface CompletedPath {
 export interface CompletedPathsRemoval {
   storageKey: string;
   removedPaths: CompletedPath[];
-  remainingPathIds: Set<string>;
+  remainingAllocationsByPathId: Map<string, string>;
 }
 
 type CanvasConnections = Pick<FlowData, 'nodes' | 'edges'>;
@@ -63,6 +63,10 @@ function getConnectionSourceType(edge: Edge<CcuEdgeData>): CcuSourceType {
 function getConnectionVariantKey(edge: Edge<CcuEdgeData>): string {
   // Stored completions recreate edge IDs on reload, so match the actual endpoints and saved CCU variant.
   return JSON.stringify([edge.source, edge.target, getConnectionSourceType(edge), edge.data?.price || 0]);
+}
+
+function getAllocationSignature({ path }: CompletedPath): string {
+  return JSON.stringify(path.edges.map(step => step.hangarAllocation));
 }
 
 // 新增：添加边的识别信息接口
@@ -359,6 +363,12 @@ export class PathFinderService {
           step.hangarAllocation = allocation;
           completePath.totalUsdPrice += allocation.unitPrice - (step.quotedHangarPrice ?? allocation.unitPrice);
         }
+        // A legacy route total is historical. Its newly assigned lot is a stock reservation,
+        // not evidence that the owner originally paid that lot's current recorded price.
+        if (saved.edges.some(step => getConnectionSourceType(step.edge) === CcuSourceType.HANGER &&
+            (!step.hangarAllocation?.lotKey || step.hangarAllocation.inferredFromLegacy))) {
+          completePath.totalUsdPrice = saved.totalUsdPrice;
+        }
       }
       return completePath;
     });
@@ -387,10 +397,8 @@ export class PathFinderService {
 
     const reservations: StoredCompletedPathUsageEdge[] = [];
     const edges: PathEdge[] = [];
-    const isReservable = (item: HangarItem) => item.lot &&
-      Number.isSafeInteger(item.lot.ownerId) && item.lot.ownerId !== -1 && Number.isFinite(item.lot.unitPrice);
-    const pooledStock = pooledHangarItems.filter(isReservable);
-    const selectedStock = hangarItems === pooledHangarItems ? pooledStock : hangarItems.filter(isReservable);
+    const pooledStock = pooledHangarItems.filter(isReservableHangarItem);
+    const selectedStock = hangarItems === pooledHangarItems ? pooledStock : hangarItems.filter(isReservableHangarItem);
     let totalUsdPrice = path.totalUsdPrice;
     for (const step of path.edges) {
       const { edge } = step;
@@ -439,7 +447,7 @@ export class PathFinderService {
     const key = getConnectionVariantKey(edge);
     for (const record of this.completedPaths) {
       const allocation = record.path.edges.find(step => getConnectionVariantKey(step.edge) === key)?.hangarAllocation;
-      if (allocation) return allocation;
+      if (allocation?.lotKey) return allocation;
     }
     return undefined;
   }
@@ -503,15 +511,15 @@ export class PathFinderService {
     return {
       storageKey: activeStorageKey,
       removedPaths,
-      remainingPathIds: new Set(remainingPaths.map(path => path.pathId)),
+      remainingAllocationsByPathId: new Map(remainingPaths.map(path => [path.pathId, getAllocationSignature(path)])),
     };
   }
 
   restoreCompletedPathsAfterUndo(removal: CompletedPathsRemoval): boolean {
     // Do not reallocate CCUs if another completion change has taken place since deletion.
     if (removal.storageKey !== this.completedPathsStorageKey ||
-        removal.remainingPathIds.size !== this.completedPaths.length ||
-        !this.completedPaths.every(path => removal.remainingPathIds.has(path.pathId))) return false;
+        removal.remainingAllocationsByPathId.size !== this.completedPaths.length ||
+        !this.completedPaths.every(path => removal.remainingAllocationsByPathId.get(path.pathId) === getAllocationSignature(path))) return false;
 
     this.completedPaths = [...this.completedPaths, ...removal.removedPaths];
     this.saveCompletedPathsToStorage();
@@ -739,90 +747,129 @@ export class PathFinderService {
     }
   }
 
+  migrateLegacyHangarAllocations(activeStorageKey: string, ships: readonly Ship[], pooledHangarItems: readonly HangarItem[]): boolean {
+    if (activeStorageKey === LEGACY_COMPLETED_PATHS_STORAGE_KEY || activeStorageKey !== this.completedPathsStorageKey ||
+        !ships.length || !pooledHangarItems.length) return false;
+
+    try {
+      const snapshot = readCompletedPathsRaw(activeStorageKey);
+      const storedPaths = parseStoredCompletedPaths(snapshot) as StoredCompletedPath[];
+      const legacyEdges = storedPaths.flatMap(record => (record?.path?.edges ?? []).filter(edge =>
+        edge.sourceType === CcuSourceType.HANGER && !edge.hangarAllocation?.lotKey
+      ));
+      if (!legacyEdges.length) return false;
+
+      const shipsById = new Map(ships.map(ship => [ship.id, ship]));
+      const stock = pooledHangarItems.filter(isReservableHangarItem);
+      const balancesByPair = new Map<string, ReturnType<typeof getHangarCcuBalances>>();
+      let changed = false;
+
+      for (const edge of legacyEdges) {
+        const source = shipsById.get(edge.sourceShipId);
+        const target = shipsById.get(edge.targetShipId);
+        if (!source || !target) continue;
+
+        const pair = `${source.id}:${target.id}`;
+        let balances = balancesByPair.get(pair);
+        if (!balances) {
+          // Existing explicit allocations get first call on inventory. Legacy reservations are
+          // accounted for by allocating these edges below, so must not consume their own stock here.
+          balances = getHangarCcuBalances(source, target, stock, snapshot, [], false);
+          balancesByPair.set(pair, balances);
+        }
+        const next = balances.find(balance => balance.remaining > 0);
+        if (!next?.item.lot) continue;
+
+        // The historical edge price is graph data, not the paid price. Use the first compatible
+        // lot, like a new reservation, without altering any recorded edge price or route total.
+        edge.hangarAllocation = { ...next.item.lot, inferredFromLegacy: true };
+        next.remaining--;
+        changed = true;
+      }
+
+      if (!changed) return false;
+      // Validate reconstruction before the single write; publish the new service state only after success.
+      const next = this.deserializeCompletedPaths(storedPaths);
+      if (readCompletedPathsRaw(activeStorageKey) !== snapshot) return false;
+      localStorage.setItem(activeStorageKey, JSON.stringify(storedPaths));
+      this.completedPaths = next;
+      return true;
+    } catch (error) {
+      console.error('Failed to upgrade legacy completed Hangar paths:', error);
+      return false;
+    }
+  }
+
   /**
    * 新增：从本地存储加载已完成的路径
    */
   loadCompletedPathsFromStorage(): void {
     try {
       setActiveCompletedPathsStorageKey(this.completedPathsStorageKey);
-      const primaryRaw = localStorage.getItem(this.completedPathsStorageKey);
-      const primaryPaths = parseStoredCompletedPaths(primaryRaw);
-
-      const shouldFallbackToLegacy =
-        primaryRaw === null &&
-        this.completedPathsStorageKey !== LEGACY_COMPLETED_PATHS_STORAGE_KEY;
-      const parsedPaths = (
-        shouldFallbackToLegacy
-          ? parseStoredCompletedPaths(localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY))
-          : primaryPaths
-      ) as StoredCompletedPath[];
-
-      if (parsedPaths.length > 0) {
-        
-        // 转换为运行时格式
-        this.completedPaths = parsedPaths.filter(storedPath => storedPath.path?.startNodeId).map(storedPath => {
-          // 创建简化的Ship对象
-          const createShip = (id: number, name: string, msrp: number): Partial<Ship> => ({
-            id: id,
-            name,
-            msrp,
-          });
-
-          // 重建路径节点
-          const pathNodes: PathNode[] = storedPath.path.nodes.map(node => ({
-            nodeId: node.nodeId,
-            ship: createShip(node.shipId, node.shipName, node.shipMsrp)
-          }));
-
-          // 重建路径边
-          const pathEdges: PathEdge[] = storedPath.path.edges.map(edge => {
-            const sourceNode = pathNodes.find(n => edge.sourceNodeId ? n.nodeId === edge.sourceNodeId : Number(n.ship.id) === edge.sourceShipId);
-            const targetNode = pathNodes.find(n => edge.targetNodeId ? n.nodeId === edge.targetNodeId : Number(n.ship.id) === edge.targetShipId);
-            
-            if (!sourceNode || !targetNode) {
-              throw new Error('Invalid edge data in stored path');
-            }
-
-            return {
-              edge: {
-                id: `${edge.sourceShipId}-${edge.targetShipId}`,
-                source: sourceNode.nodeId,
-                target: targetNode.nodeId,
-                data: {
-                  sourceShip: sourceNode.ship,
-                  targetShip: targetNode.ship,
-                  sourceType: edge.sourceType,
-                  price: edge.price
-                }
-              } as Edge<CcuEdgeData>,
-              sourceNode: { id: sourceNode.nodeId, data: { ship: sourceNode.ship } } as Node,
-              targetNode: { id: targetNode.nodeId, data: { ship: targetNode.ship } } as Node,
-              hangarAllocation: edge.hangarAllocation
-            };
-          });
-
-          return {
-            pathId: storedPath.pathId,
-            ship: createShip(storedPath.shipId, storedPath.shipName, storedPath.shipMsrp),
-            path: {
-              path: pathNodes,
-              edges: pathEdges,
-              totalUsdPrice: storedPath.path.totalUsdPrice,
-              totalThirdPartyPrice: storedPath.path.totalThirdPartyPrice,
-              hasUsdPricing: storedPath.path.hasUsdPricing,
-              hasCnyPricing: storedPath.path.hasCnyPricing,
-              startNodeId: storedPath.path.startNodeId
-            }
-          };
-        });
-        return;
-      }
-
-      this.completedPaths = [];
+      const storedPaths = parseStoredCompletedPaths(readCompletedPathsRaw(this.completedPathsStorageKey)) as StoredCompletedPath[];
+      this.completedPaths = this.deserializeCompletedPaths(storedPaths);
     } catch (error) {
       console.error('Failed to load completed paths from storage:', error);
       this.completedPaths = [];
     }
+  }
+
+  private deserializeCompletedPaths(storedPaths: StoredCompletedPath[]): CompletedPath[] {
+    return storedPaths.filter(storedPath => storedPath.path?.startNodeId).map(storedPath => {
+      // 创建简化的Ship对象
+      const createShip = (id: number, name: string, msrp: number): Partial<Ship> => ({
+        id: id,
+        name,
+        msrp,
+      });
+
+      // 重建路径节点
+      const pathNodes: PathNode[] = storedPath.path.nodes.map(node => ({
+        nodeId: node.nodeId,
+        ship: createShip(node.shipId, node.shipName, node.shipMsrp)
+      }));
+
+      // 重建路径边
+      const pathEdges: PathEdge[] = storedPath.path.edges.map(edge => {
+        const sourceNode = pathNodes.find(n => edge.sourceNodeId ? n.nodeId === edge.sourceNodeId : Number(n.ship.id) === edge.sourceShipId);
+        const targetNode = pathNodes.find(n => edge.targetNodeId ? n.nodeId === edge.targetNodeId : Number(n.ship.id) === edge.targetShipId);
+
+        if (!sourceNode || !targetNode) {
+          throw new Error('Invalid edge data in stored path');
+        }
+
+        return {
+          edge: {
+            id: `${edge.sourceShipId}-${edge.targetShipId}`,
+            source: sourceNode.nodeId,
+            target: targetNode.nodeId,
+            data: {
+              sourceShip: sourceNode.ship,
+              targetShip: targetNode.ship,
+              sourceType: edge.sourceType,
+              price: edge.price
+            }
+          } as Edge<CcuEdgeData>,
+          sourceNode: { id: sourceNode.nodeId, data: { ship: sourceNode.ship } } as Node,
+          targetNode: { id: targetNode.nodeId, data: { ship: targetNode.ship } } as Node,
+          hangarAllocation: edge.hangarAllocation
+        };
+      });
+
+      return {
+        pathId: storedPath.pathId,
+        ship: createShip(storedPath.shipId, storedPath.shipName, storedPath.shipMsrp),
+        path: {
+          path: pathNodes,
+          edges: pathEdges,
+          totalUsdPrice: storedPath.path.totalUsdPrice,
+          totalThirdPartyPrice: storedPath.path.totalThirdPartyPrice,
+          hasUsdPricing: storedPath.path.hasUsdPricing,
+          hasCnyPricing: storedPath.path.hasCnyPricing,
+          startNodeId: storedPath.path.startNodeId
+        }
+      };
+    });
   }
 
   /**
