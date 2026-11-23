@@ -102,7 +102,8 @@ export default function RouteInfoPanel({
     exchangeRates,
     pathFinderService,
     getServiceData,
-    showAlert
+    showAlert,
+    pooledHangarItems
   } = useCcuPlanner();
   const isDevMode = import.meta.env.DEV;
 
@@ -574,7 +575,7 @@ export default function RouteInfoPanel({
     const canvasNodeIds = new Set(nodes.map(node => node.id));
     if (path.path.some(node => !canvasNodeIds.has(node.nodeId))) return;
 
-    if (!pathFinderService.markPathAsCompleted(path, selectedNode.data.ship, getServiceData().hangarItems)) {
+    if (!pathFinderService.markPathAsCompleted(path, selectedNode.data.ship, getServiceData().hangarItems, pooledHangarItems)) {
       showAlert(intl.formatMessage({ id: 'routeInfoPanel.noPrice', defaultMessage: 'Some of the CCUs in this route are not available.' }), 'warning');
       return;
     }

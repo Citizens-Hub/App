@@ -80,7 +80,7 @@ assert.deepEqual(data.hangarItems.map(item => item.quantity), [1, 6, 7], 'only o
 service.setCompletedPathsStorageKey('completedPaths:route-a');
 service.clearCompletedPaths();
 const paths = service.buildCompletePaths([aIds, bIds], edges, nodes, {}, data);
-assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems, data.hangarItems), true);
 assert.deepEqual(edgeCompletion(), [true, true, false, false], 'only chain A turns green');
 assert.equal(service.isPathCompleted(paths[1]).completed, false);
 assert.equal(remaining(1, 2), 6);
@@ -92,7 +92,7 @@ for (const prune of [false, true]) {
   assert.deepEqual(findJs(b[2].id, edges, nodes, prune), [bIds]);
 }
 
-assert.equal(service.markPathAsCompleted(paths[1], ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(paths[1], ships[2], data.hangarItems, data.hangarItems), true);
 assert.equal(service.getCompletedPaths()[1].path.totalUsdPrice, 20, 'a route calculated before the first mark is repriced to the actual lot captured at completion');
 const aCompletionId = service.getCompletedPaths()[0].pathId;
 const bCompletionId = service.getCompletedPaths()[1].pathId;
@@ -122,7 +122,7 @@ assert.equal(removeNodes(replacement.id), null, 'a separate instance of the same
 
 service.setCompletedPathsStorageKey(otherTabKey);
 service.clearCompletedPaths();
-assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems, data.hangarItems), true);
 const otherTabCompletionId = service.getCompletedPaths()[0].pathId;
 assert.equal(removeNodes(a[1].id), null, 'a stale event cannot change a different active tab, even with identical node IDs');
 service.setCompletedPathsStorageKey(routeAKey);
@@ -148,7 +148,7 @@ assert.equal(hasCanvasConnection(sharedEdges, a[1].id, a[0].id), false);
 const newConnection = makeEdge(b[0], a[1]);
 assert.deepEqual(findJs(a[2].id, [...sharedEdges, newConnection], [...a, b[0]]), [aIds, [b[0].id, a[1].id, a[2].id]]);
 const sharedPath = service.buildCompletePaths([[b[0].id, a[1].id, a[2].id]], [...sharedEdges, newConnection], nodes, {}, data)[0];
-assert.equal(service.markPathAsCompleted(sharedPath, ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(sharedPath, ships[2], data.hangarItems, data.hangarItems), true);
 const sharedCompletionId = service.getCompletedPaths().find(route => route.pathId !== aCompletionId && route.pathId !== bCompletionId)!.pathId;
 assert.equal(remaining(1, 2), 4);
 
@@ -169,7 +169,7 @@ assert.deepEqual(service.getCompletedPaths().map(route => route.pathId), [otherT
 assert.equal(service.restoreCompletedPathsAfterUndo(multi), false, 'an undo cannot move reservations into the wrong tab');
 service.setCompletedPathsStorageKey(routeAKey);
 service.loadCompletedPathsFromStorage();
-assert.equal(service.markPathAsCompleted(replacementPath, ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(replacementPath, ships[2], data.hangarItems, data.hangarItems), true);
 assert.equal(service.restoreCompletedPathsAfterUndo(multi), false, 'undo must not re-deduct stock after a later route completion');
 const replacementCompletionId = service.getCompletedPaths().find(route => route.pathId !== bCompletionId)!.pathId;
 service.unmarkCompletedPath(replacementCompletionId);
@@ -178,7 +178,7 @@ console.log('CCU: physical connections, split inventory, tab isolation, automati
 
 const currentCanvas = { nodes, edges };
 const canvasWithoutA = { nodes: b, edges: edges.slice(2) };
-assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems, data.hangarItems), true);
 const appendedCompletionId = service.getCompletedPaths().find(route => route.pathId !== bCompletionId)!.pathId;
 const twoCopiesOfEachPair = toPlannerHangarItems([normalRows[0], { ...normalRows[1], quantity: 1 }, { ...normalRows[2], quantity: 2 }]);
 assert.equal(hangarStrategy.isApplicable(ships[0], ships[1], [], [], twoCopiesOfEachPair), false, 'marking appended A uses the last available copy');
@@ -194,9 +194,9 @@ expectOnlyB();
 const orphanTerminal = makeNode(ships[2], 'old-orphan');
 const orphanEdge = makeEdge(a[1], orphanTerminal);
 const orphanPath = service.buildCompletePaths([[a[0].id, a[1].id, orphanTerminal.id]], [...edges, orphanEdge], [...nodes, orphanTerminal], {}, data)[0];
-assert.equal(service.markPathAsCompleted(orphanPath, ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(orphanPath, ships[2], data.hangarItems, data.hangarItems), true);
 const orphanId = service.getCompletedPaths().find(route => route.pathId !== bCompletionId)!.pathId;
-assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems), true);
+assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems, data.hangarItems), true);
 service.loadCompletedPathsFromStorage();
 assert.notEqual(service.getCompletedPaths()[2].path.edges[1].edge.id, edges[1].id, 'reload reconstructs completion edge IDs');
 
@@ -208,7 +208,7 @@ service.reconcileCompletedPathsAfterGraphUndo(currentCanvas, nextCanvas, routeAK
 assert.equal(service.isPathCompleted(paths[0]).completed, true, 'an equivalent connection with the same variant preserves completion');
 
 for (const id of [edges[1].id, 'official']) {
-  if (!service.isPathCompleted(paths[0]).completed) assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems), true);
+  if (!service.isPathCompleted(paths[0]).completed) assert.equal(service.markPathAsCompleted(paths[0], ships[2], data.hangarItems, data.hangarItems), true);
   const officialVariant = { ...edges[1], id, data: { ...edges[1].data!, sourceType: CcuSourceType.OFFICIAL } };
   service.reconcileCompletedPathsAfterGraphUndo(currentCanvas, { nodes, edges: [edges[0], officialVariant, ...edges.slice(2)] }, routeAKey);
   assert.equal(service.isPathCompleted(paths[0]).completed, false, 'undoing a hangar source/edge clears its reservation even if an official edge survives');
@@ -294,7 +294,7 @@ const wasmBPrice = async () => {
   return lastWasmEdges.find(edge => edge.sourceNodeId === b[0].id && edge.targetNodeId === b[1].id)?.usdPrice;
 };
 assert.equal(await wasmBPrice(), 10);
-assert.equal(service.markPathAsCompleted(accountAPath, ships[1], pooled), true, 'All Accounts records the actual owner of the available lot');
+assert.equal(service.markPathAsCompleted(accountAPath, ships[1], pooled, pooled), true, 'All Accounts records the actual owner of the available lot');
 assert.equal(await wasmBPrice(), 15, 'the same graph references now carry the next lot price into the real WASM request');
 assert.deepEqual(lots(onlyAccountA), [0, 6]);
 assert.deepEqual(lots(onlyAccountB), [1]);
@@ -312,9 +312,9 @@ const sourceSidebar = getHangarCcuRemainingByItem(reordered, ships);
 assert.equal(sourceSidebar.get(reordered[1]), 6, 'hiding the exhausted $10 row from display does not debit the visible $15 lot');
 assert.deepEqual(lots(toPlannerHangarItems(lotRows.slice(1))), [6, 1], 'a missing reserved lot is not charged to another lot/account');
 
-assert.equal(service.markPathAsCompleted(accountBPath, ships[1], onlyAccountB), true);
+assert.equal(service.markPathAsCompleted(accountBPath, ships[1], onlyAccountB, pooled), true);
 assert.deepEqual(lots(onlyAccountB), [0]);
-assert.equal(service.markPathAsCompleted(sharedPath, ships[2], onlyAccountB), false, 'stock must be available for every step at commit time');
+assert.equal(service.markPathAsCompleted(sharedPath, ships[2], onlyAccountB, pooled), false, 'stock must be available for every step at commit time');
 assert.equal(service.getCompletedPaths().length, 2, 'a failed mark is atomic');
 service.loadCompletedPathsFromStorage();
 assert.equal(service.getCompletedHangarAllocation(edges[2])?.ownerId, 55);
@@ -362,7 +362,7 @@ for (const useLegacyGlobalFallback of [false, true]) {
   assert.deepEqual(lots(onlyAccountA), [1, 6]);
   assert.deepEqual(lots(onlyAccountB), [1]);
   assert.deepEqual(lots(pooled), [0, 6, 1], 'unknown legacy ownership reserves one unit only in pooled view');
-  assert.equal(service.markPathAsCompleted(accountBPath, ships[1], onlyAccountB), true);
+  assert.equal(service.markPathAsCompleted(accountBPath, ships[1], onlyAccountB, pooled), true);
   assert.equal(readStoredCompletedPathsForActiveTab()[0].path.edges?.[0].hangarAllocation, undefined, 'writing a new completion preserves old records as unassigned');
   service.loadCompletedPathsFromStorage();
   service.unmarkCompletedPath(oldStoredRoute.pathId);
@@ -372,3 +372,65 @@ for (const useLegacyGlobalFallback of [false, true]) {
   assert.deepEqual(service.getCompletedPaths(), [], 'explicit empty route ledger does not resurrect global legacy records');
 }
 console.log('CCU: pre-lot workspace/JSON, per-route records and legacy global fallback remain readable, cancellable and unassigned');
+
+storage.set(lotsKey, legacyRaw);
+service.loadCompletedPathsFromStorage();
+const cappedRows = [lotRows[0], lotRows[2]];
+const cappedA = toPlannerHangarItems([cappedRows[0]], false);
+const cappedB = toPlannerHangarItems([cappedRows[1]], false);
+const cappedPool = toPlannerHangarItems(cappedRows);
+const third = [makeNode(ships[0], 'third-ownerless'), makeNode(ships[1], 'third-ownerless')];
+const thirdEdges = [makeEdge(third[0], third[1])];
+const thirdPath = service.buildCompletePaths([third.map(node => node.id)], thirdEdges, third, {}, { ...data, hangarItems: cappedPool })[0];
+assert.deepEqual(lots(cappedA), [1], 'the legacy reservation does not guess the owning account');
+assert.deepEqual(lots(cappedB), [1]);
+assert.deepEqual(lots(cappedPool), [0, 1]);
+assert.equal(service.markPathAsCompleted(accountBPath, ships[1], cappedA, cappedPool), true, 'one fresh reservation may use the selected account even if the unassigned debit was displayed first against that lot');
+assert.equal(service.getCompletedHangarAllocation(edges[2])?.ownerId, 44);
+assert.deepEqual(lots(cappedB), [1], 'the remaining account still owns its copy even while the uncertain pool is exhausted');
+assert.deepEqual(lots(cappedPool), [0, 0]);
+const cappedLedger = storage.get(lotsKey);
+assert.equal(service.markPathAsCompleted(thirdPath, ships[1], cappedB, cappedPool), false, 'two selected accounts cannot overcommit one ownerless reservation');
+assert.equal(storage.get(lotsKey), cappedLedger, 'a failed pooled check is atomic');
+service.loadCompletedPathsFromStorage();
+assert.equal(service.getCompletedPaths().length, 2);
+assert.equal(readStoredCompletedPathsForActiveTab()[0].path.edges?.[0].hangarAllocation, undefined);
+service.unmarkCompletedPath(oldStoredRoute.pathId);
+assert.equal(service.markPathAsCompleted(thirdPath, ships[1], cappedA, cappedPool), false, 'a selected owner cannot borrow another account’s remaining lot');
+assert.equal(service.markPathAsCompleted(thirdPath, ships[1], cappedB, cappedPool), true, 'cancelling the legacy entry releases its pooled capacity');
+assert.equal(service.getCompletedHangarAllocation(thirdEdges[0])?.ownerId, 55);
+
+for (const [oldFromNumeric, oldToNumeric] of [[false, false], [true, false], [false, true], [true, true]]) {
+  service.clearCompletedPaths();
+  const oldRow = {
+    ...lotRows[0],
+    from: { ...lotRows[0].from, id: oldFromNumeric ? ships[0].id : 0 },
+    to: { ...lotRows[0].to, id: oldToNumeric ? ships[1].id : 0 },
+  };
+  const currentRow = { ...lotRows[0], from: { ...oldRow.from, id: ships[0].id }, to: { ...oldRow.to, id: ships[1].id } };
+  const oldProjection = toPlannerHangarItems([oldRow]);
+  const newProjection = toPlannerHangarItems([currentRow]);
+  const reversedProjection = toPlannerHangarItems([{ ...currentRow, from: { ...currentRow.from, id: 0 }, to: { ...currentRow.to, id: 0 } }]);
+  const oldKey = oldProjection[0].lot!.lotKey;
+  const newKey = newProjection[0].lot!.lotKey;
+  if (!oldFromNumeric || !oldToNumeric) assert.notEqual(oldKey, newKey, 'simulate a real 84d1511 identity change during hydration');
+  assert.equal(service.markPathAsCompleted(accountAPath, ships[1], oldProjection, oldProjection), true);
+  const ledgerBeforeHydration = storage.get(lotsKey);
+  service.loadCompletedPathsFromStorage();
+  const otherLots = [
+    { ...currentRow, belongsTo: 55 }, { ...currentRow, value: 15 },
+    { ...currentRow, canGift: true }, { ...currentRow, name: currentRow.name + ' (other lot)' },
+  ];
+  const displayed = toPlannerHangarItems([currentRow, ...otherLots]);
+  assert.deepEqual(lots(displayed), [0, 1, 1, 1, 1], 'only the exact owner, giftability, title, price and canonical ship pair match');
+  assert.equal(getHangarCcuRemainingByItem(displayed, ships).get(displayed[0]), 0, 'sidebar hydration keeps the same reservation');
+  assert.equal(service.markPathAsCompleted(accountBPath, ships[1], newProjection, newProjection), false, 'hydrating IDs must not free the same single unit');
+  assert.equal(storage.get(lotsKey), ledgerBeforeHydration, 'compatibility lookup does not rewrite an old key');
+  assert.deepEqual(lots(toPlannerHangarItems([oldRow, currentRow])), [0, 1], 'equivalent old/new representations apply each existing reservation once');
+  service.unmarkCompletedPath(service.getCompletedPaths()[0].pathId);
+  assert.deepEqual(lots(newProjection), [1], 'cancellation releases a legacy-format lot on its hydrated row');
+  assert.equal(service.markPathAsCompleted(accountBPath, ships[1], newProjection, newProjection), true);
+  service.loadCompletedPathsFromStorage();
+  assert.deepEqual(lots(reversedProjection), [0], 'numeric ledgers still work with name-only cached rows');
+}
+console.log('CCU: unassigned pooled reservations cannot overcommit, and persisted numeric/name/mixed lot identities survive hydration');

@@ -374,7 +374,7 @@ export class PathFinderService {
   /**
    * 新增：标记路径为已完成
    */
-  markPathAsCompleted(path: CompletePath, completedShip: Ship, hangarItems: readonly HangarItem[]): boolean {
+  markPathAsCompleted(path: CompletePath, completedShip: Ship, hangarItems: readonly HangarItem[], pooledHangarItems: readonly HangarItem[]): boolean {
     if (this.isPathCompleted(path).completed) return false;
 
     let snapshot: string | null;
@@ -387,6 +387,10 @@ export class PathFinderService {
 
     const reservations: StoredCompletedPathUsageEdge[] = [];
     const edges: PathEdge[] = [];
+    const isReservable = (item: HangarItem) => item.lot &&
+      Number.isSafeInteger(item.lot.ownerId) && item.lot.ownerId !== -1 && Number.isFinite(item.lot.unitPrice);
+    const pooledStock = pooledHangarItems.filter(isReservable);
+    const selectedStock = hangarItems === pooledHangarItems ? pooledStock : hangarItems.filter(isReservable);
     let totalUsdPrice = path.totalUsdPrice;
     for (const step of path.edges) {
       const { edge } = step;
@@ -398,8 +402,16 @@ export class PathFinderService {
       const source = edge.data?.sourceShip;
       const target = edge.data?.targetShip;
       if (!source || !target) return false;
-      const lot = getHangarCcuBalances(source, target, hangarItems, snapshot, reservations)
-        .find(({ item, remaining }) => remaining > 0 && item.lot && Number.isSafeInteger(item.lot.ownerId) && item.lot.ownerId !== -1)?.item.lot;
+      // An ownerless old reservation reduces the total pool once, but cannot be charged to a guessed account.
+      // Validate the full pool before selecting a unit from the requested owner's inventory.
+      const pooled = getHangarCcuBalances(source, target, pooledStock, snapshot, reservations);
+      if (!pooled.some(({ remaining }) => remaining > 0)) return false;
+
+      const eligible = selectedStock === pooledStock
+        ? pooled
+        : getHangarCcuBalances(source, target, selectedStock, snapshot, reservations);
+      const lot = eligible
+        .find(({ remaining }) => remaining > 0)?.item.lot;
       if (!lot) return false;
 
       const hangarAllocation = { ...lot };
