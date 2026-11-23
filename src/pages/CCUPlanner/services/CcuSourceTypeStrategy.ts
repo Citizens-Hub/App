@@ -1,7 +1,6 @@
 import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { IntlShape } from "react-intl";
-import { readStoredCompletedPathsForActiveTab } from "./completedPathsStorage";
-import { areShipNamesEqual } from "@/utils/shipDisplay";
+import { getHangarCcuBalances } from './plannerHangarItems';
 import {
   getConcretePricingOptionsForType,
   getExpectedWbPricingOptions,
@@ -249,33 +248,10 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     return intl.formatMessage({ id: "shipNode.hangar", defaultMessage: "Hangar" });
   }
   
-  private getInventory(sourceShip: Ship, targetShip: Ship, hangarItems: HangarItem[]) {
-    const matchingItems = hangarItems.filter(item =>
-      item.type.toLowerCase() === 'ccu' &&
-      areShipNamesEqual(item.fromShip, sourceShip.name) &&
-      areShipNamesEqual(item.toShip, targetShip.name)
-    );
-    const totalQuantity = matchingItems.reduce((total, item) => total + (item.quantity || 1), 0);
-    const price = matchingItems[0]?.price || 0;
-    if (!totalQuantity) return { price, remainingQuantity: 0 };
-
-    try {
-      const usedQuantity = readStoredCompletedPathsForActiveTab().reduce((total, route) =>
-        total + (route.path.edges ?? []).filter(edge =>
-          edge.sourceType === CcuSourceType.HANGER &&
-          edge.sourceShipId === sourceShip.id &&
-          edge.targetShipId === targetShip.id
-        ).length, 0);
-      return { price, remainingQuantity: totalQuantity - usedQuantity };
-    } catch (error) {
-      console.error('Error checking CCU usage in HangarStrategy:', error);
-      return { price, remainingQuantity: totalQuantity };
-    }
-  }
-
   calculatePrice(sourceShip: Ship, targetShip: Ship, options?: CalculatePriceOptions): { price: number; currency: string; isUsedUp: boolean } {
-    const { price, remainingQuantity } = this.getInventory(sourceShip, targetShip, options?.hangarItems ?? []);
-    return { price, currency: 'USD', isUsedUp: remainingQuantity <= 0 };
+    const balances = getHangarCcuBalances(sourceShip, targetShip, options?.hangarItems ?? []);
+    const next = balances.find(balance => balance.remaining > 0);
+    return { price: (next ?? balances[0])?.item.price ?? 0, currency: 'USD', isUsedUp: !next };
   }
 
   getEdgeStyle(): { edgeColor: string; bgColor: string; } {
@@ -292,7 +268,7 @@ export class HangarStrategy implements CcuSourceTypeStrategy {
     _wbHistory: WbHistoryData[],
     hangarItems: HangarItem[]
   ): boolean {
-    return this.getInventory(sourceShip, targetShip, hangarItems).remainingQuantity > 0;
+    return getHangarCcuBalances(sourceShip, targetShip, hangarItems).some(balance => balance.remaining > 0);
   }
 
   getPriority(): number {

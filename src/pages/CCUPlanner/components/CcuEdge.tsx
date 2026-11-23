@@ -124,7 +124,7 @@ function CcuEdge({
 
   const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
 
-  const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
+  const { price: quotedPrice, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
     ccus,
     wbHistory,
     hangarItems,
@@ -133,6 +133,8 @@ function CcuEdge({
     customPrice: data.customPrice,
     priceHistoryMap: priceHistoryMap,
   });
+  const allocation = isCompleted ? pathFinderService.getCompletedHangarAllocation({ id, source, target, data }) : undefined;
+  const price = allocation?.unitPrice ?? quotedPrice;
 
   const officialUpgradePriceUsd = data.targetShip?.msrp && data.sourceShip?.msrp
     ? (data.targetShip.msrp - data.sourceShip.msrp) / 100

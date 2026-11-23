@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useEffect, ReactNode, useState } from 'react';
 import { Ship, Ccu, WbHistoryData, PriceHistoryEntity } from '../../../types';
 import { useSelector } from 'react-redux';
+import type { RootState } from '@/store';
 import { selectUsersHangarItems } from '../../../store/upgradesStore';
 import { selectImportItems } from '../../../store/importStore';
 import { CcuEdgeService } from '../services/CcuEdgeService';
@@ -34,6 +35,7 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
 }) => {
   // Get upgrades and import items from Redux
   const upgrades = useSelector(selectUsersHangarItems);
+  const pooledInventory = useSelector((state: RootState) => state.upgrades.selectedUser === -1);
   const importItems = useSelector(selectImportItems);
   const [selectedPathEdgeIds, setSelectedPathEdgeIdsState] = useState<Set<string>>(new Set());
   // Initialize services
@@ -41,7 +43,7 @@ export const CcuPlannerProvider: React.FC<CcuPlannerProviderProps> = ({
   const pathBuilderService = useMemo(() => new PathBuilderService(), []);
   const importExportService = useMemo(() => new ImportExportService(), []);
   
-  const hangarItems = useMemo(() => toPlannerHangarItems(upgrades.ccus), [upgrades.ccus]);
+  const hangarItems = useMemo(() => toPlannerHangarItems(upgrades.ccus, pooledInventory), [upgrades.ccus, pooledInventory]);
   
   // Handle path completion status change
   const handlePathCompletionChange = useCallback((showAlert: boolean = true) => {

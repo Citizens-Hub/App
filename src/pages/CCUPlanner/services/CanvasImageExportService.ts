@@ -461,7 +461,7 @@ function buildPreparedEdge(
   const isCompleted = pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
   const isSelected = options.selectedPathEdgeIds.has(edge.id);
 
-  const { price, currency } = strategy.calculatePrice(edge.data.sourceShip, edge.data.targetShip, {
+  const { price: quotedPrice, currency } = strategy.calculatePrice(edge.data.sourceShip, edge.data.targetShip, {
     ccus: options.ccus,
     wbHistory: options.wbHistory,
     hangarItems: options.hangarItems,
@@ -470,6 +470,7 @@ function buildPreparedEdge(
     customPrice: edge.data.customPrice,
     priceHistoryMap: options.priceHistoryMap
   });
+  const price = pathFinderService.getCompletedHangarAllocation(edge)?.unitPrice ?? quotedPrice;
 
   const officialUpgradePriceUsd = edge.data.targetShip.msrp && edge.data.sourceShip.msrp
     ? (edge.data.targetShip.msrp - edge.data.sourceShip.msrp) / 100

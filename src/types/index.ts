@@ -744,6 +744,15 @@ export interface HangarItem {
   toShip?: string;
   price?: number;
   quantity?: number;
+  lot?: HangarCcuAllocation;
+  // Unknown-owner legacy reservations apply only to an unfiltered, pooled inventory.
+  countUnassignedUsage?: boolean;
+}
+
+export interface HangarCcuAllocation {
+  ownerId: number;
+  lotKey: string;
+  unitPrice: number;
 }
 
 export interface ImportItem {

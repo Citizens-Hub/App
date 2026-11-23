@@ -9,7 +9,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale } from '@/contexts/LocaleContext';
 import { localizeShipStatus, localizeShipType } from '@/data/shipMetadataI18n';
 import { useCcuPlanner } from '../context/useCcuPlanner';
-import { areShipNamesEqual, getShipDisplayName } from '@/utils/shipDisplay';
+import { getShipDisplayName } from '@/utils/shipDisplay';
+import { getHangarCcuBalances } from '../services/plannerHangarItems';
 import {
   CcuConcretePricingOption,
   findMatchingConcretePricingOption,
@@ -81,12 +82,11 @@ function ShipNode({ data, id, selected, xPos, yPos }: ShipNodeProps) {
 
   const buildBasicOptionValue = (sourceType: CcuSourceType) => `basic:${sourceType}`;
 
-  const findHangarItem = (edge: Edge<CcuEdgeData>) => hangarItems.find(item =>
-    item.fromShip &&
-    item.toShip &&
-    areShipNamesEqual(item.fromShip, edge.data?.sourceShip?.name) &&
-    areShipNamesEqual(item.toShip, edge.data?.targetShip?.name)
-  );
+  const findHangarItem = (edge: Edge<CcuEdgeData>) => {
+    if (!edge.data?.sourceShip || !edge.data.targetShip) return undefined;
+    return getHangarCcuBalances(edge.data.sourceShip, edge.data.targetShip, hangarItems)
+      .find(balance => balance.remaining > 0)?.item;
+  };
 
   const findSubscriptionItem = (edge: Edge<CcuEdgeData>) => importItems.find(item =>
     item.from === edge.data?.sourceShip?.id &&

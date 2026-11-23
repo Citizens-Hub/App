@@ -101,7 +101,8 @@ export default function RouteInfoPanel({
     importItems,
     exchangeRates,
     pathFinderService,
-    getServiceData
+    getServiceData,
+    showAlert
   } = useCcuPlanner();
   const isDevMode = import.meta.env.DEV;
 
@@ -573,7 +574,10 @@ export default function RouteInfoPanel({
     const canvasNodeIds = new Set(nodes.map(node => node.id));
     if (path.path.some(node => !canvasNodeIds.has(node.nodeId))) return;
 
-    pathFinderService.markPathAsCompleted(path, selectedNode.data.ship);
+    if (!pathFinderService.markPathAsCompleted(path, selectedNode.data.ship, getServiceData().hangarItems)) {
+      showAlert(intl.formatMessage({ id: 'routeInfoPanel.noPrice', defaultMessage: 'Some of the CCUs in this route are not available.' }), 'warning');
+      return;
+    }
 
     if (onPathCompletionChange) {
       onPathCompletionChange();
@@ -1031,7 +1035,7 @@ export default function RouteInfoPanel({
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
                           // eslint-disable-next-line prefer-const
-                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, getServiceData());
+                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, getServiceData(), pathEdge.hangarAllocation);
 
                           if (pathEdge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
                             tpPrice = tpPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];

@@ -2,6 +2,7 @@ import { Ccu, CcuEdgeData, ImportItem, PriceHistoryEntity, WbHistoryData } from 
 import { Edge, Node } from 'reactflow';
 import { HangarItem } from './CcuSourceTypeFactory';
 import pathFinderService from './PathFinderService';
+import { getActiveCompletedPathsSnapshot } from './completedPathsStorage';
 
 interface WasmNode {
   id: string;
@@ -178,6 +179,7 @@ class PathFinderCWasmService {
     nodesRef: WasmPathFinderParams['nodes'];
     edgesRef: WasmPathFinderParams['edges'];
     data: PathFinderServiceData;
+    completedPathsSnapshot: string | null;
     graph: Pick<WasmRequest, 'nodes' | 'edges'>;
   } | null = null;
 
@@ -276,10 +278,12 @@ class PathFinderCWasmService {
 
   private getOrBuildGraph(params: Pick<WasmPathFinderParams, 'nodes' | 'edges' | 'data'>): Pick<WasmRequest, 'nodes' | 'edges'> {
     const cache = this.cachedGraph;
+    const completedPathsSnapshot = getActiveCompletedPathsSnapshot();
     if (
       cache
       && cache.nodesRef === params.nodes
       && cache.edgesRef === params.edges
+      && cache.completedPathsSnapshot === completedPathsSnapshot
       && this.isSameServiceData(cache.data, params.data)
     ) {
       return cache.graph;
@@ -295,6 +299,7 @@ class PathFinderCWasmService {
       nodesRef: params.nodes,
       edgesRef: params.edges,
       data: params.data,
+      completedPathsSnapshot,
       graph
     };
 

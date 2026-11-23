@@ -1,4 +1,4 @@
-import { CcuSourceType } from '../../../types';
+import { CcuSourceType, HangarCcuAllocation } from '../../../types';
 
 export const LEGACY_COMPLETED_PATHS_STORAGE_KEY = 'completedPaths';
 const ACTIVE_COMPLETED_PATHS_STORAGE_KEY = 'ccu-planner-active-completed-paths-key';
@@ -8,6 +8,7 @@ export interface StoredCompletedPathUsageEdge {
   sourceShipId: number;
   targetShipId: number;
   sourceType: CcuSourceType;
+  hangarAllocation?: HangarCcuAllocation;
 }
 
 export interface StoredCompletedPathUsageItem {
@@ -60,15 +61,21 @@ export function readStoredCompletedPathsByStorageKey(storageKey: string): Stored
 }
 
 export function readStoredCompletedPathsForActiveTab(): StoredCompletedPathUsageItem[] {
-  const activeStorageKey = getActiveCompletedPathsStorageKey();
-  const activeRaw = localStorage.getItem(activeStorageKey);
-  const activePaths = parseStoredCompletedPaths(activeRaw);
+  return parseStoredCompletedPaths(readCompletedPathsRaw(getActiveCompletedPathsStorageKey()));
+}
 
-  if (activeRaw !== null || activeStorageKey === LEGACY_COMPLETED_PATHS_STORAGE_KEY) {
-    return activePaths;
+export function readCompletedPathsRaw(storageKey: string): string | null {
+  const activeRaw = localStorage.getItem(storageKey);
+  return activeRaw ?? (storageKey === LEGACY_COMPLETED_PATHS_STORAGE_KEY ? null : localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY));
+}
+
+export function getActiveCompletedPathsSnapshot(storageKey = getActiveCompletedPathsStorageKey()): string | null {
+  try {
+    return readCompletedPathsRaw(storageKey);
+  } catch (error) {
+    console.error('Failed to read active completed paths:', error);
+    return null;
   }
-
-  return readStoredCompletedPathsByStorageKey(LEGACY_COMPLETED_PATHS_STORAGE_KEY);
 }
 
 export function cleanupCompletedPathsStorageForTabIds(tabIds: string[]): void {

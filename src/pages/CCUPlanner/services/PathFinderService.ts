@@ -1,11 +1,14 @@
 import { Edge, Node } from 'reactflow';
-import { Ccu, CcuEdgeData, CcuSourceType, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from '../../../types';
+import { Ccu, CcuEdgeData, CcuSourceType, HangarCcuAllocation, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from '../../../types';
 import { CcuSourceTypeStrategyFactory, HangarItem } from './CcuSourceTypeFactory';
 import {
   LEGACY_COMPLETED_PATHS_STORAGE_KEY,
   parseStoredCompletedPaths,
-  setActiveCompletedPathsStorageKey
+  readCompletedPathsRaw,
+  setActiveCompletedPathsStorageKey,
+  type StoredCompletedPathUsageEdge
 } from './completedPathsStorage';
+import { getHangarCcuBalances } from './plannerHangarItems';
 import type { FlowData } from './ImportExportService';
 
 interface PathNode {
@@ -17,6 +20,8 @@ interface PathEdge {
   edge: Edge<CcuEdgeData>;
   sourceNode: Node;
   targetNode: Node;
+  hangarAllocation?: HangarCcuAllocation;
+  quotedHangarPrice?: number;
 }
 
 // 在String.prototype上扩展getNodeShipId方法
@@ -93,6 +98,9 @@ export interface StoredCompletedPath {
       targetShipId: number;
       sourceType: CcuSourceType;
       price: number;
+      sourceNodeId?: string;
+      targetNodeId?: string;
+      hangarAllocation?: HangarCcuAllocation;
     }[];
     totalUsdPrice: number;
     totalThirdPartyPrice: number;
@@ -127,7 +135,7 @@ export class PathFinderService {
   /**
    * Get price and currency based on different source types
    */
-  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity> }): { usdPrice: number; tpPrice: number; isUsedUp?: boolean } {
+  getPriceInfo(edge: Edge<CcuEdgeData>, data: { ccus: Ccu[], wbHistory: WbHistoryData[], hangarItems: HangarItem[], importItems: ImportItem[], priceHistoryMap: Record<number, PriceHistoryEntity> }, hangarAllocation?: HangarCcuAllocation): { usdPrice: number; tpPrice: number; isUsedUp?: boolean } {
     if (!edge.data) return { usdPrice: 0, tpPrice: 0 };
 
     const sourceType = edge.data.sourceType || CcuSourceType.OFFICIAL;
@@ -156,7 +164,7 @@ export class PathFinderService {
     let tpPrice = 0;
     
     if (priceResult.currency === 'USD') {
-      usdPrice = priceResult.price;
+      usdPrice = sourceType === CcuSourceType.HANGER ? hangarAllocation?.unitPrice ?? priceResult.price : priceResult.price;
     } else {
       tpPrice = priceResult.price;
     }
@@ -307,18 +315,18 @@ export class PathFinderService {
           const sourceNode = nodes.find(n => n.id === pathId[i])!;
           const targetNode = nodes.find(n => n.id === pathId[i + 1])!;
 
-          pathEdges.push({
-            edge,
-            sourceNode,
-            targetNode
-          });
-
           const { usdPrice, tpPrice } = this.getPriceInfo(edge, {
             ccus: data.ccus,
             wbHistory: data.wbHistory,
             hangarItems: data.hangarItems,
             importItems: data.importItems,
             priceHistoryMap: data.priceHistoryMap
+          });
+          pathEdges.push({
+            edge,
+            sourceNode,
+            targetNode,
+            quotedHangarPrice: edge.data?.sourceType === CcuSourceType.HANGER ? usdPrice : undefined
           });
           totalUsdPrice += usdPrice;
           totalThirdPartyPrice += tpPrice;
@@ -331,7 +339,7 @@ export class PathFinderService {
         }
       }
 
-      return {
+      const completePath = {
         path: pathNodes,
         edges: pathEdges,
         totalUsdPrice,
@@ -340,6 +348,19 @@ export class PathFinderService {
         hasCnyPricing,
         startNodeId: pathId[0]
       };
+      const { pathId: savedId } = this.isPathCompleted(completePath);
+      const saved = this.completedPaths.find(entry => entry.pathId === savedId)?.path;
+      if (saved) {
+        // Keep live nodes/edge IDs and only pin Hangar costs to their actual paid lots.
+        const allocations = new Map(saved.edges.map(step => [getConnectionVariantKey(step.edge), step.hangarAllocation]));
+        for (const step of pathEdges) {
+          const allocation = allocations.get(getConnectionVariantKey(step.edge));
+          if (!allocation) continue;
+          step.hangarAllocation = allocation;
+          completePath.totalUsdPrice += allocation.unitPrice - (step.quotedHangarPrice ?? allocation.unitPrice);
+        }
+      }
+      return completePath;
     });
   }
 
@@ -353,16 +374,62 @@ export class PathFinderService {
   /**
    * 新增：标记路径为已完成
    */
-  markPathAsCompleted(path: CompletePath, completedShip: Ship): void {
+  markPathAsCompleted(path: CompletePath, completedShip: Ship, hangarItems: readonly HangarItem[]): boolean {
+    if (this.isPathCompleted(path).completed) return false;
+
+    let snapshot: string | null;
+    try {
+      snapshot = readCompletedPathsRaw(this.completedPathsStorageKey);
+    } catch (error) {
+      console.error('Failed to read hangar usage before completing path:', error);
+      return false;
+    }
+
+    const reservations: StoredCompletedPathUsageEdge[] = [];
+    const edges: PathEdge[] = [];
+    let totalUsdPrice = path.totalUsdPrice;
+    for (const step of path.edges) {
+      const { edge } = step;
+      if (getConnectionSourceType(edge) !== CcuSourceType.HANGER) {
+        edges.push(step);
+        continue;
+      }
+
+      const source = edge.data?.sourceShip;
+      const target = edge.data?.targetShip;
+      if (!source || !target) return false;
+      const lot = getHangarCcuBalances(source, target, hangarItems, snapshot, reservations)
+        .find(({ item, remaining }) => remaining > 0 && item.lot && Number.isSafeInteger(item.lot.ownerId) && item.lot.ownerId !== -1)?.item.lot;
+      if (!lot) return false;
+
+      const hangarAllocation = { ...lot };
+      reservations.push({ sourceShipId: source.id, targetShipId: target.id, sourceType: CcuSourceType.HANGER, hangarAllocation });
+      edges.push({ ...step, hangarAllocation });
+      totalUsdPrice += hangarAllocation.unitPrice - (step.quotedHangarPrice ?? hangarAllocation.unitPrice);
+    }
     const pathId = `path-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     this.completedPaths.push({
       pathId,
       ship: completedShip,
-      path
+      path: { ...path, edges, totalUsdPrice }
     });
     
     // 存储到本地存储以便在会话之间保留
-    this.saveCompletedPathsToStorage();
+    if (!this.saveCompletedPathsToStorage()) {
+      this.completedPaths.pop();
+      return false;
+    }
+    return true;
+  }
+
+  getCompletedHangarAllocation(edge: Edge<CcuEdgeData>): HangarCcuAllocation | undefined {
+    if (getConnectionSourceType(edge) !== CcuSourceType.HANGER) return undefined;
+    const key = getConnectionVariantKey(edge);
+    for (const record of this.completedPaths) {
+      const allocation = record.path.edges.find(step => getConnectionVariantKey(step.edge) === key)?.hangarAllocation;
+      if (allocation) return allocation;
+    }
+    return undefined;
   }
 
   /**
@@ -620,7 +687,7 @@ export class PathFinderService {
   /**
    * 新增：保存已完成的路径到本地存储
    */
-  private saveCompletedPathsToStorage(): void {
+  private saveCompletedPathsToStorage(): boolean {
     try {
       // 转换为存储格式
       const storedPaths: StoredCompletedPath[] = this.completedPaths.map(completedPath => ({
@@ -640,7 +707,10 @@ export class PathFinderService {
             sourceShipId: Number(edge.edge.data?.sourceShip?.id || 0),
             targetShipId: Number(edge.edge.data?.targetShip?.id || 0),
             sourceType: edge.edge.data?.sourceType || CcuSourceType.OFFICIAL,
-            price: edge.edge.data?.price || 0
+            price: edge.edge.data?.price || 0,
+            sourceNodeId: edge.edge.source,
+            targetNodeId: edge.edge.target,
+            hangarAllocation: edge.hangarAllocation
           })),
           totalUsdPrice: completedPath.path.totalUsdPrice,
           totalThirdPartyPrice: completedPath.path.totalThirdPartyPrice,
@@ -650,8 +720,10 @@ export class PathFinderService {
       }));
 
       localStorage.setItem(this.completedPathsStorageKey, JSON.stringify(storedPaths));
+      return true;
     } catch (error) {
       console.error('Failed to save completed paths to storage:', error);
+      return false;
     }
   }
 
@@ -692,8 +764,8 @@ export class PathFinderService {
 
           // 重建路径边
           const pathEdges: PathEdge[] = storedPath.path.edges.map(edge => {
-            const sourceNode = pathNodes.find(n => Number(n.ship.id) === edge.sourceShipId);
-            const targetNode = pathNodes.find(n => Number(n.ship.id) === edge.targetShipId);
+            const sourceNode = pathNodes.find(n => edge.sourceNodeId ? n.nodeId === edge.sourceNodeId : Number(n.ship.id) === edge.sourceShipId);
+            const targetNode = pathNodes.find(n => edge.targetNodeId ? n.nodeId === edge.targetNodeId : Number(n.ship.id) === edge.targetShipId);
             
             if (!sourceNode || !targetNode) {
               throw new Error('Invalid edge data in stored path');
@@ -712,7 +784,8 @@ export class PathFinderService {
                 }
               } as Edge<CcuEdgeData>,
               sourceNode: { id: sourceNode.nodeId, data: { ship: sourceNode.ship } } as Node,
-              targetNode: { id: targetNode.nodeId, data: { ship: targetNode.ship } } as Node
+              targetNode: { id: targetNode.nodeId, data: { ship: targetNode.ship } } as Node,
+              hangarAllocation: edge.hangarAllocation
             };
           });
 

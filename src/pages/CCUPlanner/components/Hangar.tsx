@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { IconButton, TextField, InputAdornment, Button, Pagination, FormControlLabel, Switch, Tooltip } from "@mui/material";
-import { Ccu, CcuSourceType, Ship } from "@/types";
+import { Ccu, Ship } from "@/types";
 import { useSelector } from "react-redux";
 import { selectUsersHangarItems } from "@/store/upgradesStore";
 import { RootState } from "@/store";
@@ -12,7 +12,8 @@ import { Boxes, Gift, PackageOpen } from "lucide-react";
 import { selectImportItems } from "@/store/importStore";
 import { findShipByIdOrName, getShipDisplayName, matchesShipNameQuery, normalizeShipNameMatch } from "@/utils/shipDisplay";
 import { getShipThumbSmall } from "@/utils/shipImage";
-import { readStoredCompletedPathsForActiveTab } from "../services/completedPathsStorage";
+import { getActiveCompletedPathsSnapshot, getCompletedPathsStorageKeyForTab } from "../services/completedPathsStorage";
+import { getHangarCcuRemainingByItem, toPlannerHangarItems } from "../services/plannerHangarItems";
 
 function preventImageNativeDrag(event: React.DragEvent<HTMLImageElement>) {
   event.preventDefault();
@@ -38,6 +39,7 @@ interface HangarUpgradeItem {
   isBuyBack: boolean;
   isSubscription: boolean;
   quantity: number;
+  availableQuantity?: number;
 }
 
 interface HangarDisplayUpgradeItem extends HangarUpgradeItem {
@@ -52,10 +54,6 @@ interface HangarStartShipItem {
   quantity: number;
   sourceLabels: string[];
   insuranceLabels: string[];
-}
-
-function getCcuPairKey(fromShipId: number, toShipId: number, sourceType = CcuSourceType.HANGER) {
-  return `${sourceType}:${fromShipId}->${toShipId}`;
 }
 
 function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }: ShipSelectorProps) {
@@ -77,7 +75,15 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
   const upgrades = useSelector(selectUsersHangarItems);
   const importItems = useSelector(selectImportItems);
   const users = useSelector((state: RootState) => state.upgrades.users);
-  const completedPathsStorageRevisionKey = `${activeTabId || ''}:${completedPathsRevision}`;
+  const pooledInventory = useSelector((state: RootState) => state.upgrades.selectedUser === -1);
+  const remainingByRow = useMemo(() => {
+    void completedPathsRevision;
+    const rows = upgrades.ccus.filter(row => !row.isBuyBack && !row.isSubscription);
+    const lots = toPlannerHangarItems(rows, pooledInventory);
+    const snapshot = getActiveCompletedPathsSnapshot(activeTabId ? getCompletedPathsStorageKeyForTab(activeTabId) : undefined);
+    const remaining = getHangarCcuRemainingByItem(lots, ships, snapshot);
+    return new Map(rows.map((row, index) => [row, remaining.get(lots[index])]));
+  }, [activeTabId, completedPathsRevision, pooledInventory, ships, upgrades.ccus]);
 
   const handleExtensionLinkClick = () => {
     setExtensionModalOpen(true);
@@ -87,7 +93,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
 
   // Merge local upgrades and imported upgrade data
   const rawUpgrades = [
-    ...upgrades.ccus,
+    ...upgrades.ccus.map(row => ({ ...row, availableQuantity: remainingByRow.get(row) })),
     ...importItems
       // .filter(item => item.selected)
       .map(item => {
@@ -116,29 +122,6 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
     belongsTo: upgrade.belongsTo?.toString() || "import",
     isSubscription: Boolean(upgrade.isSubscription),
   }));
-
-  const ccuUsageMap = useMemo(() => {
-    void completedPathsStorageRevisionKey;
-    const usage = new Map<string, number>();
-    const completedPaths = readStoredCompletedPathsForActiveTab();
-
-    completedPaths.forEach(path => {
-      path.path.edges?.forEach(edge => {
-        if (
-          edge.sourceType !== CcuSourceType.HANGER ||
-          !edge.sourceShipId ||
-          !edge.targetShipId
-        ) {
-          return;
-        }
-
-        const key = getCcuPairKey(edge.sourceShipId, edge.targetShipId, edge.sourceType);
-        usage.set(key, (usage.get(key) || 0) + 1);
-      });
-    });
-
-    return usage;
-  }, [completedPathsStorageRevisionKey]);
 
   const startShips = useMemo<HangarStartShipItem[]>(() => {
     const grouped = new Map<number, HangarStartShipItem>();
@@ -266,7 +249,7 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
     return matchesSearch && matchesType;
   });
 
-  // Sort by upgrade-to ship value from low to high, then assign completed-route usage.
+  // Sort for display only; stock was allocated before filtering or sorting.
   const sortedUpgrades = filteredUpgrades
     .sort((a, b) => {
       // First sort by whether it's a buyback
@@ -285,7 +268,6 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
       return 0;
     });
 
-  const remainingUsageByCcu = new Map(ccuUsageMap);
   const displayUpgrades = sortedUpgrades.reduce<HangarDisplayUpgradeItem[]>((items, upgrade) => {
     const fromShip = findShipByName(upgrade.parsed.from);
     const toShip = findShipByName(upgrade.parsed.to);
@@ -295,22 +277,11 @@ function Hangar({ ships, onDragStart, activeTabId, completedPathsRevision = 0 }:
       return items;
     }
 
-    const totalQuantity = upgrade.quantity || 1;
-    const usageKey = getCcuPairKey(fromShip.id, toShip.id, CcuSourceType.HANGER);
-    const availableUsage = upgrade.isSubscription || upgrade.isBuyBack ? 0 : remainingUsageByCcu.get(usageKey) || 0;
-    const usedQuantity = Math.min(totalQuantity, availableUsage);
-
-    if (!upgrade.isSubscription && !upgrade.isBuyBack && usedQuantity > 0) {
-      remainingUsageByCcu.set(usageKey, availableUsage - usedQuantity);
-    }
-
     items.push({
       ...upgrade,
       fromShip,
       toShip,
-      remainingQuantity: upgrade.isSubscription || upgrade.isBuyBack
-        ? totalQuantity
-        : Math.max(totalQuantity - usedQuantity, 0),
+      remainingQuantity: upgrade.availableQuantity ?? upgrade.quantity,
     });
 
     return items;
