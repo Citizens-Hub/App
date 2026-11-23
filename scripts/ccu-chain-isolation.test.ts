@@ -434,3 +434,46 @@ for (const [oldFromNumeric, oldToNumeric] of [[false, false], [true, false], [fa
   assert.deepEqual(lots(reversedProjection), [0], 'numeric ledgers still work with name-only cached rows');
 }
 console.log('CCU: unassigned pooled reservations cannot overcommit, and persisted numeric/name/mixed lot identities survive hydration');
+
+const { getCcuEdgeDisplayWarning } = await import('../src/pages/CCUPlanner/services/ccuEdgeDisplay');
+service.clearCompletedPaths();
+const warningInventory = toPlannerHangarItems([lotRows[0], { ...lotRows[1], quantity: 1 }]);
+const warningState = (edge: Edge<CcuEdgeData>, hangarItems = warningInventory, pooledHangarItems = hangarItems) => {
+  const isCompleted = service.isSingleEdgeInAnyCompletedPath(edge);
+  const price = service.getPriceInfo(edge, { ...data, hangarItems }, service.getCompletedHangarAllocation(edge));
+  return { ...price, ...getCcuEdgeDisplayWarning({
+    data: edge.data!, price: price.usdPrice, isCompleted, isUsedUp: price.isUsedUp, hangarItems, pooledHangarItems,
+  }) };
+};
+assert.equal(warningState(thirdEdges[0]).usdPrice, 10);
+assert.equal(warningState(thirdEdges[0]).showsPriceWarning, false);
+assert.equal(service.markPathAsCompleted(accountAPath, ships[1], warningInventory, warningInventory), true);
+assert.equal(warningState(thirdEdges[0]).usdPrice, 15, 'the existing pending canvas edge quotes the next batch');
+assert.equal(warningState(thirdEdges[0]).showsPriceWarning, false);
+assert.equal(service.markPathAsCompleted(accountBPath, ships[1], warningInventory, warningInventory), true);
+assert.ok(warningState(thirdEdges[0]).usdPrice > 0, 'an exhausted lot may still return a nonzero fallback price');
+assert.equal(warningState(thirdEdges[0]).isHangarOutOfStock, true, 'the unchanged physical edge must show the red warning');
+assert.equal(warningState(thirdEdges[0]).showsPriceWarning, true, 'canvas and export use the same warning state');
+assert.equal(warningState(edges[0]).showsPriceWarning, false, 'completed Hangar edges do not turn red when all stock is consumed');
+assert.equal(warningState(edges[2]).usdPrice, 15, 'its existing paid lot price stays pinned');
+const deletedLastClaim = service.removeCompletedPathsContainingNodes(new Set([b[1].id]), lotsKey);
+assert.ok(deletedLastClaim);
+assert.equal(warningState(thirdEdges[0]).showsPriceWarning, false, 'releasing the last unit clears red immediately');
+assert.equal(warningState(thirdEdges[0]).usdPrice, 15);
+assert.equal(service.restoreCompletedPathsAfterUndo(deletedLastClaim), true);
+assert.equal(warningState(thirdEdges[0]).showsPriceWarning, true, 'undo restoring the reservation restores the warning');
+service.clearCompletedPaths();
+const freeInventory = toPlannerHangarItems([{ ...lotRows[0], value: 0 }]);
+assert.equal(warningState(thirdEdges[0], freeInventory).usdPrice, 0);
+assert.equal(warningState(thirdEdges[0], freeInventory).showsPriceWarning, false, 'available free stock is not a warning');
+assert.equal(getCcuEdgeDisplayWarning({
+  data: { ...thirdEdges[0].data, sourceType: CcuSourceType.OFFICIAL }, price: 0, isCompleted: false,
+  hangarItems: freeInventory, pooledHangarItems: freeInventory,
+}).showsPriceWarning, true, 'the preexisting non-Hangar zero-price warning is unchanged');
+
+storage.set(lotsKey, legacyRaw);
+service.loadCompletedPathsFromStorage();
+assert.equal(service.markPathAsCompleted(accountBPath, ships[1], cappedA, cappedPool), true);
+assert.equal(warningState(thirdEdges[0], cappedB, cappedPool).isUsedUp, false, 'selected owner has an apparent unit');
+assert.equal(warningState(thirdEdges[0], cappedB, cappedPool).showsPriceWarning, true, 'pending edge reflects the effective pooled legacy cap');
+console.log('CCU: shared canvas/export red warning follows exhaustion, completion, release, undo and the pooled cap');

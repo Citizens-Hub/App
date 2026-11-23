@@ -19,6 +19,7 @@ import { getShipThumbLarge } from '@/utils/shipImage';
 
 import { CcuSourceTypeStrategyFactory } from './CcuSourceTypeFactory';
 import pathFinderService from './PathFinderService';
+import { CCU_OUT_OF_STOCK_COLOR, getCcuEdgeDisplayWarning } from './ccuEdgeDisplay';
 import {
   EXPORT_HEADER_HEIGHT,
   EXPORT_HORIZONTAL_PADDING,
@@ -98,6 +99,7 @@ export interface ExportCanvasImageOptions {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
+  pooledHangarItems: HangarItem[];
   importItems: ImportItem[];
   priceHistoryMap: Record<number, PriceHistoryEntity>;
   onProgress?: (progress: CanvasImageExportProgress) => void;
@@ -461,7 +463,7 @@ function buildPreparedEdge(
   const isCompleted = pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
   const isSelected = options.selectedPathEdgeIds.has(edge.id);
 
-  const { price: quotedPrice, currency } = strategy.calculatePrice(edge.data.sourceShip, edge.data.targetShip, {
+  const { price: quotedPrice, currency, isUsedUp } = strategy.calculatePrice(edge.data.sourceShip, edge.data.targetShip, {
     ccus: options.ccus,
     wbHistory: options.wbHistory,
     hangarItems: options.hangarItems,
@@ -471,6 +473,9 @@ function buildPreparedEdge(
     priceHistoryMap: options.priceHistoryMap
   });
   const price = pathFinderService.getCompletedHangarAllocation(edge)?.unitPrice ?? quotedPrice;
+  const { showsPriceWarning, isHangarOutOfStock } = getCcuEdgeDisplayWarning({
+    data: edge.data, price, isCompleted, isUsedUp, hangarItems: options.hangarItems, pooledHangarItems: options.pooledHangarItems
+  });
 
   const officialUpgradePriceUsd = edge.data.targetShip.msrp && edge.data.sourceShip.msrp
     ? (edge.data.targetShip.msrp - edge.data.sourceShip.msrp) / 100
@@ -496,14 +501,14 @@ function buildPreparedEdge(
     ? Math.floor((savingsUsd / officialUpgradePriceUsd) * 100)
     : null;
 
-  const labelSavingsText = savingsUsd !== null && savingsPercent !== null
+  const labelSavingsText = !isHangarOutOfStock && savingsUsd !== null && savingsPercent !== null
     ? `Save ${savingsPercent}% (-${savingsUsd.toLocaleString(options.intl.locale, {
       style: 'currency',
       currency: 'USD'
     })})`
     : null;
 
-  const labelMainText = price === 0 && edge.data.targetShip.msrp !== 0
+  const labelMainText = showsPriceWarning
     ? `! ${sourceTypeDisplay}`
     : `${sourceTypeDisplay} +${price.toLocaleString(options.intl.locale, {
       style: 'currency',
@@ -514,6 +519,9 @@ function buildPreparedEdge(
     if (isCompleted) {
       return isSelected ? '#50fa7e' : '#4caf50';
     }
+    if (isHangarOutOfStock) {
+      return CCU_OUT_OF_STOCK_COLOR;
+    }
     if (isSelected) {
       return '#2196f3';
     }
@@ -522,8 +530,8 @@ function buildPreparedEdge(
 
   const labelMainFill = isCompleted
     ? '#16a34a'
-    : price === 0 && edge.data.targetShip.msrp !== 0
-      ? '#ef4444'
+    : showsPriceWarning
+      ? CCU_OUT_OF_STOCK_COLOR
       : resolveColor(strategyStyle.bgColor, '#1d4ed8');
 
   const sourceX = sourceNode.position.x + sourceMetrics.width + offsetX;

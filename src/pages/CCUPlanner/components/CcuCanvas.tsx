@@ -393,6 +393,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     ccus,
     wbHistory,
     hangarItems,
+    pooledHangarItems,
     importItems,
     exchangeRates,
     edgeService,
@@ -1856,6 +1857,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         ccus,
         wbHistory,
         hangarItems,
+        pooledHangarItems,
         importItems,
         priceHistoryMap,
         onProgress: (progress) => {
@@ -1908,6 +1910,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     ccus,
     wbHistory,
     hangarItems,
+    pooledHangarItems,
     importItems,
     priceHistoryMap,
     startShipPrices,
