@@ -11,6 +11,7 @@ import { IconButton } from '@mui/material';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { BiSlots, reportBi } from '@/report';
 import { resolveCurrentRsiCcuSkuForEdge } from '@/utils/rsiOfficialCcu';
+import { CCU_OUT_OF_STOCK_COLOR, getCcuEdgeDisplayWarning } from '../services/ccuEdgeDisplay';
 
 interface CcuEdgeProps extends EdgeProps {
   data?: CcuEdgeData;
@@ -18,6 +19,8 @@ interface CcuEdgeProps extends EdgeProps {
 
 function CcuEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -37,6 +40,7 @@ function CcuEdge({
     ccus,
     wbHistory,
     hangarItems,
+    pooledHangarItems,
     importItems,
     exchangeRates,
     selectedPathEdgeIds
@@ -46,16 +50,16 @@ function CcuEdge({
   const isCompleted = useMemo(() => {
     if (!data?.sourceShip || !data?.targetShip) return false;
 
-    // Build a complete Edge<CcuEdgeData> object
+    // Use the physical canvas endpoints to distinguish otherwise identical routes.
     const edge: Edge<CcuEdgeData> = {
       id,
-      source: '',  // These fields are not used in the check
-      target: '',
+      source,
+      target,
       data
     };
 
     return pathFinderService.isSingleEdgeInAnyCompletedPath(edge);
-  }, [data, id]);
+  }, [data, id, source, target]);
 
   // Check if the edge is in the currently selected path
   const isInSelectedPath = useMemo(() => {
@@ -63,39 +67,10 @@ function CcuEdge({
     return selectedPathEdgeIds.has(id);
   }, [selectedPathEdgeIds, id, data]);
 
-  // Create edge style
-  const edgeStyle = useMemo(() => {
-    const baseStyle = { ...style };
-
-    const getEdgeStyle = () => {
-      const commonStyle = {
-        ...baseStyle,
-        strokeWidth: 3
-      };
-
-      if (isCompleted) {
-        return {
-          ...commonStyle,
-          stroke: isInSelectedPath ? '#50FA7E' : '#4caf50',
-          strokeDasharray: '5,5'
-        };
-      }
-
-      if (isInSelectedPath) {
-        return {
-          ...commonStyle,
-          stroke: '#2196f3'
-        };
-      }
-
-      return {
-        ...baseStyle,
-        strokeWidth: 2
-      };
-    };
-
-    return getEdgeStyle();
-  }, [style, isCompleted, isInSelectedPath]);
+  const resolvedCurrentRsiSku = useMemo(
+    () => resolveCurrentRsiCcuSkuForEdge(data, ccus),
+    [ccus, data],
+  );
 
   if (!data) return null;
 
@@ -122,7 +97,7 @@ function CcuEdge({
 
   const labelBgColor = isCompleted ? 'bg-green-600' : bgColor;
 
-  const { price, currency } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
+  const { price: quotedPrice, currency, isUsedUp } = strategy.calculatePrice(data.sourceShip!, data.targetShip!, {
     ccus,
     wbHistory,
     hangarItems,
@@ -131,6 +106,18 @@ function CcuEdge({
     customPrice: data.customPrice,
     priceHistoryMap: priceHistoryMap,
   });
+  const allocation = isCompleted ? pathFinderService.getCompletedHangarAllocation({ id, source, target, data }) : undefined;
+  const price = allocation?.unitPrice ?? quotedPrice;
+  const { showsPriceWarning, isHangarOutOfStock } = getCcuEdgeDisplayWarning({
+    data, price, isCompleted, hasCompletedHangarAllocation: !!allocation, isUsedUp, hangarItems, pooledHangarItems
+  });
+  const edgeStyle = isHangarOutOfStock
+    ? { ...style, stroke: CCU_OUT_OF_STOCK_COLOR, strokeWidth: 3 }
+    : isCompleted
+      ? { ...style, stroke: isInSelectedPath ? '#50FA7E' : '#4caf50', strokeDasharray: '5,5', strokeWidth: 3 }
+      : isInSelectedPath
+        ? { ...style, stroke: '#2196f3', strokeWidth: 3 }
+        : { ...style, strokeWidth: 2 };
 
   const officialUpgradePriceUsd = data.targetShip?.msrp && data.sourceShip?.msrp
     ? (data.targetShip.msrp - data.sourceShip.msrp) / 100
@@ -157,10 +144,6 @@ function CcuEdge({
     ? Math.floor((savingsUsd / officialUpgradePriceUsd) * 100)
     : null;
 
-  const resolvedCurrentRsiSku = useMemo(
-    () => resolveCurrentRsiCcuSkuForEdge(data, ccus),
-    [ccus, data],
-  );
   const ccuAvailable = Boolean(resolvedCurrentRsiSku);
 
   return (
@@ -168,13 +151,13 @@ function CcuEdge({
       <path
         id={id}
         style={edgeStyle}
-        className={`react-flow__edge-path ${!isCompleted ? edgeColor : ''}`}
+        className={`react-flow__edge-path ${!isCompleted && !isHangarOutOfStock ? edgeColor : ''}`}
         d={edgePath}
         markerEnd={markerEnd}
       />
       <EdgeLabelRenderer>
         {
-          (price === 0 && data.targetShip?.msrp !== 0) ? <div
+          showsPriceWarning ? <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,

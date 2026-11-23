@@ -1,13 +1,25 @@
-import { CcuSourceType } from '../../../types';
+import { CcuSourceType, HangarCcuAllocation } from '../../../types';
 
 export const LEGACY_COMPLETED_PATHS_STORAGE_KEY = 'completedPaths';
+export const LEGACY_SINGLE_ROUTE_TAB_ID = 'legacy-route-1';
+export const DEFAULT_PLANNER_TAB_ID = 'route-1';
 const ACTIVE_COMPLETED_PATHS_STORAGE_KEY = 'ccu-planner-active-completed-paths-key';
 const COMPLETED_PATHS_STORAGE_KEY_PREFIX = 'completedPaths:';
+
+let legacyFallbackKey = getCompletedPathsStorageKeyForTab(LEGACY_SINGLE_ROUTE_TAB_ID);
+
+export function scopeLegacyCompletedPathsFallback(tabIds: readonly string[]): void {
+  // Only the original workspace tab may inherit the pre-workspace ledger. An
+  // explicit tab ledger (including []) always wins over that global snapshot.
+  const tabId = [LEGACY_SINGLE_ROUTE_TAB_ID, DEFAULT_PLANNER_TAB_ID, 'legacy-tab-1'].find(id => tabIds.includes(id)) ?? tabIds[0];
+  legacyFallbackKey = tabId ? getCompletedPathsStorageKeyForTab(tabId) : '';
+}
 
 export interface StoredCompletedPathUsageEdge {
   sourceShipId: number;
   targetShipId: number;
   sourceType: CcuSourceType;
+  hangarAllocation?: HangarCcuAllocation;
 }
 
 export interface StoredCompletedPathUsageItem {
@@ -60,15 +72,21 @@ export function readStoredCompletedPathsByStorageKey(storageKey: string): Stored
 }
 
 export function readStoredCompletedPathsForActiveTab(): StoredCompletedPathUsageItem[] {
-  const activeStorageKey = getActiveCompletedPathsStorageKey();
-  const activeRaw = localStorage.getItem(activeStorageKey);
-  const activePaths = parseStoredCompletedPaths(activeRaw);
+  return parseStoredCompletedPaths(readCompletedPathsRaw(getActiveCompletedPathsStorageKey()));
+}
 
-  if (activeRaw !== null || activeStorageKey === LEGACY_COMPLETED_PATHS_STORAGE_KEY) {
-    return activePaths;
+export function readCompletedPathsRaw(storageKey: string): string | null {
+  const activeRaw = localStorage.getItem(storageKey);
+  return activeRaw ?? (storageKey === legacyFallbackKey ? localStorage.getItem(LEGACY_COMPLETED_PATHS_STORAGE_KEY) : null);
+}
+
+export function getActiveCompletedPathsSnapshot(storageKey = getActiveCompletedPathsStorageKey()): string | null {
+  try {
+    return readCompletedPathsRaw(storageKey);
+  } catch (error) {
+    console.error('Failed to read active completed paths:', error);
+    return null;
   }
-
-  return readStoredCompletedPathsByStorageKey(LEGACY_COMPLETED_PATHS_STORAGE_KEY);
 }
 
 export function cleanupCompletedPathsStorageForTabIds(tabIds: string[]): void {

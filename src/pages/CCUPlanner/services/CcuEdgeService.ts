@@ -1,6 +1,7 @@
 import { Ccu, CcuEdgeData, CcuSourceType, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { CcuSourceTypeStrategyFactory, HangarItem, ImportItem } from "./CcuSourceTypeFactory";
 import { CcuConcretePricingOption, getPreferredConcretePricingOption } from "./CcuPriceOptions";
+import type { Edge } from 'reactflow';
 
 export interface CcuEdgeCreationOptions {
   sourceShip: Ship;
@@ -23,6 +24,14 @@ export interface CcuEdgeUpdateOptions {
   sourceType: CcuSourceType;
   customPrice?: number;
   selectedOption?: CcuConcretePricingOption;
+}
+
+export function hasCanvasConnection(
+  edges: readonly Pick<Edge, 'source' | 'target'>[],
+  sourceNodeId: string,
+  targetNodeId: string,
+): boolean {
+  return edges.some(edge => edge.source === sourceNodeId && edge.target === targetNodeId);
 }
 
 /**

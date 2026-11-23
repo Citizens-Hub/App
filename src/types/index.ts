@@ -743,6 +743,18 @@ export interface HangarItem {
   fromShip?: string;
   toShip?: string;
   price?: number;
+  quantity?: number;
+  lot?: HangarCcuAllocation;
+  // Unknown-owner legacy reservations apply only to an unfiltered, pooled inventory.
+  countUnassignedUsage?: boolean;
+}
+
+export interface HangarCcuAllocation {
+  ownerId: number;
+  lotKey: string;
+  unitPrice: number;
+  // A compatible lot assigned on upgrade, not a verified historical purchase price.
+  inferredFromLegacy?: true;
 }
 
 export interface ImportItem {

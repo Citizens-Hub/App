@@ -20,21 +20,22 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { Ship, CcuEdgeData, Ccu, WbHistoryData, PriceHistoryEntity, UserRole } from '@/types';
+import { Ship, CcuEdgeData, Ccu, HangarItem, WbHistoryData, PriceHistoryEntity, UserRole } from '@/types';
 import ShipNode from './ShipNode';
 import CcuEdge from './CcuEdge';
 import ShipSelector from './ShipSelector';
 import Toolbar from './Toolbar';
 import RouteInfoPanel from './RouteInfoPanel';
+import RemovedCompletedRoutes from './RemovedCompletedRoutes';
 import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Input, LinearProgress, Menu, MenuItem, Snackbar, useMediaQuery } from '@mui/material';
-import { selectUsersHangarItems } from '@/store/upgradesStore';
 import { useSelector } from 'react-redux';
 import Hangar from './Hangar';
 import PathBuilder, { ReviewedPathBuildResult, ReviewedPathCreateOptions } from './PathBuilder';
 import UserSelector from '@/components/UserSelector';
 import Guide from './Guide';
 import { Close } from '@mui/icons-material';
-import pathFinderService, { CompletePath } from '../services/PathFinderService';
+import pathFinderService, { CompletedPathsRemoval, CompletePath } from '../services/PathFinderService';
+import { hasCanvasConnection } from '../services/CcuEdgeService';
 import { CcuPlannerProvider } from '../context/CcuPlannerContext';
 import { useCcuPlanner } from '../context/useCcuPlanner';
 import { useNavigate } from 'react-router';
@@ -42,7 +43,7 @@ import { BiSlots, reportBi } from '@/report';
 import Joyride, { ACTIONS, EVENTS, STATUS, CallBackProps, Step as JoyrideStep } from 'react-joyride';
 import { MousePointer2, Plus, Route, X } from 'lucide-react';
 import type { FlowData, PlannerWorkspaceData } from '../services/ImportExportService';
-import { cleanupCompletedPathsStorageForTabIds, getCompletedPathsStorageKeyForTab } from '../services/completedPathsStorage';
+import { cleanupCompletedPathsStorageForTabIds, DEFAULT_PLANNER_TAB_ID, getCompletedPathsStorageKeyForTab, scopeLegacyCompletedPathsFallback } from '../services/completedPathsStorage';
 import ShipInfoDialog from '@/components/ShipInfoDialog';
 import ShipTranslationEditorDialog from '@/pages/Admin/components/ShipTranslationEditorDialog';
 import { RootState } from '@/store';
@@ -51,7 +52,6 @@ import routeImagePayloadService from '../services/RouteImagePayloadService';
 import { areShipNamesEqual } from '@/utils/shipDisplay';
 
 const EXPLORE_PATH_JOYRIDE_STORAGE_KEY = 'ccuPlannerExplorePathJoyrideSeen';
-const DEFAULT_TAB_ID = 'route-1';
 const MAX_HISTORY_STEPS = 100;
 const CANVAS_MIN_ZOOM = 0.05;
 type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -126,6 +126,14 @@ interface FlowHistoryEntry {
   snapshot: FlowData;
   diff: FlowStepDiff;
   recordedAt: number;
+  completionRemovals: NodeDeletionCompletionChange[];
+}
+
+interface NodeDeletionCompletionChange {
+  nodeIds: ReadonlySet<string>;
+  inventory: HangarItem[];
+  pooledInventory: HangarItem[];
+  removal: CompletedPathsRemoval;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -347,6 +355,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   const joyrideStepRetryTimeoutRef = useRef<number | null>(null);
   const handleDuplicateNodeRef = useRef<((ship: Ship, position: XYPosition) => void) | null>(null);
   const historyByTabRef = useRef<Record<string, FlowHistoryEntry[]>>({});
+  const pendingCompletionRemovalsByTabRef = useRef<Record<string, NodeDeletionCompletionChange[]>>({});
   const historyBaselineByTabRef = useRef<Record<string, FlowData>>({});
   const skipHistoryRecordingRef = useRef(false);
   const isNodeDragInProgressRef = useRef(false);
@@ -384,6 +393,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     ccus,
     wbHistory,
     hangarItems,
+    pooledHangarItems,
     importItems,
     exchangeRates,
     edgeService,
@@ -396,8 +406,6 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     selectedPathEdgeIds
   } = useCcuPlanner();
 
-  // Get upgrade items from Redux
-  const upgrades = useSelector(selectUsersHangarItems);
   const { user } = useSelector((state: RootState) => state.user);
   const { currency } = useSelector((state: RootState) => state.upgrades);
   const isAdmin = user.role === UserRole.Admin;
@@ -539,6 +547,36 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     handlePathCompletionChange(showAlert);
   }, [setEdges, handlePathCompletionChange]);
 
+  const handleUnmarkCompletedPath = useCallback((pathId: string) => {
+    pathFinderService.unmarkCompletedPath(pathId);
+    refreshEdgesOnPathCompletion();
+  }, [refreshEdgesOnPathCompletion]);
+
+  const deleteCanvasNodes = useCallback((ids: string[]) => {
+    if (!activeTabId || !ids.length) return;
+
+    const nodeIds = new Set(ids);
+    const removal = pathFinderService.removeCompletedPathsContainingNodes(nodeIds, getCompletedPathsStorageKeyForTab(activeTabId));
+    if (removal) {
+      const changes = pendingCompletionRemovalsByTabRef.current[activeTabId] ?? [];
+      pendingCompletionRemovalsByTabRef.current[activeTabId] = [
+        ...changes, { nodeIds, inventory: hangarItems, pooledInventory: pooledHangarItems, removal }
+      ];
+      refreshEdgesOnPathCompletion(false);
+    }
+
+    isNodeDragInProgressRef.current = false;
+    setNodes(current => current.filter(node => !nodeIds.has(node.id)));
+    setEdges(current => current.filter(edge => !nodeIds.has(edge.source) && !nodeIds.has(edge.target)));
+    setStartShipPrices(current => {
+      const next = { ...current };
+      nodeIds.forEach(id => delete next[id]);
+      return next;
+    });
+    setSelectedNode(current => current && nodeIds.has(current.id) ? null : current);
+    setSelectedPathEdgeIds([]);
+  }, [activeTabId, hangarItems, pooledHangarItems, refreshEdgesOnPathCompletion, setNodes, setEdges, setSelectedPathEdgeIds]);
+
   // Handle starting ship price change
   const handleStartShipPriceChange = useCallback((nodeId: string, price: number | string) => {
     setStartShipPrices(prev => ({
@@ -564,8 +602,12 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       isNodeDragInProgressRef.current = false;
     }
 
-    applyNodesChange(changes);
-  }, [applyNodesChange, clearAutoSaveTimer]);
+    const removals = changes.flatMap(change => change.type === 'remove' ? [change.id] : []);
+    if (removals.length) deleteCanvasNodes(removals);
+
+    const otherChanges = changes.filter(change => change.type !== 'remove');
+    if (otherChanges.length) applyNodesChange(otherChanges);
+  }, [applyNodesChange, clearAutoSaveTimer, deleteCanvasNodes]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     applyEdgesChange(changes);
@@ -604,9 +646,9 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         }
 
         // Check for hangar CCU
-        const hangarCcu = upgrades.ccus.find(upgrade => {
-          return areShipNamesEqual(upgrade.parsed.from, sourceShip.name)
-            && areShipNamesEqual(upgrade.parsed.to, targetShip.name)
+        const hangarCcu = hangarItems.find(upgrade => {
+          return areShipNamesEqual(upgrade.fromShip, sourceShip.name)
+            && areShipNamesEqual(upgrade.toShip, targetShip.name)
         })
 
         // If target ship price is 0 and no hangar CCU, disallow upgrade
@@ -621,20 +663,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
           return;
         }
 
-        const hasExistingPath = (
-          startNode: Node,
-          endNodeId: string,
-        ): boolean => {
-          const directConnection = edges.some(edge =>
-            edge.source.split('-')[1] === startNode.id.split('-')[1] &&
-            edge.target === endNodeId
-          );
-
-          return directConnection;
-        };
-
-        // If a path already exists, do not create a new connection
-        if (hasExistingPath(sourceNode, targetNode.id)) {
+        // Reject only duplicates between the same two canvas nodes.
+        if (hasCanvasConnection(edges, sourceNode.id, targetNode.id)) {
           showAlert(
             intl.formatMessage({
               id: 'ccuPlanner.error.pathExists',
@@ -663,7 +693,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         setEdges((eds) => addEdge(newEdge, eds));
       }
     },
-    [nodes, edgeService, setEdges, intl, edges, getServiceData, showAlert, upgrades.ccus]
+    [nodes, edgeService, setEdges, intl, edges, getServiceData, showAlert, hangarItems]
   );
 
   const updateEdgeData = useCallback(
@@ -728,24 +758,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     setShipTranslationShip(null);
   }, []);
 
-  const handleDeleteNode = useCallback(
-    (nodeId: string) => {
-      setNodes(nodes => nodes.filter(node => node.id !== nodeId));
-
-      // Delete all edge connections related to this node
-      setEdges(edges => edges.filter(edge =>
-        edge.source !== nodeId && edge.target !== nodeId
-      ));
-
-      // Delete related starting ship prices
-      setStartShipPrices(prev => {
-        const newPrices = { ...prev };
-        delete newPrices[nodeId];
-        return newPrices;
-      });
-    },
-    [setNodes, setEdges]
-  );
+  const handleDeleteNode = useCallback((nodeId: string) => deleteCanvasNodes([nodeId]), [deleteCanvasNodes]);
 
   const handleDuplicateNode = useCallback(
     (ship: Ship, position: XYPosition) => {
@@ -827,6 +840,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     }
 
     const nextSnapshot = cloneFlowData(currentFlowData);
+    const pendingCompletionRemovals = pendingCompletionRemovalsByTabRef.current[activeTabId] ?? [];
+    delete pendingCompletionRemovalsByTabRef.current[activeTabId];
 
     if (skipHistoryRecordingRef.current) {
       historyBaselineByTabRef.current[activeTabId] = nextSnapshot;
@@ -844,9 +859,11 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     const diff = buildFlowStepDiff(previousSnapshot, nextSnapshot);
     if (hasFlowStepDiff(diff)) {
       const tabHistory = historyByTabRef.current[activeTabId] || [];
+      const completionRemovals = pendingCompletionRemovals.filter(change => diff.nodeIdsRemoved.some(id => change.nodeIds.has(id)));
+      const nextEntry = { snapshot: previousSnapshot, diff, recordedAt: Date.now(), completionRemovals };
       const nextTabHistory = tabHistory.length >= MAX_HISTORY_STEPS
-        ? [...tabHistory.slice(1), { snapshot: previousSnapshot, diff, recordedAt: Date.now() }]
-        : [...tabHistory, { snapshot: previousSnapshot, diff, recordedAt: Date.now() }];
+        ? [...tabHistory.slice(1), nextEntry]
+        : [...tabHistory, nextEntry];
 
       historyByTabRef.current[activeTabId] = nextTabHistory;
     }
@@ -865,6 +882,9 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       if (!tabIds.has(tabId)) {
         delete historyBaselineByTabRef.current[tabId];
       }
+    });
+    Object.keys(pendingCompletionRemovalsByTabRef.current).forEach(tabId => {
+      if (!tabIds.has(tabId)) delete pendingCompletionRemovalsByTabRef.current[tabId];
     });
 
     if (!hasWorkspaceInitializedRef.current) {
@@ -1666,6 +1686,15 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     isNodeDragInProgressRef.current = false;
     historyBaselineByTabRef.current[activeTabId] = restoredFlow;
 
+    for (const change of [...lastStep.completionRemovals].reverse()) {
+      // The inventory may have been synced or the selected account changed after deletion.
+      if (change.inventory === hangarItems && change.pooledInventory === pooledHangarItems) {
+        pathFinderService.restoreCompletedPathsAfterUndo(change.removal);
+      }
+    }
+
+    pathFinderService.reconcileCompletedPathsAfterGraphUndo(currentFlowData, restoredFlow, getCompletedPathsStorageKeyForTab(activeTabId));
+
     setNodes(restoredFlow.nodes);
     setEdges(restoredFlow.edges);
     setStartShipPrices(restoredFlow.startShipPrices);
@@ -1694,7 +1723,10 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     activeTabId,
     clearAutoSaveTimer,
     cloneFlowData,
+    currentFlowData,
+    hangarItems,
     persistWorkspace,
+    pooledHangarItems,
     refreshEdgesOnPathCompletion,
     setEdges,
     setNodes,
@@ -1830,6 +1862,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         ccus,
         wbHistory,
         hangarItems,
+        pooledHangarItems,
         importItems,
         priceHistoryMap,
         onProgress: (progress) => {
@@ -1882,6 +1915,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     ccus,
     wbHistory,
     hangarItems,
+    pooledHangarItems,
     importItems,
     priceHistoryMap,
     startShipPrices,
@@ -1911,6 +1945,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
         : initialTabs[0].id;
       const initialActiveTab = initialTabs.find(tab => tab.id === initialActiveTabId) || initialTabs[0];
 
+      if (!hasWorkspaceInitializedRef.current) scopeLegacyCompletedPathsFallback(initialTabs.map(tab => tab.id));
       hasWorkspaceInitializedRef.current = true;
       setPlannerTabs(initialTabs);
       setActiveTabId(initialActiveTabId);
@@ -1918,13 +1953,14 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
       persistWorkspace(initialTabs, initialActiveTabId);
     } else {
       const defaultTab: PlannerTabState = {
-        id: DEFAULT_TAB_ID,
+        id: DEFAULT_PLANNER_TAB_ID,
         name: getNextRouteName([]),
         flowData: createEmptyFlowData(),
         autoSaveStatus: 'idle',
         lastAutoSavedAt: null
       };
 
+      if (!hasWorkspaceInitializedRef.current) scopeLegacyCompletedPathsFallback([defaultTab.id]);
       hasWorkspaceInitializedRef.current = true;
       setPlannerTabs([defaultTab]);
       setActiveTabId(defaultTab.id);
@@ -1942,7 +1978,16 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   }, [reactFlowInstance, importExportService, ships, wbHistory, ccus, hangarItems, clearAutoSaveTimer, AUTO_SAVE_BOOTSTRAP_DELAY_MS, loadTabIntoCanvas, getNextRouteName, persistWorkspace]);
 
   useEffect(() => {
-    if (!autoSaveEnabled || !activeTabId || !nodes.length) return;
+    if (!activeTabId || !hasWorkspaceInitializedRef.current) return;
+    if (pathFinderService.migrateLegacyHangarAllocations(getCompletedPathsStorageKeyForTab(activeTabId), ships, pooledHangarItems)) {
+      refreshEdgesOnPathCompletion(false);
+    }
+  }, [activeTabId, ships, pooledHangarItems, refreshEdgesOnPathCompletion]);
+
+  const needsEmptySnapshot = !nodes.length && plannerTabs.some(tab => tab.id === activeTabId && tab.flowData.nodes.length > 0);
+  useEffect(() => {
+    // Deleting the final node must save an empty canvas over any existing snapshot.
+    if (!autoSaveEnabled || !activeTabId || (!nodes.length && !needsEmptySnapshot)) return;
 
     if (isNodeDragInProgressRef.current) {
       clearAutoSaveTimer();
@@ -1957,7 +2002,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
     }, AUTO_SAVE_IDLE_MS);
 
     return clearAutoSaveTimer;
-  }, [autoSaveEnabled, activeTabId, nodes, edges, startShipPrices, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
+  }, [autoSaveEnabled, activeTabId, nodes, edges, startShipPrices, needsEmptySnapshot, clearAutoSaveTimer, AUTO_SAVE_IDLE_MS]);
 
   useEffect(() => {
     if (!reactFlowInstance || !activeTabId) {
@@ -2398,6 +2443,8 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
   const canCloseCurrent = tabContextMenuIndex >= 0;
   const canCloseAll = plannerTabs.length > 0;
   const showEmptyCanvasHint = plannerTabs.length > 0 && Boolean(activeTabId) && nodes.length === 0;
+  // Recovery is for records stranded before automatic cleanup was available.
+  const removedCompletedRoutes = activeTabId ? pathFinderService.getCompletedPathsMissingCanvasNodes(nodes) : [];
   const tabContextMenuItemSx = {
     minHeight: 34,
     borderRadius: '6px',
@@ -2701,6 +2748,14 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
           </MenuItem>
         </Menu>
 
+        {removedCompletedRoutes.length > 0 && (
+          <RemovedCompletedRoutes
+            key={activeTabId}
+            routes={removedCompletedRoutes}
+            onUnmark={handleUnmarkCompletedPath}
+          />
+        )}
+
         <div className="relative flex-1 min-h-0" ref={reactFlowWrapper}>
           <ReactFlowProvider>
             <ReactFlow
@@ -2823,6 +2878,7 @@ function CcuCanvasContent({ blockIntroJoyride = false }: { blockIntroJoyride?: b
                 startShipPrices={startShipPrices}
                 onStartShipPriceChange={handleStartShipPriceChange}
                 onPathCompletionChange={refreshEdgesOnPathCompletion}
+                completedPathsRevision={completedPathsRevision}
                 onSelectedPathChange={handleSelectedPathChange}
               />
             )}

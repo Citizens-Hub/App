@@ -2,6 +2,7 @@ import { Ccu, CcuEdgeData, ImportItem, PriceHistoryEntity, WbHistoryData } from 
 import { Edge, Node } from 'reactflow';
 import { HangarItem } from './CcuSourceTypeFactory';
 import pathFinderService from './PathFinderService';
+import { getActiveCompletedPathsSnapshot } from './completedPathsStorage';
 
 interface WasmNode {
   id: string;
@@ -67,11 +68,8 @@ interface WasmPathFinderResult {
   stats: WasmStats;
 }
 
-function extractShipIdFromNodeId(nodeId: string): string {
-  const segments = nodeId.split('-');
-  return segments.length >= 2 ? segments[1] : nodeId;
-}
-
+// The WASM ABI calls these fields ship IDs; use full canvas node IDs
+// as traversal identity so repeated ship models stay independent.
 function toFiniteNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -83,7 +81,7 @@ function buildWasmGraphRequest(params: Pick<WasmPathFinderParams, 'nodes' | 'edg
   params.nodes.forEach(node => {
     nodeMap.set(node.id, {
       id: node.id,
-      shipId: extractShipIdFromNodeId(node.id)
+      shipId: node.id
     });
   });
 
@@ -98,7 +96,7 @@ function buildWasmGraphRequest(params: Pick<WasmPathFinderParams, 'nodes' | 'edg
 
     edges.push({
       sourceNodeId: edge.source,
-      sourceShipId: extractShipIdFromNodeId(edge.source),
+      sourceShipId: edge.source,
       targetNodeId: edge.target,
       usdPrice: toFiniteNumber(priceInfo.usdPrice, 0),
       tpPrice: toFiniteNumber(priceInfo.tpPrice, 0),
@@ -181,6 +179,7 @@ class PathFinderCWasmService {
     nodesRef: WasmPathFinderParams['nodes'];
     edgesRef: WasmPathFinderParams['edges'];
     data: PathFinderServiceData;
+    completedPathsSnapshot: string | null;
     graph: Pick<WasmRequest, 'nodes' | 'edges'>;
   } | null = null;
 
@@ -279,10 +278,12 @@ class PathFinderCWasmService {
 
   private getOrBuildGraph(params: Pick<WasmPathFinderParams, 'nodes' | 'edges' | 'data'>): Pick<WasmRequest, 'nodes' | 'edges'> {
     const cache = this.cachedGraph;
+    const completedPathsSnapshot = getActiveCompletedPathsSnapshot();
     if (
       cache
       && cache.nodesRef === params.nodes
       && cache.edgesRef === params.edges
+      && cache.completedPathsSnapshot === completedPathsSnapshot
       && this.isSameServiceData(cache.data, params.data)
     ) {
       return cache.graph;
@@ -298,6 +299,7 @@ class PathFinderCWasmService {
       nodesRef: params.nodes,
       edgesRef: params.edges,
       data: params.data,
+      completedPathsSnapshot,
       graph
     };
 
@@ -339,7 +341,7 @@ class PathFinderCWasmService {
         startNodes: params.startNodes,
         startShipPrices: params.startShipPrices
       }, nodeIdSet),
-      endShipId: extractShipIdFromNodeId(params.endNodeId),
+      endShipId: params.endNodeId,
       exchangeRate: toFiniteNumber(params.exchangeRate, 1),
       conciergeValue: toFiniteNumber(params.conciergeValue, 0),
       pruneOpt: params.pruneOpt

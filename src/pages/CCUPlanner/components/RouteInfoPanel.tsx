@@ -27,6 +27,7 @@ interface RouteInfoPanelProps {
   startShipPrices: Record<string, number | string>;
   onStartShipPriceChange: (nodeId: string, price: number | string) => void;
   onPathCompletionChange?: () => void;
+  completedPathsRevision: number;
   onSelectedPathChange?: (path: CompletePath | null) => void;
 }
 
@@ -92,6 +93,7 @@ export default function RouteInfoPanel({
   startShipPrices,
   onStartShipPriceChange,
   onPathCompletionChange,
+  completedPathsRevision,
   onSelectedPathChange
 }: RouteInfoPanelProps) {
   // 从上下文获取数据
@@ -99,7 +101,9 @@ export default function RouteInfoPanel({
     importItems,
     exchangeRates,
     pathFinderService,
-    getServiceData
+    getServiceData,
+    showAlert,
+    pooledHangarItems
   } = useCcuPlanner();
   const isDevMode = import.meta.env.DEV;
 
@@ -266,7 +270,7 @@ export default function RouteInfoPanel({
         // 获取所有已完成的路径，找出匹配当前目标节点的路径
         const allCompletedPaths = pathFinderService.getCompletedPaths();
         const relevantCompletedPaths = allCompletedPaths.filter(cp =>
-          cp.ship.id === selectedNode.data.ship.id
+          cp.path.path[cp.path.path.length - 1]?.nodeId === selectedNode.id
         );
         const completedPaths = relevantCompletedPaths.map(cp => cp.path);
 
@@ -351,7 +355,7 @@ export default function RouteInfoPanel({
           const existsInGenerated = mergedPaths.some(path =>
             path.startNodeId === completedPath.startNodeId &&
             path.path.length === completedPath.path.length &&
-            path.path[path.path.length - 1].ship.id === completedPath.path[completedPath.path.length - 1].ship.id
+            path.path.every((node, index) => node.nodeId === completedPath.path[index].nodeId)
           );
 
           if (!existsInGenerated) {
@@ -441,9 +445,11 @@ export default function RouteInfoPanel({
     return () => {
       cancelled = true;
     };
-  }, [selectedShipId, isDevMode, comparePathFinderPerf, selectedNode, useWasmPathFinder, pathFinderService, getServiceData, startShipPrices, exchangeRate, conciergeValue, pruneOpt, pathGraphNodeSignature, pathGraphEdgeSignature]);
+  }, [selectedShipId, isDevMode, comparePathFinderPerf, selectedNode, useWasmPathFinder, pathFinderService, getServiceData, startShipPrices, exchangeRate, conciergeValue, pruneOpt, pathGraphNodeSignature, pathGraphEdgeSignature, completedPathsRevision]);
 
   const sortedPathsGroups = useMemo(() => {
+    // Completion usage lives in the planner service, not in the graph props.
+    void completedPathsRevision;
     if (!completePaths.length) return { paths: [] };
 
     // 过滤掉包含已用完CCU的路径
@@ -534,7 +540,7 @@ export default function RouteInfoPanel({
     return {
       paths: filteredPaths.sort(sortPaths)
     };
-  }, [completePaths, sortByNewInvestment, pathFinderService, exchangeRate, conciergeValue, startShipPrices, getServiceData]);
+  }, [completePaths, sortByNewInvestment, pathFinderService, exchangeRate, conciergeValue, startShipPrices, getServiceData, completedPathsRevision]);
 
   const sortedPaths = useMemo(() => {
     return sortedPathsGroups.paths;
@@ -564,9 +570,15 @@ export default function RouteInfoPanel({
   }, [totalPages, _currentPage]);
 
   const handleMarkAsCompleted = (path: CompletePath) => {
-    if (!selectedNode) return;
+    if (!selectedNode || path.path[path.path.length - 1]?.nodeId !== selectedNode.id) return;
+    // A path computed before a canvas deletion must not re-deduct the released CCUs.
+    const canvasNodeIds = new Set(nodes.map(node => node.id));
+    if (path.path.some(node => !canvasNodeIds.has(node.nodeId))) return;
 
-    pathFinderService.markPathAsCompleted(path, selectedNode.data.ship);
+    if (!pathFinderService.markPathAsCompleted(path, selectedNode.data.ship, getServiceData().hangarItems, pooledHangarItems)) {
+      showAlert(intl.formatMessage({ id: 'routeInfoPanel.noPrice', defaultMessage: 'Some of the CCUs in this route are not available.' }), 'warning');
+      return;
+    }
 
     if (onPathCompletionChange) {
       onPathCompletionChange();
@@ -870,6 +882,7 @@ export default function RouteInfoPanel({
                           variant="outlined"
                           size="small"
                           startIcon={<Check />}
+                          disabled={isCalculatingPaths}
                           onClick={() => handleMarkAsCompleted(completePath)}
                         >
                           <FormattedMessage id="routeInfoPanel.markCompleted" defaultMessage="Mark as Completed" />
@@ -1023,7 +1036,7 @@ export default function RouteInfoPanel({
                       <div className="space-y-2">
                         {completePath.edges.map((pathEdge, edgeIndex) => {
                           // eslint-disable-next-line prefer-const
-                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, getServiceData());
+                          let { usdPrice, tpPrice } = pathFinderService.getPriceInfo(pathEdge.edge, getServiceData(), pathEdge.hangarAllocation);
 
                           if (pathEdge.edge.data?.sourceType === CcuSourceType.SUBSCRIPTION) {
                             tpPrice = tpPrice * exchangeRate / exchangeRates[importItems[0].currency.toLowerCase()];

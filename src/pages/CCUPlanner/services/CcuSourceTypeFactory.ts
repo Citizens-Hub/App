@@ -1,4 +1,4 @@
-import { Ccu, CcuSourceType, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
+import { Ccu, CcuSourceType, HangarItem, ImportItem, PriceHistoryEntity, Ship, WbHistoryData } from "../../../types";
 import { 
   CcuSourceTypeStrategy, 
   OfficialStrategy,
@@ -13,22 +13,7 @@ import {
 } from "./CcuSourceTypeStrategy";
 import { store } from "../../../store";
 
-export interface HangarItem {
-  id: number;
-  name: string;
-  type: string;
-  fromShip?: string;
-  toShip?: string;
-  price?: number;
-}
-
-export interface ImportItem {
-  name: string;
-  from: number;
-  to: number;
-  price: number;
-  currency: string;
-}
+export type { HangarItem, ImportItem } from "../../../types";
 
 /**
  * CCU source type strategy factory

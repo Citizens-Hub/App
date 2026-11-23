@@ -21,6 +21,7 @@ export interface CcuPlannerContextType {
   ccus: Ccu[];
   wbHistory: WbHistoryData[];
   hangarItems: HangarItem[];
+  pooledHangarItems: HangarItem[];
   importItems: ImportItem[];
   priceHistoryMap: Record<number, PriceHistoryEntity>;
   exchangeRates: {
